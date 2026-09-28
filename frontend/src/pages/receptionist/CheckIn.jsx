@@ -59,6 +59,7 @@ const CheckIn = () => {
   const handleOccupantsChange = (n) => {
     const newCount = Math.max(1, parseInt(n) || 1);
     setStayInfo({ ...stayInfo, occupants: newCount });
+    setSelectedRoom(null);
     setGuests(prev => {
       const newGuests = [...prev];
       if (newCount > prev.length) {
@@ -81,8 +82,23 @@ const CheckIn = () => {
 
   const nights = stayInfo.durationOption === '12h' ? 0 : Math.ceil((new Date(stayInfo.expectedCheckOutDate) - new Date(stayInfo.checkInDate)) / (1000 * 60 * 60 * 24));
 
+  // Global Custom Hours from all rooms
+  const globalCustomHours = Array.from(new Set(rooms.flatMap(r => r.customRates?.map(cr => cr.hours) || []))).sort((a, b) => a - b);
+  
+  // Filter available rooms
+  const filteredRooms = rooms.filter(room => {
+    if (!isRoomAvailable(room._id)) return false;
+    if (room.capacity < stayInfo.occupants) return false;
+    if (stayInfo.durationOption.startsWith('custom_')) {
+      const hrs = parseInt(stayInfo.durationOption.split('_')[1], 10);
+      const hasPkg = room.customRates?.some(cr => cr.hours === hrs);
+      if (!hasPkg) return false;
+    }
+    return true;
+  });
+
   // Billing Math
-  const extraPersons = Math.max(0, stayInfo.occupants - 1);
+  const extraPersons = Math.max(0, stayInfo.occupants - (selectedRoom?.capacity || 1));
   const extraPerPerson = selectedRoom ? (stayInfo.durationOption === '12h' ? (selectedRoom.extraPerPerson12h || 0) : (selectedRoom.extraPerPerson24h || 0)) : 0;
   const extraCharge = extraPersons * extraPerPerson;
   const customHours = stayInfo.durationOption.startsWith('custom_') ? parseInt(stayInfo.durationOption.split('_')[1], 10) : null;
@@ -245,30 +261,34 @@ const CheckIn = () => {
                 <div>
                   <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-3">Stay Duration</label>
                   <div className="grid grid-cols-2 gap-3">
-                    <button type="button" onClick={() => setStayInfo({ ...stayInfo, durationOption: '12h', expectedCheckOutDate: format(addHours(new Date(stayInfo.checkInDate), 12), "yyyy-MM-dd'T'HH:mm") })}
+                    <button type="button" onClick={() => { setStayInfo({ ...stayInfo, durationOption: '12h', expectedCheckOutDate: format(addHours(new Date(stayInfo.checkInDate), 12), "yyyy-MM-dd'T'HH:mm") }); setSelectedRoom(null); }}
                       className={`p-4 rounded-xl border-2 text-left transition-all ${stayInfo.durationOption === '12h' ? 'border-black bg-gray-50' : 'border-gray-100 hover:border-gray-300'}`}>
                       <Clock size={20} className={stayInfo.durationOption === '12h' ? 'text-black' : 'text-gray-400'} />
                       <p className="font-bold text-gray-900 mt-2">12 Hours</p>
                       <p className="text-xs text-gray-500 mt-0.5">Short stay</p>
                     </button>
-                    <button type="button" onClick={() => setStayInfo({ ...stayInfo, durationOption: '24h', expectedCheckOutDate: format(addDays(new Date(stayInfo.checkInDate), 1), "yyyy-MM-dd'T'HH:mm") })}
+                    <button type="button" onClick={() => { setStayInfo({ ...stayInfo, durationOption: '24h', expectedCheckOutDate: format(addDays(new Date(stayInfo.checkInDate), 1), "yyyy-MM-dd'T'HH:mm") }); setSelectedRoom(null); }}
                       className={`p-4 rounded-xl border-2 text-left transition-all ${stayInfo.durationOption === '24h' ? 'border-black bg-gray-50' : 'border-gray-100 hover:border-gray-300'}`}>
                       <Calendar size={20} className={stayInfo.durationOption === '24h' ? 'text-black' : 'text-gray-400'} />
                       <p className="font-bold text-gray-900 mt-2">Daily</p>
                       <p className="text-xs text-gray-500 mt-0.5">24h format</p>
                     </button>
-                    {selectedRoom?.customRates?.map(rate => (
-                      <button key={rate.hours} type="button" onClick={() => setStayInfo({ ...stayInfo, durationOption: `custom_${rate.hours}`, expectedCheckOutDate: format(addHours(new Date(stayInfo.checkInDate), rate.hours), "yyyy-MM-dd'T'HH:mm") })}
-                        className={`p-4 rounded-xl border-2 text-left transition-all ${stayInfo.durationOption === `custom_${rate.hours}` ? 'border-black bg-gray-50' : 'border-gray-100 hover:border-gray-300'}`}>
-                        <Clock size={20} className={stayInfo.durationOption === `custom_${rate.hours}` ? 'text-black' : 'text-gray-400'} />
-                        <p className="font-bold text-gray-900 mt-2">{rate.hours} Hour{rate.hours > 1 ? 's' : ''}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">Custom rate</p>
+                    {globalCustomHours.map(hrs => (
+                      <button key={hrs} type="button" 
+                        onClick={() => {
+                          setStayInfo({ ...stayInfo, durationOption: `custom_${hrs}`, expectedCheckOutDate: format(addHours(new Date(stayInfo.checkInDate), hrs), "yyyy-MM-dd'T'HH:mm") });
+                          setSelectedRoom(null); // Deselect room if changing package, forces re-selection from filtered list
+                        }}
+                        className={`p-4 rounded-xl border-2 text-left transition-all ${stayInfo.durationOption === `custom_${hrs}` ? 'border-black bg-gray-50' : 'border-gray-100 hover:border-gray-300'}`}>
+                        <Clock size={20} className={stayInfo.durationOption === `custom_${hrs}` ? 'text-black' : 'text-gray-400'} />
+                        <p className="font-bold text-gray-900 mt-2">{hrs} Hour{hrs > 1 ? 's' : ''}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">Custom Package</p>
                       </button>
                     ))}
                   </div>
-                  {(!selectedRoom || !selectedRoom.customRates?.length) && (
-                    <p className="text-xs text-gray-400 mt-2">Select a room first to see custom hourly rates (if any).</p>
-                  )}
+                  <p className="text-[11px] text-gray-500 mt-2 font-medium bg-blue-50/50 p-2 rounded border border-blue-100/50">
+                    Choosing a package or changing occupants will automatically filter available rooms.
+                  </p>
                 </div>
 
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 grid grid-cols-2 gap-4">
@@ -325,23 +345,31 @@ const CheckIn = () => {
                   {selectedRoom && <span className="text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded text-[10px]">Selected: {selectedRoom.roomNumber}</span>}
                 </label>
                 <div className="grid grid-cols-2 gap-3 max-h-[400px] overflow-y-auto pr-2 pb-2">
-                  {rooms.map(room => {
-                    const available = isRoomAvailable(room._id);
+                  {filteredRooms.length === 0 ? (
+                    <div className="col-span-full py-8 text-center text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                      <Bed size={32} className="mx-auto mb-2 opacity-50" />
+                      <p className="font-semibold text-sm">No rooms available</p>
+                      <p className="text-xs mt-1">Try changing duration or reducing occupants.</p>
+                    </div>
+                  ) : filteredRooms.map(room => {
                     const isSelected = selectedRoom?._id === room._id;
-                    const customHr = stayInfo.durationOption.startsWith('custom_') ? parseInt(stayInfo.durationOption.split('_')[1], 10) : null; const roomPrice = stayInfo.durationOption === '12h' ? room.price12h : (customHr ? (room.customRates?.find(r => r.hours === customHr)?.price || 0) : room.price24h);
+                    const customHr = stayInfo.durationOption.startsWith('custom_') ? parseInt(stayInfo.durationOption.split('_')[1], 10) : null; 
+                    const roomPrice = stayInfo.durationOption === '12h' ? room.price12h : (customHr ? (room.customRates?.find(r => r.hours === customHr)?.price || 0) : room.price24h);
                     return (
-                      <button key={room._id} type="button" disabled={!available} onClick={() => setSelectedRoom(room)}
-                        className={`p-4 rounded-xl border-2 text-left transition-all ${isSelected ? 'border-black bg-black text-white shadow-md transform scale-[1.02]' : available ? 'border-gray-100 hover:border-gray-300 bg-white' : 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'}`}>
-                        <div className="flex justify-between items-start">
+                      <button key={room._id} type="button" onClick={() => setSelectedRoom(room)}
+                        className={`relative p-4 rounded-xl border-2 text-left transition-all ${isSelected ? 'border-black bg-black text-white shadow-md transform scale-[1.02]' : 'border-gray-100 hover:border-gray-300 bg-white'}`}>
+                        <div className="flex justify-between items-start mb-2">
                           <div>
                             <p className={`font-black text-lg ${isSelected ? 'text-white' : 'text-gray-900'}`}>{room.roomNumber}</p>
-                            <p className={`text-xs font-bold mt-0.5 ${isSelected ? 'text-gray-300' : 'text-indigo-600'}`}>{room.roomType || 'Standard'}</p>
-                            <p className={`text-xs mt-0.5 ${isSelected ? 'text-gray-400' : 'text-gray-400'}`}>Max {room.capacity} guests</p>
+                            <p className={`text-xs font-bold mt-0.5 ${isSelected ? 'text-gray-300' : 'text-indigo-600'}`}>{room.roomType || 'Standard'} (Max: {room.capacity})</p>
+                          </div>
+                          <div className={`p-1.5 rounded-lg ${isSelected ? 'bg-white/20' : 'bg-gray-100'}`}>
+                            <Bed size={16} className={isSelected ? 'text-white' : 'text-gray-500'} />
                           </div>
                         </div>
                         <div className={`mt-3 pt-3 border-t ${isSelected ? 'border-white/20' : 'border-gray-100'} text-sm font-bold ${isSelected ? 'text-white' : 'text-gray-900'}`}>
                           ₹{roomPrice || 0}
-                          <span className={`font-normal text-xs ml-1 ${isSelected ? 'text-gray-300' : 'text-gray-500'}`}>/ {stayInfo.durationOption === '12h' ? '12h' : 'night'}</span>
+                          <span className={`font-normal text-xs ml-1 ${isSelected ? 'text-gray-300' : 'text-gray-500'}`}>/ {customHr ? customHr+'h' : (stayInfo.durationOption === '12h' ? '12h' : 'night')}</span>
                           {!customHr && (stayInfo.durationOption === '12h' ? room.extraPerPerson12h : room.extraPerPerson24h) > 0 && (
                             <span className={`block mt-1 text-[10px] uppercase ${isSelected ? 'text-gray-300' : 'text-blue-600'}`}>
                               +₹{stayInfo.durationOption === '12h' ? room.extraPerPerson12h : room.extraPerPerson24h}/extra person
