@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { format } from 'date-fns';
-import { X, User, Home, Calendar, CreditCard, AlertCircle, CheckCircle2, Plus } from 'lucide-react';
+import { X, User, Home, Calendar, CreditCard, AlertCircle, CheckCircle2, Plus, Printer } from 'lucide-react';
 
 const CheckoutModal = ({ stay, onClose, onSuccess }) => {
   const [additionalCharges, setAdditionalCharges] = useState(0);

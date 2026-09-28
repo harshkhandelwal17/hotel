@@ -119,6 +119,7 @@ exports.checkout = async (req, res, next) => {
   try {
     const stay = await Stay.findById(req.params.id);
     if (!stay) throw new Error('Stay not found');
+    if (stay.status === 'Checked Out') throw new Error('Stay is already checked out');
     
     const { additionalCharges, checkoutPayment, paymentMethod } = req.body;
     
