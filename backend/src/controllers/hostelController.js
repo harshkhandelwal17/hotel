@@ -50,3 +50,15 @@ exports.updateHostel = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.deleteHostel = async (req, res, next) => {
+  try {
+    const hostel = await Hostel.findByIdAndDelete(req.params.id);
+    if (!hostel) {
+      return res.status(404).json({ success: false, message: 'Hostel not found' });
+    }
+    res.status(200).json({ success: true, data: {} });
+  } catch (error) {
+    next(error);
+  }
+};

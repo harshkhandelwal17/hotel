@@ -81,3 +81,15 @@ exports.updateRoom = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.deleteRoom = async (req, res, next) => {
+  try {
+    const room = await Room.findByIdAndDelete(req.params.id);
+    if (!room) {
+      return res.status(404).json({ success: false, message: 'Room not found' });
+    }
+    res.status(200).json({ success: true, data: {} });
+  } catch (error) {
+    next(error);
+  }
+};

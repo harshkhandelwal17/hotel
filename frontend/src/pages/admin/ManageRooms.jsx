@@ -16,6 +16,7 @@ const ManageRooms = () => {
   const [formData, setFormData] = useState(emptyForm);
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState(null);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -40,17 +41,55 @@ const ManageRooms = () => {
     setIsModalOpen(true);
   };
 
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEditingId(null);
+    setFormData({ ...emptyForm, hostel: hostels[0]?._id || '' });
+  };
+
+  const handleEdit = (room) => {
+    setEditingId(room._id);
+    setFormData({
+      roomNumber: room.roomNumber || '',
+      hostel: room.hostel?._id || room.hostel || '',
+      floor: room.floor || '',
+      roomType: room.roomType || 'Standard Double',
+      capacity: room.capacity || 2,
+      price12h: room.price12h || '',
+      price24h: room.price24h || '',
+      extraPerPerson12h: room.extraPerPerson12h || '',
+      extraPerPerson24h: room.extraPerPerson24h || ''
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this room? This action cannot be undone.')) return;
+    try {
+      await axios.delete(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/rooms/${id}`);
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to delete room');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
     setSaving(true);
     try {
-      await axios.post((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/rooms', formData);
-      setIsModalOpen(false);
+      if (editingId) {
+        await axios.put(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/rooms/${editingId}`, formData);
+      } else {
+        await axios.post((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/rooms', formData);
+      }
+      closeModal();
       fetchData();
     } catch (err) {
-      setFormError(err.response?.data?.message || 'Error creating room');
-    } finally { setSaving(false); }
+      setFormError(err.response?.data?.message || 'Failed to save room');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const set = (field, val) => setFormData(prev => ({ ...prev, [field]: val }));
@@ -86,6 +125,10 @@ const ManageRooms = () => {
               <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${room.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
                 {room.status}
               </span>
+            </div>
+            <div className="flex bg-gray-100 border-b border-gray-200">
+              <button onClick={() => handleEdit(room)} className="flex-1 py-1.5 text-[11px] uppercase tracking-wider font-bold text-gray-600 hover:text-black hover:bg-gray-200 transition-colors border-r border-gray-200">Edit</button>
+              <button onClick={() => handleDelete(room._id)} className="flex-1 py-1.5 text-[11px] uppercase tracking-wider font-bold text-red-500 hover:text-red-700 hover:bg-red-100 transition-colors">Delete</button>
             </div>
             <div className="p-5 space-y-3">
               <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -131,7 +174,7 @@ const ManageRooms = () => {
       {/* Add Room Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-          onClick={() => setIsModalOpen(false)}>
+          onClick={closeModal}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300"
             onClick={e => e.stopPropagation()}>
             <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
@@ -139,7 +182,7 @@ const ManageRooms = () => {
                 <h2 className="text-xl font-bold text-gray-900">Add New Room</h2>
                 <p className="text-xs text-gray-500 mt-0.5">Configure pricing per person for accurate billing</p>
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
+              <button onClick={closeModal} className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
                 <X size={20} className="text-gray-400" />
               </button>
             </div>
@@ -288,7 +331,7 @@ const ManageRooms = () => {
               </div>
 
               <div className="px-6 py-4 bg-gray-50 flex justify-end gap-3 rounded-b-2xl border-t border-gray-100">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 border border-gray-200 bg-white text-gray-700 font-semibold rounded-xl hover:bg-gray-50 text-sm transition-colors">Cancel</button>
+                <button type="button" onClick={closeModal} className="px-5 py-2.5 border border-gray-200 bg-white text-gray-700 font-semibold rounded-xl hover:bg-gray-50 text-sm transition-colors">Cancel</button>
                 <button type="submit" disabled={saving} className="px-5 py-2.5 bg-black text-white font-bold rounded-xl hover:bg-gray-800 text-sm transition-colors disabled:opacity-50">
                   {saving ? 'Saving...' : 'Save Room'}
                 </button>

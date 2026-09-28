@@ -1,5 +1,5 @@
 const express = require('express');
-const { getHostels, getHostel, createHostel, updateHostel } = require('../controllers/hostelController');
+const { getHostels, getHostel, createHostel, updateHostel, deleteHostel } = require('../controllers/hostelController');
 const { protect, authorize } = require('../middlewares/auth');
 
 const router = express.Router();
@@ -12,6 +12,7 @@ router.route('/')
 
 router.route('/:id')
   .get(getHostel)
-  .put(authorize('admin'), updateHostel);
+  .put(authorize('admin'), updateHostel)
+  .delete(authorize('admin'), deleteHostel);
 
 module.exports = router;
