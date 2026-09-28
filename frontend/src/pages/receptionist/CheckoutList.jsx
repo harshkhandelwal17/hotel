@@ -34,8 +34,8 @@ const CheckoutList = () => {
     const headers = ['Guest Name', 'Mobile', 'Co-Guests', 'Room', 'Check-in', 'Expected Check-out', 'Total Bill', 'Paid', 'Balance', 'Status'];
     const csvData = stays.map(stay => {
       const coGuestsStr = stay.coGuests?.map(g => g.fullName).join(', ') || 'None';
-      const checkIn = format(new Date(stay.checkInDate), 'dd MMM yyyy');
-      const checkOut = format(new Date(stay.expectedCheckOutDate), 'dd MMM yyyy');
+      const checkIn = format(new Date(stay.checkInDate), 'dd MMM yyyy, hh:mm a');
+      const checkOut = format(new Date(stay.expectedCheckOutDate), 'dd MMM yyyy, hh:mm a');
       const balance = stay.totalAmount - stay.paidAmount;
       return `"${stay.guest?.fullName}","${stay.guest?.mobileNumber}","${coGuestsStr}","${stay.room?.roomNumber}","${checkIn}","${checkOut}",${stay.totalAmount},${stay.paidAmount},${balance},"${stay.status}"`;
     });
@@ -170,7 +170,7 @@ const CheckoutList = () => {
                       <div className="text-right hidden sm:block">
                         <div className="flex items-center text-xs text-gray-500 mb-1">
                           <Clock size={12} className="mr-1" />
-                          Checkout: {format(new Date(stay.expectedCheckOutDate), 'dd MMM yyyy')}
+                          Checkout: {format(new Date(stay.expectedCheckOutDate), 'dd MMM yyyy, hh:mm a')}
                         </div>
                         <div className="text-sm font-bold text-gray-900">
                           Total: ₹{stay.totalAmount}

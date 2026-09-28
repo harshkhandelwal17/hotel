@@ -127,14 +127,14 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
                   <Calendar size={14} className="text-gray-400" />
                   <div>
                     <p className="text-xs text-gray-500">Check-in</p>
-                    <p className="font-bold text-gray-900">{format(new Date(stay.checkInDate), 'dd MMM yyyy')}</p>
+                    <p className="font-bold text-gray-900">{format(new Date(stay.checkInDate), 'dd MMM yyyy, hh:mm a')}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Calendar size={14} className="text-gray-400" />
                   <div>
                     <p className="text-xs text-gray-500">Expected Checkout</p>
-                    <p className="font-bold text-gray-900">{format(new Date(stay.expectedCheckOutDate), 'dd MMM yyyy')}</p>
+                    <p className="font-bold text-gray-900">{format(new Date(stay.expectedCheckOutDate), 'dd MMM yyyy, hh:mm a')}</p>
                   </div>
                 </div>
               </div>

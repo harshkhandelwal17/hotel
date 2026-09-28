@@ -93,8 +93,8 @@ const GuestProfile = () => {
             <tbody>
               <tr>
                 <td>Room Accommodation<br><span style="font-size:12px;color:#666;">Total Occupants: ${stay.occupants}</span></td>
-                <td>${format(new Date(stay.checkInDate), 'dd MMM yyyy')}</td>
-                <td>${format(new Date(stay.expectedCheckOutDate), 'dd MMM yyyy')}</td>
+                <td>${format(new Date(stay.checkInDate), 'dd MMM yyyy, hh:mm a')}</td>
+                <td>${format(new Date(stay.expectedCheckOutDate), 'dd MMM yyyy, hh:mm a')}</td>
                 <td style="text-align:right">Rs ${stay.totalAmount}</td>
               </tr>
               <tr class="paid-row">
@@ -197,11 +197,11 @@ const GuestProfile = () => {
             </div>
             <div>
               <p className="text-sm text-gray-500">Check-in</p>
-              <p className="font-medium text-gray-900">{format(new Date(activeStay.checkInDate), 'dd MMM yyyy')}</p>
+              <p className="font-medium text-gray-900">{format(new Date(activeStay.checkInDate), 'dd MMM yyyy, hh:mm a')}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Expected Checkout</p>
-              <p className="font-medium text-gray-900">{format(new Date(activeStay.expectedCheckOutDate), 'dd MMM yyyy')}</p>
+              <p className="font-medium text-gray-900">{format(new Date(activeStay.expectedCheckOutDate), 'dd MMM yyyy, hh:mm a')}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Balance Due</p>
@@ -253,7 +253,7 @@ const GuestProfile = () => {
                 {historyStays.map(stay => (
                   <tr key={stay._id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {format(new Date(stay.checkInDate), 'dd MMM yyyy')} - {format(new Date(stay.expectedCheckOutDate), 'dd MMM yyyy')}
+                      {format(new Date(stay.checkInDate), 'dd MMM yyyy, hh:mm a')} - {format(new Date(stay.expectedCheckOutDate), 'dd MMM yyyy, hh:mm a')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-medium">{stay.hostel?.name || 'N/A'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{stay.room?.roomNumber}</td>

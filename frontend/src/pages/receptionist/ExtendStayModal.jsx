@@ -5,7 +5,7 @@ import { X } from 'lucide-react';
 
 const ExtendStayModal = ({ stay, onClose, onSuccess }) => {
   const [newCheckOutDate, setNewCheckOutDate] = useState(
-    format(addDays(new Date(stay.expectedCheckOutDate), 1), 'yyyy-MM-dd')
+    format(addDays(new Date(stay.expectedCheckOutDate), 1), "yyyy-MM-dd'T'HH:mm")
   );
   const [extensionPayment, setExtensionPayment] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -60,16 +60,16 @@ const ExtendStayModal = ({ stay, onClose, onSuccess }) => {
             {error && <div className="p-3 bg-red-50 text-red-600 rounded-md text-sm">{error}</div>}
             
             <div className="bg-blue-50 p-3 rounded-md text-sm text-blue-800">
-              <p><strong>Current Checkout:</strong> {format(currentOut, 'dd MMM yyyy')}</p>
+              <p><strong>Current Checkout:</strong> {format(currentOut, 'dd MMM yyyy, hh:mm a')}</p>
               <p><strong>Room Rate:</strong> ₹{stay.pricePerNight} / night</p>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">New Checkout Date</label>
               <input
-                type="date"
+                type="datetime-local"
                 required
-                min={format(addDays(currentOut, 1), 'yyyy-MM-dd')}
+                min={format(currentOut, "yyyy-MM-dd'T'HH:mm")}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                 value={newCheckOutDate}
                 onChange={(e) => setNewCheckOutDate(e.target.value)}
