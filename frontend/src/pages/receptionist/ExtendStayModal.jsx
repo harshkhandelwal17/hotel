@@ -34,7 +34,7 @@ const ExtendStayModal = ({ stay, onClose, onSuccess }) => {
 
     try {
       await axios.post(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/stays/${stay._id}/extend`, {
-        newCheckOutDate,
+        newCheckOutDate: new Date(newCheckOutDate).toISOString(),
         extensionPayment: Number(extensionPayment)
       });
       onSuccess();

@@ -1,4 +1,5 @@
 require('dotenv').config();
+process.env.TZ = 'Asia/Kolkata';
 const app = require('../src/app');
 const mongoose = require('mongoose');
 const env = require('../src/config/env');

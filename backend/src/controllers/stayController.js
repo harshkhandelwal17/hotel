@@ -257,7 +257,7 @@ exports.shiftRoom = async (req, res, next) => {
     }
     
     // Add to notes
-    const shiftNote = `[${new Date().toLocaleString()}] Shifted from Room ${oldRoomNumber} to ${newRoom.roomNumber}. Reason: ${reason || 'N/A'}. Price Adjustment: ₹${Number(priceAdjustment) || 0}.`;
+    const shiftNote = `[${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}] Shifted from Room ${oldRoomNumber} to ${newRoom.roomNumber}. Reason: ${reason || 'N/A'}. Price Adjustment: ₹${Number(priceAdjustment) || 0}.`;
     stay.notes = stay.notes ? `${stay.notes}\n${shiftNote}` : shiftNote;
 
     await stay.save();
