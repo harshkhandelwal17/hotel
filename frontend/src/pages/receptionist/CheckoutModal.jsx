@@ -35,6 +35,56 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
     }
   };
 
+  if (checkoutComplete) {
+    const finalAmount = completedStay ? completedStay.totalAmount : stay.totalAmount;
+    
+    return (
+      <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onSuccess}>
+        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden p-8 text-center animate-in fade-in zoom-in-95" onClick={e => e.stopPropagation()}>
+          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">
+            <CheckCircle2 size={40} className="text-green-600" />
+          </div>
+          <h2 className="text-2xl font-black text-gray-900 mb-2">Checked Out!</h2>
+          <p className="text-gray-500 text-sm mb-6">Guest has been successfully checked out.</p>
+          
+          <div className="space-y-3">
+            <button
+              onClick={() => {
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(`
+                  <html>
+                  <head>
+                    <title>Invoice - ${stay.guest?.fullName}</title>
+                    <style>body{font-family:sans-serif;padding:20px;}</style>
+                  </head>
+                  <body>
+                    <h2>${stay.hostel?.name || 'Hotel'} Invoice</h2>
+                    <p>Guest: ${stay.guest?.fullName}</p>
+                    <p>Total Paid: Rs ${finalAmount}</p>
+                    <p style="font-size:11px; margin-top:20px">* Amount is inclusive of all applicable taxes (GST)</p>
+                  </body>
+                  </html>
+                `);
+                printWindow.document.close();
+                printWindow.print();
+                onSuccess();
+              }}
+              className="w-full py-3 bg-black text-white font-bold rounded-xl shadow-md hover:shadow-xl transition-all flex items-center justify-center gap-2"
+            >
+              <Printer size={18} /> Print Final Invoice
+            </button>
+            <button
+              onClick={onSuccess}
+              className="w-full py-3 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition-all"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div
@@ -54,11 +104,7 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
 
         <form onSubmit={handleCheckout}>
           <div className="p-6 space-y-5">
-            {error && (
-              <div className="p-3 bg-red-50 text-red-700 rounded-xl text-sm flex items-center gap-2 border border-red-100">
-                <AlertCircle size={16} /> {error}
-              </div>
-            )}
+
 
             {/* Guest & Stay Summary Card */}
             <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 space-y-3">
@@ -187,7 +233,13 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 bg-gray-50 rounded-b-2xl flex justify-between items-center">
+          <div className="px-6 py-4 bg-gray-50 rounded-b-2xl flex flex-col gap-3">
+            {error && (
+              <div className="p-3 bg-red-50 text-red-700 rounded-xl text-sm flex items-center gap-2 border border-red-100 w-full animate-in fade-in">
+                <AlertCircle size={16} /> {error}
+              </div>
+            )}
+            <div className="flex justify-between items-center w-full">
             <button type="button" onClick={onClose} className="px-5 py-2.5 border border-gray-200 bg-white text-gray-700 font-semibold rounded-xl hover:bg-gray-50 text-sm transition-colors">
               Cancel
             </button>
@@ -198,6 +250,7 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
             >
               {loading ? 'Processing...' : <><CheckCircle2 size={16} /> Complete Checkout</>}
             </button>
+            </div>
           </div>
         </form>
       </div>

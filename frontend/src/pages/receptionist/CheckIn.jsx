@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { format, addDays } from 'date-fns';
+import { format, addDays, addHours } from 'date-fns';
 import { CheckCircle2, Search, Plus, UserPlus, CreditCard, ChevronRight, Bed, Clock, Users, Percent, ShieldCheck, Calendar } from 'lucide-react';
 
 const CheckIn = () => {
@@ -16,8 +16,8 @@ const CheckIn = () => {
 
   // Step 1: Room & Stay Info
   const [stayInfo, setStayInfo] = useState({
-    checkInDate: format(new Date(), 'yyyy-MM-dd'),
-    expectedCheckOutDate: format(addDays(new Date(), 1), 'yyyy-MM-dd'),
+    checkInDate: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+    expectedCheckOutDate: format(addDays(new Date(), 1), "yyyy-MM-dd'T'HH:mm"),
     durationOption: '24h',
     discountAmount: 0,
     occupants: 1,
@@ -177,7 +177,7 @@ const CheckIn = () => {
       const guestIds = await Promise.all(guestPromises);
 
       // 2. Create Stay
-      const checkoutDate = (stayInfo.durationOption === '12h' || stayInfo.durationOption.startsWith('custom_')) ? stayInfo.checkInDate : stayInfo.expectedCheckOutDate;
+      const checkoutDate = stayInfo.expectedCheckOutDate;
       await axios.post((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/stays', {
         guest: guestIds[0],
         coGuests: guestIds.slice(1),
@@ -245,20 +245,20 @@ const CheckIn = () => {
                 <div>
                   <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-3">Stay Duration</label>
                   <div className="grid grid-cols-2 gap-3">
-                    <button type="button" onClick={() => setStayInfo({ ...stayInfo, durationOption: '12h' })}
+                    <button type="button" onClick={() => setStayInfo({ ...stayInfo, durationOption: '12h', expectedCheckOutDate: format(addHours(new Date(stayInfo.checkInDate), 12), "yyyy-MM-dd'T'HH:mm") })}
                       className={`p-4 rounded-xl border-2 text-left transition-all ${stayInfo.durationOption === '12h' ? 'border-black bg-gray-50' : 'border-gray-100 hover:border-gray-300'}`}>
                       <Clock size={20} className={stayInfo.durationOption === '12h' ? 'text-black' : 'text-gray-400'} />
                       <p className="font-bold text-gray-900 mt-2">12 Hours</p>
                       <p className="text-xs text-gray-500 mt-0.5">Short stay</p>
                     </button>
-                    <button type="button" onClick={() => setStayInfo({ ...stayInfo, durationOption: '24h' })}
+                    <button type="button" onClick={() => setStayInfo({ ...stayInfo, durationOption: '24h', expectedCheckOutDate: format(addDays(new Date(stayInfo.checkInDate), 1), "yyyy-MM-dd'T'HH:mm") })}
                       className={`p-4 rounded-xl border-2 text-left transition-all ${stayInfo.durationOption === '24h' ? 'border-black bg-gray-50' : 'border-gray-100 hover:border-gray-300'}`}>
                       <Calendar size={20} className={stayInfo.durationOption === '24h' ? 'text-black' : 'text-gray-400'} />
                       <p className="font-bold text-gray-900 mt-2">Daily</p>
                       <p className="text-xs text-gray-500 mt-0.5">24h format</p>
                     </button>
                     {selectedRoom?.customRates?.map(rate => (
-                      <button key={rate.hours} type="button" onClick={() => setStayInfo({ ...stayInfo, durationOption: `custom_${rate.hours}` })}
+                      <button key={rate.hours} type="button" onClick={() => setStayInfo({ ...stayInfo, durationOption: `custom_${rate.hours}`, expectedCheckOutDate: format(addHours(new Date(stayInfo.checkInDate), rate.hours), "yyyy-MM-dd'T'HH:mm") })}
                         className={`p-4 rounded-xl border-2 text-left transition-all ${stayInfo.durationOption === `custom_${rate.hours}` ? 'border-black bg-gray-50' : 'border-gray-100 hover:border-gray-300'}`}>
                         <Clock size={20} className={stayInfo.durationOption === `custom_${rate.hours}` ? 'text-black' : 'text-gray-400'} />
                         <p className="font-bold text-gray-900 mt-2">{rate.hours} Hour{rate.hours > 1 ? 's' : ''}</p>
@@ -271,17 +271,32 @@ const CheckIn = () => {
                   )}
                 </div>
 
-                {stayInfo.durationOption === '24h' && (
-                  <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">Check-out Date</label>
-                    <input type="date" required min={format(addDays(new Date(stayInfo.checkInDate), 1), 'yyyy-MM-dd')}
-                      className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-black outline-none font-bold"
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">Check-in Time</label>
+                    <input type="datetime-local" required
+                      className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-black outline-none font-bold text-sm"
+                      value={stayInfo.checkInDate}
+                      onChange={e => {
+                        const newIn = new Date(e.target.value);
+                        let newOut = new Date(stayInfo.expectedCheckOutDate);
+                        if (newIn >= newOut) newOut = addDays(newIn, 1);
+                        setStayInfo({ ...stayInfo, checkInDate: e.target.value, expectedCheckOutDate: format(newOut, "yyyy-MM-dd'T'HH:mm") });
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">Check-out Time</label>
+                    <input type="datetime-local" required min={stayInfo.checkInDate}
+                      className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-black outline-none font-bold text-sm"
                       value={stayInfo.expectedCheckOutDate}
                       onChange={e => setStayInfo({ ...stayInfo, expectedCheckOutDate: e.target.value })}
                     />
-                    <p className="text-xs text-indigo-600 font-bold mt-2">Total: {nights} night{nights > 1 ? 's' : ''}</p>
                   </div>
-                )}
+                  <div className="col-span-2">
+                    <p className="text-xs text-indigo-600 font-bold mt-1">Calculated Math: {nights} night{nights > 1 ? 's' : ''} (or exact hours for short-stays)</p>
+                  </div>
+                </div>
 
                 <div>
                   <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-3 flex items-center gap-2">
@@ -450,11 +465,10 @@ const CheckIn = () => {
                   <p className="text-xs text-gray-500 uppercase font-bold tracking-wide">Type</p>
                   <p className="font-bold text-gray-900 mt-0.5">{stayInfo.durationOption.startsWith('custom_') ? `${stayInfo.durationOption.split('_')[1]} Hours` : (stayInfo.durationOption === '12h' ? '12 Hours' : `${nights} Night${nights > 1 ? 's' : ''}`)}</p>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-500 uppercase font-bold tracking-wide">Dates</p>
-                  <p className="font-bold text-gray-900 mt-0.5">
-                    {format(new Date(stayInfo.checkInDate), 'dd MMM')}
-                    {stayInfo.durationOption === '24h' && ` → ${format(new Date(stayInfo.expectedCheckOutDate), 'dd MMM')}`}
+                <div className="col-span-2">
+                  <p className="text-xs text-gray-500 uppercase font-bold tracking-wide">Exact Timings</p>
+                  <p className="font-bold text-gray-900 mt-0.5 text-sm">
+                    {format(new Date(stayInfo.checkInDate), 'dd MMM, hh:mm a')} → {format(new Date(stayInfo.expectedCheckOutDate), 'dd MMM, hh:mm a')}
                   </p>
                 </div>
               </div>
