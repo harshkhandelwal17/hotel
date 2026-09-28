@@ -25,8 +25,8 @@ const ReceptionistDashboard = () => {
       const propQuery = globalProperty !== 'all' ? `?hostel=${globalProperty}` : '';
       const ampQuery = globalProperty !== 'all' ? `&hostel=${globalProperty}` : '';
       const [statsRes, staysRes] = await Promise.all([
-        axios.get(`http://127.0.0.1:5001/api/reports/dashboard${propQuery}`),
-        axios.get(`http://127.0.0.1:5001/api/stays?status=Active${ampQuery}`)
+        axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/reports/dashboard${propQuery}`),
+        axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/stays?status=Active${ampQuery}`)
       ]);
       setStats(statsRes.data.data);
       // Get the most recent 5 stays

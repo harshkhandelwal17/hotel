@@ -22,8 +22,8 @@ const ManageRooms = () => {
   async function fetchData() {
     try {
       const [roomsRes, hostelsRes] = await Promise.all([
-        axios.get('http://127.0.0.1:5001/api/rooms'),
-        axios.get('http://127.0.0.1:5001/api/hostels')
+        axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/rooms'),
+        axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/hostels')
       ]);
       setRooms(roomsRes.data.data);
       setHostels(hostelsRes.data.data);
@@ -45,7 +45,7 @@ const ManageRooms = () => {
     setFormError('');
     setSaving(true);
     try {
-      await axios.post('http://127.0.0.1:5001/api/rooms', formData);
+      await axios.post((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/rooms', formData);
       setIsModalOpen(false);
       fetchData();
     } catch (err) {

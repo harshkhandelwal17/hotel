@@ -16,7 +16,7 @@ const ManageProperties = () => {
 
   const fetchProperties = async () => {
     try {
-      const res = await axios.get('http://127.0.0.1:5001/api/hostels');
+      const res = await axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/hostels');
       setProperties(res.data.data);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
@@ -27,7 +27,7 @@ const ManageProperties = () => {
     setFormError('');
     setSaving(true);
     try {
-      await axios.post('http://127.0.0.1:5001/api/hostels', formData);
+      await axios.post((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/hostels', formData);
       setIsModalOpen(false);
       setFormData({ name: '', address: '', contactNumber: '', email: '' });
       fetchProperties();

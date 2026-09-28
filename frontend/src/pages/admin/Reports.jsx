@@ -35,8 +35,8 @@ const Reports = () => {
     try {
       setLoading(true);
       const [paymentsRes, hostelsRes] = await Promise.all([
-        axios.get('http://127.0.0.1:5001/api/payments'),
-        axios.get('http://127.0.0.1:5001/api/hostels')
+        axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/payments'),
+        axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/hostels')
       ]);
       setPayments(paymentsRes.data.data);
       setHostels(hostelsRes.data.data);

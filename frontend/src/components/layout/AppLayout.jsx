@@ -13,7 +13,7 @@ const AppLayout = ({ children }) => {
 
   useEffect(() => {
     if (user?.role === 'admin') {
-      axios.get('http://127.0.0.1:5001/api/hostels').then(res => setHostels(res.data.data)).catch(console.error);
+      axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/hostels').then(res => setHostels(res.data.data)).catch(console.error);
     }
   }, [user]);
 

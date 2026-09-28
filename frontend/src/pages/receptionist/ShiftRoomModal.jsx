@@ -14,8 +14,8 @@ const ShiftRoomModal = ({ stay, onClose, onSuccess }) => {
     try {
       const hostelId = stay.hostel._id || stay.hostel;
       const [roomsRes, staysRes] = await Promise.all([
-        axios.get(`http://127.0.0.1:5001/api/rooms?status=Active&hostel=${hostelId}`),
-        axios.get(`http://127.0.0.1:5001/api/stays?status=Active&hostel=${hostelId}`)
+        axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/rooms?status=Active&hostel=${hostelId}`),
+        axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/stays?status=Active&hostel=${hostelId}`)
       ]);
       
       const allRooms = roomsRes.data.data;
@@ -60,7 +60,7 @@ const ShiftRoomModal = ({ stay, onClose, onSuccess }) => {
     setError('');
 
     try {
-      await axios.post(`http://127.0.0.1:5001/api/stays/${stay._id}/shift`, {
+      await axios.post(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/stays/${stay._id}/shift`, {
         newRoomId: selectedRoom,
         priceAdjustment: Number(priceAdjustment),
         reason

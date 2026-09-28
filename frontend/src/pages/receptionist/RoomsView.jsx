@@ -14,8 +14,8 @@ const RoomsView = () => {
   const fetchData = async () => {
     try {
       const [roomsRes, staysRes] = await Promise.all([
-        axios.get('http://127.0.0.1:5001/api/rooms'),
-        axios.get('http://127.0.0.1:5001/api/stays?status=Active'),
+        axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/rooms'),
+        axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/stays?status=Active'),
       ]);
       setRooms(roomsRes.data.data);
       setActiveStays(staysRes.data.data);

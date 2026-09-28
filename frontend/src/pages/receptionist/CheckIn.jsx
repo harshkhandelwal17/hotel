@@ -35,8 +35,8 @@ const CheckIn = () => {
     try {
       const propQuery = globalProperty !== 'all' ? `&hostel=${globalProperty}` : '';
       const [roomsRes, staysRes] = await Promise.all([
-        axios.get(`http://127.0.0.1:5001/api/rooms?status=Active${propQuery}`),
-        axios.get(`http://127.0.0.1:5001/api/stays?status=Active${propQuery}`)
+        axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/rooms?status=Active${propQuery}`),
+        axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/stays?status=Active${propQuery}`)
       ]);
       setRooms(roomsRes.data.data);
       setActiveStays(staysRes.data.data);
@@ -98,7 +98,7 @@ const CheckIn = () => {
     try {
       const formData = new FormData();
       formData.append('image', file);
-      const res = await axios.post('http://127.0.0.1:5001/api/upload', formData, {
+      const res = await axios.post((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       handleGuestChange(index, 'idProofImage', res.data.url);
@@ -122,7 +122,7 @@ const CheckIn = () => {
         newGuests[index].isSearching = true;
         const timeoutId = setTimeout(async () => {
           try {
-            const res = await axios.get(`http://127.0.0.1:5001/api/guests?mobile=${value}`);
+            const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/guests?mobile=${value}`);
             if (res.data.data.length > 0) {
               const found = res.data.data[0];
               setGuests(curr => {
@@ -168,9 +168,9 @@ const CheckIn = () => {
             hostel: typeof selectedRoom.hostel === 'object' ? selectedRoom.hostel._id : selectedRoom.hostel
         };
         if (guest._id) {
-          return axios.put(`http://127.0.0.1:5001/api/guests/${guest._id}`, payload).then(() => guest._id);
+          return axios.put(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/guests/${guest._id}`, payload).then(() => guest._id);
         } else {
-          return axios.post('http://127.0.0.1:5001/api/guests', payload).then(res => res.data.data._id);
+          return axios.post((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/guests', payload).then(res => res.data.data._id);
         }
       });
       
@@ -178,7 +178,7 @@ const CheckIn = () => {
 
       // 2. Create Stay
       const checkoutDate = (stayInfo.durationOption === '12h' || stayInfo.durationOption.startsWith('custom_')) ? stayInfo.checkInDate : stayInfo.expectedCheckOutDate;
-      await axios.post('http://127.0.0.1:5001/api/stays', {
+      await axios.post((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/stays', {
         guest: guestIds[0],
         coGuests: guestIds.slice(1),
         room: selectedRoom._id,
@@ -406,7 +406,7 @@ const CheckIn = () => {
                       {guest.idProofImage && (
                         <div className="mt-2 flex items-center gap-2">
                           <span className="text-[10px] text-green-600 font-bold flex items-center">✓ Uploaded</span>
-                          <a href={(guest.idProofImage?.startsWith('http') ? guest.idProofImage : `http://127.0.0.1:5001${guest.idProofImage}`)} target="_blank" rel="noreferrer" className="text-[10px] text-blue-500 underline font-semibold">View Image</a>
+                          <a href={(guest.idProofImage?.startsWith('http') ? guest.idProofImage : `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}${guest.idProofImage}`)} target="_blank" rel="noreferrer" className="text-[10px] text-blue-500 underline font-semibold">View Image</a>
                         </div>
                       )}
                     </div>

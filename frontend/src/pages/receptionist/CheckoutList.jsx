@@ -23,7 +23,7 @@ const CheckoutList = () => {
   async function fetchStays() {
     try {
       const propQuery = globalProperty !== 'all' ? `&hostel=${globalProperty}` : '';
-      const res = await axios.get(`http://127.0.0.1:5001/api/stays?status=Active${propQuery}`);
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/stays?status=Active${propQuery}`);
       setStays(res.data.data);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }

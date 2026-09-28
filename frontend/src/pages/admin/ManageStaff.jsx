@@ -25,8 +25,8 @@ const ManageStaff = () => {
     try {
       setLoading(true);
       const [staffRes, hostelsRes] = await Promise.all([
-        axios.get('http://127.0.0.1:5001/api/users'),
-        axios.get('http://127.0.0.1:5001/api/hostels')
+        axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/users'),
+        axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/hostels')
       ]);
       setStaff(staffRes.data.data);
       setHostels(hostelsRes.data.data);
@@ -45,7 +45,7 @@ const ManageStaff = () => {
     setSaving(true);
     setError('');
     try {
-      await axios.post('http://127.0.0.1:5001/api/users', formData);
+      await axios.post((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/users', formData);
       setIsModalOpen(false);
       setFormData({ name: '', email: '', password: '', assignedHostel: hostels[0]?._id || '' });
       fetchData();
@@ -59,7 +59,7 @@ const ManageStaff = () => {
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to remove this staff member?')) return;
     try {
-      await axios.delete(`http://127.0.0.1:5001/api/users/${id}`);
+      await axios.delete(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/users/${id}`);
       fetchData();
     } catch (err) {
       alert(err.response?.data?.message || 'Error deleting user');

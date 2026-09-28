@@ -33,7 +33,7 @@ const ExtendStayModal = ({ stay, onClose, onSuccess }) => {
     setError('');
 
     try {
-      await axios.post(`http://127.0.0.1:5001/api/stays/${stay._id}/extend`, {
+      await axios.post(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/stays/${stay._id}/extend`, {
         newCheckOutDate,
         extensionPayment: Number(extensionPayment)
       });

@@ -17,7 +17,7 @@ const PaymentsList = () => {
 
   const fetchData = async () => {
     try {
-      const res = await axios.get('http://127.0.0.1:5001/api/stays?status=Active');
+      const res = await axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/stays?status=Active');
       const staysWithBalance = res.data.data.filter(s => s.totalAmount - s.paidAmount > 0);
       setStays(staysWithBalance);
     } catch (err) { console.error(err); }
@@ -30,7 +30,7 @@ const PaymentsList = () => {
     setPayLoading(true);
     setPayError('');
     try {
-      await axios.post(`http://127.0.0.1:5001/api/payments`, {
+      await axios.post(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/payments`, {
         stayId: selectedStay._id,
         amount: Number(payAmount),
         paymentMethod: payMethod,

@@ -19,7 +19,7 @@ export const AuthProvider = ({ children }) => {
 
   const fetchUser = async () => {
     try {
-      const res = await axios.get('http://127.0.0.1:5001/api/auth/me');
+      const res = await axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/auth/me');
       setUser(res.data.data);
     } catch (error) {
       console.error(error);
@@ -31,7 +31,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = async (email, password) => {
-    const res = await axios.post('http://127.0.0.1:5001/api/auth/login', { email, password });
+    const res = await axios.post((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/auth/login', { email, password });
     localStorage.setItem('token', res.data.data.token);
     axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.data.token}`;
     setUser(res.data.data);
