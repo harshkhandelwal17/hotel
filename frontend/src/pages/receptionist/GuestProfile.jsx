@@ -147,7 +147,7 @@ const GuestProfile = () => {
                   {guest.idProofType}: {guest.idProofNumber}
                 </span>
                 {guest.idProofImage && (
-                  <a href={`http://127.0.0.1:5001${guest.idProofImage}`} target="_blank" rel="noreferrer" className="text-xs text-blue-600 font-bold hover:underline flex items-center gap-1">
+                  <a href={(guest.idProofImage?.startsWith('http') ? guest.idProofImage : `http://127.0.0.1:5001${guest.idProofImage}`)} target="_blank" rel="noreferrer" className="text-xs text-blue-600 font-bold hover:underline flex items-center gap-1">
                     🔍 View ID Image
                   </a>
                 )}
@@ -217,7 +217,7 @@ const GuestProfile = () => {
                     <span key={cg._id} className="bg-white border border-blue-200 px-3 py-1 rounded-full text-xs text-blue-700 font-medium flex items-center gap-1">
                       {cg.fullName} ({cg.mobileNumber})
                       {cg.idProofImage && (
-                        <a href={`http://127.0.0.1:5001${cg.idProofImage}`} target="_blank" rel="noreferrer" className="text-[10px] bg-blue-100 px-1.5 py-0.5 rounded text-blue-800 hover:bg-blue-200 ml-1">
+                        <a href={(cg.idProofImage?.startsWith('http') ? cg.idProofImage : `http://127.0.0.1:5001${cg.idProofImage}`)} target="_blank" rel="noreferrer" className="text-[10px] bg-blue-100 px-1.5 py-0.5 rounded text-blue-800 hover:bg-blue-200 ml-1">
                           ID
                         </a>
                       )}
@@ -264,7 +264,7 @@ const GuestProfile = () => {
                             <span key={g._id || i} className="inline-flex items-center">
                               {g.fullName}
                               {g.idProofImage && (
-                                <a href={`http://127.0.0.1:5001${g.idProofImage}`} target="_blank" rel="noreferrer" className="ml-1 text-[10px] font-bold text-blue-600 hover:underline">
+                                <a href={(g.idProofImage?.startsWith('http') ? g.idProofImage : `http://127.0.0.1:5001${g.idProofImage}`)} target="_blank" rel="noreferrer" className="ml-1 text-[10px] font-bold text-blue-600 hover:underline">
                                   [ID]
                                 </a>
                               )}

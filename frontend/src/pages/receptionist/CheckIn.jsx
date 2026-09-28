@@ -406,7 +406,7 @@ const CheckIn = () => {
                       {guest.idProofImage && (
                         <div className="mt-2 flex items-center gap-2">
                           <span className="text-[10px] text-green-600 font-bold flex items-center">✓ Uploaded</span>
-                          <a href={`http://127.0.0.1:5001${guest.idProofImage}`} target="_blank" rel="noreferrer" className="text-[10px] text-blue-500 underline font-semibold">View Image</a>
+                          <a href={(guest.idProofImage?.startsWith('http') ? guest.idProofImage : `http://127.0.0.1:5001${guest.idProofImage}`)} target="_blank" rel="noreferrer" className="text-[10px] text-blue-500 underline font-semibold">View Image</a>
                         </div>
                       )}
                     </div>

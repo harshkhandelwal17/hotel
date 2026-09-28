@@ -7,7 +7,19 @@ router.post('/', upload.single('image'), (req, res) => {
     return res.status(400).json({ success: false, message: 'No file uploaded' });
   }
   
-  const fileUrl = `/uploads/${req.file.filename}`;
+  let fileUrl = '';
+  if (req.file.location) {
+    // R2 Upload
+    fileUrl = req.file.location;
+    // If public domain is configured, use it instead of the ugly s3 url
+    if (process.env.R2_PUBLIC_DOMAIN) {
+      fileUrl = `${process.env.R2_PUBLIC_DOMAIN}/${req.file.key}`;
+    }
+  } else {
+    // Local Upload
+    fileUrl = `/uploads/${req.file.filename}`;
+  }
+  
   res.status(200).json({ success: true, url: fileUrl });
 });
 
