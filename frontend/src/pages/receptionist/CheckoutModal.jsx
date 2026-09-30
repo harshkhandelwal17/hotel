@@ -134,14 +134,18 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
             </div>
 
             {/* Stay Timings */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100">
-                <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-1">Checked In</p>
-                <p className="font-bold text-blue-900 text-sm">{format(new Date(stay.checkInDate), 'dd MMM, hh:mm a')}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="bg-blue-50 p-3 rounded-xl border border-blue-100">
+                <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-1">Checked In</p>
+                <p className="font-bold text-blue-900 text-xs">{format(new Date(stay.checkInDate), 'dd MMM, hh:mm a')}</p>
               </div>
-              <div className="bg-orange-50/50 p-3 rounded-xl border border-orange-100">
-                <p className="text-[10px] font-bold text-orange-500 uppercase tracking-widest mb-1">Checking Out</p>
-                <p className="font-bold text-orange-900 text-sm">{format(new Date(), 'dd MMM, hh:mm a')}</p>
+              <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
+                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Expected Out</p>
+                <p className="font-bold text-gray-900 text-xs">{format(new Date(stay.expectedCheckOutDate), 'dd MMM, hh:mm a')}</p>
+              </div>
+              <div className="bg-orange-50 p-3 rounded-xl border border-orange-100 shadow-sm border-2">
+                <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest mb-1">Actual Out (Now)</p>
+                <p className="font-black text-orange-900 text-sm">{format(new Date(), 'dd MMM, hh:mm a')}</p>
               </div>
             </div>
 
@@ -161,8 +165,8 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
               {/* Additional Charges / Adjustments */}
               <div className="pt-3 border-t border-gray-100">
                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Additional Charges / Food / Damage (₹)</label>
-                <div className="flex gap-2">
-                  <div className="relative w-1/3">
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                  <div className="relative w-full sm:w-1/3">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">₹</span>
                     <input type="number" min="0" placeholder="0" className="w-full pl-7 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-black outline-none font-black text-gray-900 text-sm"
                       value={additionalCharges} onChange={e => setAdditionalCharges(e.target.value)} />
@@ -173,7 +177,7 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
               </div>
 
               {/* Final Math */}
-              <div className="pt-3 mt-3 border-t-2 border-dashed border-gray-200 flex justify-between items-end">
+              <div className="pt-3 mt-3 border-t-2 border-dashed border-gray-200 flex flex-col sm:flex-row justify-between sm:items-end gap-2">
                 <div>
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Final Balance Due</p>
                   {finalBalance > 0 ? (
@@ -191,15 +195,15 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
             {finalBalance > 0 && (
               <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-3">
                 <label className="block text-xs font-black text-gray-800 uppercase tracking-widest">Collect Payment</label>
-                <div className="flex gap-4">
-                  <div className="flex-1 relative">
+                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                  <div className="w-full sm:flex-1 relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₹</span>
                     <input type="number" min="0" max={finalBalance} required
                       className="w-full pl-7 pr-3 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-black outline-none font-black text-xl text-gray-900 shadow-sm"
                       value={checkoutPayment} onChange={e => setCheckoutPayment(e.target.value)} />
                   </div>
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => setCheckoutPayment(finalBalance)} className="px-4 bg-black text-white font-bold text-sm rounded-xl hover:bg-gray-800 transition-colors shadow-md active:scale-95">Full ₹{finalBalance}</button>
+                  <div className="flex gap-2 w-full sm:w-auto">
+                    <button type="button" onClick={() => setCheckoutPayment(finalBalance)} className="w-full sm:w-auto py-3 sm:py-0 px-6 bg-black text-white font-bold text-sm rounded-xl hover:bg-gray-800 transition-colors shadow-md active:scale-95">Full ₹{finalBalance}</button>
                   </div>
                 </div>
                 <div className="flex gap-2 mt-2">
