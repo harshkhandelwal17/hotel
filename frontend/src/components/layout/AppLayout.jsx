@@ -125,19 +125,19 @@ const AppLayout = ({ children }) => {
             </div>
             
             {/* Search Bar */}
-            <div className="flex-1 flex items-center justify-center px-4 sm:px-6">
+            <div className="hidden md:flex flex-1 items-center justify-center px-4 sm:px-6">
               <div className="w-full max-w-md">
                 <GlobalSearch />
               </div>
             </div>
             
             {/* Profile & Actions */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 md:gap-4">
               {user?.role === 'admin' && (
                 <select 
                   value={globalProperty} 
                   onChange={e => handlePropertyChange(e.target.value)}
-                  className="bg-gray-50 border border-gray-200 text-gray-700 text-sm rounded-lg focus:ring-black focus:border-black block p-2 font-semibold shadow-sm outline-none"
+                  className="hidden md:block bg-gray-50 border border-gray-200 text-gray-700 text-sm rounded-lg focus:ring-black focus:border-black p-2 font-semibold shadow-sm outline-none"
                 >
                   <option value="all">🏢 All Properties</option>
                   {hostels.map(h => <option key={h._id} value={h._id}>{h.name}</option>)}
@@ -177,9 +177,9 @@ const AppLayout = ({ children }) => {
                 )}
               </div>
               
-              <div className="h-8 w-[1px] bg-gray-200 mx-1"></div>
+              <div className="hidden md:block h-8 w-[1px] bg-gray-200 mx-1"></div>
               
-              <div className="flex items-center space-x-3">
+              <div className="hidden md:flex items-center space-x-3">
                 <div className="text-right hidden sm:block">
                   <p className="text-sm font-bold text-gray-900 leading-tight">{user?.name}</p>
                   <p className="text-xs font-semibold text-gray-500 capitalize">{user?.role}</p>
@@ -191,7 +191,7 @@ const AppLayout = ({ children }) => {
               
               <button 
                 onClick={logout}
-                className="ml-1 p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                className="hidden md:block ml-1 p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
                 title="Logout"
               >
                 <LogOut size={20} />
@@ -224,7 +224,19 @@ const AppLayout = ({ children }) => {
               </button>
             </div>
             
-            <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+            <div className="px-4 pt-4 pb-2">
+              {user?.role === 'admin' && (
+                <select 
+                  value={globalProperty} 
+                  onChange={e => { handlePropertyChange(e.target.value); setIsMobileMenuOpen(false); }}
+                  className="w-full bg-gray-50 border border-gray-200 text-gray-700 text-sm rounded-xl focus:ring-black focus:border-black block p-3 font-semibold shadow-sm outline-none mb-4"
+                >
+                  <option value="all">🏢 All Properties</option>
+                  {hostels.map(h => <option key={h._id} value={h._id}>{h.name}</option>)}
+                </select>
+              )}
+            </div>
+            <nav className="flex-1 px-4 pb-6 space-y-2 overflow-y-auto">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname.startsWith(item.path);
