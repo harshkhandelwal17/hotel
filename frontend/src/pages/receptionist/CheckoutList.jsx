@@ -83,23 +83,27 @@ const CheckoutList = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4">
-        <div>
-          <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Active Stays</h1>
-          <p className="text-gray-500 text-sm mt-1">{stays.length} guests currently staying</p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={downloadCSV} className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl font-bold text-sm hover:bg-gray-50 flex items-center gap-2"><Download size={16} /> Export</button>
-          <div className="relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search guest, mobile, room..."
-              className="pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-black w-64"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Manage Checkouts</h1>
+            <p className="text-gray-500 font-medium mt-1">Search by room or guest to process checkouts instantly.</p>
           </div>
+          <button onClick={downloadCSV} className="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-bold text-sm hover:bg-gray-50 flex items-center gap-2 shadow-sm"><Download size={16} /> Export CSV</button>
+        </div>
+
+        {/* Massive Search Bar */}
+        <div className="relative w-full">
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+            <Search size={24} className="text-gray-400" />
+          </div>
+          <input
+            type="text"
+            placeholder="Search by Room No. (e.g. 101) or Guest Name..."
+            className="w-full pl-12 pr-4 py-4 bg-white border-2 border-gray-200 rounded-2xl text-lg font-bold text-gray-900 placeholder-gray-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black shadow-sm transition-all"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
         </div>
       </div>
 

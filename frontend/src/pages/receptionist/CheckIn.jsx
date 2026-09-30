@@ -18,13 +18,20 @@ const CheckIn = () => {
   const [stayInfo, setStayInfo] = useState({
     checkInDate: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
     expectedCheckOutDate: format(addDays(new Date(), 1), "yyyy-MM-dd'T'HH:mm"),
-    durationOption: '24h',
+    durationOption: 'custom',
+    stayDays: 1,
+    stayHours: 0,
     discountAmount: 0,
     occupants: 1,
-    paymentMethod: 'Cash'
+    paymentMethod: 'Cash',
+    commissionTo: '',
+    commissionAmount: ''
   });
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [initialPayment, setInitialPayment] = useState('');
+  const [totalAmount, setTotalAmount] = useState('');
+  const [customHoursInput, setCustomHoursInput] = useState('');
+  const [roomSearchQuery, setRoomSearchQuery] = useState('');
 
   // Step 2: Guests Info
   const emptyGuest = { mobileNumber: '', fullName: '', idProofType: 'Aadhaar', idProofNumber: '', idProofImage: '', _id: null, isSearching: false };
@@ -82,30 +89,11 @@ const CheckIn = () => {
 
   const nights = stayInfo.durationOption === '12h' ? 0 : Math.ceil((new Date(stayInfo.expectedCheckOutDate) - new Date(stayInfo.checkInDate)) / (1000 * 60 * 60 * 24));
 
-  // Global Custom Hours from all rooms
-  const globalCustomHours = Array.from(new Set(rooms.flatMap(r => r.customRates?.map(cr => cr.hours) || []))).sort((a, b) => a - b);
-  
-  // Filter available rooms
-  const filteredRooms = rooms.filter(room => {
-    if (!isRoomAvailable(room._id)) return false;
-    if (room.capacity < stayInfo.occupants) return false;
-    if (stayInfo.durationOption.startsWith('custom_')) {
-      const hrs = parseInt(stayInfo.durationOption.split('_')[1], 10);
-      const hasPkg = room.customRates?.some(cr => cr.hours === hrs);
-      if (!hasPkg) return false;
-    }
-    return true;
-  });
+    // Filter available rooms
+  const filteredRooms = rooms.filter(room => isRoomAvailable(room._id));
 
-  // Billing Math
-  const extraPersons = Math.max(0, stayInfo.occupants - (selectedRoom?.capacity || 1));
-  const extraPerPerson = selectedRoom ? (stayInfo.durationOption === '12h' ? (selectedRoom.extraPerPerson12h || 0) : (selectedRoom.extraPerPerson24h || 0)) : 0;
-  const extraCharge = extraPersons * extraPerPerson;
-  const customHours = stayInfo.durationOption.startsWith('custom_') ? parseInt(stayInfo.durationOption.split('_')[1], 10) : null;
-  const customRate = customHours ? selectedRoom?.customRates?.find(r => r.hours === customHours)?.price || 0 : 0;
-  const basePrice = selectedRoom ? (stayInfo.durationOption === '12h' ? selectedRoom.price12h : (customHours ? customRate : selectedRoom.price24h)) : 0;
-  const pricePerUnit = basePrice + (customHours ? 0 : extraCharge);
-  const grossTotal = (stayInfo.durationOption === '12h' || customHours) ? pricePerUnit : pricePerUnit * nights;
+  // Billing Math Runtime
+  const grossTotal = Number(totalAmount) || 0;
   const total = Math.max(0, grossTotal - Number(stayInfo.discountAmount || 0));
 
   // --- Step 2 Handlers (Guests) ---
@@ -203,9 +191,12 @@ const CheckIn = () => {
         durationOption: stayInfo.durationOption,
         discountAmount: Number(stayInfo.discountAmount) || 0,
         occupants: stayInfo.occupants,
+        totalAmount: Number(totalAmount) || 0,
         initialPaymentAmount: Number(initialPayment) || 0,
         paymentMethod: stayInfo.paymentMethod,
-        hostel: selectedRoom.hostel._id || selectedRoom.hostel
+        hostel: selectedRoom.hostel._id || selectedRoom.hostel,
+        commissionTo: stayInfo.commissionTo,
+        commissionAmount: Number(stayInfo.commissionAmount) || 0
       });
 
       navigate('/checkouts', { state: { success: 'Check-in completed successfully!' } });
@@ -230,14 +221,14 @@ const CheckIn = () => {
       {/* Modern Progress Steps */}
       <div className="flex items-center justify-between mb-8 relative">
         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-gray-100 -z-10 rounded-full"></div>
-        <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-black transition-all duration-500 rounded-full z-0" style={{ width: `${(step - 1) * 50}%` }}></div>
-        {[1, 2, 3].map(num => (
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-black transition-all duration-500 rounded-full z-0" style={{ width: `${(step - 1) * 100}%` }}></div>
+        {[1, 2].map(num => (
           <div key={num} className="relative z-10 flex flex-col items-center gap-2">
             <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-sm transition-colors ${step >= num ? 'bg-black text-white' : 'bg-white text-gray-400 border-2 border-gray-100'}`}>
               {num}
             </div>
             <span className={`text-xs font-bold uppercase tracking-wide ${step >= num ? 'text-black' : 'text-gray-400'}`}>
-              {num === 1 ? 'Room' : num === 2 ? 'Guests' : 'Billing'}
+              {num === 1 ? 'Stay Details' : 'Guest Identity'}
             </span>
           </div>
         ))}
@@ -250,141 +241,200 @@ const CheckIn = () => {
             <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
               <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl"><Bed size={20} /></div>
               <div>
-                <h2 className="text-lg font-bold text-gray-900">Room Selection</h2>
-                <p className="text-xs text-gray-500">Configure stay duration and select a room</p>
+                <h2 className="text-lg font-bold text-gray-900">Stay & Room Details</h2>
+                <p className="text-xs text-gray-500">Configure duration, select a room, and collect payment</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* Left col: Duration & Occupants */}
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-3">Stay Duration</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button type="button" onClick={() => { setStayInfo({ ...stayInfo, durationOption: '12h', expectedCheckOutDate: format(addHours(new Date(stayInfo.checkInDate), 12), "yyyy-MM-dd'T'HH:mm") }); setSelectedRoom(null); }}
-                      className={`p-4 rounded-xl border-2 text-left transition-all ${stayInfo.durationOption === '12h' ? 'border-black bg-gray-50' : 'border-gray-100 hover:border-gray-300'}`}>
-                      <Clock size={20} className={stayInfo.durationOption === '12h' ? 'text-black' : 'text-gray-400'} />
-                      <p className="font-bold text-gray-900 mt-2">12 Hours</p>
-                      <p className="text-xs text-gray-500 mt-0.5">Short stay</p>
-                    </button>
-                    <button type="button" onClick={() => { setStayInfo({ ...stayInfo, durationOption: '24h', expectedCheckOutDate: format(addDays(new Date(stayInfo.checkInDate), 1), "yyyy-MM-dd'T'HH:mm") }); setSelectedRoom(null); }}
-                      className={`p-4 rounded-xl border-2 text-left transition-all ${stayInfo.durationOption === '24h' ? 'border-black bg-gray-50' : 'border-gray-100 hover:border-gray-300'}`}>
-                      <Calendar size={20} className={stayInfo.durationOption === '24h' ? 'text-black' : 'text-gray-400'} />
-                      <p className="font-bold text-gray-900 mt-2">Daily</p>
-                      <p className="text-xs text-gray-500 mt-0.5">24h format</p>
-                    </button>
-                    {globalCustomHours.map(hrs => (
-                      <button key={hrs} type="button" 
-                        onClick={() => {
-                          setStayInfo({ ...stayInfo, durationOption: `custom_${hrs}`, expectedCheckOutDate: format(addHours(new Date(stayInfo.checkInDate), hrs), "yyyy-MM-dd'T'HH:mm") });
-                          setSelectedRoom(null); // Deselect room if changing package, forces re-selection from filtered list
-                        }}
-                        className={`p-4 rounded-xl border-2 text-left transition-all ${stayInfo.durationOption === `custom_${hrs}` ? 'border-black bg-gray-50' : 'border-gray-100 hover:border-gray-300'}`}>
-                        <Clock size={20} className={stayInfo.durationOption === `custom_${hrs}` ? 'text-black' : 'text-gray-400'} />
-                        <p className="font-bold text-gray-900 mt-2">{hrs} Hour{hrs > 1 ? 's' : ''}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">Custom Package</p>
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-[11px] text-gray-500 mt-2 font-medium bg-blue-50/50 p-2 rounded border border-blue-100/50">
-                    Choosing a package or changing occupants will automatically filter available rooms.
-                  </p>
-                </div>
-
-                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">Check-in Time</label>
-                    <input type="datetime-local" required
-                      className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-black outline-none font-bold text-sm"
-                      value={stayInfo.checkInDate}
-                      onChange={e => {
-                        const newIn = new Date(e.target.value);
-                        let newOut = new Date(stayInfo.expectedCheckOutDate);
-                        if (newIn >= newOut) newOut = addDays(newIn, 1);
-                        setStayInfo({ ...stayInfo, checkInDate: e.target.value, expectedCheckOutDate: format(newOut, "yyyy-MM-dd'T'HH:mm") });
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">Check-out Time</label>
-                    <input type="datetime-local" required min={stayInfo.checkInDate}
-                      className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-black outline-none font-bold text-sm"
-                      value={stayInfo.expectedCheckOutDate}
-                      onChange={e => setStayInfo({ ...stayInfo, expectedCheckOutDate: e.target.value })}
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <p className="text-xs text-indigo-600 font-bold mt-1">Calculated Math: {nights} night{nights > 1 ? 's' : ''} (or exact hours for short-stays)</p>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-3 flex items-center gap-2">
-                    <Users size={16} /> Total Occupants
-                  </label>
-                  <div className="flex gap-2">
-                    {[1, 2, 3, 4].map(n => (
-                      <button key={n} type="button" onClick={() => handleOccupantsChange(n)}
-                        className={`flex-1 py-3 rounded-xl font-bold text-sm border transition-all ${stayInfo.occupants === n ? 'bg-black text-white border-black' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'}`}>
-                        {n}
-                      </button>
-                    ))}
-                    <input type="number" min="1" max="20"
-                      className={`w-16 py-3 text-center rounded-xl font-bold text-sm border outline-none transition-all ${stayInfo.occupants > 4 ? 'bg-black text-white border-black' : 'bg-gray-50 text-gray-500 border-gray-200'}`}
-                      placeholder="5+" value={stayInfo.occupants > 4 ? stayInfo.occupants : ''}
-                      onChange={e => handleOccupantsChange(e.target.value)}
-                    />
-                  </div>
+            {/* 1. Super Simple Duration & Occupants */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
+              {/* Occupants */}
+              <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100 flex flex-col justify-center items-center">
+                <label className="block text-sm font-black text-gray-700 uppercase tracking-widest mb-4">How many Guests?</label>
+                <div className="flex items-center gap-6 bg-white p-3 rounded-full shadow-sm border border-gray-200">
+                  <button type="button" onClick={() => handleOccupantsChange(Math.max(1, stayInfo.occupants - 1))}
+                    className="w-14 h-14 flex items-center justify-center rounded-full bg-red-50 text-red-600 hover:bg-red-100 active:bg-red-200 transition-colors text-2xl font-black">
+                    -
+                  </button>
+                  <span className="text-4xl font-black text-gray-900 w-12 text-center">{stayInfo.occupants}</span>
+                  <button type="button" onClick={() => handleOccupantsChange(stayInfo.occupants + 1)}
+                    className="w-14 h-14 flex items-center justify-center rounded-full bg-green-50 text-green-600 hover:bg-green-100 active:bg-green-200 transition-colors text-2xl font-black">
+                    +
+                  </button>
                 </div>
               </div>
 
-              {/* Right col: Room Selection */}
-              <div>
-                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-3 flex items-center justify-between">
-                  <span>Available Rooms</span>
-                  {selectedRoom && <span className="text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded text-[10px]">Selected: {selectedRoom.roomNumber}</span>}
-                </label>
-                <div className="grid grid-cols-2 gap-3 max-h-[400px] overflow-y-auto pr-2 pb-2">
-                  {filteredRooms.length === 0 ? (
-                    <div className="col-span-full py-8 text-center text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                      <Bed size={32} className="mx-auto mb-2 opacity-50" />
-                      <p className="font-semibold text-sm">No rooms available</p>
-                      <p className="text-xs mt-1">Try changing duration or reducing occupants.</p>
+              {/* Duration */}
+              <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100">
+                <label className="block text-sm font-black text-gray-700 uppercase tracking-widest mb-4 text-center">Stay Duration</label>
+                
+                {/* Quick Presets */}
+                <div className="grid grid-cols-3 gap-2 mb-4">
+                  <button type="button" onClick={() => setStayInfo({...stayInfo, stayDays: 0, stayHours: 12, expectedCheckOutDate: format(addHours(new Date(stayInfo.checkInDate), 12), "yyyy-MM-dd'T'HH:mm")})}
+                    className="py-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-700 hover:bg-black hover:text-white transition-colors shadow-sm text-sm">
+                    12 Hours
+                  </button>
+                  <button type="button" onClick={() => setStayInfo({...stayInfo, stayDays: 1, stayHours: 0, expectedCheckOutDate: format(addDays(new Date(stayInfo.checkInDate), 1), "yyyy-MM-dd'T'HH:mm")})}
+                    className="py-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-700 hover:bg-black hover:text-white transition-colors shadow-sm text-sm">
+                    1 Day
+                  </button>
+                  <button type="button" onClick={() => setStayInfo({...stayInfo, stayDays: 2, stayHours: 0, expectedCheckOutDate: format(addDays(new Date(stayInfo.checkInDate), 2), "yyyy-MM-dd'T'HH:mm")})}
+                    className="py-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-700 hover:bg-black hover:text-white transition-colors shadow-sm text-sm">
+                    2 Days
+                  </button>
+                </div>
+
+                {/* Manual Steppers */}
+                <div className="flex justify-center gap-4">
+                  {/* Days Stepper */}
+                  <div className="flex flex-col items-center">
+                    <span className="text-[10px] font-bold text-gray-500 uppercase mb-1">Days</span>
+                    <div className="flex items-center bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+                       <button type="button" onClick={() => {
+                         const newD = Math.max(0, (stayInfo.stayDays || 0) - 1);
+                         setStayInfo({...stayInfo, stayDays: newD, expectedCheckOutDate: format(addHours(addDays(new Date(stayInfo.checkInDate), newD), stayInfo.stayHours || 0), "yyyy-MM-dd'T'HH:mm")});
+                       }} className="px-4 py-2 bg-gray-50 hover:bg-gray-100 font-black text-gray-600">-</button>
+                       <span className="px-4 font-black text-lg w-12 text-center">{stayInfo.stayDays || 0}</span>
+                       <button type="button" onClick={() => {
+                         const newD = (stayInfo.stayDays || 0) + 1;
+                         setStayInfo({...stayInfo, stayDays: newD, expectedCheckOutDate: format(addHours(addDays(new Date(stayInfo.checkInDate), newD), stayInfo.stayHours || 0), "yyyy-MM-dd'T'HH:mm")});
+                       }} className="px-4 py-2 bg-gray-50 hover:bg-gray-100 font-black text-gray-600">+</button>
                     </div>
-                  ) : filteredRooms.map(room => {
-                    const isSelected = selectedRoom?._id === room._id;
-                    const customHr = stayInfo.durationOption.startsWith('custom_') ? parseInt(stayInfo.durationOption.split('_')[1], 10) : null; 
-                    const roomPrice = stayInfo.durationOption === '12h' ? room.price12h : (customHr ? (room.customRates?.find(r => r.hours === customHr)?.price || 0) : room.price24h);
-                    return (
-                      <button key={room._id} type="button" onClick={() => setSelectedRoom(room)}
-                        className={`relative p-4 rounded-xl border-2 text-left transition-all ${isSelected ? 'border-black bg-black text-white shadow-md transform scale-[1.02]' : 'border-gray-100 hover:border-gray-300 bg-white'}`}>
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <p className={`font-black text-lg ${isSelected ? 'text-white' : 'text-gray-900'}`}>{room.roomNumber}</p>
-                            <p className={`text-xs font-bold mt-0.5 ${isSelected ? 'text-gray-300' : 'text-indigo-600'}`}>{room.roomType || 'Standard'} (Max: {room.capacity})</p>
-                          </div>
-                          <div className={`p-1.5 rounded-lg ${isSelected ? 'bg-white/20' : 'bg-gray-100'}`}>
-                            <Bed size={16} className={isSelected ? 'text-white' : 'text-gray-500'} />
-                          </div>
-                        </div>
-                        <div className={`mt-3 pt-3 border-t ${isSelected ? 'border-white/20' : 'border-gray-100'} text-sm font-bold ${isSelected ? 'text-white' : 'text-gray-900'}`}>
-                          ₹{roomPrice || 0}
-                          <span className={`font-normal text-xs ml-1 ${isSelected ? 'text-gray-300' : 'text-gray-500'}`}>/ {customHr ? customHr+'h' : (stayInfo.durationOption === '12h' ? '12h' : 'night')}</span>
-                          {!customHr && (stayInfo.durationOption === '12h' ? room.extraPerPerson12h : room.extraPerPerson24h) > 0 && (
-                            <span className={`block mt-1 text-[10px] uppercase ${isSelected ? 'text-gray-300' : 'text-blue-600'}`}>
-                              +₹{stayInfo.durationOption === '12h' ? room.extraPerPerson12h : room.extraPerPerson24h}/extra person
-                            </span>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
+                  </div>
+                  <span className="text-2xl font-black text-gray-300 self-end mb-2">+</span>
+                  {/* Hours Stepper */}
+                  <div className="flex flex-col items-center">
+                    <span className="text-[10px] font-bold text-gray-500 uppercase mb-1">Hours</span>
+                    <div className="flex items-center bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+                       <button type="button" onClick={() => {
+                         const newH = Math.max(0, (stayInfo.stayHours || 0) - 1);
+                         setStayInfo({...stayInfo, stayHours: newH, expectedCheckOutDate: format(addHours(addDays(new Date(stayInfo.checkInDate), stayInfo.stayDays || 0), newH), "yyyy-MM-dd'T'HH:mm")});
+                       }} className="px-4 py-2 bg-gray-50 hover:bg-gray-100 font-black text-gray-600">-</button>
+                       <span className="px-4 font-black text-lg w-12 text-center">{stayInfo.stayHours || 0}</span>
+                       <button type="button" onClick={() => {
+                         const newH = (stayInfo.stayHours || 0) + 1;
+                         setStayInfo({...stayInfo, stayHours: newH, expectedCheckOutDate: format(addHours(addDays(new Date(stayInfo.checkInDate), stayInfo.stayDays || 0), newH), "yyyy-MM-dd'T'HH:mm")});
+                       }} className="px-4 py-2 bg-gray-50 hover:bg-gray-100 font-black text-gray-600">+</button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Live Checkout Time Display */}
+                <div className="mt-4 text-center bg-green-50 py-2 rounded-lg border border-green-200">
+                  <p className="text-[10px] uppercase font-bold text-green-700">Guest will checkout at</p>
+                  <p className="font-black text-green-900">{format(new Date(stayInfo.expectedCheckOutDate), 'dd MMM yyyy, hh:mm a')}</p>
                 </div>
               </div>
+            </div>
+
+            {/* 2. Select Room */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
+              <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
+                <label className="block text-sm font-black text-gray-700 uppercase tracking-widest">Select Room</label>
+                <div className="relative w-full md:w-64">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Search size={16} className="text-gray-400" />
+                  </div>
+                  <input type="text" placeholder="Type Room No. to auto-select" 
+                    className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none font-bold text-sm text-gray-900 transition-colors"
+                    value={roomSearchQuery}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setRoomSearchQuery(val);
+                      if (val.trim()) {
+                        const exactMatch = filteredRooms.find(r => r.roomNumber.toLowerCase() === val.trim().toLowerCase());
+                        if (exactMatch) setSelectedRoom(exactMatch);
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 max-h-[250px] overflow-y-auto p-1">
+                {filteredRooms.filter(r => r.roomNumber.toLowerCase().includes(roomSearchQuery.toLowerCase())).length === 0 ? (
+                  <div className="col-span-full py-6 text-center text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                    <Bed size={24} className="mx-auto mb-2 opacity-50" />
+                    <p className="font-semibold text-sm">No rooms available</p>
+                  </div>
+                ) : filteredRooms.map(room => {
+                  const isSelected = selectedRoom?._id === room._id;
+                  return (
+                    <button key={room._id} type="button" onClick={() => setSelectedRoom(room)}
+                      className={`relative p-4 rounded-2xl border-2 text-center transition-all ${isSelected ? 'border-blue-600 bg-blue-600 text-white shadow-lg transform scale-[1.05]' : 'border-gray-200 hover:border-blue-300 bg-white'}`}>
+                      <p className={`font-black text-2xl ${isSelected ? 'text-white' : 'text-gray-900'}`}>{room.roomNumber}</p>
+                      <p className={`text-[10px] font-bold mt-1 uppercase ${isSelected ? 'text-blue-100' : 'text-gray-500'}`}>{room.roomType}</p>
+                      {isSelected && (
+                        <div className="absolute -top-2 -right-2 bg-white text-blue-600 rounded-full p-1 shadow-md">
+                          <CheckCircle2 size={16} className="fill-current" />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 3. Billing & Payment & Commission */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-t border-gray-100 pt-6">
+              
+              {/* Billing */}
+              <div className="space-y-4">
+                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide flex items-center gap-2"><CreditCard size={16}/> Payment & Billing</label>
+                <div className="grid grid-cols-2 gap-4">
+                   <div className="col-span-2">
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Agreed Total Rent (₹)</label>
+                    <input type="number" required placeholder="0" className="w-full px-4 py-3 bg-blue-50/50 border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-black text-2xl text-blue-900"
+                      value={totalAmount} onChange={e => setTotalAmount(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Advance Paid (₹)</label>
+                    <input type="number" placeholder="0" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none font-bold text-gray-900"
+                      value={initialPayment} onChange={e => setInitialPayment(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Discount (₹)</label>
+                    <input type="number" placeholder="0" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none font-bold text-gray-900"
+                      value={stayInfo.discountAmount} onChange={e => setStayInfo({...stayInfo, discountAmount: e.target.value})} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Commission & Summary */}
+              <div className="flex flex-col justify-between">
+                <div className="space-y-4">
+                  <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide">Broker / Commission (Optional)</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Referred By (Name/Auto)</label>
+                      <input type="text" placeholder="e.g. Auto Driver" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none font-medium text-sm text-gray-900"
+                        value={stayInfo.commissionTo} onChange={e => setStayInfo({...stayInfo, commissionTo: e.target.value})} />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Commission Amount (₹)</label>
+                      <input type="number" placeholder="0" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none font-bold text-gray-900"
+                        value={stayInfo.commissionAmount} onChange={e => setStayInfo({...stayInfo, commissionAmount: e.target.value})} />
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-200 flex justify-between items-center">
+                  <div>
+                     <p className="text-xs font-bold text-gray-500 uppercase">Balance Due</p>
+                     <p className={`font-black text-xl ${total - Number(initialPayment || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                        ₹{Math.max(0, total - Number(initialPayment || 0))}
+                     </p>
+                  </div>
+                  <div className="text-right">
+                     <p className="text-xs font-bold text-gray-500 uppercase">Final Total</p>
+                     <p className="font-black text-2xl text-gray-900">₹{total}</p>
+                  </div>
+                </div>
+              </div>
+
             </div>
 
             <div className="pt-6 flex justify-end border-t border-gray-100">
-              <button className="bg-black text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-800 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md"
+              <button type="button" className="bg-black text-white px-8 py-3.5 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-800 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md text-sm uppercase tracking-wide"
                 onClick={() => setStep(2)} disabled={!canProceed1}>
                 Next: Guest Details <ChevronRight size={18} />
               </button>
@@ -460,126 +510,15 @@ const CheckIn = () => {
 
             <div className="pt-6 flex justify-between border-t border-gray-100">
               <button className="text-gray-500 px-5 py-3 font-semibold hover:text-black transition-colors" onClick={() => setStep(1)}>← Back</button>
-              <button className="bg-black text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-800 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md"
-                onClick={() => setStep(3)} disabled={!canProceed2}>
-                Next: Payment <ChevronRight size={18} />
+              <button type="button" className="bg-black text-white px-8 py-3.5 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-800 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md uppercase tracking-wide text-sm"
+                onClick={handleSubmit} disabled={!canProceed2 || loading}>
+                {loading ? 'Processing...' : 'Complete Check-In'} <CheckCircle2 size={18} />
               </button>
             </div>
           </div>
         )}
 
-        {/* ─── STEP 3: Payment ────────────────────────────────────────────── */}
-        {step === 3 && (
-          <div className="p-7 space-y-6">
-            <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
-              <div className="p-2.5 bg-green-50 text-green-600 rounded-xl"><CreditCard size={20} /></div>
-              <div>
-                <h2 className="text-lg font-bold text-gray-900">Billing Summary</h2>
-                <p className="text-xs text-gray-500">Review and collect payment</p>
-              </div>
-            </div>
-
-            <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100 space-y-5">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-y-4 text-sm">
-                <div>
-                  <p className="text-xs text-gray-500 uppercase font-bold tracking-wide">Primary Guest</p>
-                  <p className="font-bold text-gray-900 mt-0.5">{guests[0]?.fullName}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 uppercase font-bold tracking-wide">Room</p>
-                  <p className="font-bold text-gray-900 mt-0.5">{selectedRoom?.roomNumber} <span className="text-gray-500 font-normal">({stayInfo.occupants} guests)</span></p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 uppercase font-bold tracking-wide">Type</p>
-                  <p className="font-bold text-gray-900 mt-0.5">{stayInfo.durationOption.startsWith('custom_') ? `${stayInfo.durationOption.split('_')[1]} Hours` : (stayInfo.durationOption === '12h' ? '12 Hours' : `${nights} Night${nights > 1 ? 's' : ''}`)}</p>
-                </div>
-                <div className="col-span-2">
-                  <p className="text-xs text-gray-500 uppercase font-bold tracking-wide">Exact Timings</p>
-                  <p className="font-bold text-gray-900 mt-0.5 text-sm">
-                    {format(new Date(stayInfo.checkInDate), 'dd MMM, hh:mm a')} → {format(new Date(stayInfo.expectedCheckOutDate), 'dd MMM, hh:mm a')}
-                  </p>
-                </div>
-              </div>
-
-              <div className="border-t border-gray-200 pt-5 space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600 font-medium">Base rate ({stayInfo.durationOption === '12h' ? '12h' : '1 night'})</span>
-                  <span className="font-bold text-gray-900">₹{basePrice}</span>
-                </div>
-
-                {extraCharge > 0 && (
-                  <div className="flex justify-between text-sm text-blue-700 bg-blue-50/50 p-2 rounded-lg -mx-2">
-                    <span className="font-medium">+{extraPersons} extra person{extraPersons > 1 ? 's' : ''} × ₹{extraPerPerson}</span>
-                    <span className="font-bold">+₹{extraCharge}</span>
-                  </div>
-                )}
-
-                {stayInfo.durationOption === '24h' && nights > 1 && (
-                  <div className="flex justify-between text-sm text-gray-500 pt-2 border-t border-gray-200/60">
-                    <span className="font-medium">Effective nightly rate (₹{pricePerUnit}) × {nights} nights</span>
-                    <span className="font-bold text-gray-900">₹{grossTotal}</span>
-                  </div>
-                )}
-
-                <div className="flex justify-between items-center bg-white rounded-xl p-3 border border-gray-200 mt-4 shadow-sm">
-                  <div className="flex items-center gap-2 text-gray-700">
-                    <Percent size={16} className="text-indigo-500" />
-                    <span className="font-bold text-sm">Discount (₹)</span>
-                  </div>
-                  <input type="number" min="0" max={grossTotal}
-                    className="w-28 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-right text-sm"
-                    value={stayInfo.discountAmount} onChange={e => setStayInfo({...stayInfo, discountAmount: Math.min(Number(e.target.value), grossTotal)})}
-                  />
-                </div>
-
-                <div className="flex justify-between items-end pt-2">
-                  <span className="font-black text-gray-900 text-lg uppercase tracking-tight">Total</span>
-                  <span className="text-3xl font-black text-black">₹{total}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide">Collect Payment (₹)</label>
-              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-                <input type="number" min="0" max={total}
-                  className="w-full sm:w-1/2 px-4 py-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-black focus:border-black outline-none text-2xl font-black transition-all"
-                  placeholder="0" value={initialPayment} onChange={e => setInitialPayment(e.target.value)}
-                />
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => setInitialPayment(total)} className="text-sm font-bold px-4 py-3 bg-green-50 text-green-700 border border-green-200 rounded-xl hover:bg-green-100 transition-colors shadow-sm">Full ₹{total}</button>
-                  <button type="button" onClick={() => setInitialPayment('')} className="text-sm font-bold px-4 py-3 bg-white text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">Clear</button>
-                </div>
-              </div>
-              {initialPayment > 0 && initialPayment < total && (
-                <p className="text-sm text-orange-700 font-medium bg-orange-50 px-4 py-2.5 rounded-xl border border-orange-100 flex items-center gap-2">
-                  <Clock size={16} /> ₹{total - initialPayment} will remain as pending balance.
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-3">Payment Method</label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {['Cash', 'UPI', 'Card', 'Bank Transfer'].map(m => (
-                  <button key={m} type="button" onClick={() => setStayInfo({...stayInfo, paymentMethod: m})}
-                    className={`py-3 rounded-xl text-sm font-bold border transition-all shadow-sm ${stayInfo.paymentMethod === m ? 'bg-black text-white border-black transform scale-[1.02]' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
-                    {m}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="pt-6 flex justify-between border-t border-gray-100">
-              <button className="text-gray-500 px-5 py-3 font-semibold hover:text-black transition-colors" onClick={() => setStep(2)}>← Back</button>
-              <button
-                className="bg-green-600 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-green-700 transition-all shadow-lg shadow-green-600/20 disabled:opacity-40 disabled:cursor-not-allowed transform hover:-translate-y-0.5"
-                onClick={handleSubmit} disabled={loading}>
-                {loading ? <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Processing...</> : <><ShieldCheck size={20} /> Complete Check-In</>}
-              </button>
-            </div>
-          </div>
-        )}
+        
       </div>
     </div>
   );

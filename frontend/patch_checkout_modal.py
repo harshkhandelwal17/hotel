@@ -1,108 +1,12 @@
-import React, { useState } from 'react';
-import axios from 'axios';
-import { format } from 'date-fns';
-import { X, User, Home, Calendar, CreditCard, AlertCircle, CheckCircle2, Plus, Printer, ChevronRight } from 'lucide-react';
+import sys, re
 
-const CheckoutModal = ({ stay, onClose, onSuccess }) => {
-  const [additionalCharges, setAdditionalCharges] = useState(0);
-  const [additionalChargesNote, setAdditionalChargesNote] = useState('');
-  const [checkoutPayment, setCheckoutPayment] = useState(0);
-  const [paymentMethod, setPaymentMethod] = useState('Cash');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [checkoutComplete, setCheckoutComplete] = useState(false);
-  const [completedStay, setCompletedStay] = useState(null);
+with open('src/pages/receptionist/CheckoutModal.jsx', 'r') as f:
+    content = f.read()
 
-  const baseBalance = stay.totalAmount - stay.paidAmount;
-  const finalBalance = Math.max(0, baseBalance + Number(additionalCharges));
+# Replace the inner form content
+target_form = re.compile(r'<form onSubmit=\{handleCheckout\}>.*?</form>', re.DOTALL)
 
-  const handleCheckout = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    try {
-      const res = await axios.post(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/stays/${stay._id}/checkout`, {
-        additionalCharges: Number(additionalCharges),
-        checkoutPayment: Number(checkoutPayment),
-        paymentMethod,
-      });
-      setCompletedStay(res.data.data);
-      setCheckoutComplete(true);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to checkout. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (checkoutComplete) {
-    const finalAmount = completedStay ? completedStay.totalAmount : stay.totalAmount;
-    
-    return (
-      <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onSuccess}>
-        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden p-8 text-center animate-in fade-in zoom-in-95" onClick={e => e.stopPropagation()}>
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">
-            <CheckCircle2 size={40} className="text-green-600" />
-          </div>
-          <h2 className="text-2xl font-black text-gray-900 mb-2">Checked Out!</h2>
-          <p className="text-gray-500 text-sm mb-6">Guest has been successfully checked out.</p>
-          
-          <div className="space-y-3">
-            <button
-              onClick={() => {
-                const printWindow = window.open('', '_blank');
-                printWindow.document.write(`
-                  <html>
-                  <head>
-                    <title>Invoice - ${stay.guest?.fullName}</title>
-                    <style>body{font-family:sans-serif;padding:20px;}</style>
-                  </head>
-                  <body>
-                    <h2>${stay.hostel?.name || 'Hotel'} Invoice</h2>
-                    <p>Guest: ${stay.guest?.fullName}</p>
-                    <p>Total Paid: Rs ${finalAmount}</p>
-                    <p style="font-size:11px; margin-top:20px">* Amount is inclusive of all applicable taxes (GST)</p>
-                  </body>
-                  </html>
-                `);
-                printWindow.document.close();
-                printWindow.print();
-                onSuccess();
-              }}
-              className="w-full py-3 bg-black text-white font-bold rounded-xl shadow-md hover:shadow-xl transition-all flex items-center justify-center gap-2"
-            >
-              <Printer size={18} /> Print Final Invoice
-            </button>
-            <button
-              onClick={onSuccess}
-              className="w-full py-3 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition-all"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300"
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-start">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">Checkout Guest</h2>
-            <p className="text-sm text-gray-500 mt-0.5">Finalize billing and release room</p>
-          </div>
-          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors">
-            <X size={20} />
-          </button>
-        </div>
-
-        <form onSubmit={handleCheckout}>
+replacement_form = """<form onSubmit={handleCheckout}>
           <div className="p-6 space-y-6">
             {error && <div className="p-3 bg-red-50 border border-red-100 text-red-600 rounded-xl font-medium text-sm flex items-center gap-2"><AlertCircle size={16}/> {error}</div>}
             
@@ -221,10 +125,10 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
               {loading ? 'Processing...' : 'Confirm Checkout'} <ChevronRight size={16}/>
             </button>
           </div>
-        </form>
-      </div>
-    </div>
-  );
-};
+        </form>"""
 
-export default CheckoutModal;
+content = re.sub(target_form, replacement_form, content)
+
+with open('src/pages/receptionist/CheckoutModal.jsx', 'w') as f:
+    f.write(content)
+print("CheckoutModal Form Rewritten")

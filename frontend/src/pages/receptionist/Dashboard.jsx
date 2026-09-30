@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import axios from 'axios';
 import { format } from 'date-fns';
@@ -9,16 +9,6 @@ const ReceptionistDashboard = () => {
   const [stats, setStats] = useState(null);
   const [recentStays, setRecentStays] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { globalProperty } = useOutletContext() || { globalProperty: 'all' };
-
-  useEffect(() => {
-    fetchDashboardData();
-  }, [globalProperty]);
-  useEffect(() => {
-    const handlePropChange = () => fetchDashboardData();
-    window.addEventListener('propertyChanged', handlePropChange);
-    return () => window.removeEventListener('propertyChanged', handlePropChange);
-  }, [globalProperty]);
 
   async function fetchDashboardData() {
     try {
@@ -37,6 +27,18 @@ const ReceptionistDashboard = () => {
       setLoading(false);
     }
   };
+  const { globalProperty } = useOutletContext() || { globalProperty: 'all' };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [globalProperty]);
+  useEffect(() => {
+    const handlePropChange = () => fetchDashboardData();
+    window.addEventListener('propertyChanged', handlePropChange);
+    return () => window.removeEventListener('propertyChanged', handlePropChange);
+  }, [globalProperty]);
+
+  
 
   if (loading) {
     return (
@@ -113,7 +115,7 @@ const ReceptionistDashboard = () => {
         {/* Recent Activity / Guests */}
         <div className="lg:col-span-2 space-y-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-bold text-gray-900">Recent Check-ins</h2>
+            <h2 className="text-xl font-bold text-gray-900">Active Stays (In-House)</h2>
             <Link to="/checkouts" className="text-sm font-semibold text-blue-600 hover:text-blue-800 flex items-center">
               View all active stays <ChevronRight size={16} />
             </Link>
@@ -134,9 +136,14 @@ const ReceptionistDashboard = () => {
                           <p className="text-xs font-medium text-gray-500 mt-0.5">Room {stay.room?.roomNumber} • ({stay.occupants} Guests)</p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Checkout</p>
-                        <p className="text-sm font-bold text-gray-900">{format(new Date(stay.expectedCheckOutDate), 'dd MMM yyyy')}</p>
+                      <div className="flex flex-col items-end gap-2 text-right">
+                        <div>
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Checkout At</p>
+                          <p className="text-sm font-bold text-gray-900">{format(new Date(stay.expectedCheckOutDate), 'dd MMM, hh:mm a')}</p>
+                        </div>
+                        <Link to="/checkouts" className="px-4 py-1.5 bg-black text-white text-xs font-bold uppercase rounded-lg hover:bg-gray-800 transition-colors shadow-sm">
+                          Manage
+                        </Link>
                       </div>
                     </div>
                   </li>

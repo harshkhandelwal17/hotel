@@ -8,6 +8,7 @@ const ExtendStayModal = ({ stay, onClose, onSuccess }) => {
     format(addDays(new Date(stay.expectedCheckOutDate), 1), "yyyy-MM-dd'T'HH:mm")
   );
   const [extensionPayment, setExtensionPayment] = useState(0);
+  const [additionalRent, setAdditionalRent] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -20,7 +21,7 @@ const ExtendStayModal = ({ stay, onClose, onSuccess }) => {
     additionalNights = Math.ceil((newOut.getTime() - currentOut.getTime()) / (1000 * 60 * 60 * 24));
   }
   
-  const additionalCost = additionalNights > 0 ? additionalNights * stay.pricePerNight : 0;
+  const additionalCost = Number(additionalRent) || 0;
 
   const handleExtend = async (e) => {
     e.preventDefault();
@@ -35,7 +36,8 @@ const ExtendStayModal = ({ stay, onClose, onSuccess }) => {
     try {
       await axios.post(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/stays/${stay._id}/extend`, {
         newCheckOutDate: new Date(newCheckOutDate).toISOString(),
-        extensionPayment: Number(extensionPayment)
+        extensionPayment: Number(extensionPayment),
+        additionalRent: Number(additionalRent)
       });
       onSuccess();
     } catch (err) {
@@ -61,7 +63,6 @@ const ExtendStayModal = ({ stay, onClose, onSuccess }) => {
             
             <div className="bg-blue-50 p-3 rounded-md text-sm text-blue-800">
               <p><strong>Current Checkout:</strong> {format(currentOut, 'dd MMM yyyy, hh:mm a')}</p>
-              <p><strong>Room Rate:</strong> ₹{stay.pricePerNight} / night</p>
             </div>
 
             <div>
@@ -77,16 +78,23 @@ const ExtendStayModal = ({ stay, onClose, onSuccess }) => {
             </div>
             
             {additionalNights > 0 && (
-              <div className="py-2 border-t border-b border-gray-100 my-2 text-sm">
-                <div className="flex justify-between mb-1">
-                  <span className="text-gray-600">Additional Nights:</span>
-                  <span className="font-medium text-gray-900">{additionalNights}</span>
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Additional Rent to Charge (₹)</label>
+                  <input type="number" required placeholder="0" className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 font-bold"
+                    value={additionalRent} onChange={e => setAdditionalRent(e.target.value)} />
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Additional Cost:</span>
-                  <span className="font-medium text-gray-900">₹{additionalCost}</span>
+                <div className="py-2 border-t border-b border-gray-100 my-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Extending by:</span>
+                    <span className="font-medium">{additionalNights} nights</span>
+                  </div>
+                  <div className="flex justify-between font-bold mt-1">
+                    <span className="text-gray-900">Total Additional Cost:</span>
+                    <span className="text-gray-900">₹{additionalCost}</span>
+                  </div>
                 </div>
-              </div>
+              </>
             )}
 
             <div>
