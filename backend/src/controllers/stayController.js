@@ -6,7 +6,7 @@ const mongoose = require('mongoose');
 
 exports.createStay = async (req, res, next) => {
   try {
-    const { guest, room, checkInDate, expectedCheckOutDate, initialPaymentAmount, paymentMethod, durationOption, discountAmount, occupants, coGuests, commissionTo, commissionAmount } = req.body;
+    const { guest, room, checkInDate, expectedCheckOutDate, initialPaymentAmount, paymentMethod, durationOption, occupants, coGuests, commissionTo, commissionAmount } = req.body;
     const hostel = req.user.role === 'admin' ? req.body.hostel : req.user.assignedHostel;
     
     // Validate overlapping stays for the ROOM (not bed)
@@ -28,8 +28,7 @@ exports.createStay = async (req, res, next) => {
     
     // Runtime manual pricing
     let totalAmount = Number(req.body.totalAmount) || 0;
-    const finalDiscount = Number(discountAmount) || 0;
-    totalAmount = Math.max(0, totalAmount - finalDiscount);
+    totalAmount = Math.max(0, totalAmount);
 
     const stay = await Stay.create([{
       guest,
@@ -39,7 +38,6 @@ exports.createStay = async (req, res, next) => {
       checkInDate,
       expectedCheckOutDate,
       durationOption: durationOption || '24h',
-      discountAmount: finalDiscount,
       totalAmount,
       paidAmount: initialPaymentAmount || 0,
       occupants: occupants || 1,
