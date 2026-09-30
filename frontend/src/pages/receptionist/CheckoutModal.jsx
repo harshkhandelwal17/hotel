@@ -88,11 +88,11 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
   return (
     <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300 flex flex-col max-h-[95vh] sm:max-h-[90vh]"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-start">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-100 flex justify-between items-start flex-shrink-0">
           <div>
             <h2 className="text-xl font-bold text-gray-900">Checkout Guest</h2>
             <p className="text-sm text-gray-500 mt-0.5">Finalize billing and release room</p>
@@ -102,8 +102,8 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
           </button>
         </div>
 
-        <form onSubmit={handleCheckout}>
-          <div className="p-6 space-y-6">
+        <form onSubmit={handleCheckout} className="flex flex-col overflow-hidden h-full">
+          <div className="p-4 sm:p-6 space-y-5 sm:space-y-6 overflow-y-auto flex-1">
             {error && <div className="p-3 bg-red-50 border border-red-100 text-red-600 rounded-xl font-medium text-sm flex items-center gap-2"><AlertCircle size={16}/> {error}</div>}
             
             {/* Guest Identity Card */}
@@ -214,10 +214,10 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
             )}
           </div>
           
-          <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3 rounded-b-3xl">
-            <button type="button" onClick={onClose} className="px-5 py-2.5 text-sm font-bold text-gray-600 hover:text-gray-900 transition-colors">Cancel</button>
+          <div className="px-4 sm:px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col-reverse sm:flex-row justify-end gap-3 rounded-b-3xl flex-shrink-0">
+            <button type="button" onClick={onClose} className="w-full sm:w-auto px-5 py-3 sm:py-2.5 text-sm font-bold text-gray-600 bg-white sm:bg-transparent border sm:border-0 border-gray-200 rounded-xl hover:text-gray-900 hover:bg-gray-100 transition-colors">Cancel</button>
             <button type="submit" disabled={loading || (finalBalance > 0 && Number(checkoutPayment) < finalBalance)} 
-              className="px-8 py-2.5 bg-red-600 text-white text-sm font-black uppercase tracking-wide rounded-xl hover:bg-red-700 transition-colors shadow-md disabled:opacity-50 flex items-center gap-2 active:scale-95">
+              className="w-full sm:w-auto justify-center px-8 py-3.5 sm:py-2.5 bg-red-600 text-white text-sm font-black uppercase tracking-wide rounded-xl hover:bg-red-700 transition-colors shadow-md disabled:opacity-50 flex items-center gap-2 active:scale-95">
               {loading ? 'Processing...' : 'Confirm Checkout'} <ChevronRight size={16}/>
             </button>
           </div>

@@ -79,7 +79,7 @@ const CheckIn = () => {
 
   const isRoomAvailable = (roomId) => {
     return !activeStays.some(stay => {
-      if (stay.room._id !== roomId) return false;
+      if (!stay.room || (stay.room._id !== roomId && stay.room !== roomId)) return false;
       const stayCheckOut = new Date(stay.expectedCheckOutDate);
       const newCheckIn = new Date(stayInfo.checkInDate);
       return newCheckIn < stayCheckOut;
