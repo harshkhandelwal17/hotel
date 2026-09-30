@@ -237,7 +237,7 @@ const CheckIn = () => {
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
         {/* ─── STEP 1: Room & Occupants ────────────────────────────────────────────── */}
         {step === 1 && (
-          <div className="p-7 space-y-8">
+          <div className="p-4 sm:p-7 space-y-8">
             <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
               <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl"><Bed size={20} /></div>
               <div>
@@ -252,14 +252,14 @@ const CheckIn = () => {
               {/* Occupants */}
               <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100 flex flex-col justify-center items-center">
                 <label className="block text-sm font-black text-gray-700 uppercase tracking-widest mb-4">How many Guests?</label>
-                <div className="flex items-center gap-6 bg-white p-3 rounded-full shadow-sm border border-gray-200">
+                <div className="flex items-center gap-4 sm:gap-6 bg-white p-2 sm:p-3 rounded-full shadow-sm border border-gray-200">
                   <button type="button" onClick={() => handleOccupantsChange(Math.max(1, stayInfo.occupants - 1))}
-                    className="w-14 h-14 flex items-center justify-center rounded-full bg-red-50 text-red-600 hover:bg-red-100 active:bg-red-200 transition-colors text-2xl font-black">
+                    className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center rounded-full bg-red-50 text-red-600 hover:bg-red-100 active:bg-red-200 transition-colors text-2xl font-black">
                     -
                   </button>
                   <span className="text-4xl font-black text-gray-900 w-12 text-center">{stayInfo.occupants}</span>
                   <button type="button" onClick={() => handleOccupantsChange(stayInfo.occupants + 1)}
-                    className="w-14 h-14 flex items-center justify-center rounded-full bg-green-50 text-green-600 hover:bg-green-100 active:bg-green-200 transition-colors text-2xl font-black">
+                    className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center rounded-full bg-green-50 text-green-600 hover:bg-green-100 active:bg-green-200 transition-colors text-2xl font-black">
                     +
                   </button>
                 </div>
@@ -286,7 +286,7 @@ const CheckIn = () => {
                 </div>
 
                 {/* Manual Steppers */}
-                <div className="flex justify-center gap-4">
+                <div className="flex justify-center gap-2 sm:gap-4">
                   {/* Days Stepper */}
                   <div className="flex flex-col items-center">
                     <span className="text-[10px] font-bold text-gray-500 uppercase mb-1">Days</span>
@@ -294,12 +294,12 @@ const CheckIn = () => {
                        <button type="button" onClick={() => {
                          const newD = Math.max(0, (stayInfo.stayDays || 0) - 1);
                          setStayInfo({...stayInfo, stayDays: newD, expectedCheckOutDate: format(addHours(addDays(new Date(stayInfo.checkInDate), newD), stayInfo.stayHours || 0), "yyyy-MM-dd'T'HH:mm")});
-                       }} className="px-4 py-2 bg-gray-50 hover:bg-gray-100 font-black text-gray-600">-</button>
-                       <span className="px-4 font-black text-lg w-12 text-center">{stayInfo.stayDays || 0}</span>
+                       }} className="px-3 sm:px-4 py-2 bg-gray-50 hover:bg-gray-100 font-black text-gray-600">-</button>
+                       <span className="px-2 sm:px-4 font-black text-lg w-10 sm:w-12 text-center">{stayInfo.stayDays || 0}</span>
                        <button type="button" onClick={() => {
                          const newD = (stayInfo.stayDays || 0) + 1;
                          setStayInfo({...stayInfo, stayDays: newD, expectedCheckOutDate: format(addHours(addDays(new Date(stayInfo.checkInDate), newD), stayInfo.stayHours || 0), "yyyy-MM-dd'T'HH:mm")});
-                       }} className="px-4 py-2 bg-gray-50 hover:bg-gray-100 font-black text-gray-600">+</button>
+                       }} className="px-3 sm:px-4 py-2 bg-gray-50 hover:bg-gray-100 font-black text-gray-600">+</button>
                     </div>
                   </div>
                   <span className="text-2xl font-black text-gray-300 self-end mb-2">+</span>
@@ -310,12 +310,12 @@ const CheckIn = () => {
                        <button type="button" onClick={() => {
                          const newH = Math.max(0, (stayInfo.stayHours || 0) - 1);
                          setStayInfo({...stayInfo, stayHours: newH, expectedCheckOutDate: format(addHours(addDays(new Date(stayInfo.checkInDate), stayInfo.stayDays || 0), newH), "yyyy-MM-dd'T'HH:mm")});
-                       }} className="px-4 py-2 bg-gray-50 hover:bg-gray-100 font-black text-gray-600">-</button>
-                       <span className="px-4 font-black text-lg w-12 text-center">{stayInfo.stayHours || 0}</span>
+                       }} className="px-3 sm:px-4 py-2 bg-gray-50 hover:bg-gray-100 font-black text-gray-600">-</button>
+                       <span className="px-2 sm:px-4 font-black text-lg w-10 sm:w-12 text-center">{stayInfo.stayHours || 0}</span>
                        <button type="button" onClick={() => {
                          const newH = (stayInfo.stayHours || 0) + 1;
                          setStayInfo({...stayInfo, stayHours: newH, expectedCheckOutDate: format(addHours(addDays(new Date(stayInfo.checkInDate), stayInfo.stayDays || 0), newH), "yyyy-MM-dd'T'HH:mm")});
-                       }} className="px-4 py-2 bg-gray-50 hover:bg-gray-100 font-black text-gray-600">+</button>
+                       }} className="px-3 sm:px-4 py-2 bg-gray-50 hover:bg-gray-100 font-black text-gray-600">+</button>
                     </div>
                   </div>
                 </div>
@@ -380,7 +380,7 @@ const CheckIn = () => {
               {/* Billing */}
               <div className="space-y-4">
                 <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide flex items-center gap-2"><CreditCard size={16}/> Payment & Billing</label>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                    <div className="col-span-2">
                     <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Agreed Total Rent (₹)</label>
                     <input type="number" required placeholder="0" className="w-full px-4 py-3 bg-blue-50/50 border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-black text-2xl text-blue-900"
@@ -403,7 +403,7 @@ const CheckIn = () => {
               <div className="flex flex-col justify-between">
                 <div className="space-y-4">
                   <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide">Broker / Commission (Optional)</label>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Referred By (Name/Auto)</label>
                       <input type="text" placeholder="e.g. Auto Driver" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none font-medium text-sm text-gray-900"
@@ -434,7 +434,7 @@ const CheckIn = () => {
             </div>
 
             <div className="pt-6 flex justify-end border-t border-gray-100">
-              <button type="button" className="bg-black text-white px-8 py-3.5 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-800 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md text-sm uppercase tracking-wide"
+              <button type="button" className="w-full sm:w-auto justify-center bg-black text-white px-8 py-3.5 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-800 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md text-sm uppercase tracking-wide"
                 onClick={() => setStep(2)} disabled={!canProceed1}>
                 Next: Guest Details <ChevronRight size={18} />
               </button>
@@ -444,7 +444,7 @@ const CheckIn = () => {
 
         {/* ─── STEP 2: Guests Info ────────────────────────────────────────────── */}
         {step === 2 && (
-          <div className="p-7 space-y-6">
+          <div className="p-4 sm:p-7 space-y-6">
              <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
               <div className="p-2.5 bg-orange-50 text-orange-600 rounded-xl"><UserPlus size={20} /></div>
               <div>
@@ -456,7 +456,7 @@ const CheckIn = () => {
             <div className="space-y-6">
               {guests.map((guest, index) => (
                 <div key={index} className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-                  <div className="bg-gray-50 px-5 py-3 border-b border-gray-200 flex justify-between items-center">
+                  <div className="bg-gray-50 px-4 sm:px-5 py-3 border-b border-gray-200 flex justify-between items-center">
                     <h3 className="font-bold text-gray-800 flex items-center gap-2">
                       <div className="w-6 h-6 rounded-full bg-black text-white flex items-center justify-center text-xs">{index + 1}</div>
                       Guest {index === 1 ? '(Primary)' : ''} {index === 0 && <span className="text-[10px] bg-green-100 text-green-800 px-2 py-0.5 rounded uppercase">Primary</span>}
@@ -467,7 +467,7 @@ const CheckIn = () => {
                       </span>
                     )}
                   </div>
-                  <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-5 relative">
+                  <div className="p-4 sm:p-5 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 relative">
                     {guest.isSearching && (
                        <div className="absolute top-2 right-2 text-xs text-blue-500 flex items-center gap-1"><Search size={12} className="animate-spin" /> Searching...</div>
                     )}
@@ -508,9 +508,9 @@ const CheckIn = () => {
               ))}
             </div>
 
-            <div className="pt-6 flex justify-between border-t border-gray-100">
-              <button className="text-gray-500 px-5 py-3 font-semibold hover:text-black transition-colors" onClick={() => setStep(1)}>← Back</button>
-              <button type="button" className="bg-black text-white px-8 py-3.5 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-800 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md uppercase tracking-wide text-sm"
+            <div className="pt-6 flex flex-col sm:flex-row justify-between gap-3 border-t border-gray-100">
+              <button className="w-full sm:w-auto text-center text-gray-500 px-5 py-3 font-semibold hover:text-black transition-colors" onClick={() => setStep(1)}>← Back</button>
+              <button type="button" className="w-full sm:w-auto justify-center bg-black text-white px-8 py-3.5 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-800 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md uppercase tracking-wide text-sm"
                 onClick={handleSubmit} disabled={!canProceed2 || loading}>
                 {loading ? 'Processing...' : 'Complete Check-In'} <CheckCircle2 size={18} />
               </button>
