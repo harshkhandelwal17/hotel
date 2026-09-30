@@ -30,7 +30,7 @@ const Login = () => {
       {/* Left Panel - Branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-black flex-col justify-between p-12">
         <div>
-          <div className="text-white text-2xl font-black tracking-tight">Hotel<span className="text-gray-400">Pro</span></div>
+          <div className="text-white text-2xl font-black tracking-tight">NX<span className="text-gray-400">Hotel</span></div>
         </div>
         <div>
           <h1 className="text-5xl font-black text-white leading-tight mb-4">
@@ -60,7 +60,7 @@ const Login = () => {
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-sm">
           <div className="mb-10">
-            <div className="text-black text-xl font-black tracking-tight mb-6 lg:hidden">Hotel<span className="text-gray-400">Pro</span></div>
+            <div className="text-black text-xl font-black tracking-tight mb-6 lg:hidden">NX<span className="text-gray-400">Hotel</span></div>
             <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">Welcome back</h2>
             <p className="text-gray-500 mt-2">Sign in to your hotel dashboard</p>
           </div>
@@ -106,7 +106,7 @@ const Login = () => {
           </form>
 
           <p className="text-center text-xs text-gray-400 mt-8">
-            Hotel Management System • Secure Login
+            NXHotel Management System • Secure Login
           </p>
         </div>
       </div>

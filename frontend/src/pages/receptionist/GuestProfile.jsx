@@ -62,7 +62,7 @@ const GuestProfile = () => {
         </head>
         <body>
           <div class="header">
-            <h1 class="title">${stay.hostel?.name || 'HotelPro'}</h1>
+            <h1 class="title">${stay.hostel?.name || 'NXHotel'}</h1>
             <div class="subtitle">Tax Invoice / Receipt</div>
             <div style="font-size: 14px; color: #666; margin-top: 5px;">${stay.hostel?.address || ''}</div>
           </div>
@@ -109,7 +109,7 @@ const GuestProfile = () => {
           </table>
           
           <div style="margin-top: 60px; font-size: 12px; color: #888; text-align: center;">
-            <p>Thank you for your stay with HotelPro.</p>
+            <p>Thank you for your stay with NXHotel.</p>
             <p>This is a computer generated invoice and does not require a signature.</p>
           </div>
           

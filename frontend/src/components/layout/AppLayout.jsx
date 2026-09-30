@@ -100,7 +100,7 @@ const AppLayout = ({ children }) => {
                 <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
                   <Hexagon className="text-white w-5 h-5" />
                 </div>
-                <span className="text-xl font-black tracking-tight text-gray-900">Hotel<span className="text-gray-400">Pro</span></span>
+                <span className="text-xl font-black tracking-tight text-gray-900">NX<span className="text-gray-400">Hotel</span></span>
               </Link>
               <nav className="hidden md:flex space-x-2">
                 {navItems.map((item) => {
@@ -217,7 +217,7 @@ const AppLayout = ({ children }) => {
                 <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
                   <Hexagon className="text-white w-5 h-5" />
                 </div>
-                <span className="text-xl font-black tracking-tight text-gray-900">Hotel<span className="text-gray-400">Pro</span></span>
+                <span className="text-xl font-black tracking-tight text-gray-900">NX<span className="text-gray-400">Hotel</span></span>
               </div>
               <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-gray-400 hover:text-red-600 rounded-full">
                 <X size={24} />
