@@ -3,7 +3,7 @@ import axios from 'axios';
 import { Search, X, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-const GlobalSearch = () => {
+const GlobalSearch = ({ onResultClick }) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -50,6 +50,7 @@ const GlobalSearch = () => {
     setIsOpen(false);
     setQuery('');
     navigate(`/guests/${guestId}`);
+    if (onResultClick) onResultClick();
   };
 
   return (

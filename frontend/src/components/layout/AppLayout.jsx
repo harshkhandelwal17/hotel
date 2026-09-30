@@ -225,6 +225,9 @@ const AppLayout = ({ children }) => {
             </div>
             
             <div className="px-4 pt-4 pb-2">
+              <div className="mb-4">
+                <GlobalSearch onResultClick={() => setIsMobileMenuOpen(false)} />
+              </div>
               {user?.role === 'admin' && (
                 <select 
                   value={globalProperty} 
