@@ -130,8 +130,8 @@ const GuestProfile = () => {
   return (
     <div className="space-y-6">
       {/* Profile Header */}
-      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
           <div className="bg-blue-100 p-4 rounded-full text-blue-600">
             <User size={32} />
           </div>

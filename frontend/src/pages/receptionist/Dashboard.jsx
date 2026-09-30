@@ -126,7 +126,7 @@ const ReceptionistDashboard = () => {
               <ul className="divide-y divide-gray-50">
                 {recentStays.map(stay => (
                   <li key={stay._id} className="p-5 hover:bg-gray-50/80 transition-colors">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="flex items-center space-x-4">
                         <div className="h-12 w-12 rounded-full bg-gradient-to-tr from-blue-100 to-indigo-100 flex items-center justify-center text-blue-700 font-bold text-lg">
                           {stay.guest?.fullName?.charAt(0) || 'U'}
@@ -136,7 +136,7 @@ const ReceptionistDashboard = () => {
                           <p className="text-xs font-medium text-gray-500 mt-0.5">Room {stay.room?.roomNumber} • ({stay.occupants} Guests)</p>
                         </div>
                       </div>
-                      <div className="flex flex-col items-end gap-2 text-right">
+                      <div className="flex flex-col sm:items-end gap-2 sm:text-right">
                         <div>
                           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Checkout At</p>
                           <p className="text-sm font-bold text-gray-900">{format(new Date(stay.expectedCheckOutDate), 'dd MMM, hh:mm a')}</p>
