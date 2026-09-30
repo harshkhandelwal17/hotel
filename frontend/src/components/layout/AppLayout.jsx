@@ -35,10 +35,13 @@ const AppLayout = ({ children }) => {
           const diffMs = checkoutDate - now;
           const diffMins = Math.floor(diffMs / 60000);
           
+          const roomDisplay = stay.room ? stay.room.roomNumber : 'N/A';
+          const guestName = stay.guest ? stay.guest.fullName : 'Unknown Guest';
+          
           if (diffMins <= 30 && diffMins > 0) {
-            upcoming.push({ id: stay._id, type: 'warning', text: `⏳ ${stay.guest?.fullName} (Room ${stay.room?.roomNumber}) checkout in ${diffMins} mins.` });
-          } else if (diffMins <= 0 && diffMins >= -1440) { // Up to 24 hours overdue
-            upcoming.push({ id: stay._id, type: 'danger', text: `🚨 ${stay.guest?.fullName} (Room ${stay.room?.roomNumber}) checkout OVERDUE by ${Math.abs(diffMins)} mins!` });
+            upcoming.push({ id: stay._id, type: 'warning', title: 'Checkout Soon', text: `${guestName} (Room ${roomDisplay}) checkout in ${diffMins} mins.` });
+          } else if (diffMins <= 0 && diffMins >= -1440) {
+            upcoming.push({ id: stay._id, type: 'danger', title: 'Checkout Overdue', text: `${guestName} (Room ${roomDisplay}) is overdue by ${Math.abs(diffMins)} mins!` });
           }
         });
         
@@ -155,7 +158,7 @@ const AppLayout = ({ children }) => {
                 </button>
                 
                 {showNotifications && (
-                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
+                  <div className="absolute right-0 mt-2 w-[90vw] max-w-sm sm:w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
                     <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
                       <h3 className="text-sm font-black text-gray-900">Alerts</h3>
                       <span className="text-[10px] font-bold bg-black text-white px-2 py-0.5 rounded-full">{notifications.length}</span>
@@ -164,11 +167,22 @@ const AppLayout = ({ children }) => {
                       {notifications.length === 0 ? (
                         <div className="p-6 text-center text-gray-500 text-sm">No new notifications</div>
                       ) : (
-                        <div className="divide-y divide-gray-50">
+                        <div className="divide-y divide-gray-100">
                           {notifications.map((notif, idx) => (
-                            <div key={idx} className={`p-4 text-sm font-medium ${notif.type === 'danger' ? 'bg-red-50 text-red-800' : 'bg-orange-50 text-orange-800'}`}>
-                              {notif.text}
-                            </div>
+                            <Link 
+                              to="/checkouts" 
+                              key={idx} 
+                              onClick={() => setShowNotifications(false)}
+                              className={`block p-4 transition-colors hover:bg-gray-50 ${notif.type === 'danger' ? 'bg-red-50/30' : 'bg-orange-50/30'}`}
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className={`mt-0.5 w-2 h-2 rounded-full flex-shrink-0 ${notif.type === 'danger' ? 'bg-red-500 animate-pulse' : 'bg-orange-400'}`}></div>
+                                <div>
+                                  <p className={`text-xs font-black uppercase tracking-widest mb-1 ${notif.type === 'danger' ? 'text-red-700' : 'text-orange-700'}`}>{notif.title}</p>
+                                  <p className="text-sm font-bold text-gray-800 leading-tight">{notif.text}</p>
+                                </div>
+                              </div>
+                            </Link>
                           ))}
                         </div>
                       )}
