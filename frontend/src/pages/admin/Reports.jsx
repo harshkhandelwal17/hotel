@@ -78,27 +78,25 @@ const Reports = () => {
   // Calculate Financial Stats
   const stats = useMemo(() => {
     let grossBooking = 0;
-    let totalDiscount = 0;
     let totalCommission = 0;
     let netProfit = 0;
     let cashCollected = 0;
     
     filteredStays.forEach(stay => {
       grossBooking += (stay.totalAmount || 0);
-      totalDiscount += (stay.discountAmount || 0);
       totalCommission += (stay.commissionAmount || 0);
       netProfit += ((stay.totalAmount || 0) - (stay.commissionAmount || 0));
       cashCollected += (stay.paidAmount || 0);
     });
     
-    return { grossBooking, totalDiscount, totalCommission, netProfit, cashCollected };
+    return { grossBooking, totalCommission, netProfit, cashCollected };
   }, [filteredStays]);
 
   const downloadCSV = () => {
-    const headers = ['Check-In Date', 'Guest Name', 'Room No', 'Booking Amount', 'Discount', 'Broker Name', 'Commission Paid', 'Net Profit', 'Total Collected', 'Status'];
+    const headers = ['Check-In Date', 'Guest Name', 'Room No', 'Booking Amount', 'Broker Name', 'Commission Paid', 'Net Profit', 'Total Collected', 'Status'];
     const csvData = filteredStays.map(stay => {
       const net = (stay.totalAmount || 0) - (stay.commissionAmount || 0);
-      return `"${format(new Date(stay.checkInDate), 'dd MMM yyyy')}","${stay.guest?.fullName || 'N/A'}","${stay.room?.roomNumber || 'N/A'}",${stay.totalAmount || 0},${stay.discountAmount || 0},"${stay.commissionTo || ''}",${stay.commissionAmount || 0},${net},${stay.paidAmount || 0},"${stay.status}"`;
+      return `"${format(new Date(stay.checkInDate), 'dd MMM yyyy')}","${stay.guest?.fullName || 'N/A'}","${stay.room?.roomNumber || 'N/A'}",${stay.totalAmount || 0},"${stay.commissionTo || ''}",${stay.commissionAmount || 0},${net},${stay.paidAmount || 0},"${stay.status}"`;
     });
     const csvContent = [headers.join(','), ...csvData].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -131,7 +129,7 @@ const Reports = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm hover:border-black transition-colors">
           <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Gross Bookings</p>
           <div className="flex items-center gap-3 mt-2">
@@ -140,13 +138,7 @@ const Reports = () => {
           </div>
         </div>
         
-        <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm hover:border-black transition-colors">
-          <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Discounts Given</p>
-          <div className="flex items-center gap-3 mt-2">
-            <div className="p-2.5 bg-yellow-50 text-yellow-600 rounded-lg"><TrendingUp size={20} className="rotate-180" /></div>
-            <h2 className="text-2xl font-black text-gray-900">₹{stats.totalDiscount.toLocaleString()}</h2>
-          </div>
-        </div>
+        
 
         <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm hover:border-black transition-colors">
           <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Total Commission (Broker)</p>
@@ -207,7 +199,7 @@ const Reports = () => {
                 <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest">Date & Room</th>
                 <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest">Guest Details</th>
                 <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest text-right">Gross Booked</th>
-                <th className="px-6 py-4 font-black text-xs text-red-400 uppercase tracking-widest text-right">Discount</th>
+                
                 <th className="px-6 py-4 font-black text-xs text-orange-400 uppercase tracking-widest text-right">Commission</th>
                 <th className="px-6 py-4 font-black text-xs text-green-600 uppercase tracking-widest text-right">Net Profit</th>
                 <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest">Status</th>
@@ -236,11 +228,7 @@ const Reports = () => {
                       <td className="px-6 py-4 text-right">
                         <p className="font-black text-gray-900">₹{stay.totalAmount}</p>
                       </td>
-                      <td className="px-6 py-4 text-right">
-                        {stay.discountAmount > 0 ? (
-                          <span className="font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded">-₹{stay.discountAmount}</span>
-                        ) : <span className="text-gray-300">-</span>}
-                      </td>
+                      
                       <td className="px-6 py-4 text-right">
                         {stay.commissionAmount > 0 ? (
                           <div>

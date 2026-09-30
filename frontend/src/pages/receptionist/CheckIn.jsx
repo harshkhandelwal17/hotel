@@ -21,7 +21,6 @@ const CheckIn = () => {
     durationOption: 'custom',
     stayDays: 1,
     stayHours: 0,
-    discountAmount: 0,
     occupants: 1,
     paymentMethod: 'Cash',
     commissionTo: '',
@@ -94,7 +93,7 @@ const CheckIn = () => {
 
   // Billing Math Runtime
   const grossTotal = Number(totalAmount) || 0;
-  const total = Math.max(0, grossTotal - Number(stayInfo.discountAmount || 0));
+  const total = Math.max(0, grossTotal);
 
   // --- Step 2 Handlers (Guests) ---
   const handleImageUpload = async (index, file) => {
@@ -189,7 +188,6 @@ const CheckIn = () => {
         checkInDate: new Date(stayInfo.checkInDate).toISOString(),
         expectedCheckOutDate: new Date(checkoutDate).toISOString(),
         durationOption: stayInfo.durationOption,
-        discountAmount: Number(stayInfo.discountAmount) || 0,
         occupants: stayInfo.occupants,
         totalAmount: Number(totalAmount) || 0,
         initialPaymentAmount: Number(initialPayment) || 0,
@@ -408,11 +406,7 @@ const CheckIn = () => {
                       <input type="number" placeholder="0" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none font-bold text-gray-900 text-lg"
                         value={initialPayment} onChange={e => setInitialPayment(e.target.value)} />
                     </div>
-                    <div>
-                      <label className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">Discount (₹)</label>
-                      <input type="number" placeholder="0" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none font-bold text-gray-900 text-lg"
-                        value={stayInfo.discountAmount} onChange={e => setStayInfo({...stayInfo, discountAmount: e.target.value})} />
-                    </div>
+                    
                   </div>
                 </div>
 
