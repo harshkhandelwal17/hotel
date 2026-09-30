@@ -1,133 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import axios from 'axios';
-import { format } from 'date-fns';
-import { User, Phone, CheckCircle, Clock, Printer } from 'lucide-react';
-import ExtendStayModal from './ExtendStayModal';
-import ShiftRoomModal from './ShiftRoomModal';
+import sys, re
 
-const GuestProfile = () => {
-  const { id } = useParams();
-  const [guest, setGuest] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [extendModalOpen, setExtendModalOpen] = useState(false);
-  const [shiftModalOpen, setShiftModalOpen] = useState(false);
-  const [selectedStay, setSelectedStay] = useState(null);
+with open('src/pages/receptionist/GuestProfile.jsx', 'r') as f:
+    content = f.read()
 
-  useEffect(() => {
-    fetchGuest();
-  }, [id]);
+# Replace the return block entirely using regex
+pattern = re.compile(r'return \(\s*<div className="space-y-6">.*', re.DOTALL)
 
-  async function fetchGuest() {
-    try {
-      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/guests/${id}`);
-      setGuest(res.data.data);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) return <div>Loading...</div>;
-  if (!guest) return <div>Guest not found</div>;
-
-  const printInvoice = (stay) => {
-    const printWindow = window.open('', '_blank');
-    const html = `
-      <html>
-        <head>
-          <title>Invoice - ${guest.fullName}</title>
-          <style>
-            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 40px; color: #333; }
-            .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #eee; padding-bottom: 20px; }
-            .title { font-size: 28px; font-weight: bold; margin: 0; letter-spacing: -0.5px; }
-            .subtitle { color: #666; margin-top: 5px; }
-            .row { display: flex; justify-content: space-between; margin-bottom: 30px; }
-            .col { flex: 1; }
-            .col-right { text-align: right; }
-            .label { font-size: 12px; color: #888; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; }
-            .val { font-size: 16px; font-weight: 500; margin-top: 5px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 30px; }
-            th { text-align: left; padding: 12px; border-bottom: 2px solid #eee; font-size: 12px; color: #888; text-transform: uppercase; }
-            td { padding: 15px 12px; border-bottom: 1px solid #eee; }
-            .total-row td { font-weight: bold; font-size: 18px; border-bottom: none; }
-            .paid-row td { color: #059669; }
-            .due-row td { color: #DC2626; font-weight: bold; }
-            @media print {
-              body { padding: 0; }
-              button { display: none; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1 class="title">${stay.hostel?.name || 'NXHotel'}</h1>
-            <div class="subtitle">Tax Invoice / Receipt</div>
-            <div style="font-size: 14px; color: #666; margin-top: 5px;">${stay.hostel?.address || ''}</div>
-          </div>
-          
-          <div class="row">
-            <div class="col">
-              <div class="label">Billed To</div>
-              <div class="val">${guest.fullName}</div>
-              <div class="val" style="font-size:14px; color:#666;">+91 ${guest.mobileNumber}</div>
-            </div>
-            <div class="col col-right">
-              <div class="label">Invoice Date</div>
-              <div class="val">${format(new Date(), 'dd MMM yyyy')}</div>
-              <div class="label" style="margin-top: 15px;">Room No</div>
-              <div class="val">${stay.room?.roomNumber || 'N/A'}</div>
-            </div>
-          </div>
-          
-          <table>
-            <thead>
-              <tr>
-                <th>Description</th>
-                <th>Check In</th>
-                <th>Check Out</th>
-                <th style="text-align:right">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Room Accommodation<br><span style="font-size:12px;color:#666;">Total Occupants: ${stay.occupants}</span></td>
-                <td>${format(new Date(stay.checkInDate), 'dd MMM yyyy, hh:mm a')}</td>
-                <td>${format(new Date(stay.expectedCheckOutDate), 'dd MMM yyyy, hh:mm a')}</td>
-                <td style="text-align:right">Rs ${stay.totalAmount}</td>
-              </tr>
-              <tr class="paid-row">
-                <td colspan="3" style="text-align:right">Amount Paid</td>
-                <td style="text-align:right">- Rs ${stay.paidAmount}</td>
-              </tr>
-              <tr class="due-row">
-                <td colspan="3" style="text-align:right">Balance Due</td>
-                <td style="text-align:right">Rs ${stay.totalAmount - stay.paidAmount}</td>
-              </tr>
-            </tbody>
-          </table>
-          
-          <div style="margin-top: 60px; font-size: 12px; color: #888; text-align: center;">
-            <p>Thank you for your stay with NXHotel.</p>
-            <p>This is a computer generated invoice and does not require a signature.</p>
-          </div>
-          
-          <script>
-            window.onload = () => window.print();
-          </script>
-        </body>
-      </html>
-    `;
-    printWindow.document.write(html);
-    printWindow.document.close();
-  };
-
-
-  const activeStay = guest.stays?.find(s => ['Active', 'Upcoming', 'Checkout Due', 'Overdue'].includes(s.status));
-  const historyStays = guest.stays?.filter(s => s._id !== activeStay?._id);
-
-  return (
+premium_ui = """return (
     <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-500 max-w-6xl mx-auto pb-10">
       
       {/* ─── Profile Header ─── */}
@@ -323,3 +202,10 @@ const GuestProfile = () => {
 };
 
 export default GuestProfile;
+"""
+
+content = re.sub(pattern, premium_ui, content)
+
+with open('src/pages/receptionist/GuestProfile.jsx', 'w') as f:
+    f.write(content)
+print("GuestProfile UI upgraded completely.")
