@@ -6,7 +6,7 @@ const mongoose = require('mongoose');
 
 exports.createStay = async (req, res, next) => {
   try {
-    const { guest, room, checkInDate, expectedCheckOutDate, initialPaymentAmount, paymentMethod, durationOption, discountAmount, occupants, coGuests } = req.body;
+    const { guest, room, checkInDate, expectedCheckOutDate, initialPaymentAmount, paymentMethod, durationOption, discountAmount, occupants, coGuests, commissionTo, commissionAmount } = req.body;
     const hostel = req.user.role === 'admin' ? req.body.hostel : req.user.assignedHostel;
     
     // Validate overlapping stays for the ROOM (not bed)
@@ -26,32 +26,8 @@ exports.createStay = async (req, res, next) => {
     const roomDoc = await Room.findById(room);
     if (!roomDoc) throw new Error('Room not found');
     
-    const numOccupants = Number(occupants) || 1;
-    const extraPersons = Math.max(0, numOccupants - 1); // people beyond the first
-    
-    let basePrice = 0;
-    let totalAmount = 0;
-    
-    if (durationOption === '12h') {
-      basePrice = roomDoc.price12h;
-      const extraCharge = extraPersons * (roomDoc.extraPerPerson12h || 0);
-      totalAmount = basePrice + extraCharge;
-    } else if (durationOption === '24h') {
-      basePrice = roomDoc.price24h;
-      const nights = Math.ceil((new Date(expectedCheckOutDate) - new Date(checkInDate)) / (1000 * 60 * 60 * 24));
-      if (nights <= 0) throw new Error('Checkout date must be after check-in date');
-      const extraChargePerNight = extraPersons * (roomDoc.extraPerPerson24h || 0);
-      totalAmount = (basePrice + extraChargePerNight) * nights;
-    } else if (durationOption.startsWith('custom_')) {
-      const hours = parseInt(durationOption.split('_')[1], 10);
-      const rate = roomDoc.customRates?.find(r => r.hours === hours);
-      basePrice = rate ? rate.price : 0;
-      totalAmount = basePrice; // Extra persons ignored for custom hourly, managed via initialPayment/discount manually
-    } else {
-      basePrice = roomDoc.price24h;
-      totalAmount = basePrice;
-    }
-    
+    // Runtime manual pricing
+    let totalAmount = Number(req.body.totalAmount) || 0;
     const finalDiscount = Number(discountAmount) || 0;
     totalAmount = Math.max(0, totalAmount - finalDiscount);
 
@@ -63,11 +39,12 @@ exports.createStay = async (req, res, next) => {
       checkInDate,
       expectedCheckOutDate,
       durationOption: durationOption || '24h',
-      basePrice,
       discountAmount: finalDiscount,
       totalAmount,
       paidAmount: initialPaymentAmount || 0,
       occupants: occupants || 1,
+      commissionTo: commissionTo || '',
+      commissionAmount: Number(commissionAmount) || 0,
       createdBy: req.user._id
     }]);
 
@@ -177,21 +154,8 @@ exports.extendStay = async (req, res, next) => {
     
     if (additionalNights <= 0) throw new Error('New checkout date must be after current checkout date');
     
-    // Fetch room to get proper extra per person rates
-    const roomDoc = await Room.findById(stay.room);
-    const numOccupants = stay.occupants || 1;
-    const extraPersons = Math.max(0, numOccupants - 1);
-    
-    let additionalCost = 0;
-    if (stay.durationOption === '12h') {
-       // 12h extending logic is tricky, usually you extend by another 12h/24h block, but let's assume they are converting to a 24h stay for additional nights.
-       const effectiveNightly = roomDoc.price24h + (extraPersons * (roomDoc.extraPerPerson24h || 0));
-       additionalCost = effectiveNightly * additionalNights;
-    } else {
-       const effectiveNightly = roomDoc.price24h + (extraPersons * (roomDoc.extraPerPerson24h || 0));
-       additionalCost = effectiveNightly * additionalNights;
-    }
-
+    // Runtime manual extension pricing
+    const additionalCost = Number(req.body.additionalRent) || 0;
     stay.totalAmount += additionalCost;
     stay.expectedCheckOutDate = newOutDate;
     

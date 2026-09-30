@@ -46,9 +46,9 @@ const staySchema = new mongoose.Schema({
     type: String,
     default: '24h'
   },
-  basePrice: { // Replaces pricePerNight
+  basePrice: { // Deprecated but kept for backward compatibility
     type: Number,
-    required: true
+    default: 0
   },
   discountAmount: {
     type: Number,
@@ -63,6 +63,14 @@ const staySchema = new mongoose.Schema({
     default: 0
   },
   additionalCharges: {
+    type: Number,
+    default: 0
+  },
+  commissionTo: {
+    type: String,
+    trim: true
+  },
+  commissionAmount: {
     type: Number,
     default: 0
   },

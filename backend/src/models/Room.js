@@ -22,7 +22,7 @@ const roomSchema = new mongoose.Schema({
   },
   capacity: {
     type: Number,
-    required: true,
+    default: 2,
     min: 1
   },
   price12h: {
