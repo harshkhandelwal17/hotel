@@ -35,7 +35,7 @@ const CheckIn = () => {
   const { globalProperty } = useOutletContext() || { globalProperty: 'all' };
 
   const [stayInfo, setStayInfo] = useState(() => loadState('checkin_stayInfo', {
-    room: '', durationUnit: 'Days', durationValue: 1, occupants: 1, totalAmount: 0, paidAmount: 0, paymentMethod: 'Cash', commissionTo: '', commissionAmount: ''
+    room: '', durationDays: 1, durationHours: 0, occupants: 1, totalAmount: '', paidAmount: 0, paymentMethod: 'Cash', commissionTo: '', commissionAmount: ''
   }));
 
   const [guests, setGuests] = useState(() => loadState('checkin_guests', [{
@@ -66,18 +66,7 @@ const CheckIn = () => {
 
   const selectedRoomDetails = rooms.find(r => r._id === stayInfo.room);
 
-  // Auto-calculate rent (rough estimate since it's fully custom)
-  useEffect(() => {
-    if (selectedRoomDetails) {
-      let basePrice = 0;
-      if (stayInfo.durationUnit === 'Days') {
-        basePrice = (selectedRoomDetails.price24h || 0) * stayInfo.durationValue;
-      } else {
-        basePrice = Math.round(((selectedRoomDetails.price24h || 0) / 24) * stayInfo.durationValue);
-      }
-      setStayInfo(prev => ({ ...prev, totalAmount: basePrice }));
-    }
-  }, [stayInfo.room, stayInfo.durationUnit, stayInfo.durationValue, selectedRoomDetails]);
+
 
   // Handle Dynamic Occupants
   useEffect(() => {
@@ -189,18 +178,15 @@ const CheckIn = () => {
 
       const checkInDate = new Date();
       const expectedOut = new Date();
-      if (stayInfo.durationUnit === 'Days') {
-        expectedOut.setDate(expectedOut.getDate() + Number(stayInfo.durationValue));
-      } else {
-        expectedOut.setHours(expectedOut.getHours() + Number(stayInfo.durationValue));
-      }
+      expectedOut.setDate(expectedOut.getDate() + (Number(stayInfo.durationDays) || 0));
+      expectedOut.setHours(expectedOut.getHours() + (Number(stayInfo.durationHours) || 0));
 
       await axios.post(`${API}/api/stays/checkin`, {
         guest: pGuestId,
         coGuests: coGuestIds,
         room: stayInfo.room,
         hostel: globalProperty !== 'all' ? globalProperty : selectedRoomDetails.hostel,
-        durationOption: `${stayInfo.durationValue} ${stayInfo.durationUnit}`,
+        durationOption: `${stayInfo.durationDays || 0}d ${stayInfo.durationHours || 0}h`,
         occupants: stayInfo.occupants,
         totalAmount: stayInfo.totalAmount,
         paidAmount: stayInfo.paidAmount,
@@ -223,7 +209,7 @@ const CheckIn = () => {
     }
   };
 
-  const isStep1Valid = stayInfo.room && stayInfo.durationValue >= 1 && stayInfo.occupants >= 1 && selectedRoomDetails?.capacity >= stayInfo.occupants;
+  const isStep1Valid = stayInfo.room && (Number(stayInfo.durationDays) > 0 || Number(stayInfo.durationHours) > 0) && stayInfo.occupants >= 1 && selectedRoomDetails?.capacity >= stayInfo.occupants && stayInfo.totalAmount !== '';
   const isStep2Valid = guests.every(g => g.fullName.trim() && g.mobileNumber.length >= 10);
 
   return (
@@ -263,16 +249,18 @@ const CheckIn = () => {
               </div>
 
               <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Duration of Stay (Custom)</label>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Duration of Stay</label>
                 <div className="flex gap-3">
                   <div className="flex-1 relative">
-                    <input type="number" min="1" placeholder="e.g. 2" value={stayInfo.durationValue} onChange={e => setStayInfo(p => ({...p, durationValue: Math.max(1, e.target.value)}))} className="w-full bg-white border border-gray-200 rounded-2xl px-5 py-4 font-black text-2xl outline-none focus:border-black transition-colors" />
+                    <input type="number" min="0" placeholder="0" value={stayInfo.durationDays} onChange={e => setStayInfo(p => ({...p, durationDays: e.target.value === '' ? '' : Math.max(0, e.target.value)}))} className="w-full bg-white border border-gray-200 rounded-2xl pl-5 pr-12 py-3 font-black text-xl outline-none focus:border-black transition-colors" />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Days</span>
                   </div>
-                  <div className="flex-1 bg-white border border-gray-200 rounded-2xl p-1.5 flex">
-                    <button onClick={() => setStayInfo(p => ({...p, durationUnit: 'Hours'}))} className={`flex-1 rounded-xl text-sm font-black transition-all ${stayInfo.durationUnit === 'Hours' ? 'bg-black text-white shadow-md' : 'text-gray-400 hover:text-gray-900'}`}>Hours</button>
-                    <button onClick={() => setStayInfo(p => ({...p, durationUnit: 'Days'}))} className={`flex-1 rounded-xl text-sm font-black transition-all ${stayInfo.durationUnit === 'Days' ? 'bg-black text-white shadow-md' : 'text-gray-400 hover:text-gray-900'}`}>Days</button>
+                  <div className="flex-1 relative">
+                    <input type="number" min="0" placeholder="0" value={stayInfo.durationHours} onChange={e => setStayInfo(p => ({...p, durationHours: e.target.value === '' ? '' : Math.max(0, e.target.value)}))} className="w-full bg-white border border-gray-200 rounded-2xl pl-5 pr-14 py-3 font-black text-xl outline-none focus:border-black transition-colors" />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Hours</span>
                   </div>
                 </div>
+                <p className="text-[10px] text-gray-400 font-bold mt-2 text-right">Combine both (e.g. 1 Day 2 Hours)</p>
               </div>
             </div>
           </div>
