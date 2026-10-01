@@ -978,9 +978,6 @@ const CheckIn = () => {
 
                         <h3
                           className={`font-black text-xl ${
-                            active
-                              ? 'text-white'
-                              : 'text-gray-900'
                             active ? 'text-white' : isOccupied ? 'text-red-700' : 'text-gray-900'
                           }`}
                         >
@@ -989,16 +986,12 @@ const CheckIn = () => {
 
                         <p
                           className={`text-[10px] font-bold mt-1 ${
-                            active
-                              ? 'text-gray-300'
-                              : 'text-gray-500'
                             active ? 'text-gray-300' : isOccupied ? 'text-red-400' : 'text-gray-500'
                           } uppercase tracking-widest`}
                         >
                           Cap. {room.capacity}
                         </p>
 
-                        {isFull && (
                         {isOccupied && (
                           <span className="text-[9px] text-red-600 font-black block mt-1 uppercase">
                             Booked
