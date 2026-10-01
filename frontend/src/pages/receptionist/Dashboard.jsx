@@ -1,196 +1,229 @@
-import { useState, useEffect } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { useOutletContext, Link } from 'react-router-dom';
 import axios from 'axios';
-import { format } from 'date-fns';
-import { Users, BedDouble, CalendarCheck, Clock, CreditCard, ChevronRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { format, isPast } from 'date-fns';
+import { Users, BedDouble, CalendarCheck, Clock, CreditCard, ChevronRight, AlertTriangle, PlusCircle, RefreshCw } from 'lucide-react';
+
+const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+
+const SkeletonCard = () => (
+  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 animate-pulse">
+    <div className="h-4 w-24 bg-gray-200 rounded mb-4" />
+    <div className="h-10 w-20 bg-gray-200 rounded" />
+  </div>
+);
 
 const ReceptionistDashboard = () => {
   const [stats, setStats] = useState(null);
   const [recentStays, setRecentStays] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [now, setNow] = useState(new Date());
+  const { globalProperty } = useOutletContext() || { globalProperty: 'all' };
 
-  async function fetchDashboardData() {
+  // Live clock
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const fetchDashboardData = useCallback(async (showRefreshing = false) => {
+    if (showRefreshing) setRefreshing(true);
     try {
       const propQuery = globalProperty !== 'all' ? `?hostel=${globalProperty}` : '';
       const ampQuery = globalProperty !== 'all' ? `&hostel=${globalProperty}` : '';
       const [statsRes, staysRes] = await Promise.all([
-        axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/reports/dashboard${propQuery}`),
-        axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/stays?status=Active${ampQuery}`)
+        axios.get(`${API}/api/reports/dashboard${propQuery}`),
+        axios.get(`${API}/api/stays?status=Active${ampQuery}`)
       ]);
       setStats(statsRes.data.data);
-      // Get the most recent 5 stays
-      setRecentStays(staysRes.data.data.slice(-5).reverse());
+      setRecentStays(staysRes.data.data.slice(-8).reverse());
     } catch (error) {
       console.error(error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  };
-  const { globalProperty } = useOutletContext() || { globalProperty: 'all' };
-
-  useEffect(() => {
-    fetchDashboardData();
-  }, [globalProperty]);
-  useEffect(() => {
-    const handlePropChange = () => fetchDashboardData();
-    window.addEventListener('propertyChanged', handlePropChange);
-    return () => window.removeEventListener('propertyChanged', handlePropChange);
   }, [globalProperty]);
 
-  
+  useEffect(() => { fetchDashboardData(); }, [fetchDashboardData]);
+  useEffect(() => {
+    const h = () => fetchDashboardData();
+    window.addEventListener('propertyChanged', h);
+    return () => window.removeEventListener('propertyChanged', h);
+  }, [fetchDashboardData]);
+
+  const overdueStays = recentStays.filter(s => isPast(new Date(s.expectedCheckOutDate)));
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black"></div>
+      <div className="space-y-8">
+        <div className="h-10 w-64 bg-gray-200 rounded-xl animate-pulse" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => <SkeletonCard key={i} />)}
+        </div>
+        <div className="h-80 bg-gray-200 rounded-2xl animate-pulse" />
       </div>
     );
   }
 
+  const occupancyRate = stats ? Math.round((stats.occupiedRooms / ((stats.occupiedRooms || 0) + (stats.availableRooms || 1))) * 100) : 0;
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4">
+    <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-500">
+      
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Today's Overview</h1>
-          <p className="text-gray-500 mt-1 font-medium">{format(new Date(), 'EEEE, MMMM do, yyyy')}</p>
+          <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">{format(now, 'EEEE, MMMM do')}</p>
+          <h1 className="text-3xl font-black text-gray-900 tracking-tight">Good {now.getHours() < 12 ? 'Morning' : now.getHours() < 17 ? 'Afternoon' : 'Evening'} 👋</h1>
+          <p className="text-gray-500 mt-1 font-medium text-sm">{format(now, 'hh:mm a')} • {stats?.occupiedRooms || 0} rooms occupied</p>
         </div>
-        <div className="flex gap-3">
-          <Link to="/checkin" className="bg-black text-white px-6 py-2.5 rounded-xl font-semibold shadow-md hover:shadow-xl hover:bg-gray-800 transition-all hover:-translate-y-0.5">
-            + Express Check-In
+        <div className="flex gap-3 flex-wrap">
+          <button onClick={() => fetchDashboardData(true)} className={`p-2.5 text-gray-500 hover:text-black bg-white border border-gray-200 rounded-xl transition-all ${refreshing ? 'animate-spin' : 'hover:border-gray-400'}`}>
+            <RefreshCw size={18} />
+          </button>
+          <Link to="/checkin" className="bg-black text-white px-5 py-2.5 rounded-xl font-black uppercase tracking-widest text-xs shadow-md hover:shadow-xl hover:bg-gray-800 transition-all active:scale-95 flex items-center gap-2">
+            <PlusCircle size={16} /> Check-In
           </Link>
         </div>
       </div>
 
-      {/* Modern KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between group hover:border-blue-200 hover:shadow-md transition-all">
-          <div className="flex justify-between items-start">
-            <span className="text-gray-500 font-semibold text-sm tracking-wide uppercase">Occupied Rooms</span>
-            <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl group-hover:scale-110 transition-transform"><BedDouble size={20} /></div>
+      {/* Overdue Alert */}
+      {overdueStays.length > 0 && (
+        <Link to="/checkouts" className="block bg-red-50 border-2 border-red-200 rounded-2xl p-4 hover:bg-red-100 transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              <AlertTriangle size={20} className="text-red-600 animate-pulse" />
+            </div>
+            <div className="flex-1">
+              <p className="font-black text-red-900 text-sm">{overdueStays.length} Overdue Checkout{overdueStays.length > 1 ? 's' : ''}!</p>
+              <p className="text-xs text-red-700 font-semibold mt-0.5">{overdueStays.map(s => s.guest?.fullName).join(', ')} — tap to process</p>
+            </div>
+            <ChevronRight size={20} className="text-red-400" />
           </div>
-          <div className="mt-4 flex items-baseline">
-            <span className="text-4xl font-black text-gray-900 tracking-tighter">{stats?.occupiedRooms || 0}</span>
-            <span className="text-sm font-semibold text-gray-400 ml-2">/ {(stats?.occupiedRooms || 0) + (stats?.availableRooms || 0)} Total</span>
+        </Link>
+      )}
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 group hover:border-blue-200 hover:shadow-md transition-all">
+          <div className="flex justify-between items-start mb-4">
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Occupied</span>
+            <div className="p-2 bg-blue-50 text-blue-600 rounded-xl group-hover:scale-110 transition-transform"><BedDouble size={16} /></div>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-4xl font-black text-gray-900">{stats?.occupiedRooms || 0}</span>
+            <span className="text-xs font-bold text-gray-400">/ {(stats?.occupiedRooms || 0) + (stats?.availableRooms || 0)}</span>
+          </div>
+          <div className="mt-3">
+            <div className="w-full bg-gray-100 rounded-full h-1.5">
+              <div className="bg-blue-500 h-1.5 rounded-full transition-all duration-700" style={{width: `${occupancyRate}%`}} />
+            </div>
+            <p className="text-[10px] text-gray-400 font-bold mt-1">{occupancyRate}% occupancy</p>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between group hover:border-green-200 hover:shadow-md transition-all">
-          <div className="flex justify-between items-start">
-            <span className="text-gray-500 font-semibold text-sm tracking-wide uppercase">Available</span>
-            <div className="p-2.5 bg-green-50 text-green-600 rounded-xl group-hover:scale-110 transition-transform"><CalendarCheck size={20} /></div>
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 group hover:border-green-200 hover:shadow-md transition-all">
+          <div className="flex justify-between items-start mb-4">
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Available</span>
+            <div className="p-2 bg-green-50 text-green-600 rounded-xl group-hover:scale-110 transition-transform"><CalendarCheck size={16} /></div>
           </div>
-          <div className="mt-4 flex items-baseline">
-            <span className="text-4xl font-black text-green-600 tracking-tighter">{stats?.availableRooms || 0}</span>
-            <span className="text-sm font-semibold text-gray-400 ml-2">Rooms Free</span>
+          <div className="flex items-baseline">
+            <span className="text-4xl font-black text-green-600">{stats?.availableRooms || 0}</span>
+            <span className="text-xs font-bold text-gray-400 ml-2">rooms free</span>
           </div>
+          <p className="text-[10px] text-green-600 font-bold mt-4">Ready to check-in</p>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between group hover:border-orange-200 hover:shadow-md transition-all">
-          <div className="flex justify-between items-start">
-            <span className="text-gray-500 font-semibold text-sm tracking-wide uppercase">Checkouts Due</span>
-            <div className="p-2.5 bg-orange-50 text-orange-600 rounded-xl group-hover:scale-110 transition-transform"><Clock size={20} /></div>
+        <Link to="/checkouts" className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 group hover:border-orange-200 hover:shadow-md transition-all block">
+          <div className="flex justify-between items-start mb-4">
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Checkouts</span>
+            <div className="p-2 bg-orange-50 text-orange-600 rounded-xl group-hover:scale-110 transition-transform"><Clock size={16} /></div>
           </div>
-          <div className="mt-4 flex items-baseline">
-            <span className="text-4xl font-black text-gray-900 tracking-tighter">{stats?.checkoutsToday || 0}</span>
-            <span className="text-sm font-semibold text-gray-400 ml-2">Leaving Today</span>
+          <div className="flex items-baseline">
+            <span className="text-4xl font-black text-gray-900">{stats?.checkoutsToday || 0}</span>
+            <span className="text-xs font-bold text-gray-400 ml-2">today</span>
           </div>
-        </div>
+          <p className="text-[10px] text-orange-500 font-bold mt-4 flex items-center gap-1">Process now <ChevronRight size={10}/></p>
+        </Link>
 
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between group hover:border-purple-200 hover:shadow-md transition-all">
-          <div className="flex justify-between items-start">
-            <span className="text-gray-500 font-semibold text-sm tracking-wide uppercase">Pending Dues</span>
-            <div className="p-2.5 bg-purple-50 text-purple-600 rounded-xl group-hover:scale-110 transition-transform"><CreditCard size={20} /></div>
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 group hover:border-purple-200 hover:shadow-md transition-all">
+          <div className="flex justify-between items-start mb-4">
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Pending Dues</span>
+            <div className="p-2 bg-purple-50 text-purple-600 rounded-xl group-hover:scale-110 transition-transform"><CreditCard size={16} /></div>
           </div>
-          <div className="mt-4 flex items-baseline">
-            <span className="text-4xl font-black text-gray-900 tracking-tighter">₹{stats?.pendingPayments || 0}</span>
-            <span className="text-sm font-semibold text-gray-400 ml-2">Uncollected</span>
+          <div className="flex items-baseline">
+            <span className="text-3xl font-black text-gray-900">₹{(stats?.pendingPayments || 0).toLocaleString('en-IN')}</span>
           </div>
+          <p className="text-[10px] text-gray-400 font-bold mt-4">Uncollected balance</p>
         </div>
       </div>
 
-      {/* Two Column Layout for Lists */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {/* Active Stays */}
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <h2 className="text-lg font-black text-gray-900 uppercase tracking-tight">In-House Guests</h2>
+          <Link to="/checkouts" className="text-xs font-black text-gray-500 hover:text-black uppercase tracking-widest flex items-center gap-1 transition-colors">
+            See all <ChevronRight size={14} />
+          </Link>
+        </div>
         
-        {/* Recent Activity / Guests */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-bold text-gray-900">Active Stays (In-House)</h2>
-            <Link to="/checkouts" className="text-sm font-semibold text-blue-600 hover:text-blue-800 flex items-center">
-              View all active stays <ChevronRight size={16} />
-            </Link>
-          </div>
-          
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            {recentStays.length > 0 ? (
-              <ul className="divide-y divide-gray-50">
-                {recentStays.map(stay => (
-                  <li key={stay._id} className="p-5 hover:bg-gray-50/80 transition-colors">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="flex items-center space-x-4">
-                        <div className="h-12 w-12 rounded-full bg-gradient-to-tr from-blue-100 to-indigo-100 flex items-center justify-center text-blue-700 font-bold text-lg">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          {recentStays.length > 0 ? (
+            <ul className="divide-y divide-gray-50">
+              {recentStays.map(stay => {
+                const isOverdue = isPast(new Date(stay.expectedCheckOutDate));
+                const balance = stay.totalAmount - stay.paidAmount;
+                return (
+                  <li key={stay._id} className={`p-4 sm:p-5 hover:bg-gray-50/80 transition-colors ${isOverdue ? 'bg-red-50/30' : ''}`}>
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`h-11 w-11 flex-shrink-0 rounded-2xl flex items-center justify-center font-black text-lg ${isOverdue ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-800'}`}>
                           {stay.guest?.fullName?.charAt(0) || 'U'}
                         </div>
-                        <div>
-                          <p className="text-sm font-bold text-gray-900">{stay.guest?.fullName}</p>
-                          <p className="text-xs font-medium text-gray-500 mt-0.5">Room {stay.room?.roomNumber} • ({stay.occupants} Guests)</p>
+                        <div className="min-w-0">
+                          <p className="font-black text-gray-900 text-sm truncate">{stay.guest?.fullName}</p>
+                          <p className="text-xs font-bold text-gray-400 mt-0.5">
+                            Room <span className="text-gray-900">{stay.room?.roomNumber}</span> • {stay.occupants} {stay.occupants > 1 ? 'guests' : 'guest'}
+                          </p>
+                          {isOverdue && (
+                            <p className="text-[10px] font-black text-red-600 uppercase tracking-widest mt-1 flex items-center gap-1">
+                              <AlertTriangle size={10} /> Overdue checkout!
+                            </p>
+                          )}
                         </div>
                       </div>
-                      <div className="flex flex-col sm:items-end gap-2 sm:text-right">
-                        <div>
-                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Checkout At</p>
-                          <p className="text-sm font-bold text-gray-900">{format(new Date(stay.expectedCheckOutDate), 'dd MMM, hh:mm a')}</p>
+                      <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                        <div className="text-right">
+                          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Out</p>
+                          <p className={`text-xs font-black ${isOverdue ? 'text-red-600' : 'text-gray-900'}`}>{format(new Date(stay.expectedCheckOutDate), 'dd MMM, hh:mm a')}</p>
                         </div>
-                        <Link to="/checkouts" className="px-4 py-1.5 bg-black text-white text-xs font-bold uppercase rounded-lg hover:bg-gray-800 transition-colors shadow-sm">
-                          Manage
+                        {balance > 0 && (
+                          <span className="text-[10px] font-black text-red-600 bg-red-50 px-2 py-0.5 rounded-md">₹{balance} due</span>
+                        )}
+                        <Link to="/checkouts" className={`px-3 py-1.5 text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-all active:scale-95 shadow-sm ${isOverdue ? 'bg-red-600 hover:bg-red-700' : 'bg-black hover:bg-gray-800'}`}>
+                          {isOverdue ? 'Urgent' : 'Manage'}
                         </Link>
                       </div>
                     </div>
                   </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="p-8 text-center">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-50 text-gray-400 mb-4">
-                  <Users size={32} />
-                </div>
-                <h3 className="text-lg font-bold text-gray-900">No active guests</h3>
-                <p className="text-sm text-gray-500 mt-1">Check-in a guest to see them here.</p>
-                <Link to="/checkin" className="mt-4 inline-block text-sm font-semibold text-blue-600">Start Check-in &rarr;</Link>
+                );
+              })}
+            </ul>
+          ) : (
+            <div className="p-12 text-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gray-50 text-gray-400 mb-4">
+                <Users size={32} />
               </div>
-            )}
-          </div>
+              <h3 className="text-lg font-black text-gray-900">No active guests</h3>
+              <p className="text-sm text-gray-500 mt-1 font-medium">Hotel is currently empty.</p>
+              <Link to="/checkin" className="mt-5 inline-flex items-center gap-2 bg-black text-white px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-md hover:bg-gray-800 transition-all active:scale-95">
+                <PlusCircle size={16} /> Start Check-In
+              </Link>
+            </div>
+          )}
         </div>
-
-        {/* Quick Actions / Highlights */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-bold text-gray-900">Need Attention</h2>
-          
-          <div className="bg-gradient-to-b from-orange-50 to-orange-100/50 rounded-2xl p-6 border border-orange-100">
-            <h3 className="font-bold text-orange-900 flex items-center mb-2">
-              <Clock className="w-5 h-5 mr-2" /> Checkouts Today
-            </h3>
-            <p className="text-orange-800 text-sm font-medium mb-4">
-              You have <span className="font-black">{stats?.checkoutsToday || 0}</span> guests scheduled to leave today.
-            </p>
-            <Link to="/checkouts" className="block w-full py-2.5 px-4 bg-white/80 hover:bg-white text-orange-900 text-center font-bold text-sm rounded-xl transition-colors shadow-sm">
-              Process Checkouts
-            </Link>
-          </div>
-
-          <div className="bg-gradient-to-b from-purple-50 to-purple-100/50 rounded-2xl p-6 border border-purple-100 mt-4">
-            <h3 className="font-bold text-purple-900 flex items-center mb-2">
-              <CreditCard className="w-5 h-5 mr-2" /> Outstanding Balance
-            </h3>
-            <p className="text-purple-800 text-sm font-medium mb-4">
-              Total pending dues across all active stays: <span className="font-black">₹{stats?.pendingPayments || 0}</span>
-            </p>
-            <Link to="/payments" className="block w-full py-2.5 px-4 bg-white/80 hover:bg-white text-purple-900 text-center font-bold text-sm rounded-xl transition-colors shadow-sm">
-              View Ledger
-            </Link>
-          </div>
-        </div>
-        
       </div>
     </div>
   );
