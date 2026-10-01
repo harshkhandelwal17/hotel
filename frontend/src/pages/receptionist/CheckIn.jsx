@@ -1513,57 +1513,53 @@ const CheckIn = () => {
 
                       {/* CAMERA */}
 
-                      <label className="flex-1 flex flex-col items-center justify-center gap-1.5 p-3 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:bg-black hover:border-black hover:text-white transition-all group text-gray-500">
-
+                      <label
+                        htmlFor={`cam-input-${index}`}
+                        className="flex-1 flex flex-col items-center justify-center gap-1.5 p-3 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:bg-black hover:border-black hover:text-white transition-all group text-gray-500"
+                      >
                         <Camera
                           size={20}
                           className="group-hover:text-white"
                         />
-
                         <span className="text-[10px] font-black uppercase tracking-widest">
                           Camera
                         </span>
-
                         <input
+                          id={`cam-input-${index}`}
                           type="file"
                           accept="image/*"
                           capture="environment"
                           className="hidden"
+                          onClick={(e) => { e.target.value = null; }}
                           onChange={(e) =>
-                            handleImageUpload(
-                              index,
-                              e.target.files[0]
-                            )
+                            handleImageUpload(index, e.target.files[0])
                           }
                         />
-
                       </label>
 
                       {/* GALLERY */}
 
-                      <label className="flex-1 flex flex-col items-center justify-center gap-1.5 p-3 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:bg-black hover:border-black hover:text-white transition-all group text-gray-500">
-
+                      <label
+                        htmlFor={`gal-input-${index}`}
+                        className="flex-1 flex flex-col items-center justify-center gap-1.5 p-3 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:bg-black hover:border-black hover:text-white transition-all group text-gray-500"
+                      >
                         <ImageIcon
                           size={20}
                           className="group-hover:text-white"
                         />
-
                         <span className="text-[10px] font-black uppercase tracking-widest">
                           Gallery
                         </span>
-
                         <input
+                          id={`gal-input-${index}`}
                           type="file"
                           accept="image/*"
                           className="hidden"
+                          onClick={(e) => { e.target.value = null; }}
                           onChange={(e) =>
-                            handleImageUpload(
-                              index,
-                              e.target.files[0]
-                            )
+                            handleImageUpload(index, e.target.files[0])
                           }
                         />
-
                       </label>
 
                     </div>
