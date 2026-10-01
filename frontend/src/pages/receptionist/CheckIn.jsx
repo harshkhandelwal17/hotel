@@ -48,6 +48,7 @@ const CheckIn = () => {
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [roomSearchQuery, setRoomSearchQuery] = useState('');
+  const [frequentCoGuests, setFrequentCoGuests] = useState([]);
 
   const toast = useToast();
   const navigate = useNavigate();
@@ -547,8 +548,7 @@ const CheckIn = () => {
         totalAmount:
           stayInfo.totalAmount,
 
-        paidAmount:
-          stayInfo.paidAmount,
+        initialPaymentAmount: stayInfo.paidAmount,
 
         paymentMethod:
           stayInfo.paymentMethod,
@@ -640,12 +640,11 @@ const CheckIn = () => {
       stayInfo.occupants &&
     stayInfo.totalAmount !== '';
 
-  const isStep2Valid =
-    guests.every(
-      (g) =>
-        g.fullName.trim() &&
-        g.mobileNumber.length >= 10
-    );
+  const isStep2Valid = guests.every((g, idx) => {
+    if (!g.fullName.trim()) return false;
+    if (idx === 0) return g.mobileNumber.length === 10;
+    return true;
+  });
 
   // =========================================================
   // UI

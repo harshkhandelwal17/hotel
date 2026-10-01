@@ -8,7 +8,7 @@ const guestSchema = new mongoose.Schema({
   },
   mobileNumber: {
     type: String,
-    required: [true, 'Please add a mobile number'],
+    sparse: true,
     unique: true
   },
   idProofType: {

@@ -93,6 +93,7 @@ exports.getGuest = async (req, res, next) => {
 
 exports.updateGuest = async (req, res, next) => {
   try {
+    if (req.body.mobileNumber === '') delete req.body.mobileNumber;
     let guest = await Guest.findById(req.params.id);
     if (!guest) {
       return res.status(404).json({ success: false, message: 'Guest not found' });
