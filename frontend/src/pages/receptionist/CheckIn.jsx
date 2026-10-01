@@ -940,11 +940,6 @@ const CheckIn = () => {
                       )
                   )
                   .map((room) => {
-                   .map((room) => {
-
-                    const active =
-                      stayInfo.room ===
-                      room._id;
                     const active = stayInfo.room === room._id;
                     const isFull = stayInfo.occupants > room.capacity;
                     const isOccupied = !!room.isOccupied;
