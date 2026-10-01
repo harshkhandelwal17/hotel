@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { format, addDays, addHours } from 'date-fns';
 import { CheckCircle2, Search, Plus, UserPlus, CreditCard, ChevronRight, Bed, Clock, Users, Percent, ShieldCheck, Calendar, Camera, Image as ImageIcon } from 'lucide-react';
+import { compressImage } from '../../utils/imageCompression';
 
 const CheckIn = () => {
   const navigate = useNavigate();
@@ -96,18 +97,25 @@ const CheckIn = () => {
   const total = Math.max(0, grossTotal);
 
   // --- Step 2 Handlers (Guests) ---
+  const [uploadingImage, setUploadingImage] = useState(false);
+
   const handleImageUpload = async (index, file) => {
     if (!file) return;
+    setUploadingImage(true);
     try {
+      // Compress the image before uploading to avoid browser memory crashes on mobile
+      const compressedFile = await compressImage(file);
       const formData = new FormData();
-      formData.append('image', file);
+      formData.append('image', compressedFile);
       const res = await axios.post((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       handleGuestChange(index, 'idProofImage', res.data.url);
     } catch (err) {
       console.error(err);
-      alert('Failed to upload image. Please try again.');
+      alert('Failed to upload image. Memory issue or network error.');
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -512,7 +520,13 @@ const CheckIn = () => {
                           <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(index, e.target.files[0])} />
                         </label>
                       </div>
-                      {guest.idProofImage && (
+                      {uploadingImage && (
+                        <div className="mt-3 flex items-center gap-2 text-xs font-bold text-blue-600 bg-blue-50 p-2.5 rounded-xl border border-blue-100">
+                          <span className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
+                          Compressing & Uploading...
+                        </div>
+                      )}
+                      {!uploadingImage && guest.idProofImage && (
                         <div className="mt-3 flex items-center gap-3 bg-green-50 p-2.5 rounded-xl border border-green-100">
                           <span className="text-xs text-green-700 font-black uppercase tracking-wider flex items-center gap-1"><CheckCircle2 size={16}/> Uploaded</span>
                           <a href={(guest.idProofImage?.startsWith('http') ? guest.idProofImage : `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}${guest.idProofImage}`)} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:text-blue-800 underline font-black uppercase tracking-wider">View Image</a>
