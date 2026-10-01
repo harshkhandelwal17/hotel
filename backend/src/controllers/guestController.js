@@ -93,13 +93,20 @@ exports.getGuest = async (req, res, next) => {
 
 exports.updateGuest = async (req, res, next) => {
   try {
-    if (req.body.mobileNumber === '') delete req.body.mobileNumber;
+    // Strip immutable / restricted fields from body
+    const { _id, __v, createdAt, updatedAt, ...updateData } = req.body;
+    
+    // Remove empty mobile so it doesn't overwrite with blank
+    if (updateData.mobileNumber === '' || updateData.mobileNumber === null) {
+      delete updateData.mobileNumber;
+    }
+
     let guest = await Guest.findById(req.params.id);
     if (!guest) {
       return res.status(404).json({ success: false, message: 'Guest not found' });
     }
     
-    guest = await Guest.findByIdAndUpdate(req.params.id, req.body, {
+    guest = await Guest.findByIdAndUpdate(req.params.id, { $set: updateData }, {
       new: true,
       runValidators: true
     });
