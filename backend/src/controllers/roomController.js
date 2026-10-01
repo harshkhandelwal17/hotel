@@ -1,5 +1,6 @@
 const Room = require('../models/Room');
 const Bed = require('../models/Bed');
+const Stay = require('../models/Stay');
 
 exports.createRoom = async (req, res, next) => {
   try {
@@ -42,7 +43,20 @@ exports.getRooms = async (req, res, next) => {
     }
 
     const rooms = await Room.find(filter).populate('hostel', 'name');
-    res.status(200).json({ success: true, count: rooms.length, data: rooms });
+
+    // Find all currently active/booked room IDs
+    const activeStays = await Stay.find({
+      status: { $in: ['Active', 'Upcoming', 'Checkout Due', 'Overdue'] }
+    }).select('room');
+    const occupiedRoomIds = new Set(activeStays.map(s => s.room.toString()));
+
+    // Add isOccupied flag to each room
+    const roomsWithStatus = rooms.map(room => ({
+      ...room.toObject(),
+      isOccupied: occupiedRoomIds.has(room._id.toString())
+    }));
+
+    res.status(200).json({ success: true, count: rooms.length, data: roomsWithStatus });
   } catch (error) {
     next(error);
   }

@@ -43,6 +43,6 @@ const guestSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-guestSchema.index({ mobileNumber: 1 });
+
 
 module.exports = mongoose.model('Guest', guestSchema);

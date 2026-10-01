@@ -940,10 +940,15 @@ const CheckIn = () => {
                       )
                   )
                   .map((room) => {
+                   .map((room) => {
 
                     const active =
                       stayInfo.room ===
                       room._id;
+                    const active = stayInfo.room === room._id;
+                    const isFull = stayInfo.occupants > room.capacity;
+                    const isOccupied = !!room.isOccupied;
+                    const isDisabled = isFull || isOccupied;
 
                     const isFull =
                       stayInfo.occupants >
@@ -960,11 +965,19 @@ const CheckIn = () => {
                               room: room._id
                             })
                           )
+                          !isDisabled &&
+                          setStayInfo((prev) => ({
+                            ...prev,
+                            room: room._id
+                          }))
                         }
                         disabled={isFull}
+                        disabled={isDisabled}
                         className={`relative p-4 rounded-2xl border-2 text-center transition-all ${
                           active
                             ? 'border-black bg-black text-white shadow-xl scale-[1.02]'
+                            : isOccupied
+                            ? 'border-red-100 bg-red-50 opacity-60 cursor-not-allowed'
                             : isFull
                             ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
                             : 'border-gray-200 hover:border-gray-400 bg-white hover:shadow-md'
@@ -983,6 +996,7 @@ const CheckIn = () => {
                             active
                               ? 'text-white'
                               : 'text-gray-900'
+                            active ? 'text-white' : isOccupied ? 'text-red-700' : 'text-gray-900'
                           }`}
                         >
                           {room.roomNumber}
@@ -993,12 +1007,20 @@ const CheckIn = () => {
                             active
                               ? 'text-gray-300'
                               : 'text-gray-500'
+                            active ? 'text-gray-300' : isOccupied ? 'text-red-400' : 'text-gray-500'
                           } uppercase tracking-widest`}
                         >
                           Cap. {room.capacity}
                         </p>
 
                         {isFull && (
+                        {isOccupied && (
+                          <span className="text-[9px] text-red-600 font-black block mt-1 uppercase">
+                            Booked
+                          </span>
+                        )}
+
+                        {!isOccupied && isFull && (
                           <span className="text-[9px] text-red-500 font-black block mt-1 uppercase">
                             Too small
                           </span>
