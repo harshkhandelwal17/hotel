@@ -200,8 +200,16 @@ const GuestProfile = () => {
           <div className="p-6 sm:p-8 grid grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
             <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Room</p>
-              <p className="font-black text-gray-900 text-xl">{activeStay.room?.roomNumber}</p>
+              <div className="flex items-center gap-2">
+                <p className="font-black text-gray-900 text-xl">{activeStay.room?.roomNumber}</p>
+                {activeStay.guest?._id !== guest._id && (
+                  <span className="bg-purple-100 text-purple-800 text-[9px] px-2 py-0.5 rounded-lg font-black uppercase tracking-widest border border-purple-200">Co-Guest</span>
+                )}
+              </div>
               <p className="text-xs font-bold text-gray-500 mt-1">{activeStay.occupants > 1 ? `${activeStay.occupants} Guests` : `1 Guest`}</p>
+              {activeStay.guest?._id !== guest._id && (
+                 <p className="text-[10px] font-bold text-purple-600 mt-1 bg-purple-50 px-2 py-1 rounded-md">Primary: {activeStay.guest?.fullName}</p>
+              )}
             </div>
             <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Check-in</p>
@@ -271,8 +279,16 @@ const GuestProfile = () => {
                 {historyStays.map((stay) => (
                   <tr key={stay._id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-6 py-5">
-                      <p className="font-black text-gray-900">{stay.room?.roomNumber || 'N/A'}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-black text-gray-900 text-base">{stay.room?.roomNumber || 'N/A'}</p>
+                        {stay.guest?._id !== guest._id && (
+                          <span className="bg-purple-100 text-purple-800 text-[9px] px-2 py-0.5 rounded border border-purple-200 font-black uppercase tracking-widest">Co-Guest</span>
+                        )}
+                      </div>
                       <p className="text-xs font-bold text-gray-500 mt-0.5">{stay.occupants} Guests</p>
+                      {stay.guest?._id !== guest._id && (
+                        <p className="text-[10px] font-bold text-purple-600 mt-1">Primary: {stay.guest?.fullName}</p>
+                      )}
                     </td>
                     <td className="px-6 py-5">
                       <p className="font-bold text-gray-900 text-sm">{format(new Date(stay.checkInDate), 'dd MMM yyyy')}</p>
