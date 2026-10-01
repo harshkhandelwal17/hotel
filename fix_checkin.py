@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import sys
+
+content = """import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import axios from 'axios';
 import { CheckCircle2, Search, Plus, UserPlus, CreditCard, ChevronRight, Bed, Clock, Users, ShieldCheck, Camera, Image as ImageIcon, ArrowRight, ArrowLeft } from 'lucide-react';
@@ -407,3 +409,8 @@ const CheckIn = () => {
 };
 
 export default CheckIn;
+"""
+with open('frontend/src/pages/receptionist/CheckIn.jsx', 'w') as f:
+    f.write(content)
+
+print("CheckIn rewritten")

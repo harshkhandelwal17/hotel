@@ -75,7 +75,8 @@ exports.getGuest = async (req, res, next) => {
     }
     
     // Find all stays for this guest
-    const stays = await Stay.find({ guest: guest._id })
+    const stays = await Stay.find({ $or: [{ guest: guest._id }, { coGuests: guest._id }] })
+      .populate('guest', 'fullName mobileNumber idProofType idProofNumber idProofImage')
       .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber idProofImage')
       .populate('room', 'roomNumber price24h extraPerPerson24h extraPerPerson12h')
       .populate('hostel', 'name address')
