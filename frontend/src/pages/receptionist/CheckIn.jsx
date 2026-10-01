@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   Camera,
   Plus,
+  RefreshCw,
   Image as ImageIcon
 } from 'lucide-react';
 
@@ -649,6 +650,39 @@ const CheckIn = () => {
     return true;
   });
 
+  const resetForm = () => {
+    if (!window.confirm('Clear all current data and start fresh?')) return;
+    
+    sessionStorage.removeItem('checkin_step');
+    sessionStorage.removeItem('checkin_stayInfo');
+    sessionStorage.removeItem('checkin_guests');
+    
+    setStep(1);
+    setStayInfo({
+      room: '',
+      durationDays: 1,
+      durationHours: 0,
+      occupants: 1,
+      totalAmount: '',
+      paidAmount: 0,
+      paymentMethod: 'Cash',
+      commissionTo: '',
+      commissionAmount: ''
+    });
+    setGuests([{
+      fullName: '',
+      mobileNumber: '',
+      idProofType: 'Aadhaar',
+      idProofNumber: '',
+      idProofImage: '',
+      _id: null,
+      isSearching: false
+    }]);
+    setFrequentCoGuests([]);
+    setRoomSearchQuery('');
+    toast({ message: 'Form cleared successfully', type: 'info' });
+  };
+
   // =========================================================
   // UI
   // =========================================================
@@ -659,9 +693,18 @@ const CheckIn = () => {
       {/* HEADER */}
 
       <div className="mb-8">
-        <h1 className="text-3xl font-black text-gray-900 tracking-tight">
-          Express Check-In
-        </h1>
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-black text-gray-900 tracking-tight">
+            Express Check-In
+          </h1>
+          <button 
+            onClick={resetForm}
+            className="px-4 py-2 bg-red-50 text-red-600 rounded-xl font-bold text-xs hover:bg-red-100 transition-colors flex items-center gap-2"
+          >
+            <RefreshCw size={14} />
+            RESET FORM
+          </button>
+        </div>
 
         <div className="flex items-center gap-3 mt-6">
 
