@@ -5,7 +5,7 @@ import { CheckCircle2, Search, Plus, UserPlus, CreditCard, ChevronRight, Bed, Cl
 import { useToast } from '../../components/ui/Toast';
 import { compressImage } from '../../utils/imageCompression';
 
-const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+const API = import.meta.env.VITE_API_URL || '';
 
 const SkeletonRoom = () => (
   <div className="bg-white rounded-2xl border-2 border-gray-100 p-4 animate-pulse">
@@ -181,7 +181,7 @@ const CheckIn = () => {
       expectedOut.setDate(expectedOut.getDate() + (Number(stayInfo.durationDays) || 0));
       expectedOut.setHours(expectedOut.getHours() + (Number(stayInfo.durationHours) || 0));
 
-      await axios.post(`${API}/api/stays/checkin`, {
+      await axios.post(`${API}/api/stays`, {
         guest: pGuestId,
         coGuests: coGuestIds,
         room: stayInfo.room,
@@ -411,7 +411,7 @@ const CheckIn = () => {
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">ID Number (Opt)</label>
-                    <input type="text" placeholder="XXXX-XXXX" value={guest.idProofNumber} onChange={e => handleGuestChange(index, 'idProofNumber', e.target.value)} className="w-full px-4 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-black focus:ring-0 outline-none font-bold text-sm text-gray-900 uppercase transition-colors" />
+                    <input type="text" placeholder="XXXX-XXXX" value={guest.idProofNumber || ""} onChange={e => handleGuestChange(index, 'idProofNumber', e.target.value)} className="w-full px-4 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-black focus:ring-0 outline-none font-bold text-sm text-gray-900 uppercase transition-colors" />
                   </div>
                 </div>
 

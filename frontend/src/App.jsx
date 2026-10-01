@@ -2,6 +2,8 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './routes/ProtectedRoute';
+import { ToastProvider } from './components/ui/Toast';
+
 
 // Pages - Lazy Loaded for Extreme Performance
 import { lazy, Suspense } from 'react';
@@ -22,6 +24,7 @@ const PaymentsList = lazy(() => import('./pages/receptionist/PaymentsList'));
 function App() {
   return (
     <AuthProvider>
+      <ToastProvider>
       <Router>
         <Suspense fallback={<div className="flex items-center justify-center h-screen w-screen"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
           <Routes>
@@ -46,6 +49,7 @@ function App() {
         </Routes>
         </Suspense>
       </Router>
+          </ToastProvider>
     </AuthProvider>
   );
 }
