@@ -1280,7 +1280,7 @@ const CheckIn = () => {
                 <Users size={14} /> Quick Add Past Co-Guests
               </h4>
               <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
-                {frequentCoGuests.map(cg => (
+                {frequentCoGuests.filter(Boolean).map(cg => (
                   <button key={cg._id} type="button" onClick={() => {
                     const emptyIdx = guests.findIndex((g, i) => i > 0 && !g.fullName);
                     if (emptyIdx !== -1) {

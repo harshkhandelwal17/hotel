@@ -231,11 +231,11 @@ const GuestProfile = () => {
               <p className="text-xs font-bold text-gray-500 mt-1">Total: ₹{activeStay.totalAmount}</p>
             </div>
             
-            {activeStay.coGuests && activeStay.coGuests.length > 0 && (
+            {activeStay.coGuests && activeStay.coGuests.filter(cg => cg._id !== guest._id).length > 0 && (
               <div className="col-span-2 lg:col-span-4 mt-2">
                 <p className="text-xs font-black text-gray-500 uppercase tracking-widest mb-3">Co-Guests</p>
                 <div className="flex flex-wrap gap-3">
-                  {activeStay.coGuests.map(cg => (
+                  {activeStay.coGuests.filter(cg => cg._id !== guest._id).map(cg => (
                     <Link to={`/guests/${cg._id}`} key={cg._id} className="bg-white border-2 border-gray-100 hover:border-indigo-300 hover:shadow-md hover:bg-indigo-50/30 transition-all px-4 py-2 rounded-xl text-sm text-gray-800 font-bold flex flex-col sm:flex-row sm:items-center gap-2 shadow-sm">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center"><User size={12} className="text-indigo-600"/></div>
@@ -309,11 +309,11 @@ const GuestProfile = () => {
                         <p className="text-[10px] font-bold text-purple-600 mt-1">Primary: Unknown</p>
                       )}
                       
-                      {isPrimary && stay.coGuests && stay.coGuests.length > 0 && (
+                      {stay.coGuests && stay.coGuests.filter(cg => cg._id !== guest._id).length > 0 && (
                         <div className="mt-2 flex flex-col gap-1">
                           <p className="text-[9px] font-black uppercase text-gray-400 tracking-wider">With:</p>
                           <div className="flex flex-wrap gap-1">
-                            {stay.coGuests.map(cg => (
+                            {stay.coGuests.filter(cg => cg._id !== guest._id).map(cg => (
                               <Link to={`/guests/${cg._id}`} key={cg._id} className="text-[9px] font-bold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-900 px-2 py-1 rounded-md border border-indigo-100 transition-colors">
                                 {cg.fullName || 'Unknown'}
                               </Link>
