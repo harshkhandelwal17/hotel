@@ -322,24 +322,20 @@ const CheckIn = () => {
   // GUEST CHANGE
   // =========================================================
 
-  const handleGuestChange = (
-    index,
-    field,
-    value
-  ) => {
-    const updated = [...guests];
-
-    updated[index][field] = value;
-
-    if (field === 'mobileNumber') {
-      updated[index]._id = null;
-
-      if (value.length === 10) {
-        debouncedSearch(index, value);
+  const handleGuestChange = (index, field, value) => {
+    setGuests(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      
+      if (field === 'mobileNumber') {
+        updated[index]._id = null;
       }
-    }
+      return updated;
+    });
 
-    setGuests(updated);
+    if (field === 'mobileNumber' && value.length === 10) {
+      debouncedSearch(index, value);
+    }
   };
 
   // =========================================================
@@ -376,11 +372,11 @@ const CheckIn = () => {
         }
       );
 
-      handleGuestChange(
-        index,
-        'idProofImage',
-        res.data.url
-      );
+      setGuests(prev => {
+        const updated = [...prev];
+        updated[index] = { ...updated[index], idProofImage: res.data.url };
+        return updated;
+      });
 
       toast({
         message:
