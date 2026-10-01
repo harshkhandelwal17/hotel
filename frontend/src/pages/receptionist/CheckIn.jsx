@@ -437,35 +437,29 @@ const CheckIn = () => {
       // 2. PRIMARY GUEST
       // =====================================================
 
-      const pGuest = {
-        ...guests[0],
-        hostel: hostelId
-      };
+      const pGuestRaw = { ...guests[0], hostel: hostelId };
+      // Strip internal-only fields
+      const { isSearching: _ps, ...pGuest } = pGuestRaw;
 
-      console.log(
-        'Primary Guest Payload:',
-        pGuest
-      );
-
-      let pGuestId = pGuest._id;
+      let pGuestId = pGuest._id || null;
 
       if (!pGuestId) {
-        // CREATE PRIMARY GUEST
+        // Search by mobile first — if already exists, update instead of create
+        try {
+          const searchRes = await axios.get(`${API}/api/guests?mobile=${pGuest.mobileNumber}`);
+          if (searchRes.data.data && searchRes.data.data.length > 0) {
+            pGuestId = searchRes.data.data[0]._id;
+          }
+        } catch (_) {}
+      }
 
-        const pRes = await axios.post(
-          `${API}/api/guests`,
-          pGuest
-        );
-
-        pGuestId =
-          pRes.data.data._id;
+      if (!pGuestId) {
+        // CREATE PRIMARY GUEST (truly new)
+        const pRes = await axios.post(`${API}/api/guests`, pGuest);
+        pGuestId = pRes.data.data._id;
       } else {
         // UPDATE PRIMARY GUEST
-
-        await axios.put(
-          `${API}/api/guests/${pGuestId}`,
-          pGuest
-        );
+        await axios.put(`${API}/api/guests/${pGuestId}`, pGuest);
       }
 
       // =====================================================
@@ -474,45 +468,32 @@ const CheckIn = () => {
 
       const coGuestIds = [];
 
-      for (
-        let i = 1;
-        i < guests.length;
-        i++
-      ) {
+      for (let i = 1; i < guests.length; i++) {
         const cg = guests[i];
 
-        // Only process valid co-guest
+        // Only process co-guest that has a name
         if (cg.fullName && cg.fullName.trim() !== '') {
-          const coGuest = {
-            ...cg,
-            hostel: hostelId
-          };
+          const { isSearching: _cs, ...coGuest } = { ...cg, hostel: hostelId };
 
-          console.log(
-            `Co Guest ${i} Payload:`,
-            coGuest
-          );
+          let cgId = coGuest._id || null;
 
-          let cgId = coGuest._id;
+          // If no _id but has mobile — search DB first to avoid duplicate error
+          if (!cgId && coGuest.mobileNumber && coGuest.mobileNumber.trim() !== '') {
+            try {
+              const cgSearch = await axios.get(`${API}/api/guests?mobile=${coGuest.mobileNumber}`);
+              if (cgSearch.data.data && cgSearch.data.data.length > 0) {
+                cgId = cgSearch.data.data[0]._id;
+              }
+            } catch (_) {}
+          }
 
           if (!cgId) {
-            // CREATE CO-GUEST
-
-            const cgRes =
-              await axios.post(
-                `${API}/api/guests`,
-                coGuest
-              );
-
-            cgId =
-              cgRes.data.data._id;
+            // CREATE CO-GUEST (brand new, no mobile or not found)
+            const cgRes = await axios.post(`${API}/api/guests`, coGuest);
+            cgId = cgRes.data.data._id;
           } else {
             // UPDATE CO-GUEST
-
-            await axios.put(
-              `${API}/api/guests/${cgId}`,
-              coGuest
-            );
+            await axios.put(`${API}/api/guests/${cgId}`, coGuest);
           }
 
           coGuestIds.push(cgId);
