@@ -76,13 +76,18 @@ const CheckoutList = () => {
   const todayCt = stays.filter(s => isToday(new Date(s.expectedCheckOutDate))).length;
 
   if (loading) return (
-    <div className="flex justify-center items-center h-64">
-      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-black"></div>
+    <div className="space-y-6 animate-pulse">
+      <div className="h-10 w-64 bg-gray-200 rounded-xl" />
+      <div className="h-14 w-full bg-gray-200 rounded-2xl" />
+      <div className="flex gap-2"><div className="h-8 w-24 bg-gray-200 rounded-xl" /><div className="h-8 w-24 bg-gray-200 rounded-xl" /></div>
+      <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4">
+        {[1,2,3].map(i => <div key={i} className="h-16 bg-gray-100 rounded-xl" />)}
+      </div>
     </div>
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col gap-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
