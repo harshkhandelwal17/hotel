@@ -485,10 +485,7 @@ const CheckIn = () => {
         const cg = guests[i];
 
         // Only process valid co-guest
-        if (
-          cg.fullName &&
-          cg.mobileNumber
-        ) {
+        if (cg.fullName && cg.fullName.trim() !== '') {
           const coGuest = {
             ...cg,
             hostel: hostelId
