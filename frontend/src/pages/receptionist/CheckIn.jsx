@@ -5,7 +5,7 @@ import { CheckCircle2, Search, Plus, UserPlus, CreditCard, ChevronRight, Bed, Cl
 import { useToast } from '../../components/ui/Toast';
 import { compressImage } from '../../utils/imageCompression';
 
-const API = import.meta.env.VITE_API_URL || '';
+const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
 
 const SkeletonRoom = () => (
   <div className="bg-white rounded-2xl border-2 border-gray-100 p-4 animate-pulse">
