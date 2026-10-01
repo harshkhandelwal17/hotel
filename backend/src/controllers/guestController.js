@@ -3,15 +3,32 @@ const Stay = require('../models/Stay');
 
 exports.createGuest = async (req, res, next) => {
   try {
-    req.body.hostel = req.user.role === 'admin' ? req.body.hostel : req.user.assignedHostel;
+    const hostel = req.user.role === 'admin' ? req.body.hostel : req.user.assignedHostel;
     
-    // check for duplicate mobile number
-    const existingGuest = await Guest.findOne({ mobileNumber: req.body.mobileNumber });
-    if (existingGuest) {
-      return res.status(400).json({ success: false, message: 'Guest with this mobile number already exists', data: existingGuest });
+    // Strip immutable fields
+    const { _id, __v, createdAt, updatedAt, isSearching, ...payload } = { ...req.body, hostel };
+    
+    // Remove empty mobile
+    if (payload.mobileNumber === '' || payload.mobileNumber === null) {
+      delete payload.mobileNumber;
     }
 
-    const guest = await Guest.create(req.body);
+    // If mobile provided, check if guest already exists → UPDATE instead of CREATE
+    if (payload.mobileNumber) {
+      const existingGuest = await Guest.findOne({ mobileNumber: payload.mobileNumber });
+      if (existingGuest) {
+        // Update with any new info (name, idProof, image etc) and return
+        const updated = await Guest.findByIdAndUpdate(
+          existingGuest._id,
+          { $set: payload },
+          { new: true, runValidators: false }
+        );
+        return res.status(200).json({ success: true, data: updated });
+      }
+    }
+
+    // Truly new guest — create
+    const guest = await Guest.create(payload);
     res.status(201).json({ success: true, data: guest });
   } catch (error) {
     next(error);
