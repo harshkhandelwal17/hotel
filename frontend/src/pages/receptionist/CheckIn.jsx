@@ -97,12 +97,13 @@ const CheckIn = () => {
   // SESSION STORAGE
   // =========================================================
 
+
   useEffect(() => {
-    sessionStorage.setItem(
-      'checkin_step',
-      JSON.stringify(step)
-    );
+    sessionStorage.setItem('checkin_step', JSON.stringify(step));
+    // Always scroll to top when step changes (mobile fix)
+    window.scrollTo({ top: 0, behavior: 'instant' });
   }, [step]);
+
 
   useEffect(() => {
     sessionStorage.setItem(
