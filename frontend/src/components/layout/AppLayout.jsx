@@ -85,20 +85,15 @@ const AppLayout = ({ children }) => {
   return (
     <div className="min-h-screen bg-[#F9FAFB] flex flex-col font-sans">
       {/* Premium Topbar */}
-      <header className="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-40">
+      <header className="bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-sm sticky top-0 z-40">
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             
             {/* Logo & Navigation */}
             <div className="flex items-center space-x-4 md:space-x-6">
               
-              {/* Mobile Menu Button */}
-              <button 
-                onClick={() => setIsMobileMenuOpen(true)}
-                className="md:hidden p-2 -ml-2 text-gray-600 hover:text-black rounded-lg focus:outline-none"
-              >
-                <Menu size={24} />
-              </button>
+              {/* Mobile Menu Button (Hidden now since we have bottom nav, but kept in DOM for reference) */}
+              <div className="hidden"></div>
               <Link to="/dashboard" className="flex-shrink-0 flex items-center space-x-2 mr-4">
                 <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
                   <Hexagon className="text-white w-5 h-5" />
@@ -216,7 +211,7 @@ const AppLayout = ({ children }) => {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-screen-2xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-500">
+      <main className="flex-1 max-w-screen-2xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-24 md:pb-8 animate-in fade-in duration-500">
         {children || <Outlet context={{ globalProperty }} />}
       </main>
 
@@ -292,6 +287,38 @@ const AppLayout = ({ children }) => {
           </div>
         </div>
       )}
+
+      {/* ─── Mobile Bottom App Bar ─── */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-200 pb-[env(safe-area-inset-bottom)] z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+        <div className="flex justify-around items-center h-16 px-2">
+          <Link to="/dashboard" className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${location.pathname === '/dashboard' ? 'text-black' : 'text-gray-400'}`}>
+            <Home size={22} className={location.pathname === '/dashboard' ? 'fill-black' : ''} />
+            <span className="text-[9px] font-bold mt-1 uppercase tracking-widest">Home</span>
+          </Link>
+          
+          <Link to="/checkouts" className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${location.pathname.startsWith('/checkouts') || location.pathname.startsWith('/guests') ? 'text-black' : 'text-gray-400'}`}>
+            <Users size={22} className={location.pathname.startsWith('/checkouts') || location.pathname.startsWith('/guests') ? 'fill-black' : ''} />
+            <span className="text-[9px] font-bold mt-1 uppercase tracking-widest">Guests</span>
+          </Link>
+          
+          <div className="relative -top-5">
+            <Link to="/checkin" className="flex items-center justify-center w-14 h-14 bg-black text-white rounded-full shadow-xl hover:bg-gray-800 transition-all active:scale-95 border-4 border-[#F9FAFB]">
+              <PlusCircle size={28} />
+            </Link>
+          </div>
+          
+          <Link to="/payments" className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${location.pathname === '/payments' ? 'text-black' : 'text-gray-400'}`}>
+            <CreditCard size={22} className={location.pathname === '/payments' ? 'fill-black' : ''} />
+            <span className="text-[9px] font-bold mt-1 uppercase tracking-widest">Pay</span>
+          </Link>
+          
+          <button onClick={() => setIsMobileMenuOpen(true)} className="flex flex-col items-center justify-center w-16 h-full text-gray-400 hover:text-black transition-colors">
+            <Menu size={22} />
+            <span className="text-[9px] font-bold mt-1 uppercase tracking-widest">More</span>
+          </button>
+        </div>
+      </nav>
+      
     </div>
   );
 };
