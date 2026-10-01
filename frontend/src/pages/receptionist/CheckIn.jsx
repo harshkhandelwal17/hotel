@@ -945,28 +945,18 @@ const CheckIn = () => {
                     const isOccupied = !!room.isOccupied;
                     const isDisabled = isFull || isOccupied;
 
-                    const isFull =
-                      stayInfo.occupants >
-                      room.capacity;
+
 
                     return (
                       <button
                         key={room._id}
                         onClick={() =>
-                          !isFull &&
-                          setStayInfo(
-                            (prev) => ({
-                              ...prev,
-                              room: room._id
-                            })
-                          )
                           !isDisabled &&
                           setStayInfo((prev) => ({
                             ...prev,
                             room: room._id
                           }))
                         }
-                        disabled={isFull}
                         disabled={isDisabled}
                         className={`relative p-4 rounded-2xl border-2 text-center transition-all ${
                           active
