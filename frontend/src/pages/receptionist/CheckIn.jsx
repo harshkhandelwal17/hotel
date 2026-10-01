@@ -12,6 +12,7 @@ import {
   Users,
   ShieldCheck,
   Camera,
+  Plus,
   Image as ImageIcon
 } from 'lucide-react';
 
@@ -659,8 +660,10 @@ const CheckIn = () => {
     stayInfo.totalAmount !== '';
 
   const isStep2Valid = guests.every((g, idx) => {
-    if (!g.fullName.trim()) return false;
-    if (idx === 0) return g.mobileNumber.length === 10;
+    // Every guest must have a name
+    if (!g.fullName || !g.fullName.trim()) return false;
+    // Only primary guest MUST have a valid 10-digit mobile
+    if (idx === 0 && g.mobileNumber.length !== 10) return false;
     return true;
   });
 
@@ -1273,15 +1276,17 @@ const CheckIn = () => {
                 <Users size={14} /> Quick Add Past Co-Guests
               </h4>
               <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
-                {frequentCoGuests.filter(Boolean).map(cg => (
+                 {frequentCoGuests.filter(Boolean).map(cg => (
                   <button key={cg._id} type="button" onClick={() => {
                     const emptyIdx = guests.findIndex((g, i) => i > 0 && !g.fullName);
                     if (emptyIdx !== -1) {
-                      const updated = [...guests];
-                      updated[emptyIdx] = { ...updated[emptyIdx], ...cg };
-                      setGuests(updated);
+                      setGuests(prev => {
+                        const updated = [...prev];
+                        updated[emptyIdx] = { ...updated[emptyIdx], ...cg, isSearching: false };
+                        return updated;
+                      });
                       toast({ message: `${cg.fullName} added!`, type: 'success' });
-                    } else if (guests.length < selectedRoomDetails?.capacity) {
+                    } else if (guests.length < (selectedRoomDetails?.capacity || 99)) {
                       setGuests(prev => [...prev, { ...cg, isSearching: false }]);
                       setStayInfo(p => ({ ...p, occupants: p.occupants + 1 }));
                       toast({ message: `${cg.fullName} added!`, type: 'success' });
@@ -1364,18 +1369,19 @@ const CheckIn = () => {
 
                     <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">
                       Mobile Number{' '}
-                      <span className="text-red-500">
-                        *
-                      </span>
+                      {index === 0 && (
+                        <span className="text-red-500">*</span>
+                      )}
+                      {index > 0 && (
+                        <span className="text-gray-400 font-normal normal-case">(Optional)</span>
+                      )}
                     </label>
 
                     <input
                       type="tel"
-                      required
-                      placeholder="10-digit mobile"
-                      value={
-                        guest.mobileNumber
-                      }
+                      required={index === 0}
+                      placeholder={index === 0 ? "10-digit mobile" : "Mobile (optional)"}
+                      value={guest.mobileNumber}
                       onChange={(e) =>
                         handleGuestChange(
                           index,
