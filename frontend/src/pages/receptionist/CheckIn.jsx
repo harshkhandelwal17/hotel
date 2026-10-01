@@ -95,11 +95,11 @@ const CheckIn = () => {
       return updated;
     });
     try {
-      const res = await axios.get(`${API}/api/guests/search?mobile=${mobile}`);
-      if (res.data.data) {
+      const res = await axios.get(`${API}/api/guests?mobile=${mobile}`);
+      if (res.data && res.data.data && res.data.data.length > 0) {
         setGuests(prev => {
           const updated = [...prev];
-          updated[index] = { ...updated[index], ...res.data.data, isSearching: false };
+          updated[index] = { ...updated[index], ...res.data.data[0], isSearching: false };
           return updated;
         });
         toast({ message: 'Returning guest details auto-filled!', type: 'success' });
@@ -110,7 +110,7 @@ const CheckIn = () => {
           return updated;
         });
       }
-    } catch {
+    } catch (err) {
       setGuests(prev => {
         const updated = [...prev];
         updated[index].isSearching = false;
