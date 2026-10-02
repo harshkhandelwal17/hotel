@@ -29,6 +29,7 @@ const SkeletonRoom = () => (
     <div className="h-6 w-1/4 bg-gray-200 rounded mb-2" />
     <div className="h-4 w-1/2 bg-gray-200 rounded" />
   </div>
+  
 );
 
 const CheckIn = () => {
