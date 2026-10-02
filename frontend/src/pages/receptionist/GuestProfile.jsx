@@ -150,12 +150,20 @@ const GuestProfile = () => {
               )}
             </div>
             
-            {guest.idProofImage && (
-              <div className="mt-4 inline-block">
-                <a href={(guest.idProofImage?.startsWith('http') ? guest.idProofImage : `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}${guest.idProofImage}`)} target="_blank" rel="noreferrer" 
-                   className="text-xs text-indigo-700 font-black uppercase tracking-widest hover:text-indigo-900 bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100 transition-colors flex items-center gap-2">
-                  <span className="text-lg">🔍</span> View ID Document
-                </a>
+            {(guest.idProofImage || guest.idProofImageBack) && (
+              <div className="mt-4 flex flex-wrap gap-3">
+                {guest.idProofImage && (
+                  <a href={(guest.idProofImage?.startsWith('http') ? guest.idProofImage : `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}${guest.idProofImage}`)} target="_blank" rel="noreferrer" 
+                     className="text-[10px] text-indigo-700 font-black uppercase tracking-widest hover:text-indigo-900 bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100 transition-colors flex items-center gap-2">
+                    <span className="text-sm">🔍</span> VIEW ID FRONT
+                  </a>
+                )}
+                {guest.idProofImageBack && (
+                  <a href={(guest.idProofImageBack?.startsWith('http') ? guest.idProofImageBack : `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}${guest.idProofImageBack}`)} target="_blank" rel="noreferrer" 
+                     className="text-[10px] text-indigo-700 font-black uppercase tracking-widest hover:text-indigo-900 bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100 transition-colors flex items-center gap-2">
+                    <span className="text-sm">🔍</span> VIEW ID BACK
+                  </a>
+                )}
               </div>
             )}
           </div>
@@ -251,7 +259,14 @@ const GuestProfile = () => {
                           <a href={(cg.idProofImage?.startsWith('http') ? cg.idProofImage : `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}${cg.idProofImage}`)} target="_blank" rel="noreferrer" 
                              onClick={(e) => e.stopPropagation()}
                              className="text-[10px] uppercase tracking-wider font-black bg-indigo-100 text-indigo-700 px-2 py-1 rounded-md hover:bg-indigo-200 border border-indigo-200 transition-colors">
-                            View ID
+                            View Front
+                          </a>
+                        )}
+                        {cg.idProofImageBack && (
+                          <a href={(cg.idProofImageBack?.startsWith('http') ? cg.idProofImageBack : `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}${cg.idProofImageBack}`)} target="_blank" rel="noreferrer" 
+                             onClick={(e) => e.stopPropagation()}
+                             className="text-[10px] uppercase tracking-wider font-black bg-indigo-100 text-indigo-700 px-2 py-1 rounded-md hover:bg-indigo-200 border border-indigo-200 transition-colors">
+                            View Back
                           </a>
                         )}
                       </div>
