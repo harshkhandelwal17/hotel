@@ -88,6 +88,7 @@ const CheckIn = () => {
         idProofType: 'Aadhaar',
         idProofNumber: '',
         idProofImage: '',
+        idProofImageBack: '',
         _id: null,
         isSearching: false
       }
@@ -675,6 +676,7 @@ const CheckIn = () => {
       idProofType: 'Aadhaar',
       idProofNumber: '',
       idProofImage: '',
+      idProofImageBack: '',
       _id: null,
       isSearching: false
     }]);

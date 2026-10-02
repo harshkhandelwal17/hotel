@@ -23,6 +23,10 @@ const guestSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  idProofImageBack: {
+    type: String,
+    default: ''
+  },
   email: {
     type: String,
     match: [
