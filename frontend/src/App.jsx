@@ -20,6 +20,7 @@ const ManageRooms = lazy(() => import('./pages/admin/ManageRooms'));
 const Reports = lazy(() => import('./pages/admin/Reports'));
 const ManageStaff = lazy(() => import('./pages/admin/ManageStaff'));
 const PaymentsList = lazy(() => import('./pages/receptionist/PaymentsList'));
+const GuestDirectory = lazy(() => import('./pages/receptionist/GuestDirectory'));
 
 function App() {
   return (
@@ -42,6 +43,7 @@ function App() {
               <Route path="/admin/rooms" element={<ManageRooms />} />
               <Route path="/admin/reports" element={<Reports />} />
               <Route path="/admin/staff" element={<ManageStaff />} />
+              <Route path="/guests" element={<GuestDirectory />} />
             </Route>
           </Route>
           

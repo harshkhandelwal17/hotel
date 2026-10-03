@@ -71,7 +71,8 @@ const AppLayout = ({ children }) => {
 
   let navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: Home },
-    { name: 'Guests', path: '/checkouts', icon: Users },
+    { name: 'Stays', path: '/checkouts', icon: Bed },
+    { name: 'History', path: '/guests', icon: Users },
     { name: 'Payments', path: '/payments', icon: CreditCard },
   ];
 
