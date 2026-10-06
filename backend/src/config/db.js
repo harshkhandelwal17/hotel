@@ -14,25 +14,25 @@ const connectDB = async () => {
       // Ignore error if index doesn't exist
     }
 
-    // Assign ownerless hostels to the correct admin (mahendragore30121999@gmail.com)
+    // Restore data back to the original admin (admin@example.com)
     try {
       const User = require('../models/User');
       const Hostel = require('../models/Hostel');
       
-      const admin = await User.findOne({ email: 'mahendragore30121999@gmail.com' });
-      if (admin) {
-        // Assign all hostels to this admin to fix the multi-admin conflict
-        const result = await Hostel.updateMany(
+      const realAdmin = await User.findOne({ email: 'admin@example.com' });
+      if (realAdmin) {
+        // Assign any remaining ownerless hostels to the real admin
+        await Hostel.updateMany(
           { $or: [{ owner: { $exists: false } }, { owner: null }] },
-          { $set: { owner: admin._id } }
+          { $set: { owner: realAdmin._id } }
         );
         
-        // Also force overwrite any hostels that were accidentally given to the dummy 'admin@example.com'
-        const dummyAdmin = await User.findOne({ email: 'admin@example.com' });
-        if (dummyAdmin) {
+        // Revert the previous script: move properties from mahendra back to the real admin
+        const mahendraAdmin = await User.findOne({ email: 'mahendragore30121999@gmail.com' });
+        if (mahendraAdmin) {
           await Hostel.updateMany(
-            { owner: dummyAdmin._id },
-            { $set: { owner: admin._id } }
+            { owner: mahendraAdmin._id },
+            { $set: { owner: realAdmin._id } }
           );
         }
       }
