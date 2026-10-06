@@ -2,8 +2,6 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './routes/ProtectedRoute';
-import { ToastProvider } from './components/ui/Toast';
-
 
 // Pages - Lazy Loaded for Extreme Performance
 import { lazy, Suspense } from 'react';
@@ -20,12 +18,10 @@ const ManageRooms = lazy(() => import('./pages/admin/ManageRooms'));
 const Reports = lazy(() => import('./pages/admin/Reports'));
 const ManageStaff = lazy(() => import('./pages/admin/ManageStaff'));
 const PaymentsList = lazy(() => import('./pages/receptionist/PaymentsList'));
-const GuestDirectory = lazy(() => import('./pages/receptionist/GuestDirectory'));
 
 function App() {
   return (
     <AuthProvider>
-      <ToastProvider>
       <Router>
         <Suspense fallback={<div className="flex items-center justify-center h-screen w-screen"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
           <Routes>
@@ -43,7 +39,6 @@ function App() {
               <Route path="/admin/rooms" element={<ManageRooms />} />
               <Route path="/admin/reports" element={<Reports />} />
               <Route path="/admin/staff" element={<ManageStaff />} />
-              <Route path="/guests" element={<GuestDirectory />} />
             </Route>
           </Route>
           
@@ -51,7 +46,6 @@ function App() {
         </Routes>
         </Suspense>
       </Router>
-          </ToastProvider>
     </AuthProvider>
   );
 }
