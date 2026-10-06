@@ -10,8 +10,19 @@ exports.getDashboardStats = async (req, res, next) => {
     let filter = {};
     if (req.user.role !== 'admin') {
       filter.hostel = req.user.assignedHostel;
-    } else if (req.query.hostel && req.query.hostel !== 'all') {
-      filter.hostel = new mongoose.Types.ObjectId(req.query.hostel);
+    } else {
+      const Hostel = require('../models/Hostel');
+      const myHostels = await Hostel.find({ owner: req.user.id }).select('_id');
+      const hostelIds = myHostels.map(h => h._id);
+      
+      if (req.query.hostel && req.query.hostel !== 'all') {
+        if (!hostelIds.some(id => id.toString() === req.query.hostel)) {
+          return res.status(403).json({ success: false, message: 'Not authorized' });
+        }
+        filter.hostel = new mongoose.Types.ObjectId(req.query.hostel);
+      } else {
+        filter.hostel = { $in: hostelIds };
+      }
     }
 
     const today = new Date();

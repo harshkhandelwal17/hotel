@@ -8,6 +8,14 @@ exports.createPayment = async (req, res, next) => {
     const stay = await Stay.findById(stayId);
     if (!stay) return res.status(404).json({ success: false, message: 'Stay not found' });
     
+    if (req.user.role === 'admin') {
+      const Hostel = require('../models/Hostel');
+      const hostelExists = await Hostel.findOne({ _id: stay.hostel, owner: req.user.id });
+      if (!hostelExists) return res.status(403).json({ success: false, message: 'Not authorized for this payment' });
+    } else if (req.user.assignedHostel.toString() !== stay.hostel.toString()) {
+      return res.status(403).json({ success: false, message: 'Not authorized for this payment' });
+    }
+    
     const payment = await Payment.create({
       stay: stayId,
       guest: stay.guest,
@@ -33,6 +41,11 @@ exports.getPayments = async (req, res, next) => {
     let filter = {};
     if (req.user.role !== 'admin') {
       filter.hostel = req.user.assignedHostel;
+    } else {
+      const Hostel = require('../models/Hostel');
+      const myHostels = await Hostel.find({ owner: req.user.id }).select('_id');
+      const hostelIds = myHostels.map(h => h._id);
+      filter.hostel = { $in: hostelIds };
     }
     
     if (req.query.stay) filter.stay = req.query.stay;

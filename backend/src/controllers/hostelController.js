@@ -2,6 +2,7 @@ const Hostel = require('../models/Hostel');
 
 exports.createHostel = async (req, res, next) => {
   try {
+    req.body.owner = req.user.id;
     const hostel = await Hostel.create(req.body);
     res.status(201).json({ success: true, data: hostel });
   } catch (error) {
@@ -13,7 +14,8 @@ exports.getHostels = async (req, res, next) => {
   try {
     let query;
     if (req.user.role === 'admin') {
-      query = Hostel.find();
+      // Find hostels owned by this admin
+      query = Hostel.find({ owner: req.user.id });
     } else {
       query = Hostel.find({ _id: req.user.assignedHostel });
     }
@@ -26,9 +28,19 @@ exports.getHostels = async (req, res, next) => {
 
 exports.getHostel = async (req, res, next) => {
   try {
-    const hostel = await Hostel.findById(req.params.id);
+    let query = { _id: req.params.id };
+    if (req.user.role === 'admin') {
+      query.owner = req.user.id;
+    } else {
+      // Receptionist can only access their assigned hostel
+      if (req.user.assignedHostel.toString() !== req.params.id) {
+        return res.status(403).json({ success: false, message: 'Not authorized to access this hostel' });
+      }
+    }
+    
+    const hostel = await Hostel.findOne(query);
     if (!hostel) {
-      return res.status(404).json({ success: false, message: 'Hostel not found' });
+      return res.status(404).json({ success: false, message: 'Hostel not found or not owned by you' });
     }
     res.status(200).json({ success: true, data: hostel });
   } catch (error) {
@@ -38,12 +50,16 @@ exports.getHostel = async (req, res, next) => {
 
 exports.updateHostel = async (req, res, next) => {
   try {
-    const hostel = await Hostel.findByIdAndUpdate(req.params.id, req.body, {
+    let query = { _id: req.params.id };
+    if (req.user.role === 'admin') {
+      query.owner = req.user.id;
+    }
+    const hostel = await Hostel.findOneAndUpdate(query, req.body, {
       new: true,
       runValidators: true
     });
     if (!hostel) {
-      return res.status(404).json({ success: false, message: 'Hostel not found' });
+      return res.status(404).json({ success: false, message: 'Hostel not found or not owned by you' });
     }
     res.status(200).json({ success: true, data: hostel });
   } catch (error) {
@@ -53,9 +69,13 @@ exports.updateHostel = async (req, res, next) => {
 
 exports.deleteHostel = async (req, res, next) => {
   try {
-    const hostel = await Hostel.findByIdAndDelete(req.params.id);
+    let query = { _id: req.params.id };
+    if (req.user.role === 'admin') {
+      query.owner = req.user.id;
+    }
+    const hostel = await Hostel.findOneAndDelete(query);
     if (!hostel) {
-      return res.status(404).json({ success: false, message: 'Hostel not found' });
+      return res.status(404).json({ success: false, message: 'Hostel not found or not owned by you' });
     }
     res.status(200).json({ success: true, data: {} });
   } catch (error) {

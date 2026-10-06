@@ -3,7 +3,14 @@ const Stay = require('../models/Stay');
 
 exports.createGuest = async (req, res, next) => {
   try {
-    const hostel = req.user.role === 'admin' ? req.body.hostel : req.user.assignedHostel;
+    let hostel = req.user.assignedHostel;
+    
+    if (req.user.role === 'admin') {
+      const Hostel = require('../models/Hostel');
+      const hostelExists = await Hostel.findOne({ _id: req.body.hostel, owner: req.user.id });
+      if (!hostelExists) return res.status(403).json({ success: false, message: 'Not authorized for this hostel' });
+      hostel = req.body.hostel;
+    }
     
     // Strip immutable fields
     const { _id, __v, createdAt, updatedAt, isSearching, ...payload } = { ...req.body, hostel };
@@ -40,6 +47,19 @@ exports.getGuests = async (req, res, next) => {
     let filter = {};
     if (req.user.role !== 'admin') {
       filter.hostel = req.user.assignedHostel;
+    } else {
+      const Hostel = require('../models/Hostel');
+      const myHostels = await Hostel.find({ owner: req.user.id }).select('_id');
+      const hostelIds = myHostels.map(h => h._id);
+      
+      if (req.query.hostel && req.query.hostel !== 'all') {
+        if (!hostelIds.some(id => id.toString() === req.query.hostel)) {
+          return res.status(403).json({ success: false, message: 'Not authorized' });
+        }
+        filter.hostel = req.query.hostel;
+      } else {
+        filter.hostel = { $in: hostelIds };
+      }
     }
 
     if (req.query.search) {

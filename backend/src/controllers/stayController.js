@@ -7,7 +7,14 @@ const mongoose = require('mongoose');
 exports.createStay = async (req, res, next) => {
   try {
     const { guest, room, checkInDate, expectedCheckOutDate, initialPaymentAmount, paymentMethod, durationOption, occupants, coGuests, commissionTo, commissionAmount } = req.body;
-    const hostel = req.user.role === 'admin' ? req.body.hostel : req.user.assignedHostel;
+    let hostel = req.user.assignedHostel;
+    
+    if (req.user.role === 'admin') {
+      const Hostel = require('../models/Hostel');
+      const hostelExists = await Hostel.findOne({ _id: req.body.hostel, owner: req.user.id });
+      if (!hostelExists) return res.status(403).json({ success: false, message: 'Not authorized for this hostel' });
+      hostel = req.body.hostel;
+    }
     
     // Validate overlapping stays for the ROOM (not bed)
     const overlapping = await Stay.findOne({
@@ -68,8 +75,19 @@ exports.getStays = async (req, res, next) => {
     let filter = {};
     if (req.user.role !== 'admin') {
       filter.hostel = req.user.assignedHostel;
-    } else if (req.query.hostel && req.query.hostel !== 'all') {
-      filter.hostel = req.query.hostel;
+    } else {
+      const Hostel = require('../models/Hostel');
+      const myHostels = await Hostel.find({ owner: req.user.id }).select('_id');
+      const hostelIds = myHostels.map(h => h._id);
+      
+      if (req.query.hostel && req.query.hostel !== 'all') {
+        if (!hostelIds.some(id => id.toString() === req.query.hostel)) {
+          return res.status(403).json({ success: false, message: 'Not authorized' });
+        }
+        filter.hostel = req.query.hostel;
+      } else {
+        filter.hostel = { $in: hostelIds };
+      }
     }
     
     if (req.query.status) {

@@ -29,6 +29,10 @@ const hostelSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  owner: {
+    type: mongoose.Schema.ObjectId,
+    ref: 'User'
   }
 }, { timestamps: true });
 

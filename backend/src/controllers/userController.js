@@ -2,7 +2,15 @@ const User = require('../models/User');
 
 exports.getUsers = async (req, res, next) => {
   try {
-    const users = await User.find({ role: 'receptionist' }).populate('assignedHostel', 'name');
+    const Hostel = require('../models/Hostel');
+    const myHostels = await Hostel.find({ owner: req.user.id }).select('_id');
+    const hostelIds = myHostels.map(h => h._id);
+
+    const users = await User.find({ 
+      role: 'receptionist',
+      assignedHostel: { $in: hostelIds }
+    }).populate('assignedHostel', 'name');
+    
     res.status(200).json({ success: true, count: users.length, data: users });
   } catch (error) {
     next(error);
@@ -13,6 +21,13 @@ exports.createUser = async (req, res, next) => {
   try {
     const { name, email, password, assignedHostel } = req.body;
     
+    // Check if admin owns this hostel
+    const Hostel = require('../models/Hostel');
+    const hostel = await Hostel.findOne({ _id: assignedHostel, owner: req.user.id });
+    if (!hostel) {
+      return res.status(403).json({ success: false, message: 'Not authorized to assign staff to this hostel' });
+    }
+
     // Check if user exists
     const userExists = await User.findOne({ email });
     if (userExists) {

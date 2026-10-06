@@ -6,6 +6,12 @@ exports.createRoom = async (req, res, next) => {
   try {
     const { roomNumber, hostel, floor, capacity, roomType, price12h, price24h, extraPerPerson12h, extraPerPerson24h, customRates } = req.body;
     
+    if (req.user.role === 'admin') {
+      const Hostel = require('../models/Hostel');
+      const hostelExists = await Hostel.findOne({ _id: hostel, owner: req.user.id });
+      if (!hostelExists) return res.status(403).json({ success: false, message: 'Not authorized to add room to this hostel' });
+    }
+
     const room = await Room.create({
       roomNumber, hostel, floor, capacity, roomType,
       price12h: Number(price12h) || 0,
@@ -38,8 +44,19 @@ exports.getRooms = async (req, res, next) => {
     let filter = {};
     if (req.user.role !== 'admin') {
       filter.hostel = req.user.assignedHostel;
-    } else if (req.query.hostel && req.query.hostel !== 'all') {
-      filter.hostel = req.query.hostel;
+    } else {
+      const Hostel = require('../models/Hostel');
+      const myHostels = await Hostel.find({ owner: req.user.id }).select('_id');
+      const hostelIds = myHostels.map(h => h._id);
+      
+      if (req.query.hostel && req.query.hostel !== 'all') {
+        if (!hostelIds.some(id => id.toString() === req.query.hostel)) {
+          return res.status(403).json({ success: false, message: 'Not authorized' });
+        }
+        filter.hostel = req.query.hostel;
+      } else {
+        filter.hostel = { $in: hostelIds };
+      }
     }
 
     const rooms = await Room.find(filter).populate('hostel', 'name');
