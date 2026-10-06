@@ -16,7 +16,22 @@ const AppLayout = ({ children }) => {
 
   useEffect(() => {
     if (user?.role === 'admin') {
-      axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/hostels').then(res => setHostels(res.data.data)).catch(console.error);
+      axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/hostels')
+        .then(res => {
+          const fetchedHostels = res.data.data;
+          setHostels(fetchedHostels);
+          
+          // Reset globalProperty if it doesn't belong to this admin
+          if (globalProperty !== 'all') {
+            const isValid = fetchedHostels.some(h => h._id === globalProperty);
+            if (!isValid) {
+              setGlobalProperty('all');
+              localStorage.setItem('adminGlobalProperty', 'all');
+              window.dispatchEvent(new Event('propertyChanged'));
+            }
+          }
+        })
+        .catch(console.error);
     }
   }, [user]);
 
