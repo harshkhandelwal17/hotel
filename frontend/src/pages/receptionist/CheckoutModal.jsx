@@ -5,8 +5,7 @@ import { X, User, Home, Calendar, CreditCard, AlertCircle, CheckCircle2, Plus, P
 import { printInvoice } from '../../utils/invoice';
 
 const CheckoutModal = ({ stay, onClose, onSuccess }) => {
-  const [additionalCharges, setAdditionalCharges] = useState(0);
-  const [additionalChargesNote, setAdditionalChargesNote] = useState('');
+  const [chargesList, setChargesList] = useState([]);
   const [checkoutPayment, setCheckoutPayment] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [loading, setLoading] = useState(false);
@@ -15,7 +14,16 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
   const [completedStay, setCompletedStay] = useState(null);
 
   const baseBalance = stay.totalAmount - stay.paidAmount;
-  const finalBalance = Math.max(0, baseBalance + Number(additionalCharges));
+  const totalNewCharges = chargesList.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  const finalBalance = Math.max(0, baseBalance + totalNewCharges);
+
+  const handleAddCharge = () => setChargesList([...chargesList, { reason: '', amount: '' }]);
+  const handleUpdateCharge = (idx, field, value) => {
+    const updated = [...chargesList];
+    updated[idx][field] = value;
+    setChargesList(updated);
+  };
+  const handleRemoveCharge = (idx) => setChargesList(chargesList.filter((_, i) => i !== idx));
 
   const handleCheckout = async (e) => {
     e.preventDefault();
@@ -23,8 +31,7 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
     setError('');
     try {
       const res = await axios.post(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/stays/${stay._id}/checkout`, {
-        additionalCharges: Number(additionalCharges),
-        additionalChargesNote,
+        chargesList,
         checkoutPayment: Number(checkoutPayment),
         paymentMethod,
       });
@@ -150,15 +157,31 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
               
               {/* Additional Charges / Adjustments */}
               <div className="pt-3 border-t border-gray-100">
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Any last-minute charge? (optional, ₹)</label>
-                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                  <div className="relative w-full sm:w-1/3">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">₹</span>
-                    <input type="number" min="0" placeholder="0" className="w-full pl-7 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-black outline-none font-black text-gray-900 text-sm"
-                      value={additionalCharges} onChange={e => setAdditionalCharges(e.target.value)} />
-                  </div>
-                  <input type="text" placeholder="Reason (e.g. Water bottle, Late checkout)" className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-black outline-none font-medium text-sm text-gray-900"
-                    value={additionalChargesNote} onChange={e => setAdditionalChargesNote(e.target.value)} />
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">Additional Charges (₹)</label>
+                  <button type="button" onClick={handleAddCharge} className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md flex items-center gap-1 hover:bg-blue-100 transition-colors">
+                    <Plus size={12} /> Add Item
+                  </button>
+                </div>
+                
+                <div className="space-y-2">
+                  {chargesList.map((charge, idx) => (
+                    <div key={idx} className="flex gap-2 items-center">
+                      <div className="relative w-1/3">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">₹</span>
+                        <input type="number" min="0" placeholder="0" className="w-full pl-7 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-black outline-none font-black text-gray-900 text-sm"
+                          value={charge.amount} onChange={e => handleUpdateCharge(idx, 'amount', e.target.value)} />
+                      </div>
+                      <input type="text" placeholder="Reason (e.g. Water, Late checkout)" className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-black outline-none font-medium text-sm text-gray-900"
+                        value={charge.reason} onChange={e => handleUpdateCharge(idx, 'reason', e.target.value)} />
+                      <button type="button" onClick={() => handleRemoveCharge(idx)} className="p-2 text-red-500 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ))}
+                  {chargesList.length === 0 && (
+                    <div className="text-xs text-gray-400 font-medium italic py-2 text-center border-2 border-dashed border-gray-100 rounded-lg">No extra charges added.</div>
+                  )}
                 </div>
               </div>
 

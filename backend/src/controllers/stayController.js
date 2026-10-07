@@ -263,7 +263,24 @@ exports.checkout = async (req, res, next) => {
       throw new Error('Payment is more than the balance due');
     }
 
-    if (additionalCharges > 0) {
+    if (req.body.chargesList && Array.isArray(req.body.chargesList) && req.body.chargesList.length > 0) {
+      let totalNewCharges = 0;
+      for (const charge of req.body.chargesList) {
+        const amt = Number(charge.amount) || 0;
+        if (amt > 0) {
+          stay.charges.push({
+            description: (charge.reason && charge.reason.trim()) || 'Extra charge',
+            category: 'Other',
+            quantity: 1,
+            amount: amt,
+            addedBy: req.user._id
+          });
+          totalNewCharges += amt;
+        }
+      }
+      stay.additionalCharges = (stay.additionalCharges || 0) + totalNewCharges;
+      stay.totalAmount += totalNewCharges;
+    } else if (additionalCharges > 0) {
       stay.charges.push({
         description: (additionalChargesNote && additionalChargesNote.trim()) || 'Checkout charges',
         category: 'Other',
