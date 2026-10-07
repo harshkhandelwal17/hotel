@@ -62,6 +62,30 @@ const staySchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  // Itemised extra charges (food, water, laundry, damage...)
+  charges: [{
+    description: { type: String, required: true, trim: true },
+    category: {
+      type: String,
+      enum: ['Food', 'Beverage', 'Laundry', 'Extra Bed', 'Damage', 'Late Checkout', 'Other'],
+      default: 'Other'
+    },
+    quantity: { type: Number, default: 1 },
+    amount: { type: Number, required: true }, // total for the line (qty * rate)
+    date: { type: Date, default: Date.now },
+    addedBy: { type: mongoose.Schema.ObjectId, ref: 'User' }
+  }],
+  // Room shift audit trail
+  roomHistory: [{
+    fromRoom: { type: mongoose.Schema.ObjectId, ref: 'Room' },
+    toRoom: { type: mongoose.Schema.ObjectId, ref: 'Room' },
+    fromRoomNumber: String,
+    toRoomNumber: String,
+    reason: String,
+    priceAdjustment: { type: Number, default: 0 },
+    date: { type: Date, default: Date.now },
+    shiftedBy: { type: mongoose.Schema.ObjectId, ref: 'User' }
+  }],
   commissionTo: {
     type: String,
     trim: true

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import axios from 'axios';
 import CheckoutModal from './CheckoutModal';
+import StayManageModal from './StayManageModal';
 import { format, isPast, isToday } from 'date-fns';
 import { Users, Clock, Download, AlertTriangle, Search, ChevronRight } from 'lucide-react';
 
@@ -9,6 +10,7 @@ const CheckoutList = () => {
   const [stays, setStays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedStay, setSelectedStay] = useState(null);
+  const [managedStay, setManagedStay] = useState(null);
   const [filter, setFilter] = useState('all'); // 'all', 'overdue', 'today', 'active'
   const [search, setSearch] = useState('');
   const { globalProperty } = useOutletContext() || { globalProperty: 'all' };
@@ -154,7 +156,7 @@ const CheckoutList = () => {
                 <div
                   key={stay._id}
                   className="p-5 hover:bg-gray-50/60 transition-colors cursor-pointer"
-                  onClick={() => setSelectedStay(stay)}
+                  onClick={() => setManagedStay(stay)}
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center space-x-4">
@@ -213,6 +215,15 @@ const CheckoutList = () => {
           </div>
         )}
       </div>
+
+      {managedStay && (
+        <StayManageModal
+          stay={managedStay}
+          onClose={() => { setManagedStay(null); fetchStays(); }}
+          onChanged={fetchStays}
+          onCheckout={(freshStay) => { setManagedStay(null); setSelectedStay(freshStay); }}
+        />
+      )}
 
       {selectedStay && (
         <CheckoutModal

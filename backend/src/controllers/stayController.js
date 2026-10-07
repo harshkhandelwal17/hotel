@@ -107,20 +107,165 @@ exports.getStays = async (req, res, next) => {
   }
 };
 
-exports.checkout = async (req, res, next) => {
-  
+
+// ---------------------------------------------------------------------------
+// Helper: load a stay and make sure the logged-in user is allowed to touch it.
+//  - admin        -> stay's hostel must be owned by this admin
+//  - receptionist -> stay's hostel must be their assigned hostel
+// ---------------------------------------------------------------------------
+const loadAuthorizedStay = async (req) => {
+  const stay = await Stay.findById(req.params.id);
+  if (!stay) {
+    const err = new Error('Stay not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  let allowed = false;
+  if (req.user.role === 'admin') {
+    const Hostel = require('../models/Hostel');
+    allowed = !!(await Hostel.exists({ _id: stay.hostel, owner: req.user.id }));
+  } else {
+    allowed = !!req.user.assignedHostel && stay.hostel.toString() === req.user.assignedHostel.toString();
+  }
+
+  if (!allowed) {
+    const err = new Error('Not authorized for this stay');
+    err.statusCode = 403;
+    throw err;
+  }
+  return stay;
+};
+
+const sendError = (res, next, error) => {
+  if (error.statusCode) {
+    return res.status(error.statusCode).json({ success: false, message: error.message });
+  }
+  return next(error);
+};
+
+const OPEN_STATUSES = ['Active', 'Checkout Due', 'Overdue'];
+
+// GET /api/stays/:id  -> full detail (guest, room, charges, payments, history)
+exports.getStay = async (req, res, next) => {
   try {
-    const stay = await Stay.findById(req.params.id);
-    if (!stay) throw new Error('Stay not found');
+    const authorized = await loadAuthorizedStay(req);
+    const stay = await Stay.findById(authorized._id)
+      .populate('guest', 'fullName mobileNumber idProofType idProofNumber')
+      .populate('coGuests', 'fullName mobileNumber')
+      .populate('room', 'roomNumber price24h extraPerPerson24h')
+      .populate('hostel', 'name address');
+    const payments = await Payment.find({ stay: stay._id }).sort('paymentDate');
+    res.status(200).json({ success: true, data: { stay, payments } });
+  } catch (error) {
+    sendError(res, next, error);
+  }
+};
+
+// POST /api/stays/:id/charges  { description, category, quantity, rate | amount }
+exports.addCharge = async (req, res, next) => {
+  try {
+    const stay = await loadAuthorizedStay(req);
+    if (!OPEN_STATUSES.includes(stay.status)) throw new Error('Charges can only be added to a guest who is still staying');
+
+    const { description, category } = req.body;
+    const quantity = Math.max(1, Number(req.body.quantity) || 1);
+    const rate = Number(req.body.rate);
+    const amount = Number.isFinite(rate) && req.body.rate !== undefined && req.body.rate !== ''
+      ? rate * quantity
+      : Number(req.body.amount);
+
+    if (!description || !String(description).trim()) throw new Error('Please enter what the charge is for');
+    if (!Number.isFinite(amount) || amount <= 0) throw new Error('Please enter a valid amount');
+
+    stay.charges.push({
+      description: String(description).trim(),
+      category: category || 'Other',
+      quantity,
+      amount,
+      addedBy: req.user._id
+    });
+    stay.additionalCharges = (stay.additionalCharges || 0) + amount;
+    stay.totalAmount += amount;
+    await stay.save();
+
+    res.status(201).json({ success: true, data: stay });
+  } catch (error) {
+    sendError(res, next, error);
+  }
+};
+
+// DELETE /api/stays/:id/charges/:chargeId  (mistake correction)
+exports.removeCharge = async (req, res, next) => {
+  try {
+    const stay = await loadAuthorizedStay(req);
+    if (!OPEN_STATUSES.includes(stay.status)) throw new Error('Cannot edit charges of a checked-out stay');
+
+    const charge = stay.charges.id(req.params.chargeId);
+    if (!charge) throw new Error('Charge not found');
+
+    stay.additionalCharges = Math.max(0, (stay.additionalCharges || 0) - charge.amount);
+    stay.totalAmount = Math.max(0, stay.totalAmount - charge.amount);
+    charge.deleteOne();
+    await stay.save();
+
+    res.status(200).json({ success: true, data: stay });
+  } catch (error) {
+    sendError(res, next, error);
+  }
+};
+
+// POST /api/stays/:id/payments  { amount, paymentMethod, notes }  (part payment during the stay)
+exports.addPayment = async (req, res, next) => {
+  try {
+    const stay = await loadAuthorizedStay(req);
+    if (stay.status === 'Cancelled') throw new Error('Stay is cancelled');
+
+    const amount = Number(req.body.amount);
+    if (!Number.isFinite(amount) || amount <= 0) throw new Error('Please enter a valid amount');
+
+    const balance = stay.totalAmount - stay.paidAmount;
+    if (amount > balance) throw new Error(`Amount is more than the balance due (₹${balance})`);
+
+    await Payment.create({
+      stay: stay._id,
+      guest: stay.guest,
+      hostel: stay.hostel,
+      amount,
+      paymentMethod: req.body.paymentMethod || 'Cash',
+      notes: req.body.notes,
+      createdBy: req.user._id
+    });
+    stay.paidAmount += amount;
+    await stay.save();
+
+    res.status(201).json({ success: true, data: stay });
+  } catch (error) {
+    sendError(res, next, error);
+  }
+};
+
+exports.checkout = async (req, res, next) => {
+  try {
+    const stay = await loadAuthorizedStay(req);
     if (stay.status === 'Checked Out') throw new Error('Stay is already checked out');
-    
-    const { additionalCharges, checkoutPayment, paymentMethod } = req.body;
-    
-    if (additionalCharges) {
-      stay.additionalCharges += additionalCharges;
+
+    const additionalCharges = Number(req.body.additionalCharges) || 0;
+    const checkoutPayment = Number(req.body.checkoutPayment) || 0;
+    const { paymentMethod, additionalChargesNote } = req.body;
+
+    if (additionalCharges > 0) {
+      stay.charges.push({
+        description: (additionalChargesNote && additionalChargesNote.trim()) || 'Checkout charges',
+        category: 'Other',
+        quantity: 1,
+        amount: additionalCharges,
+        addedBy: req.user._id
+      });
+      stay.additionalCharges = (stay.additionalCharges || 0) + additionalCharges;
       stay.totalAmount += additionalCharges;
     }
-    
+
     if (checkoutPayment > 0) {
       stay.paidAmount += checkoutPayment;
       await Payment.create([{
@@ -132,118 +277,118 @@ exports.checkout = async (req, res, next) => {
         createdBy: req.user._id
       }]);
     }
-    
+
     stay.status = 'Checked Out';
     stay.actualCheckOutDate = new Date();
     await stay.save();
-    
-    // Release Bed
-    
-    
+
     res.status(200).json({ success: true, data: stay });
   } catch (error) {
-    next(error);
+    sendError(res, next, error);
   }
 };
 
 exports.extendStay = async (req, res, next) => {
-  
   try {
-    const stay = await Stay.findById(req.params.id);
-    if (!stay) throw new Error('Stay not found');
-    
+    const stay = await loadAuthorizedStay(req);
+    if (!OPEN_STATUSES.includes(stay.status)) throw new Error('Only a guest who is still staying can be extended');
+
     const { newCheckOutDate, extensionPayment, paymentMethod } = req.body;
-    
+    const newOutDate = new Date(newCheckOutDate);
+    if (isNaN(newOutDate.getTime())) throw new Error('Invalid new checkout date');
+
     // Verify no overlaps for the room
     const overlapping = await Stay.findOne({
       room: stay.room,
       _id: { $ne: stay._id },
       status: { $in: ['Upcoming', 'Active'] },
-      checkInDate: { $lt: new Date(newCheckOutDate) }
+      checkInDate: { $lt: newOutDate, $gte: stay.checkInDate }
     });
-
     if (overlapping) throw new Error('Cannot extend. Room is booked by another guest for the requested dates.');
-    
+
     const oldOutDate = new Date(stay.expectedCheckOutDate);
-    const newOutDate = new Date(newCheckOutDate);
-    const additionalNights = Math.ceil((newOutDate - oldOutDate) / (1000 * 60 * 60 * 24));
-    
-    if (additionalNights <= 0) throw new Error('New checkout date must be after current checkout date');
-    
-    // Runtime manual extension pricing
-    const additionalCost = Number(req.body.additionalRent) || 0;
+    if (newOutDate <= oldOutDate) throw new Error('New checkout date must be after current checkout date');
+
+    const additionalCost = Math.max(0, Number(req.body.additionalRent) || 0);
     stay.totalAmount += additionalCost;
     stay.expectedCheckOutDate = newOutDate;
-    
-    if (extensionPayment > 0) {
-      stay.paidAmount += extensionPayment;
+    if (stay.status === 'Overdue' || stay.status === 'Checkout Due') stay.status = 'Active';
+
+    const stamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+    const note = `[${stamp}] Stay extended till ${newOutDate.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}. Extra rent: ₹${additionalCost}.`;
+    stay.notes = stay.notes ? `${stay.notes}\n${note}` : note;
+
+    const pay = Number(extensionPayment) || 0;
+    if (pay > 0) {
+      stay.paidAmount += pay;
       await Payment.create([{
         stay: stay._id,
         guest: stay.guest,
         hostel: stay.hostel,
-        amount: extensionPayment,
+        amount: pay,
         paymentMethod: paymentMethod || 'Cash',
         createdBy: req.user._id
       }]);
     }
-    
+
     await stay.save();
-    
-    
     res.status(200).json({ success: true, data: stay });
   } catch (error) {
-    next(error);
+    sendError(res, next, error);
   }
 };
 
-
 exports.shiftRoom = async (req, res, next) => {
   try {
-    const stay = await Stay.findById(req.params.id);
-    if (!stay) throw new Error('Stay not found');
-    if (stay.status !== 'Active') throw new Error('Can only shift active stays');
+    const stay = await loadAuthorizedStay(req);
+    if (!OPEN_STATUSES.includes(stay.status)) throw new Error('Can only shift a guest who is still staying');
 
-    const { newRoomId, priceAdjustment, reason } = req.body;
-    
-    // Check if new room exists and belongs to same hostel
-    const Room = require('../models/Room');
+    const { newRoomId, reason } = req.body;
+    const priceAdjustment = Number(req.body.priceAdjustment) || 0;
+
     const newRoom = await Room.findById(newRoomId);
     if (!newRoom) throw new Error('New room not found');
     if (newRoom.hostel.toString() !== stay.hostel.toString()) {
       throw new Error('Cannot shift to a room in a different property');
     }
-
-    // Check availability of new room
-    const overlapping = await Stay.findOne({
-      room: newRoomId,
-      status: { $in: ['Upcoming', 'Active', 'Checkout Due', 'Overdue'] },
-      $or: [
-        { checkInDate: { $lt: stay.expectedCheckOutDate }, expectedCheckOutDate: { $gt: stay.checkInDate } }
-      ]
-    });
-
-    if (overlapping) {
-      throw new Error('New room is already booked for these dates');
+    if (newRoom._id.toString() === stay.room.toString()) {
+      throw new Error('Guest is already in this room');
     }
 
-    // Get old room details for the note
+    // Is the new room free right now / for the rest of this stay?
+    const overlapping = await Stay.findOne({
+      room: newRoomId,
+      _id: { $ne: stay._id },
+      status: { $in: ['Upcoming', 'Active', 'Checkout Due', 'Overdue'] },
+      checkInDate: { $lt: stay.expectedCheckOutDate },
+      expectedCheckOutDate: { $gt: new Date() }
+    });
+    if (overlapping) throw new Error('New room is already booked for these dates');
+
     const oldRoom = await Room.findById(stay.room);
     const oldRoomNumber = oldRoom ? oldRoom.roomNumber : 'Unknown';
 
-    // Apply changes
-    stay.room = newRoomId;
+    stay.roomHistory.push({
+      fromRoom: stay.room,
+      toRoom: newRoom._id,
+      fromRoomNumber: oldRoomNumber,
+      toRoomNumber: newRoom.roomNumber,
+      reason: reason || '',
+      priceAdjustment,
+      shiftedBy: req.user._id
+    });
+
+    stay.room = newRoom._id;
     if (priceAdjustment) {
-      stay.totalAmount += Number(priceAdjustment);
+      stay.totalAmount = Math.max(0, stay.totalAmount + priceAdjustment);
     }
-    
-    // Add to notes
-    const shiftNote = `[${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}] Shifted from Room ${oldRoomNumber} to ${newRoom.roomNumber}. Reason: ${reason || 'N/A'}. Price Adjustment: ₹${Number(priceAdjustment) || 0}.`;
+
+    const shiftNote = `[${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}] Shifted from Room ${oldRoomNumber} to ${newRoom.roomNumber}. Reason: ${reason || 'N/A'}. Price Adjustment: ₹${priceAdjustment}.`;
     stay.notes = stay.notes ? `${stay.notes}\n${shiftNote}` : shiftNote;
 
     await stay.save();
-    
     res.status(200).json({ success: true, data: stay });
   } catch (error) {
-    next(error);
+    sendError(res, next, error);
   }
 };

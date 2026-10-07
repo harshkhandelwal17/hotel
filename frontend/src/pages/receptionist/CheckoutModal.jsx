@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { format } from 'date-fns';
 import { X, User, Home, Calendar, CreditCard, AlertCircle, CheckCircle2, Plus, Printer, ChevronRight } from 'lucide-react';
+import { printInvoice } from '../../utils/invoice';
 
 const CheckoutModal = ({ stay, onClose, onSuccess }) => {
   const [additionalCharges, setAdditionalCharges] = useState(0);
@@ -23,6 +24,7 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
     try {
       const res = await axios.post(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/stays/${stay._id}/checkout`, {
         additionalCharges: Number(additionalCharges),
+        additionalChargesNote,
         checkoutPayment: Number(checkoutPayment),
         paymentMethod,
       });
@@ -50,23 +52,7 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
           <div className="space-y-3">
             <button
               onClick={() => {
-                const printWindow = window.open('', '_blank');
-                printWindow.document.write(`
-                  <html>
-                  <head>
-                    <title>Invoice - ${stay.guest?.fullName}</title>
-                    <style>body{font-family:sans-serif;padding:20px;}</style>
-                  </head>
-                  <body>
-                    <h2>${stay.hostel?.name || 'Hotel'} Invoice</h2>
-                    <p>Guest: ${stay.guest?.fullName}</p>
-                    <p>Total Paid: Rs ${finalAmount}</p>
-                    <p style="font-size:11px; margin-top:20px">* Amount is inclusive of all applicable taxes (GST)</p>
-                  </body>
-                  </html>
-                `);
-                printWindow.document.close();
-                printWindow.print();
+                printInvoice({ ...stay, ...(completedStay || {}), guest: stay.guest, room: stay.room, hostel: stay.hostel });
                 onSuccess();
               }}
               className="w-full py-3 bg-black text-white font-bold rounded-xl shadow-md hover:shadow-xl transition-all flex items-center justify-center gap-2"
