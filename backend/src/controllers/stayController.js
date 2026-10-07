@@ -173,25 +173,32 @@ exports.addCharge = async (req, res, next) => {
     const stay = await loadAuthorizedStay(req);
     if (!OPEN_STATUSES.includes(stay.status)) throw new Error('Charges can only be added to a guest who is still staying');
 
-    const { description, category } = req.body;
-    const quantity = Math.max(1, Number(req.body.quantity) || 1);
-    const rate = Number(req.body.rate);
-    const amount = Number.isFinite(rate) && req.body.rate !== undefined && req.body.rate !== ''
-      ? rate * quantity
-      : Number(req.body.amount);
+    const items = req.body.charges && Array.isArray(req.body.charges) ? req.body.charges : [req.body];
+    let totalAdded = 0;
 
-    if (!description || !String(description).trim()) throw new Error('Please enter what the charge is for');
-    if (!Number.isFinite(amount) || amount <= 0) throw new Error('Please enter a valid amount');
+    for (const item of items) {
+      const { description, category } = item;
+      const quantity = Math.max(1, Number(item.quantity) || 1);
+      const rate = Number(item.rate);
+      const amount = Number.isFinite(rate) && item.rate !== undefined && item.rate !== ''
+        ? rate * quantity
+        : Number(item.amount);
 
-    stay.charges.push({
-      description: String(description).trim(),
-      category: category || 'Other',
-      quantity,
-      amount,
-      addedBy: req.user._id
-    });
-    stay.additionalCharges = (stay.additionalCharges || 0) + amount;
-    stay.totalAmount += amount;
+      if (!description || !String(description).trim()) throw new Error('Please enter what the charge is for');
+      if (!Number.isFinite(amount) || amount <= 0) throw new Error('Please enter a valid amount');
+
+      stay.charges.push({
+        description: String(description).trim(),
+        category: category || 'Other',
+        quantity,
+        amount,
+        addedBy: req.user._id
+      });
+      totalAdded += amount;
+    }
+
+    stay.additionalCharges = (stay.additionalCharges || 0) + totalAdded;
+    stay.totalAmount += totalAdded;
     await stay.save();
 
     res.status(201).json({ success: true, data: stay });

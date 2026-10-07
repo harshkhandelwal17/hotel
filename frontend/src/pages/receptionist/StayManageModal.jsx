@@ -35,7 +35,7 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
   const [success, setSuccess] = useState('');
 
   // charge form
-  const [chargeForm, setChargeForm] = useState({ description: '', category: 'Food', quantity: 1, rate: '' });
+  const [pendingCharges, setPendingCharges] = useState([]);
   // payment form
   const [payForm, setPayForm] = useState({ amount: '', paymentMethod: 'Cash', notes: '' });
   // shift form
@@ -85,12 +85,11 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
   const roomRent = Math.max(0, stay.totalAmount - chargesTotal);
   const isOpen = ['Active', 'Checkout Due', 'Overdue'].includes(stay.status);
 
-  const addCharge = async (e) => {
-    e.preventDefault();
+  const submitPendingCharges = async () => {
     const ok = await run(() => axios.post(`${API}/api/stays/${stay._id}/charges`, {
-      ...chargeForm, quantity: Number(chargeForm.quantity) || 1, rate: Number(chargeForm.rate)
-    }), 'Charge added to bill');
-    if (ok) { setChargeForm({ description: '', category: 'Food', quantity: 1, rate: '' }); setTab('bill'); }
+      charges: pendingCharges
+    }), 'Charges added to bill');
+    if (ok) { setPendingCharges([]); setTab('bill'); }
   };
 
   const removeCharge = (id) => {
@@ -225,39 +224,65 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
 
           {/* ---------------- ADD CHARGE ---------------- */}
           {tab === 'charge' && (
-            <form onSubmit={addCharge} className="space-y-4">
+            <div className="space-y-4">
               <div>
                 <p className={labelCls}>Quick Add</p>
                 <div className="flex flex-wrap gap-2">
                   {QUICK_ITEMS.map(q => (
                     <button type="button" key={q.label}
-                      onClick={() => setChargeForm({ description: q.label, category: q.category, quantity: 1, rate: q.rate })}
+                      onClick={() => setPendingCharges([...pendingCharges, { description: q.label, category: q.category, quantity: 1, rate: q.rate }])}
                       className="px-3 py-1.5 bg-gray-100 hover:bg-black hover:text-white rounded-lg text-xs font-bold transition-colors">
                       {q.label} · ₹{q.rate}
                     </button>
                   ))}
                 </div>
               </div>
-              <div><label className={labelCls}>What for?</label>
-                <input required className={inputCls} placeholder="e.g. Dinner, Water bottle" value={chargeForm.description}
-                  onChange={e => setChargeForm({ ...chargeForm, description: e.target.value })} /></div>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-3 sm:col-span-1"><label className={labelCls}>Category</label>
-                  <select className={inputCls} value={chargeForm.category} onChange={e => setChargeForm({ ...chargeForm, category: e.target.value })}>
-                    {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                  </select></div>
-                <div><label className={labelCls}>Qty</label>
-                  <input type="number" min="1" className={inputCls} value={chargeForm.quantity}
-                    onChange={e => setChargeForm({ ...chargeForm, quantity: e.target.value })} /></div>
-                <div><label className={labelCls}>Rate (₹)</label>
-                  <input required type="number" min="1" className={inputCls} value={chargeForm.rate}
-                    onChange={e => setChargeForm({ ...chargeForm, rate: e.target.value })} /></div>
+              
+              <div className="space-y-3 mt-4">
+                <div className="flex justify-between items-center">
+                  <p className={labelCls}>Items to Add</p>
+                  <button type="button" onClick={() => setPendingCharges([...pendingCharges, { description: '', category: 'Food', quantity: 1, rate: '' }])}
+                    className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md flex items-center gap-1 hover:bg-blue-100">
+                    <Plus size={12} /> Custom Item
+                  </button>
+                </div>
+                
+                {pendingCharges.map((item, idx) => (
+                  <div key={idx} className="p-3 bg-gray-50 border border-gray-200 rounded-xl space-y-3 relative">
+                    <button type="button" onClick={() => setPendingCharges(pendingCharges.filter((_, i) => i !== idx))} className="absolute top-2 right-2 p-1 text-red-500 hover:bg-red-50 rounded-md"><X size={14}/></button>
+                    <div>
+                      <input className="w-full bg-transparent border-b border-gray-300 focus:border-black outline-none font-semibold text-sm pb-1" placeholder="What for? (e.g. Dinner)" 
+                        value={item.description} onChange={e => { const arr = [...pendingCharges]; arr[idx].description = e.target.value; setPendingCharges(arr); }} />
+                    </div>
+                    <div className="flex gap-2">
+                      <select className="flex-1 bg-transparent border-b border-gray-300 focus:border-black outline-none text-xs pb-1" 
+                        value={item.category} onChange={e => { const arr = [...pendingCharges]; arr[idx].category = e.target.value; setPendingCharges(arr); }}>
+                        {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                      </select>
+                      <input type="number" min="1" className="w-16 bg-transparent border-b border-gray-300 focus:border-black outline-none text-xs pb-1 text-center" placeholder="Qty"
+                        value={item.quantity} onChange={e => { const arr = [...pendingCharges]; arr[idx].quantity = e.target.value; setPendingCharges(arr); }} />
+                      <input type="number" min="1" className="w-20 bg-transparent border-b border-gray-300 focus:border-black outline-none text-xs pb-1 text-right" placeholder="Rate ₹"
+                        value={item.rate} onChange={e => { const arr = [...pendingCharges]; arr[idx].rate = e.target.value; setPendingCharges(arr); }} />
+                    </div>
+                  </div>
+                ))}
+                
+                {pendingCharges.length === 0 && (
+                  <div className="text-xs text-gray-400 font-medium italic py-4 text-center border-2 border-dashed border-gray-200 rounded-xl">Tap a Quick Add item above or Custom Item.</div>
+                )}
               </div>
-              <p className="text-sm font-black text-gray-900 text-right">
-                Total: ₹{(Number(chargeForm.rate) || 0) * (Number(chargeForm.quantity) || 1)}
-              </p>
-              <button disabled={busy} className={btnCls}>{busy ? 'Adding...' : 'Add to Bill'}</button>
-            </form>
+
+              {pendingCharges.length > 0 && (
+                <div className="pt-2">
+                  <p className="text-sm font-black text-gray-900 text-right mb-3">
+                    Total: ₹{pendingCharges.reduce((sum, item) => sum + (Number(item.rate) || 0) * (Number(item.quantity) || 1), 0)}
+                  </p>
+                  <button disabled={busy} onClick={submitPendingCharges} className={btnCls}>
+                    {busy ? 'Adding...' : `Add ${pendingCharges.length} Item(s) to Bill`}
+                  </button>
+                </div>
+              )}
+            </div>
           )}
 
           {/* ---------------- PAYMENT ---------------- */}
