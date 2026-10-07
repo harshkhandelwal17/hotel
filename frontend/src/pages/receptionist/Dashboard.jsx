@@ -68,7 +68,8 @@ const ReceptionistDashboard = () => {
     );
   }
 
-  const occupancyRate = stats ? Math.round((stats.occupiedRooms / ((stats.occupiedRooms || 0) + (stats.availableRooms || 1))) * 100) : 0;
+  const totalRooms = stats?.totalRooms || ((stats?.occupiedRooms || 0) + (stats?.availableRooms || 0));
+  const occupancyRate = stats ? Math.round((stats.occupiedRooms / (totalRooms || 1)) * 100) : 0;
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-500">
@@ -115,7 +116,7 @@ const ReceptionistDashboard = () => {
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-4xl font-black text-gray-900">{stats?.occupiedRooms || 0}</span>
-            <span className="text-xs font-bold text-gray-400">/ {(stats?.occupiedRooms || 0) + (stats?.availableRooms || 0)}</span>
+            <span className="text-xs font-bold text-gray-400">/ {totalRooms}</span>
           </div>
           <div className="mt-3">
             <div className="w-full bg-gray-100 rounded-full h-1.5">

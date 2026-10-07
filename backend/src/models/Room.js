@@ -49,7 +49,19 @@ const roomSchema = new mongoose.Schema({
     type: String,
     enum: ['Active', 'Maintenance', 'Inactive'],
     default: 'Active'
-  }
+  },
+  // Current maintenance details (only meaningful while status === 'Maintenance')
+  maintenanceReason: String,
+  maintenanceSince: Date,
+  // Full log of every maintenance period
+  maintenanceHistory: [{
+    reason: { type: String, required: true },
+    startedAt: { type: Date, default: Date.now },
+    endedAt: Date,
+    startedBy: { type: mongoose.Schema.ObjectId, ref: 'User' },
+    endedBy: { type: mongoose.Schema.ObjectId, ref: 'User' },
+    note: String // what was fixed
+  }]
 }, { timestamps: true });
 
 // Prevent duplicate room numbers in the same hostel

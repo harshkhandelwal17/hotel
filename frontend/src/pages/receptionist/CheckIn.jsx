@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -14,11 +14,13 @@ import {
   Camera,
   Plus,
   RefreshCw,
+  Sparkles,
   Image as ImageIcon
 } from 'lucide-react';
 
 import { useToast } from '../../components/ui/Toast';
 import { compressImage } from '../../utils/imageCompression';
+import { scanIdCard } from '../../utils/idOcr';
 
 const API =
   import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
@@ -50,6 +52,10 @@ const CheckIn = () => {
   const [loadingRooms, setLoadingRooms] = useState(true);
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  // OCR (auto-fill from ID photo)
+  const [ocr, setOcr] = useState({ index: null, text: '' });
+  const ocrFilesRef = useRef({}); // original photos kept in memory for (re)scanning: "<guestIndex>-<front|back>"
+  const guestsRef = useRef([]);
   const [roomSearchQuery, setRoomSearchQuery] = useState('');
   const [frequentCoGuests, setFrequentCoGuests] = useState([]);
 
@@ -347,6 +353,85 @@ const CheckIn = () => {
   // IMAGE UPLOAD
   // =========================================================
 
+  guestsRef.current = guests;
+
+  // Reads the ID photo in the browser and fills ONLY the empty fields
+  // (name / ID type / ID number) so nothing the receptionist typed is overwritten.
+  const runOcr = async (index, preferredSide = 'front') => {
+    const otherSide = preferredSide === 'front' ? 'back' : 'front';
+    const file = ocrFilesRef.current[`${index}-${preferredSide}`];
+    if (!file) return;
+
+    const progress = (p) => setOcr({ index, text: `Reading ID… ${p}%` });
+    setOcr({ index, text: 'Reading ID… 0%' });
+
+    try {
+      let result = await scanIdCard(file, progress);
+
+      // Number is often only readable on the other side - try it if we found nothing
+      const other = ocrFilesRef.current[`${index}-${otherSide}`];
+      if (!result.number && other) {
+        const second = await scanIdCard(other, progress);
+        result = {
+          ...result,
+          type: second.type,
+          label: second.label,
+          number: second.number,
+          numberValid: second.numberValid,
+          name: result.name || second.name
+        };
+      }
+
+      const current = guestsRef.current[index] || {};
+      const patch = {};
+      const filled = [];
+
+      if (result.name && !(current.fullName || '').trim()) {
+        patch.fullName = result.name;
+        filled.push('name');
+      }
+      if (result.number && !(current.idProofNumber || '').trim()) {
+        patch.idProofNumber = result.number;
+        if (result.type) patch.idProofType = result.type;
+        filled.push(`${result.label || 'ID'} number`);
+      }
+
+      if (Object.keys(patch).length) {
+        setGuests((prev) => {
+          const updated = [...prev];
+          if (updated[index]) updated[index] = { ...updated[index], ...patch };
+          return updated;
+        });
+      }
+
+      if (filled.length) {
+        toast({
+          message: `Auto-filled ${filled.join(' & ')}. Please verify before continuing.${
+            result.number && !result.numberValid ? ' ID number may be misread - check it carefully.' : ''
+          }`,
+          type: result.number && !result.numberValid ? 'warning' : 'success',
+          duration: 6000
+        });
+      } else if (!result.name && !result.number) {
+        toast({
+          message: 'Could not read this ID clearly. Retake a straight, well-lit photo or type the details.',
+          type: 'warning',
+          duration: 5000
+        });
+      } else {
+        toast({ message: 'Details already filled - nothing changed.', type: 'info' });
+      }
+    } catch (err) {
+      console.error('OCR failed:', err);
+      toast({
+        message: 'Auto-fill not available right now. Please type the details manually.',
+        type: 'info'
+      });
+    } finally {
+      setOcr({ index: null, text: '' });
+    }
+  };
+
   const handleImageUpload = async (
     index,
     file,
@@ -393,6 +478,12 @@ const CheckIn = () => {
           'Image uploaded successfully!',
         type: 'success'
       });
+
+      // Keep the original photo (in memory only) and try to auto-read the ID
+      ocrFilesRef.current[`${index}-${side}`] = file;
+      const g = guestsRef.current[index] || {};
+      const needsFill = !(g.fullName || '').trim() || !(g.idProofNumber || '').trim();
+      if (needsFill && ocr.index === null) runOcr(index, side);
     } catch (err) {
       console.error(
         'Image upload failed:',
@@ -1673,6 +1764,25 @@ const CheckIn = () => {
                       )}
                     </div>
                   </div>
+
+                  {/* AUTO-FILL FROM ID PHOTO (OCR) */}
+                  {ocr.index === index && ocr.text ? (
+                    <div className="md:col-span-2 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 p-3 rounded-2xl flex items-center justify-center gap-2">
+                      <span className="w-3.5 h-3.5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                      {ocr.text} <span className="font-medium text-indigo-400">(first time may take a few seconds)</span>
+                    </div>
+                  ) : (
+                    (ocrFilesRef.current[`${index}-front`] || ocrFilesRef.current[`${index}-back`]) && (
+                      <button
+                        type="button"
+                        disabled={ocr.index !== null}
+                        onClick={() => runOcr(index, ocrFilesRef.current[`${index}-front`] ? 'front' : 'back')}
+                        className="md:col-span-2 flex items-center justify-center gap-2 py-3 text-xs font-black uppercase tracking-widest text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-2xl hover:bg-indigo-100 transition-colors disabled:opacity-50"
+                      >
+                        <Sparkles size={14} /> Auto-fill name &amp; ID number from photo
+                      </button>
+                    )
+                  )}
 
                 </div>
               </div>

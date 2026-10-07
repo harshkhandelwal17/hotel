@@ -33,12 +33,14 @@ exports.getDashboardStats = async (req, res, next) => {
     const [
       activeStays,
       totalRooms,
+      maintenanceRooms,
       checkinsToday,
       checkoutsToday,
       pendingPayments
     ] = await Promise.all([
       Stay.countDocuments({ ...filter, status: { $in: ['Active', 'Checkout Due', 'Overdue'] } }),
-      Room.countDocuments({ ...filter, status: 'Active' }),
+      Room.countDocuments({ ...filter, status: { $ne: 'Inactive' } }),
+      Room.countDocuments({ ...filter, status: 'Maintenance' }),
       Stay.countDocuments({ ...filter, checkInDate: { $gte: today, $lt: tomorrow } }),
       Stay.countDocuments({ ...filter, expectedCheckOutDate: { $gte: today, $lt: tomorrow }, status: { $ne: 'Checked Out' } }),
       Stay.aggregate([
@@ -50,11 +52,13 @@ exports.getDashboardStats = async (req, res, next) => {
     ]);
     
     const occupiedRooms = activeStays; // Using same variable names for frontend compat for now
-    const availableRooms = Math.max(0, totalRooms - activeStays);
+    const availableRooms = Math.max(0, totalRooms - occupiedRooms - maintenanceRooms);
 
     res.status(200).json({
       success: true,
       data: {
+        totalRooms,
+        maintenanceRooms,
         activeStays,
         availableRooms,
         occupiedRooms,

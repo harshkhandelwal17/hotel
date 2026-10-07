@@ -14,6 +14,32 @@ const RoomsView = () => {
   const [filter, setFilter] = useState('all');
   const { globalProperty } = useOutletContext() || { globalProperty: 'all' };
 
+  // Maintenance dialog: { room, mode: 'start' | 'end' }
+  const [mDialog, setMDialog] = useState(null);
+  const [mText, setMText] = useState('');
+  const [mBusy, setMBusy] = useState(false);
+  const [mError, setMError] = useState('');
+  const REASONS = ['AC not working', 'Water leakage', 'Electrical / TV', 'Plumbing', 'Pest / Cleaning', 'Furniture repair'];
+
+  const openMaintenance = (room, mode) => { setMDialog({ room, mode }); setMText(''); setMError(''); };
+
+  const submitMaintenance = async (e) => {
+    e.preventDefault();
+    setMBusy(true); setMError('');
+    try {
+      const { room, mode } = mDialog;
+      if (mode === 'start') {
+        await axios.post(`${API}/api/rooms/${room._id}/maintenance`, { reason: mText });
+      } else {
+        await axios.post(`${API}/api/rooms/${room._id}/maintenance/resolve`, { note: mText });
+      }
+      setMDialog(null);
+      fetchData();
+    } catch (err) {
+      setMError(err.response?.data?.message || 'Something went wrong');
+    } finally { setMBusy(false); }
+  };
+
   useEffect(() => { fetchData(); }, [globalProperty]);
 
   const fetchData = async () => {
@@ -90,7 +116,7 @@ const RoomsView = () => {
           />
         </div>
         <div className="flex gap-2">
-          {['all', 'available', 'occupied'].map(f => (
+          {['all', 'available', 'occupied', 'maintenance'].map(f => (
             <button key={f} onClick={() => setFilter(f)}
               className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${filter === f ? 'bg-black text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:border-gray-400'}`}>
               {f}
@@ -156,14 +182,66 @@ const RoomsView = () => {
                       <Link to="/checkin" className="block mt-1 text-center text-[10px] font-black uppercase tracking-widest py-2 bg-green-500 text-white rounded-xl hover:bg-green-600 transition-all active:scale-95">
                         + Check In
                       </Link>
+                      <button onClick={() => openMaintenance(room, 'start')} className="w-full flex items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-widest py-1.5 text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-xl hover:bg-yellow-100 transition-all">
+                        <Wrench size={11} /> Maintenance
+                      </button>
                     </>
                   ) : (
-                    <p className="text-xs font-bold text-yellow-600 text-center py-2">Under Maintenance</p>
+                    <>
+                      <p className="text-xs font-black text-yellow-700 text-center">Under Maintenance</p>
+                      {room.maintenanceReason && (
+                        <p className="text-[11px] font-bold text-gray-700 bg-yellow-50 border border-yellow-100 rounded-lg px-2 py-1.5 leading-snug">{room.maintenanceReason}</p>
+                      )}
+                      {room.maintenanceSince && (
+                        <p className="text-[10px] font-bold text-gray-400 text-center">Since {format(new Date(room.maintenanceSince), 'dd MMM, hh:mm a')}</p>
+                      )}
+                      <button onClick={() => openMaintenance(room, 'end')} className="w-full text-[10px] font-black uppercase tracking-widest py-2 bg-yellow-500 text-white rounded-xl hover:bg-yellow-600 transition-all active:scale-95">
+                        ✓ Mark Repaired
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Maintenance dialog */}
+      {mDialog && (
+        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setMDialog(null)}>
+          <form onSubmit={submitMaintenance} onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+            <div>
+              <h2 className="text-lg font-black text-gray-900 flex items-center gap-2"><Wrench size={18} className="text-yellow-600" />
+                {mDialog.mode === 'start' ? `Room ${mDialog.room.roomNumber} → Maintenance` : `Room ${mDialog.room.roomNumber} repaired?`}
+              </h2>
+              <p className="text-xs text-gray-500 mt-1">
+                {mDialog.mode === 'start'
+                  ? 'The room will be blocked from check-in until you mark it repaired.'
+                  : 'The room will become available for check-in again.'}
+              </p>
+            </div>
+            {mError && <div className="p-3 bg-red-50 border border-red-100 text-red-600 rounded-xl text-sm font-medium">{mError}</div>}
+            {mDialog.mode === 'start' && (
+              <div className="flex flex-wrap gap-2">
+                {REASONS.map(r => (
+                  <button type="button" key={r} onClick={() => setMText(r)}
+                    className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${mText === r ? 'bg-black text-white border-black' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'}`}>{r}</button>
+                ))}
+              </div>
+            )}
+            <input
+              required={mDialog.mode === 'start'}
+              value={mText} onChange={e => setMText(e.target.value)}
+              placeholder={mDialog.mode === 'start' ? 'What is the problem?' : 'What was fixed? (optional)'}
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-black outline-none" />
+            <div className="flex gap-3">
+              <button type="button" onClick={() => setMDialog(null)} className="flex-1 py-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-700 hover:bg-gray-50">Cancel</button>
+              <button disabled={mBusy} className="flex-1 py-3 bg-black text-white rounded-xl font-bold disabled:opacity-50">
+                {mBusy ? 'Saving...' : mDialog.mode === 'start' ? 'Block Room' : 'Mark Repaired'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>
