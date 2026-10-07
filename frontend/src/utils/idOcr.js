@@ -23,7 +23,7 @@ export const prepareForOcr = (file) =>
       canvas.width = width;
       canvas.height = height;
       const ctx = canvas.getContext('2d');
-      if ('filter' in ctx) ctx.filter = 'grayscale(1) contrast(1.35)';
+      if ('filter' in ctx) ctx.filter = 'grayscale(1)';
       ctx.drawImage(img, 0, 0, width, height);
 
       canvas.toBlob((blob) => {
@@ -77,36 +77,50 @@ const asNameLine = (line) => {
 
 const findNumbers = (text) => {
   const flat = text.replace(/[\u200e\u200f]/g, '');
+  const upper = flat.toUpperCase();
 
-  // PAN: AAAAA9999A
-  const pan = flat.toUpperCase().match(/\b[A-Z]{5}\s?\d{4}\s?[A-Z]\b/);
-  if (pan) return { type: 'Other', label: 'PAN', number: pan[0].replace(/\s/g, '') };
+  // PAN: AAAAA9999A (allow common letter/number swaps like 0/O, 1/I, 8/B)
+  // Just look for a 10 char string that loosely matches
+  const panTokens = upper.split(/[\s\n]+/).filter(t => t.length === 10);
+  for (const t of panTokens) {
+    if (/^[A-Z]{5}[0-9OIZS]{4}[A-Z]$/.test(t) || /^[A-Z]{3}[C|P|H|F|A|T|B|L|J|G][A-Z][0-9]{4}[A-Z]$/.test(t)) {
+       // Correct common number mistakes in the middle 4 digits
+       let corrected = t.substring(0, 5) + 
+                       t.substring(5, 9).replace(/O/g, '0').replace(/I/g, '1').replace(/Z/g, '2').replace(/S/g, '5').replace(/B/g, '8') + 
+                       t.substring(9);
+       return { type: 'Other', label: 'PAN', number: corrected };
+    }
+  }
 
-  // Aadhaar: 12 digits as 4-4-4 (ignore 16-digit VID)
-  const digitsRuns = [...flat.matchAll(/(?<!\d)(\d{4})\s*(\d{4})\s*(\d{4})(?!\s*\d{4})(?!\d)/g)];
+  // Aadhaar: 12 digits as 4-4-4
+  // Normalize string for aadhaar (convert common misreads to digits)
+  const digitStr = upper.replace(/O/g, '0').replace(/I/g, '1').replace(/L/g, '1').replace(/B/g, '8').replace(/S/g, '5').replace(/Z/g, '2');
+  const digitsRuns = [...digitStr.matchAll(/(?<!\d)(\d{4})\s*(\d{4})\s*(\d{4})(?!\s*\d{4})(?!\d)/g)];
   const aadhaarCandidates = digitsRuns.map((m) => m[1] + m[2] + m[3]);
   const validAadhaar = aadhaarCandidates.find(verhoeff);
   if (validAadhaar && !/^[01]/.test(validAadhaar)) {
     return { type: 'Aadhaar', label: 'Aadhaar', number: validAadhaar };
   }
 
-  const upper = flat.toUpperCase();
-
-  // Driving licence: SS00 YYYY NNNNNNN (e.g. MP09 20110012345), separators vary
-  const dl = upper.match(/\b[A-Z]{2}[-\s]?\d{2}[-\s]?(?:19|20)\d{2}[-\s]?\d{7}\b/);
-  if (dl) return { type: 'DL', label: 'Driving Licence', number: dl[0].replace(/[\s-]/g, '') };
+  // Driving licence: SS00 YYYY NNNNNNN
+  const dl = upper.match(/\b[A-Z]{2}[-\s]?[0-9OIZS]{2}[-\s]?(?:19|20)[0-9OIZS]{2}[-\s]?[0-9OIZS]{7}\b/);
+  if (dl) {
+    let corrected = dl[0].replace(/[\s-]/g, '');
+    return { type: 'DL', label: 'Driving Licence', number: corrected };
+  }
 
   // Voter ID (EPIC): AAA9999999
-  const voter = upper.match(/\b[A-Z]{3}\d{7}\b/);
-  if (voter) return { type: 'Voter ID', label: 'Voter ID', number: voter[0] };
+  const voter = upper.match(/\b[A-Z]{3}[0-9OIZS]{7}\b/);
+  if (voter) {
+     let corrected = voter[0].substring(0, 3) + voter[0].substring(3).replace(/O/g, '0').replace(/I/g, '1').replace(/Z/g, '2').replace(/S/g, '5');
+     return { type: 'Voter ID', label: 'Voter ID', number: corrected };
+  }
 
-  // Passport: A1234567 (only if the word passport appears)
   if (/PASSPORT/.test(upper)) {
-    const pp = upper.match(/\b[A-Z]\d{7}\b/);
+    const pp = upper.match(/\b[A-Z][0-9OIZS]{7}\b/);
     if (pp) return { type: 'Passport', label: 'Passport', number: pp[0] };
   }
 
-  // Aadhaar-looking but failed checksum (OCR misread): still return, flagged
   if (aadhaarCandidates.length) {
     return { type: 'Aadhaar', label: 'Aadhaar', number: aadhaarCandidates[0], invalid: true };
   }
@@ -116,7 +130,7 @@ const findNumbers = (text) => {
 const findName = (text, type) => {
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
 
-  // 1) Label based: "Name: RAHUL SHARMA" or "Name" followed by the next line
+  // 1) Label based
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i];
     if (/father|mother|husband|guardian|s\/o|d\/o|w\/o|c\/o/i.test(l)) continue;
@@ -129,14 +143,33 @@ const findName = (text, type) => {
     }
   }
 
-  // 2) Aadhaar: name sits just above the DOB / Year of Birth line
-  const dobIdx = lines.findIndex((l) => /(dob|d\.o\.b|date of birth|year of birth|yob|जन्म)/i.test(l));
+  // 2) Look for DOB to find name above it
+  const dobIdx = lines.findIndex((l) => /(dob|d\.o\.b|date|birth|yob|year|जन्म)/i.test(l));
   if (dobIdx > 0) {
     for (let i = dobIdx - 1; i >= Math.max(0, dobIdx - 4); i--) {
       const n = asNameLine(lines[i]);
       if (n) return n;
     }
   }
+  
+  // 3) PAN Card: Name is usually the line directly below "INCOME TAX DEPARTMENT" or "GOVT. OF INDIA"
+  const taxIdx = lines.findIndex(l => /INCOME|TAX|DEPARTMENT|GOVT|INDIA/i.test(l));
+  if (taxIdx >= 0 && taxIdx < lines.length - 1) {
+      for (let i = taxIdx + 1; i <= Math.min(lines.length - 1, taxIdx + 3); i++) {
+          const n = asNameLine(lines[i]);
+          if (n) return n;
+      }
+  }
+
+  // 4) Just pick the first capitalized string that looks like a name as a last resort
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].length > 4 && /^[A-Z\s]+$/.test(lines[i].replace(/[^A-Za-z\s]/g, ''))) {
+       const n = asNameLine(lines[i]);
+       // ignore if it contains known ID words
+       if (n && !NOISE.test(n)) return n;
+    }
+  }
+
   return null;
 };
 
