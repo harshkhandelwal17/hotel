@@ -195,7 +195,7 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
                 <div className="flex gap-2 mt-2">
                   {['Cash', 'UPI', 'Card'].map(m => (
                     <button key={m} type="button" onClick={() => setPaymentMethod(m)}
-                      className={`flex-1 py-2 text-sm font-bold rounded-lg border transition-all ${paymentMethod === m ? 'bg-black text-white border-black shadow-md' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                      className={`flex-1 py-3 text-sm font-bold rounded-lg border transition-all ${paymentMethod === m ? 'bg-black text-white border-black shadow-md' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
                       {m}
                     </button>
                   ))}

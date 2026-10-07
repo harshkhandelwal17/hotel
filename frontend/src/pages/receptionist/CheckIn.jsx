@@ -1242,7 +1242,7 @@ const CheckIn = () => {
                             method
                         }))
                       }
-                      className={`flex-1 py-2.5 rounded-xl text-sm font-black transition-all ${
+                      className={`flex-1 py-3.5 rounded-xl text-sm font-black transition-all ${
                         stayInfo.paymentMethod ===
                         method
                           ? 'bg-white text-black shadow-md'
