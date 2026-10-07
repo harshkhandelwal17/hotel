@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import CheckoutModal from './CheckoutModal';
 import StayManageModal from './StayManageModal';
@@ -13,6 +13,7 @@ const CheckoutList = () => {
   const [managedStay, setManagedStay] = useState(null);
   const [filter, setFilter] = useState('all'); // 'all', 'overdue', 'today', 'active'
   const [search, setSearch] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
   const { globalProperty } = useOutletContext() || { globalProperty: 'all' };
 
   useEffect(() => { fetchStays(); }, [globalProperty]);
@@ -27,6 +28,14 @@ const CheckoutList = () => {
       const propQuery = globalProperty !== 'all' ? `&hostel=${globalProperty}` : '';
       const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/stays?status=Active${propQuery}`);
       setStays(res.data.data);
+
+      // Deep link from Dashboard / Rooms: /checkouts?stay=<id>
+      const wanted = searchParams.get('stay');
+      if (wanted) {
+        const found = res.data.data.find(s => s._id === wanted);
+        if (found) setManagedStay(found);
+        setSearchParams({}, { replace: true });
+      }
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   };
@@ -55,7 +64,7 @@ const CheckoutList = () => {
   const getStayBadge = (stay) => {
     const checkoutDate = new Date(stay.expectedCheckOutDate);
     const balance = stay.totalAmount - stay.paidAmount;
-    if (isPast(checkoutDate) && !isToday(checkoutDate)) return { label: 'Overdue', color: 'bg-red-100 text-red-800 border-red-200' };
+    if (isPast(checkoutDate)) return { label: 'Overdue', color: 'bg-red-100 text-red-800 border-red-200' };
     if (isToday(checkoutDate)) return { label: 'Due Today', color: 'bg-orange-100 text-orange-800 border-orange-200' };
     if (balance > 0) return { label: 'Pending ₹' + balance, color: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
     return { label: 'Active', color: 'bg-green-100 text-green-800 border-green-200' };
@@ -69,13 +78,13 @@ const CheckoutList = () => {
       stay.room?.roomNumber?.toLowerCase().includes(search.toLowerCase());
 
     if (!matchesSearch) return false;
-    if (filter === 'overdue') return isPast(checkoutDate) && !isToday(checkoutDate);
-    if (filter === 'today') return isToday(checkoutDate);
+    if (filter === 'overdue') return isPast(checkoutDate);
+    if (filter === 'today') return isToday(checkoutDate) && !isPast(checkoutDate);
     return true;
   });
 
-  const overdueCt = stays.filter(s => isPast(new Date(s.expectedCheckOutDate)) && !isToday(new Date(s.expectedCheckOutDate))).length;
-  const todayCt = stays.filter(s => isToday(new Date(s.expectedCheckOutDate))).length;
+  const overdueCt = stays.filter(s => isPast(new Date(s.expectedCheckOutDate))).length;
+  const todayCt = stays.filter(s => isToday(new Date(s.expectedCheckOutDate)) && !isPast(new Date(s.expectedCheckOutDate))).length;
 
   if (loading) return (
     <div className="space-y-6 animate-pulse">
@@ -93,8 +102,8 @@ const CheckoutList = () => {
       <div className="flex flex-col gap-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Manage Checkouts</h1>
-            <p className="text-gray-500 font-medium mt-1">Search by room or guest to process checkouts instantly.</p>
+            <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">In-House Guests</h1>
+            <p className="text-gray-500 font-medium mt-1">Tap a guest to add charges, take payment, change room, extend stay or check out.</p>
           </div>
           <button onClick={downloadCSV} className="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-bold text-sm hover:bg-gray-50 flex items-center gap-2 shadow-sm"><Download size={16} /> Export CSV</button>
         </div>

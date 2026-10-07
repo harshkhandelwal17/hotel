@@ -32,10 +32,15 @@ exports.createStay = async (req, res, next) => {
     // Get Room price
     const roomDoc = await Room.findById(room);
     if (!roomDoc) throw new Error('Room not found');
+    if (roomDoc.hostel.toString() !== hostel.toString()) throw new Error('This room does not belong to the selected property');
+    if (roomDoc.status !== 'Active') throw new Error(`Room ${roomDoc.roomNumber} is not available (${roomDoc.status})`);
     
     // Runtime manual pricing
     let totalAmount = Number(req.body.totalAmount) || 0;
     totalAmount = Math.max(0, totalAmount);
+    if ((Number(initialPaymentAmount) || 0) > totalAmount) {
+      throw new Error('Advance payment cannot be more than the total amount');
+    }
 
     const stay = await Stay.create([{
       guest,
@@ -254,6 +259,10 @@ exports.checkout = async (req, res, next) => {
     const checkoutPayment = Number(req.body.checkoutPayment) || 0;
     const { paymentMethod, additionalChargesNote } = req.body;
 
+    if (checkoutPayment > stay.totalAmount + additionalCharges - stay.paidAmount) {
+      throw new Error('Payment is more than the balance due');
+    }
+
     if (additionalCharges > 0) {
       stay.charges.push({
         description: (additionalChargesNote && additionalChargesNote.trim()) || 'Checkout charges',
@@ -310,6 +319,10 @@ exports.extendStay = async (req, res, next) => {
     if (newOutDate <= oldOutDate) throw new Error('New checkout date must be after current checkout date');
 
     const additionalCost = Math.max(0, Number(req.body.additionalRent) || 0);
+    const pay = Math.max(0, Number(extensionPayment) || 0);
+    if (pay > stay.totalAmount + additionalCost - stay.paidAmount) {
+      throw new Error('Payment is more than the balance due');
+    }
     stay.totalAmount += additionalCost;
     stay.expectedCheckOutDate = newOutDate;
     if (stay.status === 'Overdue' || stay.status === 'Checkout Due') stay.status = 'Active';
@@ -318,7 +331,6 @@ exports.extendStay = async (req, res, next) => {
     const note = `[${stamp}] Stay extended till ${newOutDate.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}. Extra rent: ₹${additionalCost}.`;
     stay.notes = stay.notes ? `${stay.notes}\n${note}` : note;
 
-    const pay = Number(extensionPayment) || 0;
     if (pay > 0) {
       stay.paidAmount += pay;
       await Payment.create([{
@@ -353,6 +365,9 @@ exports.shiftRoom = async (req, res, next) => {
     }
     if (newRoom._id.toString() === stay.room.toString()) {
       throw new Error('Guest is already in this room');
+    }
+    if (newRoom.status !== 'Active') {
+      throw new Error(`Room ${newRoom.roomNumber} is not available (${newRoom.status})`);
     }
 
     // Is the new room free right now / for the rest of this stay?

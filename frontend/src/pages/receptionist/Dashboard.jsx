@@ -37,7 +37,7 @@ const ReceptionistDashboard = () => {
         axios.get(`${API}/api/stays?status=Active${ampQuery}`)
       ]);
       setStats(statsRes.data.data);
-      setRecentStays(staysRes.data.data.slice(-8).reverse());
+      setRecentStays(staysRes.data.data); // already sorted by checkout time (earliest first)
     } catch (error) {
       console.error(error);
     } finally {
@@ -54,6 +54,7 @@ const ReceptionistDashboard = () => {
   }, [fetchDashboardData]);
 
   const overdueStays = recentStays.filter(s => isPast(new Date(s.expectedCheckOutDate)));
+  const visibleStays = recentStays.slice(0, 8);
 
   if (loading) {
     return (
@@ -163,16 +164,16 @@ const ReceptionistDashboard = () => {
       {/* Active Stays */}
       <div className="space-y-4">
         <div className="flex justify-between items-center">
-          <h2 className="text-lg font-black text-gray-900 uppercase tracking-tight">In-House Guests</h2>
+          <h2 className="text-lg font-black text-gray-900 uppercase tracking-tight">In-House Guests <span className="text-gray-400 text-sm normal-case font-bold">(earliest checkout first)</span></h2>
           <Link to="/checkouts" className="text-xs font-black text-gray-500 hover:text-black uppercase tracking-widest flex items-center gap-1 transition-colors">
-            See all <ChevronRight size={14} />
+            See all {recentStays.length} <ChevronRight size={14} />
           </Link>
         </div>
         
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          {recentStays.length > 0 ? (
+          {visibleStays.length > 0 ? (
             <ul className="divide-y divide-gray-50">
-              {recentStays.map(stay => {
+              {visibleStays.map(stay => {
                 const isOverdue = isPast(new Date(stay.expectedCheckOutDate));
                 const balance = stay.totalAmount - stay.paidAmount;
                 return (
@@ -202,7 +203,7 @@ const ReceptionistDashboard = () => {
                         {balance > 0 && (
                           <span className="text-[10px] font-black text-red-600 bg-red-50 px-2 py-0.5 rounded-md">₹{balance} due</span>
                         )}
-                        <Link to="/checkouts" className={`px-3 py-1.5 text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-all active:scale-95 shadow-sm ${isOverdue ? 'bg-red-600 hover:bg-red-700' : 'bg-black hover:bg-gray-800'}`}>
+                        <Link to={`/checkouts?stay=${stay._id}`} className={`px-3 py-1.5 text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-all active:scale-95 shadow-sm ${isOverdue ? 'bg-red-600 hover:bg-red-700' : 'bg-black hover:bg-gray-800'}`}>
                           {isOverdue ? 'Urgent' : 'Manage'}
                         </Link>
                       </div>

@@ -150,7 +150,7 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
               
               {/* Additional Charges / Adjustments */}
               <div className="pt-3 border-t border-gray-100">
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Additional Charges / Food / Damage (₹)</label>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Any last-minute charge? (optional, ₹)</label>
                 <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                   <div className="relative w-full sm:w-1/3">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">₹</span>

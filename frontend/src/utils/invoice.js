@@ -66,3 +66,4 @@ export const printInvoice = (stay, payments = []) => {
   w.focus();
   w.print();
 };
+

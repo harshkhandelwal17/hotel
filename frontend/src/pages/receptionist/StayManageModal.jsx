@@ -131,7 +131,7 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
     if (ok) setTab('bill');
   };
 
-  const freeRooms = rooms.filter(r => !r.isOccupied && r._id !== (stay.room?._id || stay.room));
+  const freeRooms = rooms.filter(r => r.status === 'Active' && !r.isOccupied && r._id !== (stay.room?._id || stay.room));
   const inputCls = 'w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-black outline-none';
   const labelCls = 'block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5';
   const btnCls = 'w-full py-3 bg-black text-white font-bold rounded-xl disabled:opacity-50 active:scale-95 transition-all';
@@ -357,3 +357,4 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
 };
 
 export default StayManageModal;
+
