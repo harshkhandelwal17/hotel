@@ -47,6 +47,8 @@ const Reports = () => {
     fetchData();
   }, []);
 
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState('all');
+
   // Filter Stays
   const filteredStays = useMemo(() => {
     return stays.filter(stay => {
@@ -97,7 +99,12 @@ const Reports = () => {
         return false;
       }
 
-      // 3. Date Filter
+      // 3. Payment Method Filter
+      if (paymentMethodFilter !== 'all' && payment.paymentMethod !== paymentMethodFilter) {
+        return false;
+      }
+
+      // 4. Date Filter
       if (dateFilter !== 'all') {
         const date = new Date(payment.paymentDate);
         if (dateFilter === 'today' && !isToday(date)) return false;
@@ -113,7 +120,7 @@ const Reports = () => {
       
       return true;
     }).sort((a, b) => new Date(b.paymentDate) - new Date(a.paymentDate));
-  }, [payments, hostelFilter, searchQuery, dateFilter, customStart, customEnd]);
+  }, [payments, hostelFilter, searchQuery, paymentMethodFilter, dateFilter, customStart, customEnd]);
 
   // Calculate Financial Stats
   const stats = useMemo(() => {
@@ -261,6 +268,15 @@ const Reports = () => {
           <option value="month">This Month</option>
           <option value="custom">Custom Date</option>
         </select>
+
+        {activeTab === 'transactions' && (
+          <select value={paymentMethodFilter} onChange={e => setPaymentMethodFilter(e.target.value)} className="w-full md:w-48 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-black outline-none appearance-none">
+            <option value="all">All Methods</option>
+            <option value="Cash">Cash</option>
+            <option value="UPI">UPI</option>
+            <option value="Card">Card</option>
+          </select>
+        )}
 
         {globalProperty === 'all' && (
           <select value={hostelFilter} onChange={e => setHostelFilter(e.target.value)} className="w-full md:w-48 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-black outline-none appearance-none">

@@ -108,7 +108,7 @@ const ReceptionistDashboard = () => {
       )}
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 group hover:border-blue-200 hover:shadow-md transition-all">
           <div className="flex justify-between items-start mb-4">
             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Occupied</span>
@@ -136,6 +136,18 @@ const ReceptionistDashboard = () => {
             <span className="text-xs font-bold text-gray-400 ml-2">rooms free</span>
           </div>
           <p className="text-[10px] text-green-600 font-bold mt-4">Ready to check-in</p>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 group hover:border-blue-200 hover:shadow-md transition-all">
+          <div className="flex justify-between items-start mb-4">
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Check-Ins Today</span>
+            <div className="p-2 bg-blue-50 text-blue-600 rounded-xl group-hover:scale-110 transition-transform"><Users size={16} /></div>
+          </div>
+          <div className="flex items-baseline">
+            <span className="text-4xl font-black text-gray-900">{stats?.checkinsToday || 0}</span>
+            <span className="text-xs font-bold text-gray-400 ml-2">today</span>
+          </div>
+          <p className="text-[10px] text-blue-500 font-bold mt-4">Total bookings today</p>
         </div>
 
         <Link to="/checkouts" className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 group hover:border-orange-200 hover:shadow-md transition-all block">

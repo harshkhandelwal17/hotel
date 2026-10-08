@@ -2,7 +2,7 @@ import React, { useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
-import { Home, Users, Bed, LogOut, Bell, PlusCircle, Building, CreditCard, BarChart3, Hexagon, ShieldCheck, Menu, X } from 'lucide-react';
+import { Home, Users, Bed, LogOut, Bell, PlusCircle, Building, CreditCard, BarChart3, Hexagon, ShieldCheck, Menu, X, ShieldAlert } from 'lucide-react';
 import GlobalSearch from '../common/GlobalSearch';
 
 const AppLayout = ({ children }) => {
@@ -91,11 +91,15 @@ const AppLayout = ({ children }) => {
     { name: 'Payments', path: '/payments', icon: CreditCard },
   ];
 
-  if (user?.role === 'admin') {
+  if (user?.role === 'admin' || user?.role === 'superadmin') {
     navItems.push({ name: 'Properties', path: '/admin/hostels', icon: Building });
     navItems.push({ name: 'Staff', path: '/admin/staff', icon: ShieldCheck });
     navItems.push({ name: 'Manage Rooms', path: '/admin/rooms', icon: Bed });
     navItems.push({ name: 'Financials', path: '/admin/reports', icon: BarChart3 });
+  }
+
+  if (user?.role === 'superadmin') {
+    navItems.push({ name: 'Super Admin', path: '/superadmin', icon: ShieldAlert });
   }
 
   return (

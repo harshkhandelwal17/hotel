@@ -1,20 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { format, addDays } from 'date-fns';
+import { format, addDays, addHours } from 'date-fns';
 import { X, Receipt, Plus, Wallet, ArrowRightLeft, CalendarPlus, Printer, Trash2, LogOut, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { printInvoice } from '../../utils/invoice';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
-
-const QUICK_ITEMS = [
-  { label: 'Water Bottle', category: 'Beverage', rate: 20 },
-  { label: 'Tea / Coffee', category: 'Beverage', rate: 20 },
-  { label: 'Meal / Thali', category: 'Food', rate: 150 },
-  { label: 'Snacks', category: 'Food', rate: 50 },
-  { label: 'Laundry', category: 'Laundry', rate: 100 },
-  { label: 'Extra Bed', category: 'Extra Bed', rate: 300 },
-];
-const CATEGORIES = ['Food', 'Beverage', 'Laundry', 'Extra Bed', 'Damage', 'Late Checkout', 'Other'];
 
 const TABS = [
   { key: 'bill', label: 'Bill', icon: Receipt },
@@ -23,8 +13,6 @@ const TABS = [
   { key: 'room', label: 'Change Room', icon: ArrowRightLeft },
   { key: 'extend', label: 'Extend', icon: CalendarPlus },
 ];
-
-const toLocalInput = (d) => format(d, "yyyy-MM-dd'T'HH:mm");
 
 const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) => {
   const [tab, setTab] = useState('bill');
@@ -43,7 +31,8 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
   const [shiftForm, setShiftForm] = useState({ newRoomId: '', priceAdjustment: '', reason: '' });
   // extend form
   const [extendForm, setExtendForm] = useState({
-    newCheckOutDate: toLocalInput(addDays(new Date(initialStay.expectedCheckOutDate), 1)),
+    extendDays: 1,
+    extendHours: 0,
     additionalRent: '',
     extensionPayment: '',
     paymentMethod: 'Cash'
@@ -121,8 +110,10 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
 
   const extend = async (e) => {
     e.preventDefault();
+    const newDate = addHours(addDays(new Date(stay.expectedCheckOutDate), Number(extendForm.extendDays) || 0), Number(extendForm.extendHours) || 0);
+
     const ok = await run(() => axios.post(`${API}/api/stays/${stay._id}/extend`, {
-      newCheckOutDate: new Date(extendForm.newCheckOutDate).toISOString(),
+      newCheckOutDate: newDate.toISOString(),
       additionalRent: Number(extendForm.additionalRent) || 0,
       extensionPayment: Number(extendForm.extensionPayment) || 0,
       paymentMethod: extendForm.paymentMethod
@@ -166,7 +157,7 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
           })}
         </div>
 
-        <div className="p-5 overflow-y-auto flex-1 space-y-4">
+        <div className="p-5 overflow-y-auto flex-1 min-h-0 space-y-4">
           {error && <div className="p-3 bg-red-50 border border-red-100 text-red-600 rounded-xl text-sm font-medium flex items-center gap-2"><AlertCircle size={16} /> {error}</div>}
           {success && <div className="p-3 bg-green-50 border border-green-100 text-green-700 rounded-xl text-sm font-bold flex items-center gap-2"><CheckCircle2 size={16} /> {success}</div>}
 
@@ -225,57 +216,37 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
           {/* ---------------- ADD CHARGE ---------------- */}
           {tab === 'charge' && (
             <div className="space-y-4">
-              <div>
-                <p className={labelCls}>Quick Add</p>
-                <div className="flex flex-wrap gap-2">
-                  {QUICK_ITEMS.map(q => (
-                    <button type="button" key={q.label}
-                      onClick={() => setPendingCharges([...pendingCharges, { description: q.label, category: q.category, quantity: 1, rate: q.rate }])}
-                      className="px-3 py-1.5 bg-gray-100 hover:bg-black hover:text-white rounded-lg text-xs font-bold transition-colors">
-                      {q.label} · ₹{q.rate}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              
-              <div className="space-y-3 mt-4">
+              <div className="space-y-3 mt-2">
                 <div className="flex justify-between items-center">
                   <p className={labelCls}>Items to Add</p>
-                  <button type="button" onClick={() => setPendingCharges([...pendingCharges, { description: '', category: 'Food', quantity: 1, rate: '' }])}
+                  <button type="button" onClick={() => setPendingCharges([...pendingCharges, { description: '', rate: '' }])}
                     className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md flex items-center gap-1 hover:bg-blue-100">
-                    <Plus size={12} /> Custom Item
+                    <Plus size={12} /> Add Item
                   </button>
                 </div>
                 
                 {pendingCharges.map((item, idx) => (
-                  <div key={idx} className="p-3 bg-gray-50 border border-gray-200 rounded-xl space-y-3 relative">
-                    <button type="button" onClick={() => setPendingCharges(pendingCharges.filter((_, i) => i !== idx))} className="absolute top-2 right-2 p-1 text-red-500 hover:bg-red-50 rounded-md"><X size={14}/></button>
-                    <div>
-                      <input className="w-full bg-transparent border-b border-gray-300 focus:border-black outline-none font-semibold text-sm pb-1" placeholder="What for? (e.g. Dinner)" 
-                        value={item.description} onChange={e => { const arr = [...pendingCharges]; arr[idx].description = e.target.value; setPendingCharges(arr); }} />
-                    </div>
-                    <div className="flex gap-2">
-                      <select className="flex-1 bg-transparent border-b border-gray-300 focus:border-black outline-none text-xs pb-1" 
-                        value={item.category} onChange={e => { const arr = [...pendingCharges]; arr[idx].category = e.target.value; setPendingCharges(arr); }}>
-                        {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                      </select>
-                      <input type="number" min="1" className="w-16 bg-transparent border-b border-gray-300 focus:border-black outline-none text-xs pb-1 text-center" placeholder="Qty"
-                        value={item.quantity} onChange={e => { const arr = [...pendingCharges]; arr[idx].quantity = e.target.value; setPendingCharges(arr); }} />
-                      <input type="number" min="1" className="w-20 bg-transparent border-b border-gray-300 focus:border-black outline-none text-xs pb-1 text-right" placeholder="Rate ₹"
+                  <div key={idx} className="p-2 bg-gray-50 border border-gray-200 rounded-xl flex gap-2 items-center">
+                    <input className="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-black outline-none font-semibold text-sm" placeholder="Item Name (e.g. Dinner)" 
+                      value={item.description} onChange={e => { const arr = [...pendingCharges]; arr[idx].description = e.target.value; setPendingCharges(arr); }} />
+                    <div className="relative w-28">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">₹</span>
+                      <input type="number" min="0" className="w-full pl-7 pr-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-black outline-none font-semibold text-sm text-right" placeholder="Price"
                         value={item.rate} onChange={e => { const arr = [...pendingCharges]; arr[idx].rate = e.target.value; setPendingCharges(arr); }} />
                     </div>
+                    <button type="button" onClick={() => setPendingCharges(pendingCharges.filter((_, i) => i !== idx))} className="p-2 text-red-500 bg-red-50 hover:bg-red-100 rounded-lg"><X size={16}/></button>
                   </div>
                 ))}
                 
                 {pendingCharges.length === 0 && (
-                  <div className="text-xs text-gray-400 font-medium italic py-4 text-center border-2 border-dashed border-gray-200 rounded-xl">Tap a Quick Add item above or Custom Item.</div>
+                  <div className="text-xs text-gray-400 font-medium italic py-4 text-center border-2 border-dashed border-gray-200 rounded-xl">Tap Add Item to add a charge.</div>
                 )}
               </div>
 
               {pendingCharges.length > 0 && (
                 <div className="pt-2">
                   <p className="text-sm font-black text-gray-900 text-right mb-3">
-                    Total: ₹{pendingCharges.reduce((sum, item) => sum + (Number(item.rate) || 0) * (Number(item.quantity) || 1), 0)}
+                    Total: ₹{pendingCharges.reduce((sum, item) => sum + (Number(item.rate) || 0), 0)}
                   </p>
                   <button disabled={busy} onClick={submitPendingCharges} className={btnCls}>
                     {busy ? 'Adding...' : `Add ${pendingCharges.length} Item(s) to Bill`}
@@ -337,19 +308,25 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
           {/* ---------------- EXTEND ---------------- */}
           {tab === 'extend' && (
             <form onSubmit={extend} className="space-y-4">
-              <div className="p-3 bg-gray-50 rounded-xl text-sm font-bold">
-                Current checkout: {format(new Date(stay.expectedCheckOutDate), 'dd MMM, hh:mm a')}
+              <div className="p-3 bg-gray-50 rounded-xl text-sm font-bold flex justify-between items-center">
+                <span className="text-gray-500">Current checkout:</span>
+                <span className="text-gray-900">{format(new Date(stay.expectedCheckOutDate), 'dd MMM, hh:mm a')}</span>
               </div>
-              <div className="flex gap-2">
-                {[1, 2, 3].map(n => (
-                  <button type="button" key={n}
-                    onClick={() => setExtendForm({ ...extendForm, newCheckOutDate: toLocalInput(addDays(new Date(stay.expectedCheckOutDate), n)) })}
-                    className="flex-1 py-2 bg-gray-100 hover:bg-black hover:text-white rounded-lg text-xs font-bold transition-colors">+{n} day{n > 1 ? 's' : ''}</button>
-                ))}
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className={labelCls}>Extend by Days</label>
+                  <input type="number" min="0" className={inputCls} value={extendForm.extendDays}
+                    onChange={e => setExtendForm({ ...extendForm, extendDays: e.target.value })} /></div>
+                <div><label className={labelCls}>Extend by Hours</label>
+                  <input type="number" min="0" max="23" className={inputCls} value={extendForm.extendHours}
+                    onChange={e => setExtendForm({ ...extendForm, extendHours: e.target.value })} /></div>
               </div>
-              <div><label className={labelCls}>New checkout date & time</label>
-                <input required type="datetime-local" className={inputCls} value={extendForm.newCheckOutDate}
-                  onChange={e => setExtendForm({ ...extendForm, newCheckOutDate: e.target.value })} /></div>
+
+              <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl text-sm font-bold flex justify-between items-center text-blue-900">
+                <span>New checkout:</span>
+                <span>{format(addHours(addDays(new Date(stay.expectedCheckOutDate), Number(extendForm.extendDays) || 0), Number(extendForm.extendHours) || 0), 'dd MMM, hh:mm a')}</span>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div><label className={labelCls}>Extra rent (₹)</label>
                   <input type="number" min="0" className={inputCls} placeholder="0" value={extendForm.additionalRent}
@@ -382,4 +359,46 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
 };
 
 export default StayManageModal;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

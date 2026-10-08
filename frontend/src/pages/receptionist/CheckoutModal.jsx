@@ -95,8 +95,8 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
           </button>
         </div>
 
-        <form onSubmit={handleCheckout} className="flex flex-col overflow-hidden h-full">
-          <div className="p-4 sm:p-6 space-y-5 sm:space-y-6 overflow-y-auto flex-1">
+        <form onSubmit={handleCheckout} className="flex flex-col flex-1 min-h-0">
+          <div className="p-4 sm:p-6 space-y-5 sm:space-y-6 overflow-y-auto flex-1 min-h-0">
             {error && <div className="p-3 bg-red-50 border border-red-100 text-red-600 rounded-xl font-medium text-sm flex items-center gap-2"><AlertCircle size={16}/> {error}</div>}
             
             {/* Guest Identity Card */}

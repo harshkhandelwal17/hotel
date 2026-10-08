@@ -901,9 +901,21 @@ const CheckIn = () => {
 
                 </div>
 
-                <p className="text-[10px] text-gray-400 font-bold mt-2 text-right">
-                  Combine both (e.g. 1 Day 2 Hours)
-                </p>
+                <div className="flex justify-between items-center mt-3">
+                  <p className="text-[10px] text-gray-400 font-bold">
+                    Combine both (e.g. 1 Day 2 Hours)
+                  </p>
+                  <p className="text-xs font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded">
+                    Out: {
+                      (() => {
+                        const expectedOutPreview = new Date();
+                        expectedOutPreview.setDate(expectedOutPreview.getDate() + (Number(stayInfo.durationDays) || 0));
+                        expectedOutPreview.setHours(expectedOutPreview.getHours() + (Number(stayInfo.durationHours) || 0));
+                        return expectedOutPreview.toLocaleString('en-US', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+                      })()
+                    }
+                  </p>
+                </div>
 
               </div>
 

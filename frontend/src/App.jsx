@@ -19,6 +19,7 @@ const Reports = lazy(() => import('./pages/admin/Reports'));
 const ManageStaff = lazy(() => import('./pages/admin/ManageStaff'));
 const PaymentsList = lazy(() => import('./pages/receptionist/PaymentsList'));
 const GuestDirectory = lazy(() => import('./pages/receptionist/GuestDirectory'));
+const SuperAdminDashboard = lazy(() => import('./pages/admin/SuperAdminDashboard'));
 
 import { ToastProvider } from './components/ui/Toast';
 
@@ -31,7 +32,7 @@ function App() {
           <Routes>
           <Route path="/login" element={<Login />} />
           
-          <Route element={<ProtectedRoute allowedRoles={['receptionist', 'admin']} />}>
+          <Route element={<ProtectedRoute allowedRoles={['receptionist', 'admin', 'superadmin']} />}>
             <Route element={<AppLayout />}>
               <Route path="/dashboard" element={<ReceptionistDashboard />} />
               <Route path="/checkin" element={<CheckIn />} />
@@ -44,6 +45,7 @@ function App() {
               <Route path="/admin/reports" element={<Reports />} />
               <Route path="/admin/staff" element={<ManageStaff />} />
               <Route path="/guests" element={<GuestDirectory />} />
+              <Route path="/superadmin" element={<SuperAdminDashboard />} />
             </Route>
           </Route>
           
