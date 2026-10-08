@@ -12,6 +12,12 @@ exports.getSystemStats = async (req, res, next) => {
     const totalStays = await Stay.countDocuments();
     const totalRooms = await Room.countDocuments();
     
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const todayStays = await Stay.countDocuments({
+      createdAt: { $gte: today }
+    });
+
     const revenue = await Payment.aggregate([
       { $group: { _id: null, total: { $sum: "$amount" } } }
     ]);
@@ -24,7 +30,8 @@ exports.getSystemStats = async (req, res, next) => {
         totalHostels,
         totalStays,
         totalRooms,
-        totalRevenue
+        totalRevenue,
+        todayStays
       }
     });
   } catch (error) {

@@ -21,6 +21,7 @@ import {
 
 import { useToast } from '../../components/ui/Toast';
 import { compressImage } from '../../utils/imageCompression';
+import { extractAddressFromBackId } from '../../utils/idOcr';
 
 const API =
   import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
@@ -93,6 +94,7 @@ const CheckIn = () => {
         idProofNumber: '',
         idProofImage: '',
         idProofImageBack: '',
+        address: '',
         _id: null,
         isSearching: false
       }
@@ -393,6 +395,22 @@ const CheckIn = () => {
         return updated;
       });
 
+      if (side === 'back') {
+        extractAddressFromBackId(res.data.url).then((address) => {
+          if (address) {
+            setGuests(prev => {
+              const updated = [...prev];
+              updated[index] = { ...updated[index], address: address };
+              return updated;
+            });
+            toast({
+              message: 'Address extracted from ID. Please verify.',
+              type: 'success'
+            });
+          }
+        });
+      }
+
       toast({
         message:
           'Image uploaded successfully!',
@@ -689,6 +707,7 @@ const CheckIn = () => {
       idProofNumber: '',
       idProofImage: '',
       idProofImageBack: '',
+      address: '',
       _id: null,
       isSearching: false
     }]);
@@ -1718,6 +1737,22 @@ const CheckIn = () => {
                     </div>
                   </div>
 
+                  {/* ADDRESS */}
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 flex items-center justify-between">
+                      <span>Address (Opt)</span>
+                      {guest.idProofImageBack && <span className="text-blue-500 text-[9px]">Auto-extracted</span>}
+                    </label>
+                    <textarea
+                      placeholder="Enter guest address"
+                      value={guest.address || ''}
+                      onChange={(e) =>
+                        handleGuestChange(index, 'address', e.target.value)
+                      }
+                      rows="2"
+                      className="w-full px-5 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-black focus:ring-0 outline-none font-black text-sm text-gray-900 transition-colors resize-none"
+                    ></textarea>
+                  </div>
 
                 </div>
               </div>

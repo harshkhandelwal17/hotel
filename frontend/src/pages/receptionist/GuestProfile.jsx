@@ -30,6 +30,16 @@ const GuestProfile = () => {
     }
   };
 
+  const handlePrint = async (stayToPrint) => {
+    try {
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/payments?stay=${stayToPrint._id}`);
+      printInvoice(stayToPrint, res.data.data);
+    } catch (err) {
+      console.error('Failed to fetch payments', err);
+      printInvoice(stayToPrint, []);
+    }
+  };
+
   if (loading) return <div>Loading...</div>;
   if (!guest) return <div>Guest not found</div>;
 
@@ -107,7 +117,7 @@ const GuestProfile = () => {
                 Extend Stay
               </button>
               <button 
-                onClick={() => printInvoice(activeStay)}
+                onClick={() => handlePrint(activeStay)}
                 className="w-full sm:w-auto bg-blue-600 text-white font-black uppercase tracking-widest text-xs px-5 py-2.5 rounded-xl hover:bg-blue-700 transition-all shadow-md active:scale-95 flex items-center justify-center gap-2"
               >
                 <Printer size={16} /> Print Bill
@@ -268,7 +278,7 @@ const GuestProfile = () => {
                     </td>
                     <td className="px-6 py-5">
                       <button 
-                        onClick={() => printInvoice(stay)}
+                        onClick={() => handlePrint(stay)}
                         className="text-gray-500 hover:text-black bg-gray-50 hover:bg-gray-100 p-2.5 rounded-xl transition-colors border border-gray-200"
                         title="Print Invoice"
                       >

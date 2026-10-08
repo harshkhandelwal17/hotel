@@ -100,11 +100,12 @@ exports.getStays = async (req, res, next) => {
     }
 
     const stays = await Stay.find(filter)
-      .populate('guest', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack')
-      .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack')
+      .populate('guest', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address')
+      .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address')
       .populate('room', 'roomNumber price24h extraPerPerson24h')
       .populate('hostel', 'name address')
-      .sort('expectedCheckOutDate');
+      .sort('-expectedCheckOutDate')
+      .lean();
       
     res.status(200).json({ success: true, count: stays.length, data: stays });
   } catch (error) {
@@ -314,8 +315,10 @@ exports.checkout = async (req, res, next) => {
     stay.status = 'Checked Out';
     stay.actualCheckOutDate = new Date();
     await stay.save();
+    
+    const payments = await Payment.find({ stay: stay._id }).sort('paymentDate');
 
-    res.status(200).json({ success: true, data: stay });
+    res.status(200).json({ success: true, data: stay, payments });
   } catch (error) {
     sendError(res, next, error);
   }

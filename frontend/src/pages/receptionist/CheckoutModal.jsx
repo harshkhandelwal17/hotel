@@ -12,6 +12,7 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
   const [error, setError] = useState('');
   const [checkoutComplete, setCheckoutComplete] = useState(false);
   const [completedStay, setCompletedStay] = useState(null);
+  const [payments, setPayments] = useState([]);
 
   const baseBalance = stay.totalAmount - stay.paidAmount;
   const totalNewCharges = chargesList.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
@@ -36,6 +37,7 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
         paymentMethod,
       });
       setCompletedStay(res.data.data);
+      setPayments(res.data.payments || []);
       setCheckoutComplete(true);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to checkout. Please try again.');
@@ -59,7 +61,7 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
           <div className="space-y-3">
             <button
               onClick={() => {
-                printInvoice({ ...stay, ...(completedStay || {}), guest: stay.guest, room: stay.room, hostel: stay.hostel });
+                printInvoice({ ...stay, ...(completedStay || {}), guest: stay.guest, room: stay.room, hostel: stay.hostel }, payments);
                 onSuccess();
               }}
               className="w-full py-3 bg-black text-white font-bold rounded-xl shadow-md hover:shadow-xl transition-all flex items-center justify-center gap-2"

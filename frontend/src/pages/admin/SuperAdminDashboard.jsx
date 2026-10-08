@@ -12,6 +12,7 @@ const SuperAdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [impersonating, setImpersonating] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (user?.role !== 'superadmin') {
@@ -60,8 +61,6 @@ const SuperAdminDashboard = () => {
       setImpersonating(false);
     }
   };
-
-  const [searchQuery, setSearchQuery] = useState('');
 
   if (loading) {
     return <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-red-600"></div></div>;
@@ -117,6 +116,7 @@ const SuperAdminDashboard = () => {
           { label: 'Properties', value: stats?.totalHostels, icon: Building, color: 'text-purple-600', bg: 'bg-purple-50' },
           { label: 'Total Rooms', value: stats?.totalRooms, icon: BedDouble, color: 'text-indigo-600', bg: 'bg-indigo-50' },
           { label: 'Total Stays', value: stats?.totalStays, icon: Activity, color: 'text-orange-600', bg: 'bg-orange-50' },
+          { label: 'Today Bookings', value: stats?.todayStays || 0, icon: Activity, color: 'text-pink-600', bg: 'bg-pink-50' },
           { label: 'System Revenue', value: `₹${stats?.totalRevenue?.toLocaleString() || 0}`, icon: IndianRupee, color: 'text-green-600', bg: 'bg-green-50' }
         ].map((s, i) => (
           <div key={i} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center text-center hover:-translate-y-1 transition-transform">

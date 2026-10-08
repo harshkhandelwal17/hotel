@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth, parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
-import { Search, Download, TrendingUp, PieChart, Users, Receipt, ArrowRight } from 'lucide-react';
+import { Search, Download, TrendingUp, PieChart, Users, Receipt, ArrowRight, ShieldCheck } from 'lucide-react';
 import { useOutletContext } from 'react-router-dom';
 
 const Reports = () => {
@@ -175,6 +175,40 @@ const Reports = () => {
     document.body.removeChild(link);
   };
 
+  const downloadPoliceReport = () => {
+    const headers = ['Check-In Date', 'Check-Out Date', 'Room No', 'Guest Name', 'Mobile Number', 'ID Type', 'ID Number', 'Address'];
+    
+    const csvData = [];
+    filteredStays.forEach(stay => {
+      const ciDate = format(new Date(stay.checkInDate), 'dd MMM yyyy hh:mm a');
+      const coDate = stay.checkOutDate ? format(new Date(stay.checkOutDate), 'dd MMM yyyy hh:mm a') : 'Ongoing';
+      const roomNo = stay.room?.roomNumber || 'N/A';
+      
+      const allGuests = [];
+      if (stay.guest) allGuests.push(stay.guest);
+      if (stay.coGuests && stay.coGuests.length > 0) allGuests.push(...stay.coGuests);
+
+      allGuests.forEach(g => {
+        const name = g.fullName || 'N/A';
+        const mobile = g.mobileNumber || 'N/A';
+        const idType = g.idProofType || 'N/A';
+        const idNum = g.idProofNumber || 'N/A';
+        const address = g.address ? g.address.replace(/,/g, ' ').replace(/\n/g, ' ') : 'N/A';
+        
+        csvData.push(`"${ciDate}","${coDate}","${roomNo}","${name}","${mobile}","${idType}","${idNum}","${address}"`);
+      });
+    });
+
+    const csvContent = [headers.join(','), ...csvData].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', `Police_Report_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -190,9 +224,16 @@ const Reports = () => {
           <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Financial & Profit Analytics</h1>
           <p className="text-sm text-gray-500 mt-1 font-medium">Track Bookings, Commissions, and real Cash Flow.</p>
         </div>
-        <button onClick={downloadCSV} className="px-6 py-2.5 bg-black text-white rounded-xl font-bold text-sm hover:bg-gray-800 transition-colors shadow-sm flex items-center gap-2 active:scale-95">
-          <Download size={16} /> Export CSV
-        </button>
+        <div className="flex gap-2">
+          {activeTab === 'bookings' && (
+            <button onClick={downloadPoliceReport} className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition-colors shadow-sm flex items-center gap-2 active:scale-95">
+              <ShieldCheck size={16} /> Police Report
+            </button>
+          )}
+          <button onClick={downloadCSV} className="px-6 py-2.5 bg-black text-white rounded-xl font-bold text-sm hover:bg-gray-800 transition-colors shadow-sm flex items-center gap-2 active:scale-95">
+            <Download size={16} /> Export CSV
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-2 p-1 bg-gray-100 rounded-xl w-fit">
