@@ -1,15 +1,43 @@
 export const extractAddressFromBackId = async (imageFile) => {
   try {
     const Tesseract = (await import('tesseract.js')).default;
-    const worker = await Tesseract.createWorker('eng+hin+osd', 1, {
+    
+    // Auto-rotate if image is portrait (Aadhaar cards are landscape)
+    const preprocessImage = (source) => {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'Anonymous';
+        img.onload = () => {
+          if (img.height > img.width) {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.height;
+            canvas.height = img.width;
+            const ctx = canvas.getContext('2d');
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate(-90 * Math.PI / 180); // Rotate 90 deg counter-clockwise
+            ctx.drawImage(img, -img.width / 2, -img.height / 2);
+            resolve(canvas.toDataURL('image/jpeg'));
+          } else {
+            resolve(source);
+          }
+        };
+        img.onerror = () => resolve(source); // fallback to original
+        img.src = source;
+      });
+    };
+
+    const processedImage = await preprocessImage(imageFile);
+
+    const worker = await Tesseract.createWorker('eng+hin', 1, {
       logger: m => console.log(m)
     });
     
+    // PSM.AUTO (3) is fully automatic page segmentation, no OSD (much faster and no extra downloads)
     await worker.setParameters({
-      tessedit_pageseg_mode: Tesseract.PSM.AUTO_OSD,
+      tessedit_pageseg_mode: Tesseract.PSM.AUTO,
     });
     
-    const result = await worker.recognize(imageFile);
+    const result = await worker.recognize(processedImage);
     await worker.terminate();
     
     let text = result.data.text || "";
@@ -23,8 +51,7 @@ export const extractAddressFromBackId = async (imageFile) => {
         // Extract everything after Address/पता
         address = addressMatch[1].trim();
         
-        // Sometimes Aadhaar numbers or random noise is at the end. 
-        // We can stop at a 6-digit PIN code if found, to discard noise after it.
+        // Stop at a 6-digit PIN code to discard noise after it.
         const pinRegex = /(\b\d{6}\b)/;
         const pinMatch = address.match(pinRegex);
         if (pinMatch) {
@@ -43,7 +70,6 @@ export const extractAddressFromBackId = async (imageFile) => {
       .replace(/,,/g, ',')
       .trim();
       
-    // Return at most 250 characters to prevent huge garbage strings
     return address.substring(0, 250);
 
   } catch (error) {
@@ -51,4 +77,3 @@ export const extractAddressFromBackId = async (imageFile) => {
     return "";
   }
 };
-
