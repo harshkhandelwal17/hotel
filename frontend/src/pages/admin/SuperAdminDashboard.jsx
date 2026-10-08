@@ -9,10 +9,12 @@ const SuperAdminDashboard = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
+  const [hostels, setHostels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [impersonating, setImpersonating] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState('users');
 
   useEffect(() => {
     if (user?.role !== 'superadmin') {
@@ -26,12 +28,14 @@ const SuperAdminDashboard = () => {
     try {
       setLoading(true);
       const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
-      const [statsRes, usersRes] = await Promise.all([
+      const [statsRes, usersRes, hostelsRes] = await Promise.all([
         axios.get(`${API}/api/superadmin/stats`),
-        axios.get(`${API}/api/superadmin/users`)
+        axios.get(`${API}/api/superadmin/users`),
+        axios.get(`${API}/api/superadmin/hostels`)
       ]);
       setStats(statsRes.data.data);
       setUsers(usersRes.data.data);
+      setHostels(hostelsRes.data.data);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load superadmin data');
     } finally {
@@ -87,11 +91,15 @@ const SuperAdminDashboard = () => {
   };
 
   const handleResetPassword = async (userId) => {
-    if (!window.confirm('Reset this user\'s password to "123456"?')) return;
+    const newPassword = window.prompt("Enter new password for this user:", "123456");
+    if (!newPassword) return; // User cancelled
+    
+    if (!window.confirm(`Are you sure you want to change the password to "${newPassword}"?`)) return;
+    
     try {
       const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
-      await axios.put(`${API}/api/superadmin/users/${userId}/reset-password`, { password: '123456' });
-      alert('Password reset successfully to 123456');
+      await axios.put(`${API}/api/superadmin/users/${userId}/reset-password`, { password: newPassword });
+      alert(`Password reset successfully to: ${newPassword}`);
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to reset password');
     }
@@ -127,7 +135,18 @@ const SuperAdminDashboard = () => {
         ))}
       </div>
 
-      <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden mt-8">
+      <div className="flex gap-2 p-1 bg-gray-100 rounded-xl w-fit mt-8">
+        <button onClick={() => setActiveTab('users')} className={`px-5 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === 'users' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}>
+          System Users
+        </button>
+        <button onClick={() => setActiveTab('hostels')} className={`px-5 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === 'hostels' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}>
+          Properties / Hostels
+        </button>
+      </div>
+
+      <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden mt-4">
+        {activeTab === 'users' ? (
+        <>
         <div className="p-6 border-b border-gray-100 bg-gray-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h2 className="text-lg font-black text-gray-900">System Users (Imposter Mode)</h2>
@@ -208,6 +227,56 @@ const SuperAdminDashboard = () => {
             </tbody>
           </table>
         </div>
+        </>
+        ) : (
+        <>
+        <div className="p-6 border-b border-gray-100 bg-gray-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h2 className="text-lg font-black text-gray-900">Registered Properties</h2>
+            <p className="text-xs text-gray-500 font-medium mt-1">List of all unique hotels/hostels in the system.</p>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm whitespace-nowrap">
+            <thead className="bg-white border-b border-gray-100">
+              <tr>
+                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Property Name</th>
+                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Address</th>
+                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Owner</th>
+                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 bg-white">
+              {hostels.map(h => (
+                <tr key={h._id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center font-bold">
+                        <Building size={20} />
+                      </div>
+                      <p className="font-bold text-gray-900">{h.name}</p>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <p className="text-xs font-semibold text-gray-500 max-w-[200px] truncate">{h.address}</p>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="font-bold text-gray-900">{h.owner?.name || 'Unknown'}</div>
+                    <div className="text-xs text-gray-500">{h.owner?.email || 'N/A'}</div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-lg bg-green-100 text-green-700">Active</span>
+                  </td>
+                </tr>
+              ))}
+              {hostels.length === 0 && (
+                <tr><td colSpan="4" className="text-center py-8 text-gray-500 font-bold">No properties found.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        </>
+        )}
       </div>
     </div>
   );

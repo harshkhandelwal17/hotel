@@ -1,11 +1,17 @@
 export const extractAddressFromBackId = async (imageFile) => {
   try {
     const Tesseract = (await import('tesseract.js')).default;
-    const result = await Tesseract.recognize(
-      imageFile,
-      'eng+hin', 
-      { logger: m => console.log(m) }
-    );
+    const worker = await Tesseract.createWorker('eng+hin+osd', 1, {
+      logger: m => console.log(m)
+    });
+    
+    await worker.setParameters({
+      tessedit_pageseg_mode: Tesseract.PSM.AUTO_OSD,
+    });
+    
+    const result = await worker.recognize(imageFile);
+    await worker.terminate();
+    
     let text = result.data.text || "";
     console.log("OCR Result Text:", text);
 

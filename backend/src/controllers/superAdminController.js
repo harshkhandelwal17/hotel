@@ -111,3 +111,14 @@ exports.resetUserPassword = async (req, res, next) => {
   }
 };
 
+
+exports.getAllHostels = async (req, res, next) => {
+  try {
+    const hostels = await Hostel.find()
+      .populate('owner', 'name email')
+      .sort('-createdAt');
+    res.status(200).json({ success: true, data: hostels });
+  } catch (error) {
+    next(error);
+  }
+};

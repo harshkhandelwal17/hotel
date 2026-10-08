@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useOutletContext, Link } from 'react-router-dom';
 import axios from 'axios';
 import { format, isPast } from 'date-fns';
-import { Users, BedDouble, CalendarCheck, Clock, CreditCard, ChevronRight, AlertTriangle, PlusCircle, RefreshCw } from 'lucide-react';
+import { Users, BedDouble, CalendarCheck, Clock, CreditCard, ChevronRight, AlertTriangle, PlusCircle, RefreshCw, Download } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
 
@@ -54,6 +54,53 @@ const ReceptionistDashboard = () => {
   }, [fetchDashboardData]);
 
   const overdueStays = recentStays.filter(s => isPast(new Date(s.expectedCheckOutDate)));
+  const downloadPoliceReport = async () => {
+    try {
+      const propQuery = globalProperty !== 'all' ? `?hostel=${globalProperty}` : '';
+      const res = await axios.get(`${API}/api/stays?status=Active${propQuery ? '&' + propQuery.slice(1) : ''}`);
+      const activeStays = res.data.data;
+      
+      let csv = 'Guest Name,Contact Number,Address,ID Proof No,Room No,Check-in Date,Expected Checkout\n';
+      
+      activeStays.forEach(stay => {
+        const g = stay.guest || {};
+        const r = stay.room || {};
+        const name = g.fullName || 'N/A';
+        const contact = g.mobileNumber || 'N/A';
+        const address = (g.address || 'N/A').replace(/,/g, ' ');
+        const idNo = g.idProofNumber || 'N/A';
+        const roomNo = r.roomNumber || 'N/A';
+        const cin = format(new Date(stay.checkInDate), 'dd MMM yyyy HH:mm');
+        const cout = format(new Date(stay.expectedCheckOutDate), 'dd MMM yyyy HH:mm');
+        
+        csv += `${name},${contact},${address},${idNo},${roomNo},${cin},${cout}\n`;
+        
+        if (stay.coGuests && stay.coGuests.length > 0) {
+          stay.coGuests.forEach(cg => {
+            const cgName = cg.fullName || 'N/A';
+            const cgId = cg.idProofNumber || 'N/A';
+            const cgContact = g.mobileNumber + ' (Co-guest)';
+            const cgAddress = g.address ? g.address.replace(/,/g, ' ') : 'N/A';
+            csv += `${cgName},${cgContact},${cgAddress},${cgId},${roomNo},${cin},${cout}\n`;
+          });
+        }
+      });
+      
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `Police_Report_${format(new Date(), 'dd_MMM_yyyy')}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Failed to download report', error);
+      alert('Failed to generate Police Report');
+    }
+  };
+
   const visibleStays = recentStays.slice(0, 8);
 
   if (loading) {
@@ -82,6 +129,10 @@ const ReceptionistDashboard = () => {
           <p className="text-gray-500 mt-1 font-medium text-sm">{format(now, 'hh:mm a')} • {stats?.occupiedRooms || 0} rooms occupied</p>
         </div>
         <div className="flex gap-3 flex-wrap">
+          <button onClick={downloadPoliceReport} className="flex items-center gap-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-colors shadow-sm border border-indigo-100 active:scale-95">
+            <Download size={16} />
+            Police Report (CSV)
+          </button>
           <button onClick={() => fetchDashboardData(true)} className={`p-2.5 text-gray-500 hover:text-black bg-white border border-gray-200 rounded-xl transition-all ${refreshing ? 'animate-spin' : 'hover:border-gray-400'}`}>
             <RefreshCw size={18} />
           </button>
