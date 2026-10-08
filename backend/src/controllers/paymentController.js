@@ -52,7 +52,7 @@ exports.getPayments = async (req, res, next) => {
 
     const payments = await Payment.find(filter)
       .populate('guest', 'fullName mobileNumber')
-      .populate('hostel', 'name')
+      .populate('hostel', 'name').populate('createdBy', 'name role')
       .populate({
         path: 'stay',
         select: 'checkInDate expectedCheckOutDate room durationOption',

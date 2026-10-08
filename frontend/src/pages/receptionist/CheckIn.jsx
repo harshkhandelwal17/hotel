@@ -15,7 +15,8 @@ import {
   Plus,
   RefreshCw,
   Sparkles,
-  Image as ImageIcon
+  Image as ImageIcon,
+  X
 } from 'lucide-react';
 
 import { useToast } from '../../components/ui/Toast';
@@ -1548,65 +1549,78 @@ const CheckIn = () => {
                         ID Front (Opt)
                       </label>
 
-                      <div className="flex gap-3">
-                        <label
-                          htmlFor={`cam-front-${index}`}
-                          className="flex-1 flex flex-col items-center justify-center gap-1.5 p-3 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:bg-black hover:border-black hover:text-white transition-all group text-gray-500"
-                        >
-                          <Camera size={20} className="group-hover:text-white" />
-                          <span className="text-[10px] font-black uppercase tracking-widest">
-                            Cam
-                          </span>
-                          <input
-                            id={`cam-front-${index}`}
-                            type="file"
-                            accept="image/*"
-                            capture="environment"
-                            className="hidden"
-                            onClick={(e) => { e.target.value = null; }}
-                            onChange={(e) =>
-                              handleImageUpload(index, e.target.files[0], 'front')
-                            }
-                          />
-                        </label>
+                      {!guest.idProofImage ? (
+                        <>
+                          <div className="flex gap-3">
+                            <label
+                              htmlFor={`cam-front-${index}`}
+                              className="flex-1 flex flex-col items-center justify-center gap-1.5 p-3 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:bg-black hover:border-black hover:text-white transition-all group text-gray-500"
+                            >
+                              <Camera size={20} className="group-hover:text-white" />
+                              <span className="text-[10px] font-black uppercase tracking-widest">
+                                Cam
+                              </span>
+                              <input
+                                id={`cam-front-${index}`}
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                className="hidden"
+                                onClick={(e) => { e.target.value = null; }}
+                                onChange={(e) =>
+                                  handleImageUpload(index, e.target.files[0], 'front')
+                                }
+                              />
+                            </label>
 
-                        <label
-                          htmlFor={`gal-front-${index}`}
-                          className="flex-1 flex flex-col items-center justify-center gap-1.5 p-3 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:bg-black hover:border-black hover:text-white transition-all group text-gray-500"
-                        >
-                          <ImageIcon size={20} className="group-hover:text-white" />
-                          <span className="text-[10px] font-black uppercase tracking-widest">
-                            Gal
-                          </span>
-                          <input
-                            id={`gal-front-${index}`}
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onClick={(e) => { e.target.value = null; }}
-                            onChange={(e) =>
-                              handleImageUpload(index, e.target.files[0], 'front')
-                            }
-                          />
-                        </label>
-                      </div>
+                            <label
+                              htmlFor={`gal-front-${index}`}
+                              className="flex-1 flex flex-col items-center justify-center gap-1.5 p-3 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:bg-black hover:border-black hover:text-white transition-all group text-gray-500"
+                            >
+                              <ImageIcon size={20} className="group-hover:text-white" />
+                              <span className="text-[10px] font-black uppercase tracking-widest">
+                                Gal
+                              </span>
+                              <input
+                                id={`gal-front-${index}`}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onClick={(e) => { e.target.value = null; }}
+                                onChange={(e) =>
+                                  handleImageUpload(index, e.target.files[0], 'front')
+                                }
+                              />
+                            </label>
+                          </div>
 
-                      {uploadingImage && !guest.idProofImage && (
-                        <div className="mt-2 text-[10px] font-bold text-blue-600 bg-blue-50 p-2 rounded-xl flex items-center justify-center gap-2">
-                          <span className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                          Uploading...
+                          {uploadingImage && !guest.idProofImage && (
+                            <div className="mt-2 text-[10px] font-bold text-blue-600 bg-blue-50 p-2 rounded-xl flex items-center justify-center gap-2">
+                              <span className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                              Uploading...
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="relative mt-2 rounded-xl overflow-hidden border-2 border-green-500 shadow-sm group h-[88px]">
+                          <img src={guest.idProofImage} alt="ID Front" className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <a href={guest.idProofImage} target="_blank" rel="noreferrer" className="text-white text-[10px] font-black uppercase tracking-widest bg-black/60 px-3 py-1.5 rounded-full backdrop-blur-sm hover:bg-black transition-colors">
+                              View Full
+                            </a>
+                          </div>
+                          <button 
+                            onClick={() => {
+                              const newGuests = [...guests];
+                              newGuests[index].idProofImage = '';
+                              setGuests(newGuests);
+                            }} 
+                            className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                            title="Remove Image"
+                          >
+                            <X size={14} />
+                          </button>
                         </div>
-                      )}
-
-                      {!uploadingImage && guest.idProofImage && (
-                        <a
-                          href={guest.idProofImage}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="mt-2 block text-center text-[10px] font-black uppercase tracking-widest text-green-700 bg-green-50 p-2 rounded-xl border border-green-200 hover:bg-green-100"
-                        >
-                          ✓ View Front
-                        </a>
                       )}
                     </div>
 
@@ -1616,65 +1630,78 @@ const CheckIn = () => {
                         ID Back (Opt)
                       </label>
 
-                      <div className="flex gap-3">
-                        <label
-                          htmlFor={`cam-back-${index}`}
-                          className="flex-1 flex flex-col items-center justify-center gap-1.5 p-3 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:bg-black hover:border-black hover:text-white transition-all group text-gray-500"
-                        >
-                          <Camera size={20} className="group-hover:text-white" />
-                          <span className="text-[10px] font-black uppercase tracking-widest">
-                            Cam
-                          </span>
-                          <input
-                            id={`cam-back-${index}`}
-                            type="file"
-                            accept="image/*"
-                            capture="environment"
-                            className="hidden"
-                            onClick={(e) => { e.target.value = null; }}
-                            onChange={(e) =>
-                              handleImageUpload(index, e.target.files[0], 'back')
-                            }
-                          />
-                        </label>
+                      {!guest.idProofImageBack ? (
+                        <>
+                          <div className="flex gap-3">
+                            <label
+                              htmlFor={`cam-back-${index}`}
+                              className="flex-1 flex flex-col items-center justify-center gap-1.5 p-3 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:bg-black hover:border-black hover:text-white transition-all group text-gray-500"
+                            >
+                              <Camera size={20} className="group-hover:text-white" />
+                              <span className="text-[10px] font-black uppercase tracking-widest">
+                                Cam
+                              </span>
+                              <input
+                                id={`cam-back-${index}`}
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                className="hidden"
+                                onClick={(e) => { e.target.value = null; }}
+                                onChange={(e) =>
+                                  handleImageUpload(index, e.target.files[0], 'back')
+                                }
+                              />
+                            </label>
 
-                        <label
-                          htmlFor={`gal-back-${index}`}
-                          className="flex-1 flex flex-col items-center justify-center gap-1.5 p-3 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:bg-black hover:border-black hover:text-white transition-all group text-gray-500"
-                        >
-                          <ImageIcon size={20} className="group-hover:text-white" />
-                          <span className="text-[10px] font-black uppercase tracking-widest">
-                            Gal
-                          </span>
-                          <input
-                            id={`gal-back-${index}`}
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onClick={(e) => { e.target.value = null; }}
-                            onChange={(e) =>
-                              handleImageUpload(index, e.target.files[0], 'back')
-                            }
-                          />
-                        </label>
-                      </div>
+                            <label
+                              htmlFor={`gal-back-${index}`}
+                              className="flex-1 flex flex-col items-center justify-center gap-1.5 p-3 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:bg-black hover:border-black hover:text-white transition-all group text-gray-500"
+                            >
+                              <ImageIcon size={20} className="group-hover:text-white" />
+                              <span className="text-[10px] font-black uppercase tracking-widest">
+                                Gal
+                              </span>
+                              <input
+                                id={`gal-back-${index}`}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onClick={(e) => { e.target.value = null; }}
+                                onChange={(e) =>
+                                  handleImageUpload(index, e.target.files[0], 'back')
+                                }
+                              />
+                            </label>
+                          </div>
 
-                      {uploadingImage && !guest.idProofImageBack && (
-                        <div className="mt-2 text-[10px] font-bold text-blue-600 bg-blue-50 p-2 rounded-xl flex items-center justify-center gap-2">
-                          <span className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                          Uploading...
+                          {uploadingImage && !guest.idProofImageBack && (
+                            <div className="mt-2 text-[10px] font-bold text-blue-600 bg-blue-50 p-2 rounded-xl flex items-center justify-center gap-2">
+                              <span className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                              Uploading...
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="relative mt-2 rounded-xl overflow-hidden border-2 border-green-500 shadow-sm group h-[88px]">
+                          <img src={guest.idProofImageBack} alt="ID Back" className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <a href={guest.idProofImageBack} target="_blank" rel="noreferrer" className="text-white text-[10px] font-black uppercase tracking-widest bg-black/60 px-3 py-1.5 rounded-full backdrop-blur-sm hover:bg-black transition-colors">
+                              View Full
+                            </a>
+                          </div>
+                          <button 
+                            onClick={() => {
+                              const newGuests = [...guests];
+                              newGuests[index].idProofImageBack = '';
+                              setGuests(newGuests);
+                            }} 
+                            className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                            title="Remove Image"
+                          >
+                            <X size={14} />
+                          </button>
                         </div>
-                      )}
-
-                      {!uploadingImage && guest.idProofImageBack && (
-                        <a
-                          href={guest.idProofImageBack}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="mt-2 block text-center text-[10px] font-black uppercase tracking-widest text-green-700 bg-green-50 p-2 rounded-xl border border-green-200 hover:bg-green-100"
-                        >
-                          ✓ View Back
-                        </a>
                       )}
                     </div>
                   </div>
