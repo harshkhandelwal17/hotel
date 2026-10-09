@@ -33,7 +33,7 @@ export const extractAddressFromBackId = async (imageFile) => {
 
     const processOCR = async (imgSource) => {
         const worker = await Tesseract.createWorker('eng+hin', 1, {
-          logger: m => {} // suppress logs
+          logger: m => {} 
         });
         await worker.setParameters({
           tessedit_pageseg_mode: Tesseract.PSM.AUTO,
@@ -43,61 +43,98 @@ export const extractAddressFromBackId = async (imageFile) => {
         return result.data.text || "";
     };
 
-    const parseAddress = (text) => {
-        let address = "";
-        const addressMatch = text.match(/(?:Address|Addres|पता|पत्ता|S\/O|D\/O|W\/O|C\/O|SO|DO|WO|CO)[\s:;.-]*([\s\S]+)/i);
-        
-        if (addressMatch && addressMatch[1]) {
-            address = addressMatch[1].trim();
-            const pinRegex = /(\b\d{6}\b)/;
-            const pinMatch = address.match(pinRegex);
-            if (pinMatch) {
-                const index = address.indexOf(pinMatch[0]);
-                address = address.substring(0, index + 6);
-            }
-            return address;
+    // Score text to find correct orientation
+    const getScore = (text) => {
+        const keywords = ['india', 'authority', 'unique', 'identification', 'government', 'address', 'vid', 'dob', 'male', 'female', 'year', 'birth', 'help', '1947', 'enrollment', 'father', 'husband', 'wife', 'पता', 'भारत', 'सरकार', 'प्राधिकरण', 'आधार', 'पहचान'];
+        let score = 0;
+        const lower = text.toLowerCase();
+        for (const word of keywords) {
+            if (lower.includes(word)) score++;
         }
-        return null; // Not found
+        return score;
     };
 
-    const cleanAddress = (address) => {
+    const parseAddress = (rawText) => {
+        let t = rawText;
+        
+        // Remove known headers/footers to isolate the address
+        const removePhrases = [
+            /Unique Identification Authority of India/gi,
+            /Government of India/gi,
+            /भारतीय विशिष्ट पहचान प्राधिकरण/gi,
+            /भारत सरकार/gi,
+            /1947/g,
+            /help@uidai\.gov\.in/gi,
+            /www\.uidai\.gov\.in/gi,
+            /VID/gi,
+            /Enrollment/gi,
+            /Update/gi,
+            /पहचान/gi,
+            /प्राधिकरण/gi,
+            /विशिष्ट/gi,
+            /परथकरण/gi, // common mis-ocr
+            /वशषट/gi,   // common mis-ocr
+            /पहचन/gi    // common mis-ocr
+        ];
+        
+        removePhrases.forEach(regex => {
+            t = t.replace(regex, ' ');
+        });
+
+        let address = "";
+        const addressMatch = t.match(/(?:Address|Addres|पता|पत्ता|S\/O|D\/O|W\/O|C\/O|SO:|DO:|WO:|CO:)[s:;.-]*([\s\S]+)/i);
+        
+        if (addressMatch && addressMatch[1]) {
+            address = addressMatch[1];
+        } else {
+            address = t; 
+        }
+        
+        const pinRegex = /(\b\d{6}\b)/;
+        const pinMatch = address.match(pinRegex);
+        if (pinMatch) {
+            const index = address.indexOf(pinMatch[0]);
+            address = address.substring(0, index + 6);
+        }
+        
         return address
           .replace(/[\n\r]+/g, ', ')
-          // KEEP ALL LETTERS (INCLUDING HINDI) and numbers. Remove weird symbols.
-          // \p{L} matches any letter in any language. \p{N} matches numbers.
           .replace(/[^\p{L}\p{N}\s,./:-]/gu, '') 
           .replace(/\s{2,}/g, ' ')
-          .replace(/,,/g, ',')
+          .replace(/(\s*,\s*)+/g, ', ')
           .trim()
+          .replace(/^[,\s]+/, '')
+          .replace(/[,\s]+$/, '')
           .substring(0, 250);
-    }
+    };
 
-    // Pass 1: Original
-    let text = await processOCR(imageFile);
-    let parsed = parseAddress(text);
+    // Run pass 1
+    let bestText = await processOCR(imageFile);
+    let bestScore = getScore(bestText);
 
-    // Pass 2: If not found, rotate 90 degrees clockwise
-    if (!parsed) {
-        console.log("Address not found, rotating 90 degrees...");
+    if (bestScore < 3) {
+        console.log("Score too low, rotating 90 degrees...");
         const rotated90 = await rotateImage(imageFile, 90);
-        text = await processOCR(rotated90);
-        parsed = parseAddress(text);
+        const text90 = await processOCR(rotated90);
+        const score90 = getScore(text90);
+        if (score90 > bestScore) {
+            bestText = text90;
+            bestScore = score90;
+        }
+        
+        if (bestScore < 3) {
+            console.log("Score still low, rotating -90 degrees...");
+            const rotatedMinus90 = await rotateImage(imageFile, -90);
+            const textMinus90 = await processOCR(rotatedMinus90);
+            const scoreMinus90 = getScore(textMinus90);
+            if (scoreMinus90 > bestScore) {
+                bestText = textMinus90;
+                bestScore = scoreMinus90;
+            }
+        }
     }
 
-    // Pass 3: If not found, rotate 90 degrees counter-clockwise
-    if (!parsed) {
-        console.log("Address not found, rotating -90 degrees...");
-        const rotatedMinus90 = await rotateImage(imageFile, -90);
-        text = await processOCR(rotatedMinus90);
-        parsed = parseAddress(text);
-    }
-
-    // If still not found, just use the raw text from original (fallback)
-    if (!parsed) {
-        parsed = text.trim();
-    }
-
-    return cleanAddress(parsed);
+    return parseAddress(bestText);
 
   } catch (error) {
     console.error("Error during OCR:", error);
