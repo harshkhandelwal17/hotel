@@ -176,13 +176,26 @@ const Reports = () => {
   };
 
   const downloadPoliceReport = () => {
-    const headers = ['Check-In Date', 'Check-Out Date', 'Room No', 'Guest Name', 'Mobile Number', 'ID Type', 'ID Number', 'Address'];
+    const headers = ['Check-In Date', 'Check-Out Date', 'Room No', 'Guest Name', 'Mobile Number', 'ID Type', 'ID Number', 'Address', 'Status'];
     
     const csvData = [];
+    
+    const safeDate = (dateStr) => {
+      if (!dateStr) return 'N/A';
+      const d = new Date(dateStr);
+      return isNaN(d) ? 'N/A' : format(d, 'dd/MM/yyyy hh:mm a');
+    };
+
     filteredStays.forEach(stay => {
-      const ciDate = format(new Date(stay.checkInDate), 'dd MMM yyyy hh:mm a');
-      const coDate = stay.checkOutDate ? format(new Date(stay.checkOutDate), 'dd MMM yyyy hh:mm a') : 'Ongoing';
+      const ciDate = safeDate(stay.checkInDate);
+      let coDate = 'N/A';
+      if (stay.status === 'Checked Out' && stay.actualCheckOutDate) {
+         coDate = safeDate(stay.actualCheckOutDate);
+      } else if (stay.expectedCheckOutDate) {
+         coDate = safeDate(stay.expectedCheckOutDate);
+      }
       const roomNo = stay.room?.roomNumber || 'N/A';
+      const status = stay.status || 'Unknown';
       
       const allGuests = [];
       if (stay.guest) allGuests.push(stay.guest);
@@ -195,7 +208,7 @@ const Reports = () => {
         const idNum = (g.idProofNumber || 'N/A').replace(/"/g, '""');
         const address = g.address ? g.address.replace(/\n/g, ' ').replace(/"/g, '""') : 'N/A';
         
-        csvData.push(`"${ciDate}","${coDate}","${roomNo}","${name}","${mobile}","${idType}","${idNum}","${address}"`);
+        csvData.push(`"${ciDate}","${coDate}","${roomNo}","${name}","${mobile}","${idType}","${idNum}","${address}","${status}"`);
       });
     });
 

@@ -57,23 +57,34 @@ const ReceptionistDashboard = () => {
   const downloadPoliceReport = async () => {
     try {
       const propQuery = globalProperty !== 'all' ? `?hostel=${globalProperty}` : '';
-      const res = await axios.get(`${API}/api/stays?status=Active${propQuery ? '&' + propQuery.slice(1) : ''}`);
-      const activeStays = res.data.data;
+      const res = await axios.get(`${API}/api/stays${propQuery ? propQuery : ''}`); // Fetch ALL stays
+      const allStays = res.data.data;
       
-      let csv = 'Guest Name,Contact Number,Address,ID Proof No,Room No,Check-in Date,Expected Checkout\n';
+      let csv = 'Guest Name,Contact Number,Address,ID Proof No,Room No,Check-in Date,Expected Checkout,Status\n';
       
-      activeStays.forEach(stay => {
+      allStays.forEach(stay => {
         const g = stay.guest || {};
         const r = stay.room || {};
         const name = (g.fullName || 'N/A').replace(/"/g, '""');
         const contact = (g.mobileNumber || 'N/A').replace(/"/g, '""');
         const address = g.address ? g.address.replace(/\n/g, ' ').replace(/"/g, '""') : 'N/A';
         const idNo = (g.idProofNumber || 'N/A').replace(/"/g, '""');
-        const roomNo = r.roomNumber || 'N/A';
-        const cin = format(new Date(stay.checkInDate), 'dd MMM yyyy HH:mm');
-        const cout = stay.expectedCheckOutDate ? format(new Date(stay.expectedCheckOutDate), 'dd MMM yyyy HH:mm') : 'N/A';
+        const safeDate = (dateStr) => {
+          if (!dateStr) return 'N/A';
+          const d = new Date(dateStr);
+          return isNaN(d) ? 'N/A' : format(d, 'dd/MM/yyyy hh:mm a');
+        };
+
+        const cin = safeDate(stay.checkInDate);
+        let cout = 'N/A';
+        if (stay.status === 'Checked Out' && stay.actualCheckOutDate) {
+           cout = safeDate(stay.actualCheckOutDate);
+        } else if (stay.expectedCheckOutDate) {
+           cout = safeDate(stay.expectedCheckOutDate);
+        }
+        const status = stay.status || 'Unknown';
         
-        csv += `"${name}","${contact}","${address}","${idNo}","${roomNo}","${cin}","${cout}"\n`;
+        csv += `"${name}","${contact}","${address}","${idNo}","${roomNo}","${cin}","${cout}","${status}"\n`;
         
         if (stay.coGuests && stay.coGuests.length > 0) {
           stay.coGuests.forEach(cg => {
@@ -81,7 +92,7 @@ const ReceptionistDashboard = () => {
             const cgId = (cg.idProofNumber || 'N/A').replace(/"/g, '""');
             const cgContact = (g.mobileNumber + ' (Co-guest)').replace(/"/g, '""');
             const cgAddress = g.address ? g.address.replace(/\n/g, ' ').replace(/"/g, '""') : 'N/A';
-            csv += `"${cgName}","${cgContact}","${cgAddress}","${cgId}","${roomNo}","${cin}","${cout}"\n`;
+            csv += `"${cgName}","${cgContact}","${cgAddress}","${cgId}","${roomNo}","${cin}","${cout}","${status}"\n`;
           });
         }
       });
