@@ -189,11 +189,11 @@ const Reports = () => {
       if (stay.coGuests && stay.coGuests.length > 0) allGuests.push(...stay.coGuests);
 
       allGuests.forEach(g => {
-        const name = g.fullName || 'N/A';
-        const mobile = g.mobileNumber || 'N/A';
-        const idType = g.idProofType || 'N/A';
-        const idNum = g.idProofNumber || 'N/A';
-        const address = g.address ? g.address.replace(/,/g, ' ').replace(/\n/g, ' ') : 'N/A';
+        const name = (g.fullName || 'N/A').replace(/"/g, '""');
+        const mobile = (g.mobileNumber || 'N/A').replace(/"/g, '""');
+        const idType = (g.idProofType || 'N/A').replace(/"/g, '""');
+        const idNum = (g.idProofNumber || 'N/A').replace(/"/g, '""');
+        const address = g.address ? g.address.replace(/\n/g, ' ').replace(/"/g, '""') : 'N/A';
         
         csvData.push(`"${ciDate}","${coDate}","${roomNo}","${name}","${mobile}","${idType}","${idNum}","${address}"`);
       });

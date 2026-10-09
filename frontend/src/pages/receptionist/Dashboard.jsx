@@ -65,23 +65,23 @@ const ReceptionistDashboard = () => {
       activeStays.forEach(stay => {
         const g = stay.guest || {};
         const r = stay.room || {};
-        const name = g.fullName || 'N/A';
-        const contact = g.mobileNumber || 'N/A';
-        const address = (g.address || 'N/A').replace(/,/g, ' ');
-        const idNo = g.idProofNumber || 'N/A';
+        const name = (g.fullName || 'N/A').replace(/"/g, '""');
+        const contact = (g.mobileNumber || 'N/A').replace(/"/g, '""');
+        const address = g.address ? g.address.replace(/\n/g, ' ').replace(/"/g, '""') : 'N/A';
+        const idNo = (g.idProofNumber || 'N/A').replace(/"/g, '""');
         const roomNo = r.roomNumber || 'N/A';
         const cin = format(new Date(stay.checkInDate), 'dd MMM yyyy HH:mm');
-        const cout = format(new Date(stay.expectedCheckOutDate), 'dd MMM yyyy HH:mm');
+        const cout = stay.expectedCheckOutDate ? format(new Date(stay.expectedCheckOutDate), 'dd MMM yyyy HH:mm') : 'N/A';
         
-        csv += `${name},${contact},${address},${idNo},${roomNo},${cin},${cout}\n`;
+        csv += `"${name}","${contact}","${address}","${idNo}","${roomNo}","${cin}","${cout}"\n`;
         
         if (stay.coGuests && stay.coGuests.length > 0) {
           stay.coGuests.forEach(cg => {
-            const cgName = cg.fullName || 'N/A';
-            const cgId = cg.idProofNumber || 'N/A';
-            const cgContact = g.mobileNumber + ' (Co-guest)';
-            const cgAddress = g.address ? g.address.replace(/,/g, ' ') : 'N/A';
-            csv += `${cgName},${cgContact},${cgAddress},${cgId},${roomNo},${cin},${cout}\n`;
+            const cgName = (cg.fullName || 'N/A').replace(/"/g, '""');
+            const cgId = (cg.idProofNumber || 'N/A').replace(/"/g, '""');
+            const cgContact = (g.mobileNumber + ' (Co-guest)').replace(/"/g, '""');
+            const cgAddress = g.address ? g.address.replace(/\n/g, ' ').replace(/"/g, '""') : 'N/A';
+            csv += `"${cgName}","${cgContact}","${cgAddress}","${cgId}","${roomNo}","${cin}","${cout}"\n`;
           });
         }
       });
