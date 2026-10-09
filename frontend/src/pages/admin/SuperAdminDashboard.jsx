@@ -233,7 +233,7 @@ const SuperAdminDashboard = () => {
         <div className="p-6 border-b border-gray-100 bg-gray-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h2 className="text-lg font-black text-gray-900">Registered Properties</h2>
-            <p className="text-xs text-gray-500 font-medium mt-1">List of all unique hotels/hostels in the system.</p>
+            <p className="text-xs text-gray-500 font-medium mt-1">Total {hostels.length} unique hotels/hostels in the system.</p>
           </div>
         </div>
         <div className="overflow-x-auto">
