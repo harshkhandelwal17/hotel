@@ -434,3 +434,18 @@ exports.shiftRoom = async (req, res, next) => {
     sendError(res, next, error);
   }
 };
+
+exports.deleteStay = async (req, res, next) => {
+  try {
+    if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+      return res.status(403).json({ success: false, message: 'Not authorized to delete stay' });
+    }
+    const stay = await loadAuthorizedStay(req);
+    const Payment = require('../models/Payment');
+    await Payment.deleteMany({ stay: stay._id });
+    await stay.deleteOne();
+    res.status(200).json({ success: true, message: 'Stay deleted successfully' });
+  } catch (error) {
+    sendError(res, next, error);
+  }
+};

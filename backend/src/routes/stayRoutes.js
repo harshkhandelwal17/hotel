@@ -1,9 +1,9 @@
 const express = require('express');
 const {
   getStays, getStay, createStay, checkout, extendStay, shiftRoom,
-  addCharge, removeCharge, addPayment
+  addCharge, removeCharge, addPayment, deleteStay
 } = require('../controllers/stayController');
-const { protect } = require('../middlewares/auth');
+const { protect, authorize } = require('../middlewares/auth');
 
 const router = express.Router();
 
@@ -20,5 +20,7 @@ router.post('/:id/shift', shiftRoom);
 router.post('/:id/charges', addCharge);
 router.delete('/:id/charges/:chargeId', removeCharge);
 router.post('/:id/payments', addPayment);
+
+router.delete('/:id', authorize('admin', 'superadmin'), deleteStay);
 
 module.exports = router;

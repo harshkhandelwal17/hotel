@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth, parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
-import { Search, Download, TrendingUp, PieChart, Users, Receipt, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Search, Download, TrendingUp, PieChart, Users, Receipt, ArrowRight, ShieldCheck, Trash } from 'lucide-react';
 import { useOutletContext } from 'react-router-dom';
 
 const Reports = () => {
@@ -173,6 +173,19 @@ const Reports = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleDeleteStay = async (stayId) => {
+    if (window.confirm("Are you sure you want to permanently delete this stay and all its payments? This action cannot be undone.")) {
+      try {
+        await axios.delete(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/stays/${stayId}`);
+        setStays(stays.filter(s => s._id !== stayId));
+        setPayments(payments.filter(p => p.stay?._id !== stayId));
+      } catch (err) {
+        console.error(err);
+        alert(err.response?.data?.message || 'Failed to delete stay');
+      }
+    }
   };
 
   const downloadPoliceReport = () => {
@@ -402,6 +415,7 @@ const Reports = () => {
                   <th className="px-6 py-4 font-black text-xs text-orange-400 uppercase tracking-widest text-right">Commission</th>
                   <th className="px-6 py-4 font-black text-xs text-green-600 uppercase tracking-widest text-right">Net Profit</th>
                   <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest">Status</th>
+                  <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -442,6 +456,11 @@ const Reports = () => {
                           <span className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-lg ${stay.status === 'Checked Out' ? 'bg-gray-100 text-gray-600' : 'bg-blue-100 text-blue-700'}`}>
                             {stay.status}
                           </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <button onClick={() => handleDeleteStay(stay._id)} className="text-red-500 hover:text-red-700 p-2 transition-colors" title="Delete Stay">
+                            <Trash size={16} />
+                          </button>
                         </td>
                       </tr>
                     )
