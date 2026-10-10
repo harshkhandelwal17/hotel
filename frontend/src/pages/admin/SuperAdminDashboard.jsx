@@ -55,6 +55,7 @@ const SuperAdminDashboard = () => {
       const { token, user: targetUser } = res.data;
       
       // Update local storage and context
+      localStorage.setItem('superAdminToken', localStorage.getItem('token'));
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(targetUser));
       
@@ -259,6 +260,9 @@ const SuperAdminDashboard = () => {
                   </td>
                   <td className="px-6 py-4">
                     <p className="text-xs font-semibold text-gray-500 max-w-[200px] truncate">{h.address}</p>
+                    <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-widest flex items-center gap-1">
+                      📞 {h.contactNumber || 'No Number'}
+                    </p>
                   </td>
                   <td className="px-6 py-4">
                     <div className="font-bold text-gray-900">{h.owner?.name || 'Unknown'}</div>

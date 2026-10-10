@@ -41,6 +41,7 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('adminGlobalProperty');
+    localStorage.removeItem('superAdminToken');
     delete axios.defaults.headers.common['Authorization'];
     setUser(null);
   };

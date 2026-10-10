@@ -102,8 +102,27 @@ const AppLayout = ({ children }) => {
     navItems.push({ name: 'Super Admin', path: '/superadmin', icon: ShieldAlert });
   }
 
+  const handleReturnToSuperAdmin = () => {
+    const saToken = localStorage.getItem('superAdminToken');
+    if (saToken) {
+      localStorage.setItem('token', saToken);
+      localStorage.removeItem('superAdminToken');
+      window.location.href = '/superadmin';
+    }
+  };
+
+  const isImpersonating = !!localStorage.getItem('superAdminToken');
+
   return (
     <div className="min-h-screen bg-[#F9FAFB] flex flex-col font-sans">
+      {isImpersonating && (
+        <div className="bg-orange-500 text-white px-4 py-2 text-xs font-black uppercase tracking-widest flex items-center justify-between shadow-sm z-50 relative">
+          <span>⚠️ You are impersonating {user?.name} ({user?.role})</span>
+          <button onClick={handleReturnToSuperAdmin} className="bg-black/20 hover:bg-black/40 px-3 py-1.5 rounded transition-colors active:scale-95">
+            Return to Superadmin
+          </button>
+        </div>
+      )}
       {/* Premium Topbar */}
       <header className="bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-sm sticky top-0 z-40">
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
