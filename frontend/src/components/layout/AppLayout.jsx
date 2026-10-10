@@ -84,22 +84,26 @@ const AppLayout = ({ children }) => {
     window.dispatchEvent(new Event('propertyChanged')); // simple way to notify
   };
 
-  let navItems = [
-    { name: 'Dashboard', path: '/dashboard', icon: Home },
-    { name: 'Stays', path: '/checkouts', icon: Bed },
-    { name: 'History', path: '/guests', icon: Users },
-    { name: 'Payments', path: '/payments', icon: CreditCard },
-  ];
-
-  if (user?.role === 'admin' || user?.role === 'superadmin') {
-    navItems.push({ name: 'Properties', path: '/admin/hostels', icon: Building });
-    navItems.push({ name: 'Staff', path: '/admin/staff', icon: ShieldCheck });
-    navItems.push({ name: 'Manage Rooms', path: '/admin/rooms', icon: Bed });
-    navItems.push({ name: 'Financials', path: '/admin/reports', icon: BarChart3 });
-  }
-
+  let navItems = [];
+  
   if (user?.role === 'superadmin') {
-    navItems.push({ name: 'Super Admin', path: '/superadmin', icon: ShieldAlert });
+    navItems = [
+      { name: 'Super Admin', path: '/superadmin', icon: ShieldAlert }
+    ];
+  } else {
+    navItems = [
+      { name: 'Dashboard', path: '/dashboard', icon: Home },
+      { name: 'Stays', path: '/checkouts', icon: Bed },
+      { name: 'History', path: '/guests', icon: Users },
+      { name: 'Payments', path: '/payments', icon: CreditCard },
+    ];
+    
+    if (user?.role === 'admin') {
+      navItems.push({ name: 'Properties', path: '/admin/hostels', icon: Building });
+      navItems.push({ name: 'Staff', path: '/admin/staff', icon: ShieldCheck });
+      navItems.push({ name: 'Manage Rooms', path: '/admin/rooms', icon: Bed });
+      navItems.push({ name: 'Financials', path: '/admin/reports', icon: BarChart3 });
+    }
   }
 
   const handleReturnToSuperAdmin = () => {
