@@ -23,12 +23,12 @@ exports.createGuest = async (req, res, next) => {
     // If mobile provided, check if guest already exists → UPDATE instead of CREATE
     let existingGuest = null;
     if (payload.mobileNumber) {
-      existingGuest = await Guest.findOne({ mobileNumber: payload.mobileNumber });
+      existingGuest = await Guest.findOne({ mobileNumber: payload.mobileNumber, hostel: hostel });
     }
     
     // If no mobile but idProof is provided, check by idProofNumber
     if (!existingGuest && payload.idProofNumber && payload.idProofNumber.trim() !== '') {
-      existingGuest = await Guest.findOne({ idProofNumber: payload.idProofNumber });
+      existingGuest = await Guest.findOne({ idProofNumber: payload.idProofNumber, hostel: hostel });
     }
 
     if (existingGuest) {
