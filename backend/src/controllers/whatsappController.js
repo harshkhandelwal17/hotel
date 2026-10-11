@@ -1,18 +1,50 @@
+const mongoose = require('mongoose');
 const Hostel = require('../models/Hostel');
 const WhatsAppMedia = require('../models/WhatsAppMedia');
 const {
   startHostelWhatsApp,
   getHostelWhatsAppStatus,
-  disconnectHostelWhatsApp
+  disconnectHostelWhatsApp,
+  requestHostelPairingCode
 } = require('../services/whatsappService');
 
 // Helper to determine target hostel
 const getTargetHostelId = async (req) => {
-  let hostelId = req.query.hostelId || req.body.hostelId || req.user.assignedHostel;
-  if (!hostelId && req.user.role === 'admin') {
-    const myHostels = await Hostel.find({ owner: req.user.id });
+  let hostelId = req.query.hostelId || req.body.hostelId;
+
+  // Handle object or serialized string representations
+  if (typeof hostelId === 'object' && hostelId !== null) {
+    hostelId = hostelId._id || hostelId.id;
+  }
+  if (
+    !hostelId ||
+    hostelId === '[object Object]' ||
+    hostelId === 'undefined' ||
+    hostelId === 'null' ||
+    hostelId === 'all'
+  ) {
+    hostelId = null;
+  }
+
+  // Fallback to user assignedHostel
+  if (!hostelId && req.user && req.user.assignedHostel) {
+    const assigned = req.user.assignedHostel;
+    hostelId = typeof assigned === 'object' ? (assigned._id || assigned) : assigned;
+  }
+
+  // Fallback for admin to their first property
+  if (!hostelId && req.user && req.user.role === 'admin') {
+    const myHostels = await Hostel.find({ owner: req.user.id }).select('_id');
     if (myHostels.length > 0) hostelId = myHostels[0]._id;
   }
+
+  if (hostelId) {
+    hostelId = hostelId.toString();
+    if (!mongoose.Types.ObjectId.isValid(hostelId)) {
+      hostelId = null;
+    }
+  }
+
   return hostelId;
 };
 
@@ -48,6 +80,30 @@ exports.connect = async (req, res, next) => {
     }
 
     const result = await startHostelWhatsApp(hostelId);
+    res.status(200).json({ success: true, data: result });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+/**
+ * Request 8-digit Pairing Code for WhatsApp Phone Link
+ * @route POST /api/whatsapp/pairing-code
+ * @access Private
+ */
+exports.requestPairingCode = async (req, res, next) => {
+  try {
+    const hostelId = await getTargetHostelId(req);
+    if (!hostelId) {
+      return res.status(400).json({ success: false, message: 'Hostel context required' });
+    }
+
+    const { phoneNumber } = req.body;
+    if (!phoneNumber) {
+      return res.status(400).json({ success: false, message: 'Phone number is required' });
+    }
+
+    const result = await requestHostelPairingCode(hostelId, phoneNumber);
     res.status(200).json({ success: true, data: result });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
@@ -117,3 +173,4 @@ exports.markMediaUsed = async (req, res, next) => {
     next(err);
   }
 };
+

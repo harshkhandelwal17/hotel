@@ -111,10 +111,9 @@ Do NOT wrap the output in markdown code blocks like \`\`\`json. Output ONLY the 
 
     // 6. Call Google Gemini Vision API with multi-model fallback
     const candidateModels = [
+      'gemini-3.8-flash',
       'gemini-3.5-flash',
-      'gemini-flash-latest',
-      'gemini-1.5-flash',
-      'gemini-2.5-flash'
+      'gemini-flash-latest'
     ];
 
     const requestPayload = {
@@ -143,7 +142,7 @@ Do NOT wrap the output in markdown code blocks like \`\`\`json. Output ONLY the 
 
     for (const modelName of candidateModels) {
       try {
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${apiKey}`;
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
         const response = await fetch(geminiUrl, {
           method: 'POST',
           headers: {

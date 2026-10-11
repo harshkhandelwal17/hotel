@@ -41,3 +41,4 @@ exports.saveMediaBuffer = async (buffer, mimeType = 'image/jpeg') => {
     return `/uploads/${filename}`;
   }
 };
+

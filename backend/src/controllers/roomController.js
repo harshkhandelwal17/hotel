@@ -59,7 +59,7 @@ exports.getRooms = async (req, res, next) => {
       }
     }
 
-    const rooms = await Room.find(filter).populate('hostel', 'name');
+    const rooms = await Room.find(filter).populate('hostel', 'name address contactNumber email aiOcrEnabled whatsappSyncEnabled');
 
     // Find all currently active/booked room IDs
     const activeStays = await Stay.find({

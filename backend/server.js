@@ -18,6 +18,9 @@ connectDB().then(async () => {
 
   app.listen(PORT, () => {
     console.log(`Server is running in ${env.nodeEnv} mode on port ${PORT}`);
+    // Auto-resume active WhatsApp sessions
+    const { initAllSavedWhatsAppSessions } = require('./src/services/whatsappService');
+    initAllSavedWhatsAppSessions();
   });
 }).catch(err => {
   console.error("Failed to start server due to DB connection error", err);

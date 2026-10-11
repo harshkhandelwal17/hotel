@@ -21,6 +21,10 @@ const whatsAppMediaSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  messageId: {
+    type: String,
+    index: true
+  },
   messageTimestamp: {
     type: Date,
     default: Date.now,
@@ -34,3 +38,4 @@ const whatsAppMediaSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 module.exports = mongoose.model('WhatsAppMedia', whatsAppMediaSchema);
+

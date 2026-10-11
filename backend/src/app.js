@@ -11,7 +11,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 app.use(compression()); // Compress all routes for blazing fast APIs
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+}));
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }

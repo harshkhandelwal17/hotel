@@ -4,7 +4,8 @@ const {
   connect,
   disconnect,
   getRecentMedia,
-  markMediaUsed
+  markMediaUsed,
+  requestPairingCode
 } = require('../controllers/whatsappController');
 const { protect } = require('../middlewares/auth');
 
@@ -14,8 +15,10 @@ router.use(protect);
 
 router.get('/status', getStatus);
 router.post('/connect', connect);
+router.post('/pairing-code', requestPairingCode);
 router.post('/disconnect', disconnect);
 router.get('/recent-media', getRecentMedia);
 router.put('/mark-used/:id', markMediaUsed);
 
 module.exports = router;
+
