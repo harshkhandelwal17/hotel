@@ -297,12 +297,7 @@ const CheckIn = () => {
     }
   }, [selectedRoomDetails]);
 
-  // Auto-generate QR code ONLY when modal is opened on QR tab and completely disconnected (not connecting/pairing)
-  useEffect(() => {
-    if (waModalOpen && waConnectTab === 'qr' && waStatus === 'disconnected' && hostelId && !loadingWa && !waQr && !waPairing) {
-      handleStartWhatsApp();
-    }
-  }, [waModalOpen, waConnectTab, waStatus, hostelId]);
+
 
   // Poll incoming WhatsApp photos when on Step 2
   useEffect(() => {
@@ -897,6 +892,7 @@ const CheckIn = () => {
       setWaStatus('disconnected');
       setWaPhone('');
       setWaQr(null);
+      setWaPairing(false);
       setWaPairingCode('');
       setWaConnectTab('code');
       toast({ message: 'WhatsApp disconnected successfully', type: 'info' });
@@ -2810,7 +2806,7 @@ const CheckIn = () => {
                 <div>
                   <h4 className="text-base font-black text-gray-900">WhatsApp Is Linked!</h4>
                   <p className="text-xs text-gray-500 font-bold mt-1">
-                    Connected Number: <span className="text-emerald-700 font-black">+{waPhone || 'Active Device'}</span>
+                    Connected Number: <span className="text-emerald-700 font-black">{waPhone ? `+${waPhone}` : 'Connected Device'}</span>
                   </p>
                 </div>
                 <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 text-left">
@@ -3038,27 +3034,15 @@ const CheckIn = () => {
                             Refresh QR Code
                           </button>
                         </div>
-                      ) : waStatus === 'connecting' ? (
-                        <div className="h-60 flex flex-col items-center justify-center bg-emerald-50/70 rounded-2xl border-2 border-emerald-300 p-6 space-y-3 text-center animate-in fade-in">
-                          <div className="w-14 h-14 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-600/30">
-                            <RefreshCw size={26} className="animate-spin" />
-                          </div>
+                      ) : (waStatus === 'connecting' || loadingWa) ? (
+                        <div className="h-60 flex flex-col items-center justify-center bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 p-6 space-y-3 text-center animate-in fade-in">
+                          <RefreshCw size={32} className="animate-spin text-emerald-600" />
                           <div>
-                            <h4 className="text-sm font-black text-gray-900">Linking Device...</h4>
-                            <p className="text-xs font-bold text-emerald-800 mt-1 max-w-xs mx-auto">
-                              Finalizing connection, please wait 2-3 seconds...
+                            <h4 className="text-sm font-black text-gray-900">Generating QR Code...</h4>
+                            <p className="text-xs font-bold text-gray-500 mt-1 max-w-xs mx-auto">
+                              Connecting to WhatsApp Web to create a fresh QR code. Please wait...
                             </p>
                           </div>
-                          <div className="flex items-center gap-2 text-[10px] font-black text-gray-400">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                            <span>Auto-connecting... Keep phone unlocked</span>
-                          </div>
-                        </div>
-                      ) : loadingWa ? (
-                        <div className="h-56 flex flex-col items-center justify-center bg-gray-50 rounded-2xl border border-gray-100 p-6 space-y-3">
-                          <RefreshCw size={32} className="animate-spin text-emerald-600" />
-                          <p className="text-xs font-black text-gray-700">Starting WhatsApp Connection...</p>
-                          <p className="text-[10px] text-gray-400 font-bold">Generating unique multi-device QR code</p>
                         </div>
                       ) : (
                         <div className="text-center py-6">

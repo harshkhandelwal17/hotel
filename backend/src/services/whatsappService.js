@@ -568,7 +568,9 @@ const getHostelWhatsAppStatus = async (hostelId) => {
     }
   }
 
-  const isConnected = !!(activeSock && (activeSock.user || activeSock.ws?.isOpen));
+  // A socket is ONLY genuinely connected if the authenticated user session (sock.user) exists!
+  // activeSock.ws.isOpen is merely the transport WebSocket used to transmit QR codes and handshake.
+  const isConnected = !!(activeSock && activeSock.user);
 
   let status = 'disconnected';
   if (isConnected) {
