@@ -898,9 +898,10 @@ const CheckIn = () => {
       setWaPhone('');
       setWaQr(null);
       setWaPairingCode('');
-      toast({ message: 'WhatsApp disconnected', type: 'info' });
+      setWaConnectTab('code');
+      toast({ message: 'WhatsApp disconnected successfully', type: 'info' });
     } catch (err) {
-      toast({ message: 'Failed to disconnect WhatsApp', type: 'error' });
+      toast({ message: err.response?.data?.message || 'Failed to disconnect WhatsApp', type: 'error' });
     } finally {
       setLoadingWa(false);
     }

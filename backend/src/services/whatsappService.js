@@ -18,11 +18,12 @@ const Hostel = require('../models/Hostel');
 const WhatsAppMedia = require('../models/WhatsAppMedia');
 const { saveMediaBuffer } = require('../utils/mediaStorage');
 
-// In-memory active sockets, pending QR codes, connecting locks, and pairing state
+// In-memory active sockets, pending QR codes, connecting locks, pairing state, and explicit disconnects
 const sessions = new Map();           // hostelId -> socket
 const qrCodes = new Map();            // hostelId -> base64 qr image string
 const connectingPromises = new Map(); // hostelId -> Promise<result>
 const pairingStates = new Map();      // hostelId -> boolean (true when QR scanned and authenticating)
+const explicitlyDisconnected = new Set(); // hostelId -> explicitly disconnected flag
 
 const SESSIONS_DIR = path.join(__dirname, '../../sessions');
 if (!fs.existsSync(SESSIONS_DIR)) {
@@ -246,6 +247,8 @@ const startHostelWhatsApp = async (hostelId) => {
     return connectingPromises.get(hostelId);
   }
 
+  explicitlyDisconnected.delete(hostelId);
+
   const connectPromise = (async () => {
     // Verify that Super Admin has enabled WhatsApp Sync for this hostel
     const hostel = await Hostel.findById(hostelId);
@@ -406,12 +409,21 @@ const startHostelWhatsApp = async (hostelId) => {
 
         sessions.delete(hostelId);
 
+        // If explicitly disconnected by user, do not attempt to reconnect or restart!
+        if (explicitlyDisconnected.has(hostelId)) {
+          console.log(`[WhatsApp] Hostel ${hostelId} was explicitly disconnected. Skipping reconnect.`);
+          qrCodes.delete(hostelId);
+          pairingStates.delete(hostelId);
+          return;
+        }
+
         if (isRestart) {
           // Normal WhatsApp protocol pairing restart right after phone scans QR or pair-success
           console.log(`[WhatsApp] 🔄 Post-pairing restart (515) for Hostel ${hostelId}. Reconnecting in 600ms...`);
           qrCodes.delete(hostelId);
 
           setTimeout(() => {
+            if (explicitlyDisconnected.has(hostelId)) return;
             startHostelWhatsApp(hostelId).catch((err) => {
               console.error(`[WhatsApp] Reconnection after 515 failed:`, err);
             });
@@ -435,7 +447,11 @@ const startHostelWhatsApp = async (hostelId) => {
         } else {
           // Transient network drop or handshake retry
           console.log(`[WhatsApp] Hostel ${hostelId} socket closed (code: ${statusCode}). Reconnecting in 2s...`);
-          setTimeout(() => {
+          setTimeout(async () => {
+            if (explicitlyDisconnected.has(hostelId)) return;
+            const hCheck = await Hostel.findById(hostelId).select('whatsappStatus whatsappSyncEnabled');
+            if (!hCheck || hCheck.whatsappStatus === 'disconnected' || !hCheck.whatsappSyncEnabled) return;
+
             const hasCreds = fs.existsSync(path.join(authPath, 'creds.json'));
             if (hasCreds && !sessions.has(hostelId)) {
               startHostelWhatsApp(hostelId).catch(console.error);
@@ -514,6 +530,22 @@ const getHostelWhatsAppStatus = async (hostelId) => {
   const hostel = await Hostel.findById(hostelId);
   if (!hostel) return { status: 'disconnected', whatsappSyncEnabled: false, aiOcrEnabled: false, pairing: false };
 
+  // If user explicitly disconnected or marked disconnected in database or sync is disabled:
+  if (hostel.whatsappStatus === 'disconnected' || explicitlyDisconnected.has(hostelId) || !hostel.whatsappSyncEnabled) {
+    return {
+      whatsappSyncEnabled: !!hostel.whatsappSyncEnabled,
+      aiOcrEnabled: !!hostel.aiOcrEnabled,
+      hostelName: hostel.name,
+      hostelAddress: hostel.address,
+      hostelContact: hostel.contactNumber,
+      hostelEmail: hostel.email,
+      status: 'disconnected',
+      pairing: false,
+      phone: '',
+      qr: null
+    };
+  }
+
   let activeSock = sessions.get(hostelId);
   const authPath = path.join(SESSIONS_DIR, `hostel_${hostelId}`);
   const credsPath = path.join(authPath, 'creds.json');
@@ -524,7 +556,7 @@ const getHostelWhatsAppStatus = async (hostelId) => {
   const isPairing = !!pairingStates.get(hostelId);
 
   // Auto-resume socket if saved credentials exist and in-memory socket is not currently active
-  if (!activeSock && hasCreds && hostel.whatsappSyncEnabled && !isPairing) {
+  if (!activeSock && hasCreds && hostel.whatsappSyncEnabled && hostel.whatsappStatus === 'connected' && !isPairing) {
     console.log(`[WhatsApp] Auto-resuming saved WhatsApp session for Hostel ${hostelId}...`);
     try {
       startHostelWhatsApp(hostelId).catch((err) => {
@@ -539,7 +571,7 @@ const getHostelWhatsAppStatus = async (hostelId) => {
   const isConnected = !!(activeSock && (activeSock.user || activeSock.ws?.isOpen));
 
   let status = 'disconnected';
-  if (isConnected || hasCreds) {
+  if (isConnected) {
     status = 'connected';
   } else if (isPairing || qrCodes.has(hostelId) || (activeSock && !activeSock.ws?.isClosed)) {
     status = 'connecting';
@@ -554,7 +586,7 @@ const getHostelWhatsAppStatus = async (hostelId) => {
     hostelEmail: hostel.email,
     status,
     pairing: isPairing,
-    phone: hostel.whatsappPhone || (activeSock?.user?.id ? activeSock.user.id.split(':')[0].split('@')[0] : ''),
+    phone: (status === 'connected') ? (hostel.whatsappPhone || (activeSock?.user?.id ? activeSock.user.id.split(':')[0].split('@')[0] : '')) : '',
     qr: (status === 'connected') ? null : (qrCodes.get(hostelId) || null)
   };
 };
@@ -567,31 +599,58 @@ const disconnectHostelWhatsApp = async (hostelId) => {
     return { status: 'disconnected' };
   }
 
+  // 1. Mark explicitly disconnected so no background reconnection occurs
+  explicitlyDisconnected.add(hostelId);
   connectingPromises.delete(hostelId);
   pairingStates.delete(hostelId);
   qrCodes.delete(hostelId);
 
+  // 2. Terminate socket and strip event listeners so saveCreds or reconnect handlers never run
   const sock = sessions.get(hostelId);
   if (sock) {
     try {
-      await sock.logout();
-    } catch (_) {
-      try { sock.end(); } catch (__) {}
-    }
+      sock.ev.removeAllListeners('connection.update');
+      sock.ev.removeAllListeners('creds.update');
+      sock.ev.removeAllListeners('messages.upsert');
+    } catch (_) {}
+
+    try {
+      // Race logout with 2s timeout so unresponsive WhatsApp Web doesn't hang request
+      await Promise.race([
+        sock.logout(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Logout timeout')), 2000))
+      ]);
+    } catch (_) {}
+
+    try {
+      sock.end();
+    } catch (_) {}
+
     sessions.delete(hostelId);
   }
   qrCodes.delete(hostelId);
 
+  // 3. Delete session directory on disk with retry
   const authPath = path.join(SESSIONS_DIR, `hostel_${hostelId}`);
-  try {
-    fs.rmSync(authPath, { recursive: true, force: true });
-  } catch (_) {}
+  for (let i = 0; i < 3; i++) {
+    try {
+      if (fs.existsSync(authPath)) {
+        fs.rmSync(authPath, { recursive: true, force: true });
+      }
+      break;
+    } catch (_) {
+      await new Promise(r => setTimeout(r, 150));
+    }
+  }
 
+  // 4. Update MongoDB to disconnected
   await Hostel.findByIdAndUpdate(hostelId, {
     whatsappStatus: 'disconnected',
-    whatsappPhone: ''
+    whatsappPhone: '',
+    whatsappLastActive: null
   });
 
+  console.log(`[WhatsApp] 🔌 Hostel ${hostelId} completely disconnected and session wiped.`);
   return { success: true, status: 'disconnected' };
 };
 
@@ -600,6 +659,7 @@ const disconnectHostelWhatsApp = async (hostelId) => {
  */
 const requestHostelPairingCode = async (hostelId, phoneNumber) => {
   if (!phoneNumber) throw new Error('Phone number is required');
+  explicitlyDisconnected.delete(hostelId);
   let cleanPhone = phoneNumber.replace(/\D/g, '');
   if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
 
@@ -664,7 +724,8 @@ const requestHostelPairingCode = async (hostelId, phoneNumber) => {
 const initAllSavedWhatsAppSessions = async () => {
   try {
     const activeHostels = await Hostel.find({
-      whatsappSyncEnabled: true
+      whatsappSyncEnabled: true,
+      whatsappStatus: { $ne: 'disconnected' }
     }).select('_id name');
 
     for (const h of activeHostels) {
