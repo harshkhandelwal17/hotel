@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { ShieldAlert, Users, Building, BedDouble, IndianRupee, LogIn, Activity, AlertCircle } from 'lucide-react';
+import { ShieldAlert, Users, Building, BedDouble, IndianRupee, LogIn, Activity, AlertCircle, Sparkles } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -103,6 +103,16 @@ const SuperAdminDashboard = () => {
       alert(`Password reset successfully to: ${newPassword}`);
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to reset password');
+    }
+  };
+
+  const handleToggleAiOcr = async (hostelId) => {
+    try {
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      const res = await axios.put(`${API}/api/superadmin/hostels/${hostelId}/toggle-ai-ocr`);
+      setHostels(hostels.map(h => h._id === hostelId ? { ...h, aiOcrEnabled: res.data.data.aiOcrEnabled } : h));
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to toggle AI OCR status');
     }
   };
 
@@ -244,7 +254,8 @@ const SuperAdminDashboard = () => {
                 <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Property Name</th>
                 <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Address</th>
                 <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Owner</th>
-                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">AI ID Scanner</th>
+                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
@@ -269,12 +280,26 @@ const SuperAdminDashboard = () => {
                     <div className="text-xs text-gray-500">{h.owner?.email || 'N/A'}</div>
                   </td>
                   <td className="px-6 py-4">
+                    <button
+                      onClick={() => handleToggleAiOcr(h._id)}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 ${
+                        h.aiOcrEnabled
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                          : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200 hover:text-gray-700'
+                      }`}
+                      title={h.aiOcrEnabled ? 'Click to disable AI Scanner' : 'Click to enable AI Scanner'}
+                    >
+                      <Sparkles size={12} className={h.aiOcrEnabled ? 'text-emerald-500 fill-emerald-500' : 'text-gray-400'} />
+                      {h.aiOcrEnabled ? 'AI Enabled' : 'Disabled'}
+                    </button>
+                  </td>
+                  <td className="px-6 py-4 text-right">
                     <span className="px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-lg bg-green-100 text-green-700">Active</span>
                   </td>
                 </tr>
               ))}
               {hostels.length === 0 && (
-                <tr><td colSpan="4" className="text-center py-8 text-gray-500 font-bold">No properties found.</td></tr>
+                <tr><td colSpan="5" className="text-center py-8 text-gray-500 font-bold">No properties found.</td></tr>
               )}
             </tbody>
           </table>

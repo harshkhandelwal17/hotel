@@ -53,6 +53,7 @@ const CheckIn = () => {
   const [loadingRooms, setLoadingRooms] = useState(true);
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [scanningOcr, setScanningOcr] = useState({ index: null, side: null });
   const guestsRef = useRef([]);
   const [roomSearchQuery, setRoomSearchQuery] = useState('');
   const [frequentCoGuests, setFrequentCoGuests] = useState([]);
@@ -94,6 +95,8 @@ const CheckIn = () => {
         idProofNumber: '',
         idProofImage: '',
         idProofImageBack: '',
+        gender: '',
+        dateOfBirth: '',
         address: '',
         _id: null,
         isSearching: false
@@ -199,6 +202,10 @@ const CheckIn = () => {
           idProofType: 'Aadhaar',
           idProofNumber: '',
           idProofImage: '',
+          idProofImageBack: '',
+          gender: '',
+          dateOfBirth: '',
+          address: '',
           _id: null,
           isSearching: false
         })
@@ -385,37 +392,108 @@ const CheckIn = () => {
         }
       );
 
+      const uploadedUrl = res.data.url;
+
       setGuests(prev => {
         const updated = [...prev];
         if (side === 'back') {
-          updated[index] = { ...updated[index], idProofImageBack: res.data.url };
+          updated[index] = { ...updated[index], idProofImageBack: uploadedUrl };
         } else {
-          updated[index] = { ...updated[index], idProofImage: res.data.url };
+          updated[index] = { ...updated[index], idProofImage: uploadedUrl };
         }
         return updated;
       });
 
-      if (side === 'back') {
-        extractAddressFromBackId(res.data.url).then((address) => {
-          if (address) {
-            setGuests(prev => {
-              const updated = [...prev];
-              updated[index] = { ...updated[index], address: address };
-              return updated;
-            });
-            toast({
-              message: 'Address extracted from ID. Please verify.',
-              type: 'success'
-            });
-          }
-        });
-      }
-
       toast({
-        message:
-          'Image uploaded successfully!',
+        message: 'Image uploaded successfully!',
         type: 'success'
       });
+
+      // =========================================================
+      // AI VISION OCR SCANNING (Gemini 1.5 Flash Vision)
+      // =========================================================
+      setScanningOcr({ index, side });
+      try {
+        const currentGuest = guestsRef.current[index] || {};
+        const ocrRes = await axios.post(`${API}/api/ocr/scan-id`, {
+          imageUrl: uploadedUrl,
+          side,
+          hostelId,
+          idProofType: currentGuest.idProofType || 'Aadhaar'
+        });
+
+        if (ocrRes.data && ocrRes.data.success && ocrRes.data.data) {
+          const aiData = ocrRes.data.data;
+
+          if (side === 'front') {
+            setGuests(prev => {
+              const updated = [...prev];
+              const g = { ...updated[index] };
+              if (aiData.fullName) g.fullName = aiData.fullName;
+              if (aiData.idProofNumber) g.idProofNumber = aiData.idProofNumber;
+              if (aiData.gender) {
+                const genLower = aiData.gender.toLowerCase();
+                if (genLower.includes('fe') || genLower.includes('महिला')) g.gender = 'Female';
+                else if (genLower.includes('ma') || genLower.includes('पुरुष')) g.gender = 'Male';
+                else g.gender = 'Other';
+              }
+              if (aiData.dateOfBirth) g.dateOfBirth = aiData.dateOfBirth;
+              updated[index] = g;
+              return updated;
+            });
+
+            const found = [];
+            if (aiData.fullName) found.push(aiData.fullName);
+            if (aiData.idProofNumber) found.push(aiData.idProofNumber);
+
+            toast({
+              message: found.length > 0 
+                ? `✨ AI Auto-Filled: ${found.join(' | ')}`
+                : '✨ Front ID scanned successfully!',
+              type: 'success'
+            });
+          } else if (side === 'back') {
+            if (aiData.address) {
+              setGuests(prev => {
+                const updated = [...prev];
+                updated[index] = { ...updated[index], address: aiData.address };
+                return updated;
+              });
+
+              toast({
+                message: '✨ AI Auto-Filled Address from Back ID!',
+                type: 'success'
+              });
+            }
+          }
+        }
+      } catch (ocrErr) {
+        const isAiDisabled = ocrErr?.response?.data?.code === 'AI_OCR_DISABLED';
+        if (isAiDisabled) {
+          console.log('AI OCR is not enabled for this property by Super Admin.');
+        } else {
+          console.warn('AI OCR scan notice:', ocrErr?.response?.data?.message || ocrErr.message);
+        }
+
+        // Graceful Fallback for Back ID if AI is disabled or encounters issue
+        if (side === 'back') {
+          extractAddressFromBackId(uploadedUrl).then((address) => {
+            if (address) {
+              setGuests(prev => {
+                const updated = [...prev];
+                updated[index] = { ...updated[index], address: address };
+                return updated;
+              });
+              toast({
+                message: 'Address extracted from ID. Please verify.',
+                type: 'success'
+              });
+            }
+          });
+        }
+      } finally {
+        setScanningOcr({ index: null, side: null });
+      }
 
     } catch (err) {
       console.error(
@@ -707,6 +785,8 @@ const CheckIn = () => {
       idProofNumber: '',
       idProofImage: '',
       idProofImageBack: '',
+      gender: '',
+      dateOfBirth: '',
       address: '',
       _id: null,
       isSearching: false
@@ -1472,11 +1552,16 @@ const CheckIn = () => {
 
                   <div>
 
-                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">
-                      Full Name{' '}
-                      <span className="text-red-500">
-                        *
+                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 flex items-center justify-between">
+                      <span>
+                        Full Name{' '}
+                        <span className="text-red-500">*</span>
                       </span>
+                      {guest.fullName && guest.idProofImage && (
+                        <span className="text-purple-600 text-[9px] flex items-center gap-0.5 font-bold">
+                          <Sparkles size={10} /> AI Auto
+                        </span>
+                      )}
                     </label>
 
                     <input
@@ -1546,8 +1631,13 @@ const CheckIn = () => {
 
                     <div>
 
-                      <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">
-                        ID Number (Opt)
+                      <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 flex items-center justify-between">
+                        <span>ID Number (Opt)</span>
+                        {guest.idProofNumber && guest.idProofImage && (
+                          <span className="text-purple-600 text-[9px] flex items-center gap-0.5 font-bold">
+                            <Sparkles size={10} /> AI Auto
+                          </span>
+                        )}
                       </label>
 
                       <input
@@ -1565,6 +1655,69 @@ const CheckIn = () => {
                           )
                         }
                         className="w-full px-4 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-black focus:ring-0 outline-none font-bold text-sm text-gray-900 uppercase transition-colors"
+                      />
+
+                    </div>
+
+                  </div>
+
+                  {/* GENDER & DOB */}
+
+                  <div className="grid grid-cols-2 gap-4">
+
+                    <div>
+
+                      <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 flex items-center justify-between">
+                        <span>Gender (Opt)</span>
+                        {guest.gender && (
+                          <span className="text-purple-600 text-[9px] flex items-center gap-0.5 font-bold">
+                            <Sparkles size={10} /> AI Auto
+                          </span>
+                        )}
+                      </label>
+
+                      <select
+                        value={guest.gender || ''}
+                        onChange={(e) =>
+                          handleGuestChange(
+                            index,
+                            'gender',
+                            e.target.value
+                          )
+                        }
+                        className="w-full px-4 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-black focus:ring-0 outline-none font-bold text-sm text-gray-900 transition-colors"
+                      >
+                        <option value="">Select</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                      </select>
+
+                    </div>
+
+                    <div>
+
+                      <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 flex items-center justify-between">
+                        <span>DOB / Year (Opt)</span>
+                        {guest.dateOfBirth && (
+                          <span className="text-purple-600 text-[9px] flex items-center gap-0.5 font-bold">
+                            <Sparkles size={10} /> AI Auto
+                          </span>
+                        )}
+                      </label>
+
+                      <input
+                        type="text"
+                        placeholder="DD/MM/YYYY or YYYY"
+                        value={guest.dateOfBirth || ''}
+                        onChange={(e) =>
+                          handleGuestChange(
+                            index,
+                            'dateOfBirth',
+                            e.target.value
+                          )
+                        }
+                        className="w-full px-4 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-black focus:ring-0 outline-none font-bold text-sm text-gray-900 transition-colors"
                       />
 
                     </div>
@@ -1631,26 +1784,40 @@ const CheckIn = () => {
                               Uploading...
                             </div>
                           )}
+                          {scanningOcr.index === index && scanningOcr.side === 'front' && (
+                            <div className="mt-2 text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 p-2 rounded-xl flex items-center justify-center gap-2 animate-pulse">
+                              <Sparkles size={12} className="animate-spin text-purple-600" />
+                              AI Vision scanning details...
+                            </div>
+                          )}
                         </>
                       ) : (
-                        <div className="relative mt-2 rounded-xl overflow-hidden border-2 border-green-500 shadow-sm group h-[88px]">
-                          <img src={guest.idProofImage} alt="ID Front" className="w-full h-full object-cover" />
-                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <a href={guest.idProofImage} target="_blank" rel="noreferrer" className="text-white text-[10px] font-black uppercase tracking-widest bg-black/60 px-3 py-1.5 rounded-full backdrop-blur-sm hover:bg-black transition-colors">
-                              View Full
-                            </a>
+                        <div>
+                          <div className="relative mt-2 rounded-xl overflow-hidden border-2 border-green-500 shadow-sm group h-[88px]">
+                            <img src={guest.idProofImage} alt="ID Front" className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                              <a href={guest.idProofImage} target="_blank" rel="noreferrer" className="text-white text-[10px] font-black uppercase tracking-widest bg-black/60 px-3 py-1.5 rounded-full backdrop-blur-sm hover:bg-black transition-colors">
+                                View Full
+                              </a>
+                            </div>
+                            <button 
+                              onClick={() => {
+                                const newGuests = [...guests];
+                                newGuests[index].idProofImage = '';
+                                setGuests(newGuests);
+                              }} 
+                              className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                              title="Remove Image"
+                            >
+                              <X size={14} />
+                            </button>
                           </div>
-                          <button 
-                            onClick={() => {
-                              const newGuests = [...guests];
-                              newGuests[index].idProofImage = '';
-                              setGuests(newGuests);
-                            }} 
-                            className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
-                            title="Remove Image"
-                          >
-                            <X size={14} />
-                          </button>
+                          {scanningOcr.index === index && scanningOcr.side === 'front' && (
+                            <div className="mt-1 text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 p-1.5 rounded-xl flex items-center justify-center gap-1.5 animate-pulse">
+                              <Sparkles size={12} className="animate-spin text-purple-600" />
+                              AI Vision scanning...
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1712,26 +1879,40 @@ const CheckIn = () => {
                               Uploading...
                             </div>
                           )}
+                          {scanningOcr.index === index && scanningOcr.side === 'back' && (
+                            <div className="mt-2 text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 p-2 rounded-xl flex items-center justify-center gap-2 animate-pulse">
+                              <Sparkles size={12} className="animate-spin text-purple-600" />
+                              AI Vision extracting address...
+                            </div>
+                          )}
                         </>
                       ) : (
-                        <div className="relative mt-2 rounded-xl overflow-hidden border-2 border-green-500 shadow-sm group h-[88px]">
-                          <img src={guest.idProofImageBack} alt="ID Back" className="w-full h-full object-cover" />
-                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <a href={guest.idProofImageBack} target="_blank" rel="noreferrer" className="text-white text-[10px] font-black uppercase tracking-widest bg-black/60 px-3 py-1.5 rounded-full backdrop-blur-sm hover:bg-black transition-colors">
-                              View Full
-                            </a>
+                        <div>
+                          <div className="relative mt-2 rounded-xl overflow-hidden border-2 border-green-500 shadow-sm group h-[88px]">
+                            <img src={guest.idProofImageBack} alt="ID Back" className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                              <a href={guest.idProofImageBack} target="_blank" rel="noreferrer" className="text-white text-[10px] font-black uppercase tracking-widest bg-black/60 px-3 py-1.5 rounded-full backdrop-blur-sm hover:bg-black transition-colors">
+                                View Full
+                              </a>
+                            </div>
+                            <button 
+                              onClick={() => {
+                                const newGuests = [...guests];
+                                newGuests[index].idProofImageBack = '';
+                                setGuests(newGuests);
+                              }} 
+                              className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                              title="Remove Image"
+                            >
+                              <X size={14} />
+                            </button>
                           </div>
-                          <button 
-                            onClick={() => {
-                              const newGuests = [...guests];
-                              newGuests[index].idProofImageBack = '';
-                              setGuests(newGuests);
-                            }} 
-                            className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
-                            title="Remove Image"
-                          >
-                            <X size={14} />
-                          </button>
+                          {scanningOcr.index === index && scanningOcr.side === 'back' && (
+                            <div className="mt-1 text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 p-1.5 rounded-xl flex items-center justify-center gap-1.5 animate-pulse">
+                              <Sparkles size={12} className="animate-spin text-purple-600" />
+                              AI Vision extracting address...
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1741,7 +1922,11 @@ const CheckIn = () => {
                   <div>
                     <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 flex items-center justify-between">
                       <span>Address (Opt)</span>
-                      {guest.idProofImageBack && <span className="text-blue-500 text-[9px]">Auto-extracted</span>}
+                      {guest.address && guest.idProofImageBack && (
+                        <span className="text-purple-600 text-[9px] flex items-center gap-0.5 font-bold">
+                          <Sparkles size={10} /> AI Auto-Filled
+                        </span>
+                      )}
                     </label>
                     <textarea
                       placeholder="Enter guest address"

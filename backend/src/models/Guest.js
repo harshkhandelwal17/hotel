@@ -34,7 +34,7 @@ const guestSchema = new mongoose.Schema({
     ]
   },
   gender: String,
-  dateOfBirth: Date,
+  dateOfBirth: String,
   address: String,
   emergencyContactName: String,
   emergencyContactNumber: String,

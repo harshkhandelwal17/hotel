@@ -32,6 +32,7 @@ const reportRoutes = require('./routes/reportRoutes');
 const userRoutes = require('./routes/userRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const superAdminRoutes = require('./routes/superAdminRoutes');
+const ocrRoutes = require('./routes/ocrRoutes');
 const path = require('path');
 
 app.use('/api/auth', authRoutes);
@@ -44,6 +45,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/superadmin', superAdminRoutes);
+app.use('/api/ocr', ocrRoutes);
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Error Handling Middleware

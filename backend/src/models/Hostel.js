@@ -30,6 +30,10 @@ const hostelSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  aiOcrEnabled: {
+    type: Boolean,
+    default: false
+  },
   owner: {
     type: mongoose.Schema.ObjectId,
     ref: 'User'
