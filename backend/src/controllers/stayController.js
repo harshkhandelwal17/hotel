@@ -100,10 +100,10 @@ exports.getStays = async (req, res, next) => {
     }
 
     const stays = await Stay.find(filter)
-      .populate('guest', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address')
-      .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address')
+      .populate('guest', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth')
+      .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth')
       .populate('room', 'roomNumber price24h extraPerPerson24h')
-      .populate('hostel', 'name address')
+      .populate('hostel', 'name address contactNumber')
       .sort('-expectedCheckOutDate')
       .lean();
       

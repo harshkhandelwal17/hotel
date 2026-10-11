@@ -3,12 +3,14 @@ import axios from 'axios';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth, parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { Search, Download, TrendingUp, PieChart, Users, Receipt, ArrowRight, ShieldCheck, Trash } from 'lucide-react';
 import { useOutletContext } from 'react-router-dom';
+import PoliceReportModal from './PoliceReportModal';
 
 const Reports = () => {
   const [stays, setStays] = useState([]);
   const [payments, setPayments] = useState([]);
   const [hostels, setHostels] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showPoliceModal, setShowPoliceModal] = useState(false);
   
   // Tabs
   const [activeTab, setActiveTab] = useState('bookings'); // bookings, transactions
@@ -188,53 +190,6 @@ const Reports = () => {
     }
   };
 
-  const downloadPoliceReport = () => {
-    const headers = ['Check-In Date', 'Check-Out Date', 'Room No', 'Guest Name', 'Mobile Number', 'ID Type', 'ID Number', 'Address', 'Status'];
-    
-    const csvData = [];
-    
-    const safeDate = (dateStr) => {
-      if (!dateStr) return 'N/A';
-      const d = new Date(dateStr);
-      return isNaN(d) ? 'N/A' : format(d, 'dd/MM/yyyy hh:mm a');
-    };
-
-    filteredStays.forEach(stay => {
-      const ciDate = safeDate(stay.checkInDate);
-      let coDate = 'N/A';
-      if (stay.status === 'Checked Out' && stay.actualCheckOutDate) {
-         coDate = safeDate(stay.actualCheckOutDate);
-      } else if (stay.expectedCheckOutDate) {
-         coDate = safeDate(stay.expectedCheckOutDate);
-      }
-      const roomNo = stay.room?.roomNumber || 'N/A';
-      const status = stay.status || 'Unknown';
-      
-      const allGuests = [];
-      if (stay.guest) allGuests.push(stay.guest);
-      if (stay.coGuests && stay.coGuests.length > 0) allGuests.push(...stay.coGuests);
-
-      allGuests.forEach(g => {
-        const name = (g.fullName || 'N/A').replace(/"/g, '""');
-        const mobile = (g.mobileNumber || 'N/A').replace(/"/g, '""');
-        const idType = (g.idProofType || 'N/A').replace(/"/g, '""');
-        const idNum = (g.idProofNumber || 'N/A').replace(/"/g, '""');
-        const address = g.address ? g.address.replace(/\n/g, ' ').replace(/"/g, '""') : 'N/A';
-        
-        csvData.push(`"${ciDate}","${coDate}","${roomNo}","${name}","${mobile}","${idType}","${idNum}","${address}","${status}"`);
-      });
-    });
-
-    const csvContent = [headers.join(','), ...csvData].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.setAttribute('download', `Police_Report_${format(new Date(), 'yyyy-MM-dd')}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -251,11 +206,13 @@ const Reports = () => {
           <p className="text-sm text-gray-500 mt-1 font-medium">Track Bookings, Commissions, and real Cash Flow.</p>
         </div>
         <div className="flex gap-2">
-          {activeTab === 'bookings' && (
-            <button onClick={downloadPoliceReport} className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition-colors shadow-sm flex items-center gap-2 active:scale-95">
-              <ShieldCheck size={16} /> Police Report
-            </button>
-          )}
+          <button 
+            onClick={() => setShowPoliceModal(true)} 
+            className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition-colors shadow-sm flex items-center gap-2 active:scale-95"
+            title="Generate Official Police Verification Report"
+          >
+            <ShieldCheck size={16} /> Police Report
+          </button>
           <button onClick={downloadCSV} className="px-6 py-2.5 bg-black text-white rounded-xl font-bold text-sm hover:bg-gray-800 transition-colors shadow-sm flex items-center gap-2 active:scale-95">
             <Download size={16} /> Export CSV
           </button>
@@ -525,6 +482,15 @@ const Reports = () => {
           )}
         </div>
       </div>
+
+      {/* Police Report Generator Modal */}
+      <PoliceReportModal
+        isOpen={showPoliceModal}
+        onClose={() => setShowPoliceModal(false)}
+        stays={stays}
+        hostels={hostels}
+        defaultHostel={hostelFilter}
+      />
     </div>
   );
 };
