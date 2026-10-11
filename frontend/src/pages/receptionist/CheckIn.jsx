@@ -113,15 +113,19 @@ const CheckIn = () => {
       durationHours: 0,
       occupants: 1,
       totalAmount: '',
-      paidAmount: 0,
+      paidAmount: '',
       paymentMethod: 'Cash',
       commissionTo: '',
       commissionAmount: ''
     };
     const saved = loadState('checkin_stayInfo', defaultStay);
-    // If the saved state only has the old unedited default (empty room, empty total, durationDays was 1), reset durationDays to 0
-    if (saved && !saved.room && !saved.totalAmount && saved.durationDays === 1) {
-      return { ...saved, durationDays: 0 };
+    // If the saved state only has the old unedited default, reset durationDays to 0 and paidAmount to empty
+    if (saved && !saved.room && !saved.totalAmount) {
+      return { 
+        ...saved, 
+        durationDays: saved.durationDays === 1 ? 0 : saved.durationDays,
+        paidAmount: saved.paidAmount === 0 || saved.paidAmount === '0' ? '' : saved.paidAmount
+      };
     }
     return saved;
   });
@@ -1069,9 +1073,9 @@ const CheckIn = () => {
           stayInfo.occupants,
 
         totalAmount:
-          stayInfo.totalAmount,
+          Number(stayInfo.totalAmount) || 0,
 
-        initialPaymentAmount: stayInfo.paidAmount,
+        initialPaymentAmount: Number(stayInfo.paidAmount) || 0,
 
         paymentMethod:
           stayInfo.paymentMethod,
@@ -1193,7 +1197,7 @@ const CheckIn = () => {
       durationHours: 0,
       occupants: 1,
       totalAmount: '',
-      paidAmount: 0,
+      paidAmount: '',
       paymentMethod: 'Cash',
       commissionTo: '',
       commissionAmount: ''
@@ -1637,6 +1641,7 @@ const CheckIn = () => {
 
                     <input
                       type="number"
+                      placeholder="0"
                       value={
                         stayInfo.totalAmount
                       }
@@ -1647,7 +1652,7 @@ const CheckIn = () => {
                             e.target.value
                         }))
                       }
-                      className="w-24 bg-transparent text-right font-black text-2xl outline-none border-b-2 border-transparent focus:border-gray-600"
+                      className="w-28 bg-transparent text-right font-black text-2xl outline-none border-b-2 border-transparent focus:border-gray-600 placeholder:text-gray-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
 
                   </div>
@@ -1668,6 +1673,7 @@ const CheckIn = () => {
 
                     <input
                       type="number"
+                      placeholder="0"
                       value={
                         stayInfo.paidAmount
                       }
@@ -1678,7 +1684,7 @@ const CheckIn = () => {
                             e.target.value
                         }))
                       }
-                      className="w-24 bg-transparent text-right font-black text-2xl outline-none border-b-2 border-transparent focus:border-gray-600 text-green-400"
+                      className="w-28 bg-transparent text-right font-black text-2xl outline-none border-b-2 border-transparent focus:border-gray-600 text-green-400 placeholder:text-green-800/60 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
 
                   </div>
@@ -1693,8 +1699,8 @@ const CheckIn = () => {
 
                   <span
                     className={`font-black text-2xl ${
-                      stayInfo.totalAmount -
-                        stayInfo.paidAmount >
+                      (Number(stayInfo.totalAmount) || 0) -
+                        (Number(stayInfo.paidAmount) || 0) >
                       0
                         ? 'text-orange-400'
                         : 'text-gray-300'
@@ -1703,8 +1709,8 @@ const CheckIn = () => {
                     ₹
                     {Math.max(
                       0,
-                      stayInfo.totalAmount -
-                        stayInfo.paidAmount
+                      (Number(stayInfo.totalAmount) || 0) -
+                        (Number(stayInfo.paidAmount) || 0)
                     )}
                   </span>
 
