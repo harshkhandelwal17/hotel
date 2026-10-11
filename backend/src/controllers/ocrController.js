@@ -42,7 +42,13 @@ exports.scanIdCard = async (req, res, next) => {
     }
 
     // 3. Verify Gemini API Key
-    const apiKey = process.env.GEMINI_API_KEY;
+    let apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      try {
+        require('dotenv').config();
+        apiKey = process.env.GEMINI_API_KEY;
+      } catch (_) {}
+    }
     if (!apiKey) {
       return res.status(500).json({
         success: false,
@@ -103,8 +109,13 @@ Return ONLY a valid JSON object matching this schema:
 Do NOT wrap the output in markdown code blocks like \`\`\`json. Output ONLY the raw JSON string.`;
     }
 
-    // 6. Call Google Gemini 1.5 Flash Vision API
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    // 6. Call Google Gemini Vision API with multi-model fallback
+    const candidateModels = [
+      'gemini-3.5-flash',
+      'gemini-flash-latest',
+      'gemini-1.5-flash',
+      'gemini-2.5-flash'
+    ];
 
     const requestPayload = {
       contents: [
@@ -122,26 +133,47 @@ Do NOT wrap the output in markdown code blocks like \`\`\`json. Output ONLY the 
       ],
       generationConfig: {
         temperature: 0.1,
-        maxOutputTokens: 500,
+        maxOutputTokens: 600,
         responseMimeType: "application/json"
       }
     };
 
-    const apiResponse = await fetch(geminiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(requestPayload)
-    });
+    let apiResponse = null;
+    let lastErrorText = '';
 
-    if (!apiResponse.ok) {
-      const errText = await apiResponse.text();
-      console.error('Gemini Vision API error:', errText);
+    for (const modelName of candidateModels) {
+      try {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${apiKey}`;
+        const response = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(requestPayload)
+        });
+
+        if (response.ok) {
+          apiResponse = response;
+          break;
+        } else {
+          lastErrorText = await response.text();
+          console.warn(`Gemini model ${modelName} returned ${response.status}:`, lastErrorText);
+          if (response.status !== 404 && response.status !== 503) {
+            break;
+          }
+        }
+      } catch (err) {
+        lastErrorText = err.message;
+        console.warn(`Gemini request to ${modelName} failed:`, err.message);
+      }
+    }
+
+    if (!apiResponse) {
+      console.error('All Gemini Vision model candidates failed:', lastErrorText);
       return res.status(502).json({
         success: false,
         message: 'AI Vision service error. Please try again or fill manually.',
-        details: errText
+        details: lastErrorText
       });
     }
 
@@ -172,3 +204,4 @@ Do NOT wrap the output in markdown code blocks like \`\`\`json. Output ONLY the 
     next(error);
   }
 };
+
