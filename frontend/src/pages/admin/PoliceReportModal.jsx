@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { format } from 'date-fns';
 import { X, ShieldCheck, Download, Printer, Clock, Building, Users } from 'lucide-react';
 
@@ -317,32 +318,33 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
     printWin.document.close();
   };
 
-  return (
+  // Render via React Portal on document.body for clean, centered, unconstrained positioning
+  return createPortal(
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-black/25 animate-in fade-in duration-150"
       onClick={onClose}
     >
       <div 
-        className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-gray-100 w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
+        className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-gray-200 w-full max-w-xl max-h-[82vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
         onClick={e => e.stopPropagation()}
       >
         
         {/* Header */}
-        <div className="px-5 py-4 bg-indigo-900 text-white flex justify-between items-center shrink-0">
+        <div className="px-5 py-3.5 bg-indigo-900 text-white flex justify-between items-center shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0 border border-white/20">
               <ShieldCheck className="text-emerald-400" size={18} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base sm:text-lg font-black tracking-tight">
+                <h2 className="text-base font-black tracking-tight">
                   Police Station Report
                 </h2>
                 <span className="hidden sm:inline-block px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-indigo-500/30 text-indigo-200 border border-indigo-400/30">
                   Sarai Act Register
                 </span>
               </div>
-              <p className="text-[10px] sm:text-[11px] text-indigo-200 font-medium">
+              <p className="text-[10px] text-indigo-200 font-medium">
                 Official guest arrival ledger for police verification
               </p>
             </div>
@@ -357,7 +359,7 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
         </div>
 
         {/* Scrollable Modal Body (min-h-0 prevents Flexbox overflow) */}
-        <div className="flex-1 overflow-y-auto min-h-0 p-4 sm:p-5 space-y-3.5">
+        <div className="flex-1 overflow-y-auto min-h-0 p-4 sm:p-5 space-y-3">
           
           {/* Preset Buttons */}
           <div>
@@ -485,22 +487,21 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
             </span>
           </div>
 
-          {/* Compact Table Container */}
-          <div className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
-            <div className="px-3 py-1.5 bg-gray-50 border-b border-gray-200 flex justify-between items-center text-[10px] font-bold text-gray-500">
-              <span>Preview ({policeRows.length} Guests)</span>
-              {policeRows.length > 0 && <span className="text-[9px] text-gray-400">Scroll sideways 👉</span>}
+          {/* Preview Section */}
+          {policeRows.length === 0 ? (
+            <div className="p-3.5 bg-gray-50 rounded-xl border border-dashed border-gray-300 text-center text-gray-500 text-xs">
+              <p className="font-semibold text-gray-700">No guest records found for {rangeLabel}.</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">Tip: Click <strong>"Past 7 Days"</strong> or <strong>"All Records"</strong> above to view stays.</p>
             </div>
-            
-            <div className="overflow-x-auto max-h-40 overflow-y-auto">
-              {policeRows.length === 0 ? (
-                <div className="p-6 text-center text-gray-400">
-                  <ShieldCheck size={26} className="stroke-[1.5] text-gray-300 mx-auto mb-1" />
-                  <p className="font-bold text-gray-600 text-xs">No records found for this time range.</p>
-                  <p className="text-[10px] text-gray-400 mt-0.5">Select a different range above (e.g. Past 7 Days or All Records).</p>
-                </div>
-              ) : (
-                <table className="w-full text-left text-xs min-w-[620px]">
+          ) : (
+            <div className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
+              <div className="px-3 py-1.5 bg-gray-50 border-b border-gray-200 flex justify-between items-center text-[10px] font-bold text-gray-500">
+                <span>Preview ({policeRows.length} Guests)</span>
+                <span className="text-[9px] text-gray-400">Scroll sideways 👉</span>
+              </div>
+              
+              <div className="overflow-x-auto max-h-36 overflow-y-auto">
+                <table className="w-full text-left text-xs min-w-[580px]">
                   <thead className="bg-gray-100 text-gray-600 font-black uppercase text-[9px] tracking-wider sticky top-0 z-10 border-b border-gray-200">
                     <tr>
                       <th className="px-2.5 py-1.5">Sr.</th>
@@ -515,25 +516,25 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
-                    {policeRows.slice(0, 15).map(r => (
+                    {policeRows.slice(0, 10).map(r => (
                       <tr key={`${r.stayId}-${r.srNo}`} className="hover:bg-gray-50/70 transition-colors">
-                        <td className="px-2.5 py-1.5 font-bold text-gray-400">{r.srNo}</td>
-                        <td className="px-2.5 py-1.5 font-black text-gray-900">{r.roomNumber}</td>
-                        <td className="px-2.5 py-1.5 font-bold text-gray-900">{r.guestName}</td>
-                        <td className="px-2.5 py-1.5">
+                        <td className="px-2.5 py-1 font-bold text-gray-400">{r.srNo}</td>
+                        <td className="px-2.5 py-1 font-black text-gray-900">{r.roomNumber}</td>
+                        <td className="px-2.5 py-1 font-bold text-gray-900">{r.guestName}</td>
+                        <td className="px-2.5 py-1">
                           <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
                             r.guestType === 'Primary Guest' ? 'bg-indigo-50 text-indigo-700' : 'bg-gray-100 text-gray-600'
                           }`}>
                             {r.guestType === 'Primary Guest' ? 'Primary' : 'Co-Guest'}
                           </span>
                         </td>
-                        <td className="px-2.5 py-1.5 font-mono text-[10px]">{r.mobileNumber}</td>
-                        <td className="px-2.5 py-1.5 font-semibold text-gray-800 text-[11px]">
+                        <td className="px-2.5 py-1 font-mono text-[10px]">{r.mobileNumber}</td>
+                        <td className="px-2.5 py-1 font-semibold text-gray-800 text-[11px]">
                           {r.idProofType}
                         </td>
-                        <td className="px-2.5 py-1.5 text-gray-600 whitespace-nowrap text-[11px]">{r.checkInDate}</td>
-                        <td className="px-2.5 py-1.5 text-gray-500 max-w-[140px] truncate text-[11px]" title={r.address}>{r.address}</td>
-                        <td className="px-2.5 py-1.5">
+                        <td className="px-2.5 py-1 text-gray-600 whitespace-nowrap text-[11px]">{r.checkInDate}</td>
+                        <td className="px-2.5 py-1 text-gray-500 max-w-[130px] truncate text-[11px]" title={r.address}>{r.address}</td>
+                        <td className="px-2.5 py-1">
                           <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
                             r.stayStatus === 'Currently In Hotel' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
                           }`}>
@@ -544,15 +545,15 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
                     ))}
                   </tbody>
                 </table>
+              </div>
+
+              {policeRows.length > 10 && (
+                <div className="p-1 bg-gray-50 text-center text-[10px] font-bold text-gray-500 border-t border-gray-200">
+                  + {policeRows.length - 10} more rows will be included in download
+                </div>
               )}
             </div>
-
-            {policeRows.length > 15 && (
-              <div className="p-1.5 bg-gray-50 text-center text-[10px] font-bold text-gray-500 border-t border-gray-200">
-                + {policeRows.length - 15} more rows will be included in download
-              </div>
-            )}
-          </div>
+          )}
 
         </div>
 
@@ -584,6 +585,7 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
