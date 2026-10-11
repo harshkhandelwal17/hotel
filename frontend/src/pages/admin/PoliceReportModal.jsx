@@ -178,21 +178,15 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
 
     const headers = [
       'Sr No',
-      'Hotel Name',
-      'Hotel Contact',
       'Room No',
       'Guest Name',
       'Guest Type',
       'Mobile Number',
-      'Gender',
       'ID Proof Type',
-      'ID Proof Number',
       'Permanent Address',
       'Check-In Date & Time',
       'Check-Out Date & Time',
-      'Stay Status',
-      'Total Occupants',
-      'Remarks'
+      'Stay Status'
     ];
 
     const csvData = policeRows.map(r => {
@@ -204,21 +198,15 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
 
       return [
         r.srNo,
-        escape(r.hotelName),
-        escape(r.hotelPhone),
         escape(r.roomNumber),
         escape(r.guestName),
         escape(r.guestType),
         escape(r.mobileNumber),
-        escape(r.gender),
         escape(r.idProofType),
-        escape(r.idProofNumber),
         escape(r.address),
         escape(r.checkInDate),
         escape(r.checkOutDate),
-        escape(r.stayStatus),
-        r.occupants,
-        escape(r.remarks)
+        escape(r.stayStatus)
       ].join(',');
     });
 
@@ -294,8 +282,7 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
                 <th>Guest Full Name</th>
                 <th>Type</th>
                 <th>Mobile No.</th>
-                <th>ID Type</th>
-                <th>ID Proof No.</th>
+                <th>ID Proof Type</th>
                 <th>Permanent Address</th>
                 <th>Check-In</th>
                 <th>Check-Out</th>
@@ -311,7 +298,6 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
                   <td>${r.guestType}</td>
                   <td>${r.mobileNumber}</td>
                   <td>${r.idProofType}</td>
-                  <td>${r.idProofNumber}</td>
                   <td>${r.address}</td>
                   <td>${r.checkInDate}</td>
                   <td>${r.checkOutDate}</td>
@@ -547,8 +533,7 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
                       </td>
                       <td className="px-3 py-2 font-mono text-[11px]">{r.mobileNumber}</td>
                       <td className="px-3 py-2">
-                        <span className="font-semibold text-gray-900">{r.idProofType}:</span>{' '}
-                        <span className="font-mono text-[11px] text-gray-600">{r.idProofNumber}</span>
+                        <span className="font-semibold text-gray-900">{r.idProofType}</span>
                       </td>
                       <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{r.checkInDate}</td>
                       <td className="px-3 py-2 text-gray-500 max-w-[140px] truncate" title={r.address}>{r.address}</td>
@@ -603,3 +588,4 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
     </div>
   );
 }
+
