@@ -16,7 +16,12 @@ import {
   RefreshCw,
   Sparkles,
   Image as ImageIcon,
-  X
+  X,
+  Clipboard,
+  MessageSquare,
+  QrCode,
+  Phone,
+  Check
 } from 'lucide-react';
 
 import { useToast } from '../../components/ui/Toast';
@@ -57,6 +62,15 @@ const CheckIn = () => {
   const guestsRef = useRef([]);
   const [roomSearchQuery, setRoomSearchQuery] = useState('');
   const [frequentCoGuests, setFrequentCoGuests] = useState([]);
+
+  // WhatsApp Sync State
+  const [waSyncEnabled, setWaSyncEnabled] = useState(false);
+  const [waStatus, setWaStatus] = useState('disconnected');
+  const [waPhone, setWaPhone] = useState('');
+  const [waQr, setWaQr] = useState(null);
+  const [waModalOpen, setWaModalOpen] = useState(false);
+  const [waRecentMedia, setWaRecentMedia] = useState([]);
+  const [loadingWa, setLoadingWa] = useState(false);
 
   const toast = useToast();
   const navigate = useNavigate();
@@ -185,6 +199,56 @@ const CheckIn = () => {
     globalProperty !== 'all'
       ? globalProperty
       : selectedRoomDetails?.hostel;
+
+  // Check WhatsApp status for current hostel
+  useEffect(() => {
+    if (!hostelId) return;
+
+    let isMounted = true;
+    const checkWaStatus = async () => {
+      try {
+        const res = await axios.get(`${API}/api/whatsapp/status?hostelId=${hostelId}`);
+        if (isMounted && res.data?.success) {
+          setWaSyncEnabled(!!res.data.data.whatsappSyncEnabled);
+          setWaStatus(res.data.data.status);
+          setWaPhone(res.data.data.phone || '');
+          if (res.data.data.qr) setWaQr(res.data.data.qr);
+        }
+      } catch (_) {}
+    };
+
+    checkWaStatus();
+    let pollTimer;
+    if (waModalOpen || waStatus === 'connecting') {
+      pollTimer = setInterval(checkWaStatus, 3000);
+    }
+    return () => {
+      isMounted = false;
+      if (pollTimer) clearInterval(pollTimer);
+    };
+  }, [hostelId, waModalOpen, waStatus]);
+
+  // Poll incoming WhatsApp photos when on Step 2
+  useEffect(() => {
+    if (!hostelId || !waSyncEnabled || step !== 2) return;
+
+    let isMounted = true;
+    const fetchWaMedia = async () => {
+      try {
+        const res = await axios.get(`${API}/api/whatsapp/recent-media?hostelId=${hostelId}`);
+        if (isMounted && res.data?.success) {
+          setWaRecentMedia(res.data.data || []);
+        }
+      } catch (_) {}
+    };
+
+    fetchWaMedia();
+    const interval = setInterval(fetchWaMedia, 7000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [hostelId, waSyncEnabled, step]);
 
   // =========================================================
   // DYNAMIC OCCUPANTS
@@ -508,6 +572,188 @@ const CheckIn = () => {
       });
     } finally {
       setUploadingImage(false);
+    }
+  };
+
+  // =========================================================
+  // CLIPBOARD PASTE HANDLER
+  // =========================================================
+
+  const handlePasteImage = async (index, side = 'front') => {
+    try {
+      if (!navigator.clipboard || !navigator.clipboard.read) {
+        toast({ message: 'Clipboard access not supported. Use Ctrl+V or upload.', type: 'error' });
+        return;
+      }
+      const clipboardItems = await navigator.clipboard.read();
+      let imageBlob = null;
+      for (const item of clipboardItems) {
+        for (const type of item.types) {
+          if (type.startsWith('image/')) {
+            imageBlob = await item.getType(type);
+            break;
+          }
+        }
+        if (imageBlob) break;
+      }
+
+      if (!imageBlob) {
+        toast({ message: 'No image in clipboard! Copy image on WhatsApp first.', type: 'error' });
+        return;
+      }
+
+      const file = new File([imageBlob], `pasted-${Date.now()}.jpg`, { type: imageBlob.type || 'image/jpeg' });
+      await handleImageUpload(index, file, side);
+    } catch (err) {
+      console.error('Clipboard paste failed:', err);
+      toast({ message: 'Could not access clipboard. Please allow clipboard permissions.', type: 'error' });
+    }
+  };
+
+  // Global Ctrl+V listener on Step 2 to paste image into ID
+  useEffect(() => {
+    if (step !== 2) return;
+
+    const handleWindowPaste = async (e) => {
+      if (['INPUT', 'TEXTAREA'].includes(e.target?.tagName)) return;
+
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith('image/')) {
+          const file = items[i].getAsFile();
+          if (file) {
+            const primary = guestsRef.current[0] || {};
+            let targetSide = 'front';
+            if (primary.idProofImage && !primary.idProofImageBack) {
+              targetSide = 'back';
+            }
+            toast({ message: `Pasting image from clipboard into ${targetSide.toUpperCase()} ID...`, type: 'info' });
+            await handleImageUpload(0, file, targetSide);
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener('paste', handleWindowPaste);
+    return () => window.removeEventListener('paste', handleWindowPaste);
+  }, [step]);
+
+  // =========================================================
+  // WHATSAPP PHOTO ATTACHMENT & CONNECTION
+  // =========================================================
+
+  const handleApplyWhatsAppPhoto = async (index, imageUrl, side, mediaId) => {
+    try {
+      setGuests(prev => {
+        const updated = [...prev];
+        if (side === 'back') {
+          updated[index] = { ...updated[index], idProofImageBack: imageUrl };
+        } else {
+          updated[index] = { ...updated[index], idProofImage: imageUrl };
+        }
+        return updated;
+      });
+
+      if (mediaId) {
+        axios.put(`${API}/api/whatsapp/mark-used/${mediaId}`).catch(() => {});
+        setWaRecentMedia(prev => prev.map(m => m._id === mediaId ? { ...m, status: 'used' } : m));
+      }
+
+      toast({ message: `Image attached from WhatsApp to ${side === 'front' ? 'Front ID' : 'Back ID'}!`, type: 'success' });
+
+      // Run AI OCR scan
+      setScanningOcr({ index, side });
+      try {
+        const currentGuest = guestsRef.current[index] || {};
+        const ocrRes = await axios.post(`${API}/api/ocr/scan-id`, {
+          imageUrl,
+          side,
+          hostelId,
+          idProofType: currentGuest.idProofType || 'Aadhaar'
+        });
+
+        if (ocrRes.data && ocrRes.data.success && ocrRes.data.data) {
+          const aiData = ocrRes.data.data;
+          if (side === 'front') {
+            setGuests(prev => {
+              const updated = [...prev];
+              const g = { ...updated[index] };
+              if (aiData.fullName) g.fullName = aiData.fullName;
+              if (aiData.idProofNumber) g.idProofNumber = aiData.idProofNumber;
+              if (aiData.gender) {
+                const genLower = aiData.gender.toLowerCase();
+                if (genLower.includes('fe') || genLower.includes('महिला')) g.gender = 'Female';
+                else if (genLower.includes('ma') || genLower.includes('पुरुष')) g.gender = 'Male';
+                else g.gender = 'Other';
+              }
+              if (aiData.dateOfBirth) g.dateOfBirth = aiData.dateOfBirth;
+              updated[index] = g;
+              return updated;
+            });
+            toast({ message: '✨ AI Auto-Filled Details from WhatsApp Image!', type: 'success' });
+          } else if (side === 'back') {
+            if (aiData.address) {
+              setGuests(prev => {
+                const updated = [...prev];
+                updated[index] = { ...updated[index], address: aiData.address };
+                return updated;
+              });
+              toast({ message: '✨ AI Auto-Filled Address from WhatsApp Image!', type: 'success' });
+            }
+          }
+        }
+      } catch (ocrErr) {
+        if (side === 'back') {
+          extractAddressFromBackId(imageUrl).then((address) => {
+            if (address) {
+              setGuests(prev => {
+                const updated = [...prev];
+                updated[index] = { ...updated[index], address };
+                return updated;
+              });
+            }
+          });
+        }
+      } finally {
+        setScanningOcr({ index: null, side: null });
+      }
+    } catch (err) {
+      console.error('Failed to attach WhatsApp image:', err);
+    }
+  };
+
+  const handleStartWhatsApp = async () => {
+    setLoadingWa(true);
+    try {
+      const res = await axios.post(`${API}/api/whatsapp/connect`, { hostelId });
+      if (res.data?.success) {
+        setWaStatus(res.data.data.status);
+        if (res.data.data.qr) setWaQr(res.data.data.qr);
+        toast({ message: 'WhatsApp QR generated! Scan with your phone.', type: 'info' });
+      }
+    } catch (err) {
+      toast({ message: err.response?.data?.message || 'Failed to start WhatsApp', type: 'error' });
+    } finally {
+      setLoadingWa(false);
+    }
+  };
+
+  const handleDisconnectWhatsApp = async () => {
+    if (!window.confirm('Are you sure you want to disconnect WhatsApp?')) return;
+    setLoadingWa(true);
+    try {
+      await axios.post(`${API}/api/whatsapp/disconnect`, { hostelId });
+      setWaStatus('disconnected');
+      setWaPhone('');
+      setWaQr(null);
+      toast({ message: 'WhatsApp disconnected', type: 'info' });
+    } catch (err) {
+      toast({ message: 'Failed to disconnect WhatsApp', type: 'error' });
+    } finally {
+      setLoadingWa(false);
     }
   };
 
@@ -1400,22 +1646,89 @@ const CheckIn = () => {
       {step === 2 && (
         <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
 
-          {/* INFO */}
+          {/* INFO & WHATSAPP SYNC BAR */}
 
-          <div className="flex items-center gap-3 bg-blue-50 text-blue-800 p-4 rounded-2xl border border-blue-100 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-blue-50 text-blue-800 p-4 rounded-2xl border border-blue-100 mb-6">
 
-            <ShieldCheck
-              size={24}
-              className="text-blue-600 flex-shrink-0"
-            />
+            <div className="flex items-center gap-3">
+              <ShieldCheck
+                size={24}
+                className="text-blue-600 flex-shrink-0"
+              />
 
-            <p className="text-sm font-bold leading-tight">
-              Identity details required for{' '}
-              {stayInfo.occupants}{' '}
-              occupant(s). Verify original ID physically before check-in.
-            </p>
+              <p className="text-sm font-bold leading-tight">
+                Identity details required for{' '}
+                {stayInfo.occupants}{' '}
+                occupant(s). Verify original ID physically before check-in.
+              </p>
+            </div>
+
+            {waSyncEnabled && (
+              <button
+                type="button"
+                onClick={() => setWaModalOpen(true)}
+                className={`self-start sm:self-auto px-3.5 py-2 rounded-xl font-black text-xs uppercase tracking-wider flex items-center gap-2 transition-all shadow-sm shrink-0 active:scale-95 ${
+                  waStatus === 'connected'
+                    ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                    : 'bg-green-600 text-white hover:bg-green-700 animate-pulse'
+                }`}
+              >
+                <MessageSquare size={14} />
+                <span>
+                  {waStatus === 'connected' ? `WhatsApp Active (${waPhone || 'Linked'})` : 'Connect WhatsApp'}
+                </span>
+              </button>
+            )}
 
           </div>
+
+          {/* RECENT WHATSAPP PHOTOS PANEL */}
+          {waSyncEnabled && waRecentMedia.length > 0 && (
+            <div className="bg-emerald-50/80 border-2 border-emerald-200 p-4 sm:p-5 rounded-3xl mb-6 shadow-sm">
+              <div className="flex justify-between items-center mb-3">
+                <h4 className="text-xs font-black text-emerald-900 uppercase tracking-widest flex items-center gap-2">
+                  <MessageSquare size={16} className="text-emerald-600" />
+                  Live WhatsApp Incoming IDs ({waRecentMedia.length})
+                </h4>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-full">
+                  Instant Auto-Fill
+                </span>
+              </div>
+              <div className="flex gap-4 overflow-x-auto pb-2 custom-scrollbar">
+                {waRecentMedia.map((media) => (
+                  <div key={media._id} className="shrink-0 w-44 bg-white p-3 rounded-2xl border border-emerald-100 shadow-sm flex flex-col justify-between">
+                    <div>
+                      <div className="relative h-28 rounded-xl overflow-hidden bg-gray-100 mb-2 border border-gray-200">
+                        <img src={media.imageUrl} alt="WhatsApp ID" className="w-full h-full object-cover" />
+                      </div>
+                      <p className="text-[11px] font-bold text-gray-900 truncate">
+                        {media.senderName ? `${media.senderName}` : `+${media.senderPhone}`}
+                      </p>
+                      <p className="text-[9px] text-gray-400 font-semibold mb-2">
+                        +{media.senderPhone} • {new Date(media.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5 pt-1 border-t border-gray-100">
+                      <button
+                        type="button"
+                        onClick={() => handleApplyWhatsAppPhoto(0, media.imageUrl, 'front', media._id)}
+                        className="py-1.5 px-2 bg-black text-white text-[10px] font-black rounded-lg hover:bg-gray-800 transition-all uppercase tracking-wider text-center active:scale-95 shadow-sm"
+                      >
+                        Front ID
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyWhatsAppPhoto(0, media.imageUrl, 'back', media._id)}
+                        className="py-1.5 px-2 bg-emerald-600 text-white text-[10px] font-black rounded-lg hover:bg-emerald-700 transition-all uppercase tracking-wider text-center active:scale-95 shadow-sm"
+                      >
+                        Back ID
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* GUESTS */}
 
@@ -1735,7 +2048,15 @@ const CheckIn = () => {
 
                       {!guest.idProofImage ? (
                         <>
-                          <div className="flex gap-3">
+                          <div 
+                            className="flex gap-2"
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              const f = e.dataTransfer.files[0];
+                              if (f) handleImageUpload(index, f, 'front');
+                            }}
+                          >
                             <label
                               htmlFor={`cam-front-${index}`}
                               className="flex-1 flex flex-col items-center justify-center gap-1.5 p-3 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:bg-black hover:border-black hover:text-white transition-all group text-gray-500"
@@ -1776,6 +2097,18 @@ const CheckIn = () => {
                                 }
                               />
                             </label>
+
+                            <button
+                              type="button"
+                              onClick={() => handlePasteImage(index, 'front')}
+                              title="Paste image copied from WhatsApp (Ctrl+V)"
+                              className="flex-1 flex flex-col items-center justify-center gap-1.5 p-3 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:bg-black hover:border-black hover:text-white transition-all group text-gray-500"
+                            >
+                              <Clipboard size={20} className="group-hover:text-white" />
+                              <span className="text-[10px] font-black uppercase tracking-widest">
+                                Paste
+                              </span>
+                            </button>
                           </div>
 
                           {uploadingImage && !guest.idProofImage && (
@@ -1830,7 +2163,15 @@ const CheckIn = () => {
 
                       {!guest.idProofImageBack ? (
                         <>
-                          <div className="flex gap-3">
+                          <div 
+                            className="flex gap-2"
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              const f = e.dataTransfer.files[0];
+                              if (f) handleImageUpload(index, f, 'back');
+                            }}
+                          >
                             <label
                               htmlFor={`cam-back-${index}`}
                               className="flex-1 flex flex-col items-center justify-center gap-1.5 p-3 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:bg-black hover:border-black hover:text-white transition-all group text-gray-500"
@@ -1871,6 +2212,18 @@ const CheckIn = () => {
                                 }
                               />
                             </label>
+
+                            <button
+                              type="button"
+                              onClick={() => handlePasteImage(index, 'back')}
+                              title="Paste image copied from WhatsApp (Ctrl+V)"
+                              className="flex-1 flex flex-col items-center justify-center gap-1.5 p-3 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:bg-black hover:border-black hover:text-white transition-all group text-gray-500"
+                            >
+                              <Clipboard size={20} className="group-hover:text-white" />
+                              <span className="text-[10px] font-black uppercase tracking-widest">
+                                Paste
+                              </span>
+                            </button>
                           </div>
 
                           {uploadingImage && !guest.idProofImageBack && (
@@ -1982,6 +2335,145 @@ const CheckIn = () => {
 
           </div>
 
+        </div>
+      )}
+
+      {/* =====================================================
+          WHATSAPP QR CONNECTION MODAL
+      ===================================================== */}
+      {waModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-gray-100 relative max-h-[90vh] overflow-y-auto">
+            {/* CLOSE BUTTON */}
+            <button
+              onClick={() => setWaModalOpen(false)}
+              className="absolute top-5 right-5 text-gray-400 hover:text-black p-2 rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <X size={20} />
+            </button>
+
+            {/* HEADER */}
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-600 shadow-sm">
+                <MessageSquare size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-gray-900 leading-tight">
+                  WhatsApp Live Sync
+                </h3>
+                <p className="text-xs text-gray-500 font-bold">
+                  {waStatus === 'connected' ? 'Active & Receiving Photos' : 'Instant Photo Sync from Guest WhatsApp'}
+                </p>
+              </div>
+            </div>
+
+            {/* STATUS BODY */}
+            {waStatus === 'connected' ? (
+              <div className="text-center py-4 space-y-4">
+                <div className="w-16 h-16 bg-emerald-500 text-white rounded-full flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/30">
+                  <Check size={36} strokeWidth={3} />
+                </div>
+                <div>
+                  <h4 className="text-base font-black text-gray-900">WhatsApp Is Linked!</h4>
+                  <p className="text-xs text-gray-500 font-bold mt-1">
+                    Connected Number: <span className="text-emerald-700 font-black">+{waPhone || 'Active Device'}</span>
+                  </p>
+                </div>
+                <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 text-left">
+                  <p className="text-xs font-bold text-emerald-900 leading-relaxed">
+                    🎉 <strong className="font-black">How it works:</strong> Whenever a guest sends their Aadhaar or ID photo to this WhatsApp number, it will automatically show up on your Check-In screen under <em>"Live WhatsApp Incoming IDs"</em>. Click 1 button to fill!
+                  </p>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => setWaModalOpen(false)}
+                    className="flex-1 py-3.5 bg-black text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-gray-800 transition-all shadow-md active:scale-95"
+                  >
+                    Done
+                  </button>
+                  <button
+                    onClick={handleDisconnectWhatsApp}
+                    disabled={loadingWa}
+                    className="px-4 py-3.5 bg-red-50 text-red-600 font-black text-xs uppercase tracking-widest rounded-xl hover:bg-red-100 transition-all border border-red-200 active:scale-95 disabled:opacity-50"
+                  >
+                    Disconnect
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* INSTRUCTIONS */}
+                <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 space-y-2 text-xs font-bold text-gray-700">
+                  <p className="font-black text-gray-900 uppercase text-[11px] tracking-wider mb-1">
+                    3 Easy Steps to Link:
+                  </p>
+                  <div className="flex items-start gap-2">
+                    <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-black shrink-0">1</span>
+                    <span>Open <strong>WhatsApp</strong> on reception phone</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-black shrink-0">2</span>
+                    <span>Tap <strong>Settings / 3 Dots</strong> ➜ <strong>Linked Devices</strong></span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-black shrink-0">3</span>
+                    <span>Tap <strong>Link a Device</strong> & point phone camera at this QR code</span>
+                  </div>
+                </div>
+
+                {/* QR CODE DISPLAY */}
+                <div className="text-center py-2">
+                  {waQr ? (
+                    <div className="space-y-3">
+                      <div className="inline-block p-3 bg-white border-2 border-emerald-500 rounded-2xl shadow-xl">
+                        <img
+                          src={waQr}
+                          alt="WhatsApp QR Code"
+                          className="w-56 h-56 mx-auto object-contain"
+                        />
+                      </div>
+                      <p className="text-[11px] text-gray-500 font-bold flex items-center justify-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Waiting for phone scan... Auto-connects instantly!
+                      </p>
+                      <button
+                        onClick={handleStartWhatsApp}
+                        disabled={loadingWa}
+                        className="text-xs font-black text-emerald-700 hover:text-emerald-900 underline flex items-center justify-center gap-1 mx-auto"
+                      >
+                        <RefreshCw size={12} className={loadingWa ? 'animate-spin' : ''} />
+                        Refresh QR Code
+                      </button>
+                    </div>
+                  ) : loadingWa ? (
+                    <div className="h-56 flex flex-col items-center justify-center bg-gray-50 rounded-2xl border border-gray-100 p-6 space-y-3">
+                      <RefreshCw size={32} className="animate-spin text-emerald-600" />
+                      <p className="text-xs font-black text-gray-700">Starting WhatsApp Connection...</p>
+                      <p className="text-[10px] text-gray-400 font-bold">Generating unique multi-device QR code</p>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6">
+                      <button
+                        onClick={handleStartWhatsApp}
+                        className="py-4 px-6 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm uppercase tracking-wider rounded-2xl shadow-xl shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 mx-auto active:scale-95"
+                      >
+                        <QrCode size={18} />
+                        Generate WhatsApp QR
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* PRO TIP / ALTERNATIVE */}
+                <div className="bg-purple-50 border border-purple-100 rounded-2xl p-3.5 flex items-start gap-2.5">
+                  <Sparkles size={16} className="text-purple-600 shrink-0 mt-0.5" />
+                  <p className="text-[11px] font-bold text-purple-900 leading-tight">
+                    <strong>2-Second Shortcut:</strong> On WhatsApp Web, right-click photo ➜ <em>"Copy Image"</em> ➜ press <kbd className="bg-purple-200 px-1 py-0.5 rounded text-[10px] font-black">Ctrl + V</kbd> or click <strong>[ 📋 Paste ]</strong> on Check-In screen without linking phone!
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

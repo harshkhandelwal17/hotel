@@ -141,3 +141,25 @@ exports.toggleHostelAiOcr = async (req, res, next) => {
   }
 };
 
+exports.toggleHostelWhatsAppSync = async (req, res, next) => {
+  try {
+    const hostel = await Hostel.findById(req.params.id);
+    if (!hostel) return res.status(404).json({ success: false, message: 'Property not found' });
+
+    hostel.whatsappSyncEnabled = !hostel.whatsappSyncEnabled;
+    if (!hostel.whatsappSyncEnabled) {
+      hostel.whatsappStatus = 'disconnected';
+    }
+    await hostel.save();
+
+    res.status(200).json({ 
+      success: true, 
+      message: `WhatsApp Sync ${hostel.whatsappSyncEnabled ? 'enabled' : 'disabled'} for ${hostel.name}`,
+      data: hostel 
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+

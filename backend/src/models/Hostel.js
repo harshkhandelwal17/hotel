@@ -34,6 +34,19 @@ const hostelSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  whatsappSyncEnabled: {
+    type: Boolean,
+    default: false
+  },
+  whatsappStatus: {
+    type: String,
+    enum: ['disconnected', 'connecting', 'connected'],
+    default: 'disconnected'
+  },
+  whatsappPhone: {
+    type: String,
+    default: ''
+  },
   owner: {
     type: mongoose.Schema.ObjectId,
     ref: 'User'

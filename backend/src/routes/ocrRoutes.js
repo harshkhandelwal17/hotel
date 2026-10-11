@@ -9,3 +9,4 @@ router.use(protect);
 router.post('/scan-id', scanIdCard);
 
 module.exports = router;
+
