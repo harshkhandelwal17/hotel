@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { format } from 'date-fns';
-import { X, ShieldCheck, Download, Printer, Calendar, Clock, Building, Users, CheckCircle2 } from 'lucide-react';
+import { X, ShieldCheck, Download, Printer, Clock, Building, Users } from 'lucide-react';
 
 export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels = [], defaultHostel = 'all' }) {
   if (!isOpen) return null;
@@ -102,8 +102,6 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
     };
 
     matchingStays.forEach(stay => {
-      const hotelName = stay.hostel?.name || 'Hotel';
-      const hotelPhone = stay.hostel?.contactNumber || 'N/A';
       const roomNumber = stay.room?.roomNumber || 'N/A';
       const checkInFormatted = safeDate(stay.checkInDate);
       
@@ -115,28 +113,21 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
       }
       
       const stayStatus = stay.status === 'Checked Out' ? 'Checked Out' : 'Currently In Hotel';
-      const occupantsCount = stay.occupants || (1 + (stay.coGuests?.length || 0));
 
       // 1. Primary Guest
       if (stay.guest) {
         rows.push({
           srNo: serial++,
           stayId: stay._id,
-          hotelName,
-          hotelPhone,
           roomNumber,
           guestName: stay.guest.fullName || 'N/A',
           guestType: 'Primary Guest',
           mobileNumber: stay.guest.mobileNumber || 'N/A',
-          gender: stay.guest.gender || 'N/A',
           idProofType: stay.guest.idProofType || 'Aadhaar',
-          idProofNumber: stay.guest.idProofNumber || 'N/A',
           address: stay.guest.address || 'N/A',
           checkInDate: checkInFormatted,
           checkOutDate: checkOutFormatted,
-          stayStatus,
-          occupants: occupantsCount,
-          remarks: stay.notes || ''
+          stayStatus
         });
       }
 
@@ -146,21 +137,15 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
           rows.push({
             srNo: serial++,
             stayId: stay._id,
-            hotelName,
-            hotelPhone,
             roomNumber,
             guestName: cg.fullName || 'N/A',
             guestType: 'Co-Guest',
             mobileNumber: cg.mobileNumber || 'N/A',
-            gender: cg.gender || 'N/A',
             idProofType: cg.idProofType || 'Aadhaar',
-            idProofNumber: cg.idProofNumber || 'N/A',
             address: cg.address || (stay.guest?.address || 'N/A'),
             checkInDate: checkInFormatted,
             checkOutDate: checkOutFormatted,
-            stayStatus,
-            occupants: occupantsCount,
-            remarks: `Co-Guest with ${stay.guest?.fullName || 'Primary'}`
+            stayStatus
           });
         });
       }
@@ -245,20 +230,20 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
         <head>
           <title>Police Station Daily Arrival Register</title>
           <style>
-            @page { size: A4 landscape; margin: 10mm; }
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; font-size: 11px; color: #111; margin: 0; padding: 15px; }
-            .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 12px; }
-            .header h1 { margin: 0; font-size: 18px; text-transform: uppercase; font-weight: 900; letter-spacing: 0.5px; }
-            .header h2 { margin: 4px 0 0; font-size: 13px; font-weight: 700; color: #333; }
-            .header p { margin: 3px 0 0; font-size: 11px; color: #555; }
-            .meta-bar { display: flex; justify-content: space-between; margin-bottom: 10px; font-weight: 600; font-size: 11px; background: #f4f4f4; padding: 6px 10px; border: 1px solid #ddd; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
-            th, td { border: 1px solid #444; padding: 5px 6px; text-align: left; vertical-align: top; }
+            @page { size: A4 landscape; margin: 8mm; }
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; font-size: 11px; color: #111; margin: 0; padding: 12px; }
+            .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 10px; }
+            .header h1 { margin: 0; font-size: 16px; text-transform: uppercase; font-weight: 900; letter-spacing: 0.5px; }
+            .header h2 { margin: 3px 0 0; font-size: 12px; font-weight: 700; color: #333; }
+            .header p { margin: 2px 0 0; font-size: 10px; color: #555; }
+            .meta-bar { display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 600; font-size: 10px; background: #f4f4f4; padding: 5px 8px; border: 1px solid #ddd; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+            th, td { border: 1px solid #444; padding: 4px 6px; text-align: left; vertical-align: top; }
             th { background-color: #e9ecef; font-weight: 800; font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px; }
             tr:nth-child(even) { background-color: #fafafa; }
             .text-center { text-align: center; }
-            .signatures { display: flex; justify-content: space-between; margin-top: 40px; padding: 0 30px; }
-            .sig-box { width: 260px; text-align: center; border-top: 1px dashed #000; padding-top: 6px; font-size: 11px; font-weight: 700; }
+            .signatures { display: flex; justify-content: space-between; margin-top: 35px; padding: 0 25px; }
+            .sig-box { width: 240px; text-align: center; border-top: 1px dashed #000; padding-top: 5px; font-size: 10px; font-weight: 700; }
           </style>
         </head>
         <body>
@@ -333,43 +318,47 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white rounded-t-[28px] sm:rounded-3xl shadow-2xl border border-gray-100 w-full sm:max-w-4xl h-[92vh] sm:h-auto sm:max-h-[90vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom-6 sm:zoom-in-95 duration-200">
         
         {/* Header */}
-        <div className="p-6 bg-gradient-to-r from-indigo-900 via-indigo-800 to-blue-900 text-white flex justify-between items-start shrink-0">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-500/30 text-indigo-200 border border-indigo-400/30">
-                Official Government Format
-              </span>
-              <span className="text-xs text-indigo-200 font-semibold">• Police Station Record</span>
+        <div className="p-4 sm:p-5 bg-gradient-to-r from-indigo-900 via-indigo-800 to-blue-900 text-white flex justify-between items-center shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/20">
+              <ShieldCheck className="text-emerald-400" size={24} />
             </div>
-            <h2 className="text-2xl font-black tracking-tight flex items-center gap-2.5">
-              <ShieldCheck className="text-emerald-400" size={26} />
-              Police Station Guest Report
-            </h2>
-            <p className="text-xs text-indigo-200 mt-1 font-medium">
-              Filter and download guest check-in arrival register for police station submission.
-            </p>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg sm:text-xl font-black tracking-tight">
+                  Police Station Report
+                </h2>
+                <span className="hidden sm:inline-block px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-indigo-500/30 text-indigo-200 border border-indigo-400/30">
+                  Sarai Act Register
+                </span>
+              </div>
+              <p className="text-[11px] sm:text-xs text-indigo-200 font-medium">
+                Official guest arrival ledger for police verification
+              </p>
+            </div>
           </div>
           <button 
             onClick={onClose}
-            className="p-2 text-indigo-200 hover:text-white hover:bg-white/10 rounded-xl transition-colors"
+            className="p-2 text-indigo-200 hover:text-white hover:bg-white/10 rounded-xl transition-colors shrink-0"
+            aria-label="Close"
           >
             <X size={20} />
           </button>
         </div>
 
-        {/* Filters Section */}
-        <div className="p-6 bg-gray-50/70 border-b border-gray-200 space-y-4 shrink-0 overflow-y-auto max-h-[36vh]">
+        {/* Scrollable Modal Body */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
           
-          {/* Quick Date Presets */}
+          {/* Preset Buttons - Horizontal scroll on mobile */}
           <div>
-            <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-2">
-              Select Time Range (तारीख / समय चुनें)
+            <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1.5">
+              Select Time Range (समय सीमा चुनें)
             </label>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex gap-1.5 overflow-x-auto pb-1 sm:flex-wrap no-scrollbar">
               {[
                 { id: 'today', label: 'Today (आज)' },
                 { id: 'yesterday', label: 'Yesterday (कल)' },
@@ -383,10 +372,10 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
                   key={preset.id}
                   type="button"
                   onClick={() => setDatePreset(preset.id)}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black shrink-0 transition-all ${
                     datePreset === preset.id
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 scale-[1.02]'
-                      : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-300 hover:bg-gray-100'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
                   }`}
                 >
                   {preset.label}
@@ -397,44 +386,43 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
 
           {/* Custom Date & Time Inputs */}
           {datePreset === 'custom' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-white rounded-2xl border border-indigo-100 shadow-sm animate-in fade-in slide-in-from-top-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-indigo-50/60 rounded-2xl border border-indigo-100 shadow-sm animate-in fade-in duration-200">
               <div>
-                <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1 flex items-center gap-1.5">
+                <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1 flex items-center gap-1">
                   <Clock size={12} className="text-indigo-600" /> Start Date & Time (कब से)
                 </label>
                 <input
                   type="datetime-local"
                   value={customStart}
                   onChange={e => setCustomStart(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-800 focus:ring-2 focus:ring-indigo-600 outline-none"
+                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-800 focus:ring-2 focus:ring-indigo-600 outline-none"
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1 flex items-center gap-1.5">
+                <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1 flex items-center gap-1">
                   <Clock size={12} className="text-indigo-600" /> End Date & Time (कब तक)
                 </label>
                 <input
                   type="datetime-local"
                   value={customEnd}
                   onChange={e => setCustomEnd(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-800 focus:ring-2 focus:ring-indigo-600 outline-none"
+                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-800 focus:ring-2 focus:ring-indigo-600 outline-none"
                 />
               </div>
             </div>
           )}
 
-          {/* Secondary Filters (Property, Status, Basis) */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-            {/* Property Selector */}
+          {/* Secondary Filters */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             {hostels.length > 1 && (
               <div>
                 <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1 flex items-center gap-1">
-                  <Building size={12} /> Hotel Property
+                  <Building size={11} /> Hotel Property
                 </label>
                 <select
                   value={selectedHostel}
                   onChange={e => setSelectedHostel(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-700 outline-none focus:ring-2 focus:ring-indigo-600"
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 outline-none focus:ring-2 focus:ring-indigo-600"
                 >
                   <option value="all">All Properties</option>
                   {hostels.map(h => (
@@ -444,7 +432,6 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
               </div>
             )}
 
-            {/* Guest Status */}
             <div>
               <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">
                 Stay Status (अवस्था)
@@ -452,7 +439,7 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
               <select
                 value={statusFilter}
                 onChange={e => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-700 outline-none focus:ring-2 focus:ring-indigo-600"
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 outline-none focus:ring-2 focus:ring-indigo-600"
               >
                 <option value="all">All Guests (Sabhi Stays)</option>
                 <option value="Active">Currently In Hotel (Checked-In)</option>
@@ -460,7 +447,6 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
               </select>
             </div>
 
-            {/* Filter Basis */}
             <div>
               <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">
                 Filter Basis
@@ -468,118 +454,124 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
               <select
                 value={filterBasis}
                 onChange={e => setFilterBasis(e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-700 outline-none focus:ring-2 focus:ring-indigo-600"
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 outline-none focus:ring-2 focus:ring-indigo-600"
               >
                 <option value="checkIn">Check-In Arrival Time (Standard)</option>
                 <option value="stayActive">Any Active Stay in Range</option>
               </select>
             </div>
           </div>
-        </div>
 
-        {/* Live Preview Summary Bar */}
-        <div className="px-6 py-3 bg-indigo-50/50 border-b border-indigo-100 flex flex-wrap items-center justify-between gap-3 text-xs shrink-0">
-          <div className="flex items-center gap-3">
-            <span className="font-bold text-indigo-900 flex items-center gap-1.5">
-              <Users size={14} className="text-indigo-600" />
-              Found: <strong className="font-black text-indigo-700 text-sm">{policeRows.length}</strong> Guests
-            </span>
-            <span className="text-gray-400">•</span>
-            <span className="text-gray-600 font-semibold">
-              Across <strong className="text-gray-900">{matchingStays.length}</strong> Room Bookings
+          {/* Live Preview Summary Bar */}
+          <div className="p-3 bg-indigo-50/60 rounded-xl border border-indigo-100 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-indigo-900 flex items-center gap-1.5">
+                <Users size={14} className="text-indigo-600" />
+                Found: <strong className="font-black text-indigo-700">{policeRows.length}</strong> Guests
+              </span>
+              <span className="text-gray-400">•</span>
+              <span className="text-gray-600 font-semibold">
+                In <strong className="text-gray-900">{matchingStays.length}</strong> Stays
+              </span>
+            </div>
+            <span className="text-[10px] font-bold text-indigo-700 bg-indigo-100/80 px-2 py-0.5 rounded-md">
+              {rangeLabel}
             </span>
           </div>
-          <span className="text-[11px] font-bold text-indigo-700 bg-indigo-100/70 px-2.5 py-1 rounded-lg">
-            Period: {rangeLabel}
-          </span>
-        </div>
 
-        {/* Data Table Preview */}
-        <div className="flex-1 overflow-auto p-4 min-h-[160px]">
-          {policeRows.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center text-gray-400">
-              <ShieldCheck size={40} className="stroke-[1.5] text-gray-300 mb-2" />
-              <p className="font-bold text-gray-600 text-sm">No guest arrivals found for this time range.</p>
-              <p className="text-xs text-gray-400 mt-1">Try selecting a different date range or preset above.</p>
+          {/* Table Container with Horizontal Scroll */}
+          <div className="border border-gray-200 rounded-2xl overflow-hidden bg-white shadow-sm">
+            <div className="p-2.5 bg-gray-50 border-b border-gray-200 flex justify-between items-center text-[11px] font-bold text-gray-600">
+              <span>Preview (First 15 Rows)</span>
+              <span className="text-[10px] text-gray-400 sm:hidden">👈 Scroll table sideways 👉</span>
             </div>
-          ) : (
-            <div className="border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-gray-100 text-gray-600 font-black uppercase text-[10px] tracking-wider border-b border-gray-200">
-                  <tr>
-                    <th className="px-3 py-2.5">Sr.</th>
-                    <th className="px-3 py-2.5">Room</th>
-                    <th className="px-3 py-2.5">Guest Name</th>
-                    <th className="px-3 py-2.5">Type</th>
-                    <th className="px-3 py-2.5">Mobile</th>
-                    <th className="px-3 py-2.5">ID Proof</th>
-                    <th className="px-3 py-2.5">Check-In</th>
-                    <th className="px-3 py-2.5">Address</th>
-                    <th className="px-3 py-2.5">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
-                  {policeRows.slice(0, 15).map(r => (
-                    <tr key={`${r.stayId}-${r.srNo}`} className="hover:bg-gray-50/70 transition-colors">
-                      <td className="px-3 py-2 font-bold text-gray-400">{r.srNo}</td>
-                      <td className="px-3 py-2 font-black text-gray-900">{r.roomNumber}</td>
-                      <td className="px-3 py-2 font-bold text-gray-900">{r.guestName}</td>
-                      <td className="px-3 py-2">
-                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
-                          r.guestType === 'Primary Guest' ? 'bg-indigo-50 text-indigo-700' : 'bg-gray-100 text-gray-600'
-                        }`}>
-                          {r.guestType === 'Primary Guest' ? 'Primary' : 'Co-Guest'}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 font-mono text-[11px]">{r.mobileNumber}</td>
-                      <td className="px-3 py-2">
-                        <span className="font-semibold text-gray-900">{r.idProofType}</span>
-                      </td>
-                      <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{r.checkInDate}</td>
-                      <td className="px-3 py-2 text-gray-500 max-w-[140px] truncate" title={r.address}>{r.address}</td>
-                      <td className="px-3 py-2">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          r.stayStatus === 'Currently In Hotel' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                        }`}>
-                          {r.stayStatus === 'Currently In Hotel' ? 'In Hotel' : 'Out'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {policeRows.length > 15 && (
-                <div className="p-2 bg-gray-50 text-center text-[11px] font-bold text-gray-500 border-t border-gray-200">
-                  + {policeRows.length - 15} more guest rows will be included in the downloaded report
+            
+            <div className="overflow-x-auto w-full max-h-[35vh] sm:max-h-[30vh]">
+              {policeRows.length === 0 ? (
+                <div className="p-8 text-center text-gray-400">
+                  <ShieldCheck size={32} className="stroke-[1.5] text-gray-300 mx-auto mb-1.5" />
+                  <p className="font-bold text-gray-600 text-xs">No records found for this time range.</p>
                 </div>
+              ) : (
+                <table className="w-full text-left text-xs min-w-[720px]">
+                  <thead className="bg-gray-100 text-gray-600 font-black uppercase text-[10px] tracking-wider sticky top-0 z-10 border-b border-gray-200">
+                    <tr>
+                      <th className="px-3 py-2">Sr.</th>
+                      <th className="px-3 py-2">Room</th>
+                      <th className="px-3 py-2">Guest Name</th>
+                      <th className="px-3 py-2">Type</th>
+                      <th className="px-3 py-2">Mobile</th>
+                      <th className="px-3 py-2">ID Proof</th>
+                      <th className="px-3 py-2">Check-In</th>
+                      <th className="px-3 py-2">Address</th>
+                      <th className="px-3 py-2">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
+                    {policeRows.slice(0, 15).map(r => (
+                      <tr key={`${r.stayId}-${r.srNo}`} className="hover:bg-gray-50/70 transition-colors">
+                        <td className="px-3 py-2 font-bold text-gray-400">{r.srNo}</td>
+                        <td className="px-3 py-2 font-black text-gray-900">{r.roomNumber}</td>
+                        <td className="px-3 py-2 font-bold text-gray-900">{r.guestName}</td>
+                        <td className="px-3 py-2">
+                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
+                            r.guestType === 'Primary Guest' ? 'bg-indigo-50 text-indigo-700' : 'bg-gray-100 text-gray-600'
+                          }`}>
+                            {r.guestType === 'Primary Guest' ? 'Primary' : 'Co-Guest'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 font-mono text-[11px]">{r.mobileNumber}</td>
+                        <td className="px-3 py-2 font-semibold text-gray-800">
+                          {r.idProofType}
+                        </td>
+                        <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{r.checkInDate}</td>
+                        <td className="px-3 py-2 text-gray-500 max-w-[160px] truncate" title={r.address}>{r.address}</td>
+                        <td className="px-3 py-2">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            r.stayStatus === 'Currently In Hotel' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                          }`}>
+                            {r.stayStatus === 'Currently In Hotel' ? 'In Hotel' : 'Out'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               )}
             </div>
-          )}
+
+            {policeRows.length > 15 && (
+              <div className="p-2 bg-gray-50 text-center text-[10px] font-bold text-gray-500 border-t border-gray-200">
+                + {policeRows.length - 15} more rows will be included in download
+              </div>
+            )}
+          </div>
+
         </div>
 
-        {/* Footer Actions */}
-        <div className="p-5 bg-white border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
-          <p className="text-xs text-gray-500 font-medium">
-            Standard Form B / Sarai Act format accepted by local police stations.
+        {/* Footer Actions - Sticky & Mobile Responsive */}
+        <div className="p-3.5 sm:p-4 bg-white border-t border-gray-200 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5 shrink-0">
+          <p className="text-[11px] text-gray-500 font-medium hidden sm:block">
+            Form B / Sarai Act format for police station records.
           </p>
-          <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
               type="button"
               onClick={handlePrint}
               disabled={policeRows.length === 0}
-              className="flex-1 sm:flex-none px-4 py-2.5 bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-800 rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-2 active:scale-95"
+              className="flex-1 sm:flex-none px-4 py-2.5 bg-gray-100 hover:bg-gray-200 disabled:opacity-40 text-gray-800 rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-1.5 active:scale-95"
             >
-              <Printer size={16} />
-              Print / Save PDF
+              <Printer size={15} />
+              Print / PDF
             </button>
             <button
               type="button"
               onClick={handleDownloadCSV}
               disabled={policeRows.length === 0}
-              className="flex-1 sm:flex-none px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all shadow-md hover:shadow-indigo-200 flex items-center justify-center gap-2 active:scale-95"
+              className="flex-1 sm:flex-none px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-1.5 active:scale-95"
             >
-              <Download size={16} />
-              Download CSV (Excel)
+              <Download size={15} />
+              Download CSV
             </button>
           </div>
         </div>
@@ -588,4 +580,3 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
     </div>
   );
 }
-
