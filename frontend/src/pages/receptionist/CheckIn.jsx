@@ -1377,9 +1377,46 @@ const CheckIn = () => {
 
               <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
 
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">
-                  Duration of Stay
-                </label>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                    Duration of Stay
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const now = new Date();
+                        const target = new Date();
+                        if (now.getHours() < 6) {
+                          target.setHours(10, 0, 0, 0);
+                        } else {
+                          target.setDate(now.getDate() + 1);
+                          target.setHours(10, 0, 0, 0);
+                        }
+                        const diffMs = target.getTime() - now.getTime();
+                        const totalHours = Math.max(1, Math.round(diffMs / (1000 * 60 * 60)));
+                        const days = Math.floor(totalHours / 24);
+                        const hours = totalHours % 24;
+                        setStayInfo(p => ({
+                          ...p,
+                          durationDays: days,
+                          durationHours: hours
+                        }));
+                      }}
+                      className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg text-[11px] font-black transition-all shadow-sm"
+                      title="Standard hotel checkout: Tomorrow 10:00 AM"
+                    >
+                      ☀️ Morning 10 AM Checkout
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStayInfo(p => ({ ...p, durationDays: 1, durationHours: 0 }))}
+                      className="px-2.5 py-1 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg text-[11px] font-black transition-all"
+                    >
+                      🌙 24 Hours
+                    </button>
+                  </div>
+                </div>
 
                 <div className="flex gap-3">
 
@@ -1475,6 +1512,9 @@ const CheckIn = () => {
               <h2 className="text-lg font-black text-gray-900 flex items-center gap-2">
                 <Bed className="text-gray-400" />
                 2. Select Room
+                <span className="text-xs font-black text-green-700 bg-green-100 px-2.5 py-0.5 rounded-full ml-1">
+                  {rooms.filter((r) => !r.isOccupied).length} Available
+                </span>
               </h2>
 
               <div className="relative">
@@ -1503,6 +1543,7 @@ const CheckIn = () => {
                       const exactMatch =
                         rooms.find(
                           (r) =>
+                            !r.isOccupied &&
                             r.roomNumber
                               .toLowerCase() ===
                             val
@@ -1537,14 +1578,15 @@ const CheckIn = () => {
                 <SkeletonRoom />
                 <SkeletonRoom />
               </div>
-            ) : rooms.length === 0 ? (
-              <div className="text-center py-10 bg-red-50 text-red-600 rounded-2xl font-bold">
-                No rooms available currently.
+            ) : rooms.filter((r) => !r.isOccupied).length === 0 ? (
+              <div className="text-center py-10 bg-amber-50 text-amber-800 rounded-2xl font-bold">
+                No vacant rooms available right now. All rooms are booked.
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
 
                 {rooms
+                  .filter((r) => !r.isOccupied)
                   .filter((r) =>
                     r.roomNumber
                       .toLowerCase()
@@ -1555,10 +1597,7 @@ const CheckIn = () => {
                   .map((room) => {
                     const active = stayInfo.room === room._id;
                     const isFull = stayInfo.occupants > room.capacity;
-                    const isOccupied = !!room.isOccupied;
-                    const isDisabled = isFull || isOccupied;
-
-
+                    const isDisabled = isFull;
 
                     return (
                       <button
@@ -1574,11 +1613,9 @@ const CheckIn = () => {
                         className={`relative p-4 rounded-2xl border-2 text-center transition-all ${
                           active
                             ? 'border-black bg-black text-white shadow-xl scale-[1.02]'
-                            : isOccupied
-                            ? 'border-red-100 bg-red-50 opacity-60 cursor-not-allowed'
                             : isFull
                             ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
-                            : 'border-gray-200 hover:border-gray-400 bg-white hover:shadow-md'
+                            : 'border-gray-200 hover:border-black bg-white hover:shadow-md'
                         }`}
                       >
 
@@ -1591,7 +1628,7 @@ const CheckIn = () => {
 
                         <h3
                           className={`font-black text-xl ${
-                            active ? 'text-white' : isOccupied ? 'text-red-700' : 'text-gray-900'
+                            active ? 'text-white' : 'text-gray-900'
                           }`}
                         >
                           {room.roomNumber}
@@ -1599,19 +1636,13 @@ const CheckIn = () => {
 
                         <p
                           className={`text-[10px] font-bold mt-1 ${
-                            active ? 'text-gray-300' : isOccupied ? 'text-red-400' : 'text-gray-500'
+                            active ? 'text-gray-300' : 'text-gray-500'
                           } uppercase tracking-widest`}
                         >
                           Cap. {room.capacity}
                         </p>
 
-                        {isOccupied && (
-                          <span className="text-[9px] text-red-600 font-black block mt-1 uppercase">
-                            Booked
-                          </span>
-                        )}
-
-                        {!isOccupied && isFull && (
+                        {isFull && (
                           <span className="text-[9px] text-red-500 font-black block mt-1 uppercase">
                             Too small
                           </span>
@@ -1680,34 +1711,102 @@ const CheckIn = () => {
 
                 </div>
 
-                <div className="flex justify-between items-center pb-4 border-b border-gray-800">
+                <div className="pb-4 border-b border-gray-800">
 
-                  <span className="text-gray-400 font-bold">
-                    Advance Paid
-                  </span>
+                  <div className="flex justify-between items-center">
 
-                  <div className="flex items-center gap-2">
-
-                    <span className="text-green-500 font-black">
-                      ₹
+                    <span className="text-gray-400 font-bold">
+                      Advance Paid
                     </span>
 
-                    <input
-                      type="number"
-                      placeholder="0"
-                      value={
-                        stayInfo.paidAmount
-                      }
-                      onChange={(e) =>
+                    <div className="flex items-center gap-2">
+
+                      <span className="text-green-500 font-black">
+                        ₹
+                      </span>
+
+                      <input
+                        type="number"
+                        placeholder="0"
+                        value={
+                          stayInfo.paidAmount
+                        }
+                        onChange={(e) =>
+                          setStayInfo((p) => ({
+                            ...p,
+                            paidAmount:
+                              e.target.value
+                          }))
+                        }
+                        className="w-28 bg-transparent text-right font-black text-2xl outline-none border-b-2 border-transparent focus:border-gray-600 text-green-400 placeholder:text-green-800/60 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+
+                    </div>
+
+                  </div>
+
+                  {/* QUICK ADVANCE CHIPS */}
+                  <div className="flex flex-wrap items-center gap-2 mt-3 justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (stayInfo.totalAmount) {
+                          setStayInfo((p) => ({
+                            ...p,
+                            paidAmount: p.totalAmount
+                          }));
+                        }
+                      }}
+                      className={`px-3 py-1 rounded-lg text-xs font-black transition-all ${
+                        stayInfo.paidAmount &&
+                        stayInfo.totalAmount &&
+                        Number(stayInfo.paidAmount) === Number(stayInfo.totalAmount) &&
+                        Number(stayInfo.totalAmount) > 0
+                          ? 'bg-green-500 text-black shadow-lg scale-105'
+                          : 'bg-gray-800 hover:bg-gray-700 text-gray-300'
+                      }`}
+                    >
+                      ⚡ Full Paid {stayInfo.totalAmount ? `(₹${stayInfo.totalAmount})` : ''}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (stayInfo.totalAmount) {
+                          setStayInfo((p) => ({
+                            ...p,
+                            paidAmount: Math.round(Number(p.totalAmount) / 2)
+                          }));
+                        }
+                      }}
+                      className={`px-3 py-1 rounded-lg text-xs font-black transition-all ${
+                        stayInfo.paidAmount &&
+                        stayInfo.totalAmount &&
+                        Number(stayInfo.paidAmount) === Math.round(Number(stayInfo.totalAmount) / 2) &&
+                        Number(stayInfo.paidAmount) > 0
+                          ? 'bg-amber-400 text-black shadow-md'
+                          : 'bg-gray-800 hover:bg-gray-700 text-gray-300'
+                      }`}
+                    >
+                      50% Half
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
                         setStayInfo((p) => ({
                           ...p,
-                          paidAmount:
-                            e.target.value
+                          paidAmount: '0'
                         }))
                       }
-                      className="w-28 bg-transparent text-right font-black text-2xl outline-none border-b-2 border-transparent focus:border-gray-600 text-green-400 placeholder:text-green-800/60 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    />
-
+                      className={`px-3 py-1 rounded-lg text-xs font-black transition-all ${
+                        stayInfo.paidAmount === '0' || stayInfo.paidAmount === 0
+                          ? 'bg-red-500/30 text-red-300 border border-red-500/50'
+                          : 'bg-gray-800 hover:bg-gray-700 text-gray-400'
+                      }`}
+                    >
+                      ₹0 Unpaid
+                    </button>
                   </div>
 
                 </div>
