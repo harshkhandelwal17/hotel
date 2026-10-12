@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useContext } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useContext, useMemo } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../../context/AuthContext';
@@ -70,6 +70,7 @@ const CheckIn = () => {
   const [aiOcrEnabled, setAiOcrEnabled] = useState(false);
   const guestsRef = useRef([]);
   const [roomSearchQuery, setRoomSearchQuery] = useState('');
+  const [selectedFloorFilter, setSelectedFloorFilter] = useState('All');
   const [frequentCoGuests, setFrequentCoGuests] = useState([]);
 
   // WhatsApp Sync State
@@ -224,6 +225,48 @@ const CheckIn = () => {
   const selectedRoomDetails = rooms.find(
     (room) => room._id === stayInfo.room
   );
+
+  const availableFloors = useMemo(() => {
+    const floorMap = {};
+    rooms.filter(r => !r.isOccupied).forEach(r => {
+      const fl = (r.floor || '1').toString().trim();
+      floorMap[fl] = (floorMap[fl] || 0) + 1;
+    });
+    return Object.entries(floorMap).map(([floor, count]) => ({ floor, count }));
+  }, [rooms]);
+
+  const filteredRooms = useMemo(() => {
+    return rooms
+      .filter((r) => !r.isOccupied)
+      .filter((r) => {
+        if (selectedFloorFilter !== 'All') {
+          const fl = (r.floor || '1').toString().trim();
+          if (fl !== selectedFloorFilter) return false;
+        }
+        if (roomSearchQuery.trim()) {
+          return r.roomNumber.toLowerCase().includes(roomSearchQuery.trim().toLowerCase());
+        }
+        return true;
+      });
+  }, [rooms, selectedFloorFilter, roomSearchQuery]);
+
+  const expectedOutPreviewFormatted = useMemo(() => {
+    const now = new Date();
+    const expectedOutPreview = new Date();
+    if (stayInfo.isMorningCheckout) {
+      const days = Math.max(1, Number(stayInfo.durationDays) || 1);
+      if (now.getHours() < 6) {
+        expectedOutPreview.setHours(10, 0, 0, 0);
+      } else {
+        expectedOutPreview.setDate(now.getDate() + days);
+        expectedOutPreview.setHours(10, 0, 0, 0);
+      }
+      return expectedOutPreview.toLocaleString('en-US', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    }
+    expectedOutPreview.setDate(expectedOutPreview.getDate() + (Number(stayInfo.durationDays) || 0));
+    expectedOutPreview.setHours(expectedOutPreview.getHours() + (Number(stayInfo.durationHours) || 0));
+    return expectedOutPreview.toLocaleString('en-US', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  }, [stayInfo.isMorningCheckout, stayInfo.durationDays, stayInfo.durationHours]);
 
   // =========================================================
   // IMPORTANT:
@@ -1253,7 +1296,7 @@ const CheckIn = () => {
   // =========================================================
 
   return (
-    <div className={`mx-auto pb-44 md:pb-12 animate-in fade-in duration-500 transition-all ${waSyncEnabled && step === 2 ? 'max-w-[1500px] px-2 sm:px-4' : 'max-w-4xl px-3 sm:px-4'}`}>
+    <div className={`mx-auto pb-44 md:pb-12 animate-in fade-in duration-500 transition-all ${waSyncEnabled && step === 2 ? 'max-w-[1500px] px-2 sm:px-4' : 'max-w-7xl px-3 sm:px-6'}`}>
 
       {/* HEADER */}
 
@@ -1321,368 +1364,434 @@ const CheckIn = () => {
       ===================================================== */}
 
       {step === 1 && (
-        <div className="space-y-4 sm:space-y-5 animate-in slide-in-from-right-4 duration-300">
+        <div className="animate-in slide-in-from-right-4 duration-300">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6 items-start">
 
-          {/* 1. GUESTS & DURATION */}
-          <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-xs space-y-4">
+            {/* LEFT COLUMN: GUESTS, DURATION & ROOM MATRIX (7 Cols on Desktop) */}
+            <div className="lg:col-span-7 xl:col-span-7 space-y-4">
 
-            <h2 className="text-base sm:text-lg font-black text-gray-900 flex items-center gap-2">
-              <Users className="text-gray-400" size={20} />
-              1. Guests & Duration
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
-
-              {/* OCCUPANTS */}
-              <div className="bg-gray-50 p-3.5 sm:p-4 rounded-xl border border-gray-100 flex flex-col justify-between">
-
-                <div className="flex justify-between items-center mb-2">
-                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                    Total Occupants
-                  </label>
-                  <span className="text-[11px] font-bold text-gray-600">
+              {/* 1. GUESTS & DURATION */}
+              <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-xs space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-black text-gray-900 flex items-center gap-2">
+                    <Users className="text-gray-400" size={18} />
+                    1. Guests & Duration
+                  </h2>
+                  <span className="text-[11px] font-bold text-gray-500">
                     {stayInfo.occupants || 1} Guest{Number(stayInfo.occupants) > 1 ? 's' : ''}
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-gray-200 w-full sm:w-fit justify-between sm:justify-start">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setStayInfo((p) => ({
-                        ...p,
-                        occupants: Math.max(1, (Number(p.occupants) || 1) - 1)
-                      }))
-                    }
-                    className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center font-black text-lg hover:bg-gray-200 active:scale-95 transition-all text-gray-800"
-                  >
-                    -
-                  </button>
+                  {/* OCCUPANTS */}
+                  <div className="bg-gray-50 p-3 sm:p-3.5 rounded-xl border border-gray-100 flex flex-col justify-between">
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">
+                      Total Occupants
+                    </label>
 
-                  <input
-                    type="number"
-                    min="1"
-                    max="99"
-                    value={stayInfo.occupants}
-                    onChange={(e) => {
-                      const val = e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value, 10) || 1);
-                      setStayInfo((p) => ({ ...p, occupants: val }));
-                    }}
-                    onBlur={() => {
-                      if (!stayInfo.occupants || stayInfo.occupants < 1) {
-                        setStayInfo((p) => ({ ...p, occupants: 1 }));
-                      }
-                    }}
-                    className="text-xl sm:text-2xl font-black w-14 text-center outline-none bg-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none font-mono text-gray-900"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setStayInfo((p) => ({
-                        ...p,
-                        occupants: (Number(p.occupants) || 1) + 1
-                      }))
-                    }
-                    className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center font-black text-lg hover:bg-gray-200 active:scale-95 transition-all text-gray-800"
-                  >
-                    +
-                  </button>
-
-                </div>
-
-                {/* Instant Quick Numbers */}
-                <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
-                  <span className="text-[10px] font-bold text-gray-400 mr-1">Quick:</span>
-                  {[1, 2, 3, 4, 6, 10].map((num) => (
-                    <button
-                      key={num}
-                      type="button"
-                      onClick={() => setStayInfo((p) => ({ ...p, occupants: num }))}
-                      className={`px-2 py-0.5 rounded-md text-[11px] font-black transition-all ${
-                        Number(stayInfo.occupants) === num
-                          ? 'bg-black text-white shadow-xs scale-105'
-                          : 'bg-white hover:bg-gray-200 text-gray-700 border border-gray-200'
-                      }`}
-                    >
-                      {num}
-                    </button>
-                  ))}
-                </div>
-
-              </div>
-
-              {/* DURATION */}
-              <div className="bg-gray-50 p-3.5 sm:p-4 rounded-xl border border-gray-100 flex flex-col justify-between">
-
-                <div className="flex flex-wrap items-center justify-between gap-1.5 mb-2">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                    Duration of Stay
-                  </label>
-                  <div className="flex flex-wrap items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setStayInfo(p => ({
-                          ...p,
-                          durationDays: 1,
-                          durationHours: 0,
-                          isMorningCheckout: true
-                        }));
-                      }}
-                      className={`px-2 py-0.5 rounded-md text-[11px] font-black transition-all shadow-xs ${
-                        stayInfo.isMorningCheckout
-                          ? 'bg-amber-400 text-black border border-amber-500 shadow-xs scale-105'
-                          : 'bg-amber-100 hover:bg-amber-200 text-amber-900'
-                      }`}
-                      title="Standard hotel checkout: Sharp 10:00 AM"
-                    >
-                      ☀️ Morning 10 AM
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setStayInfo(p => ({ ...p, durationDays: 1, durationHours: 0, isMorningCheckout: false }))}
-                      className={`px-2 py-0.5 rounded-md text-[11px] font-black transition-all ${
-                        !stayInfo.isMorningCheckout && Number(stayInfo.durationDays) === 1 && (Number(stayInfo.durationHours) === 0 || !stayInfo.durationHours)
-                          ? 'bg-black text-white shadow-xs'
-                          : 'bg-white hover:bg-gray-200 text-gray-700 border border-gray-200'
-                      }`}
-                    >
-                      🌙 24h
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setStayInfo(p => ({ ...p, durationDays: 0, durationHours: 3, isMorningCheckout: false }))}
-                      className={`px-2 py-0.5 rounded-md text-[11px] font-black transition-all ${
-                        !stayInfo.isMorningCheckout && Number(stayInfo.durationDays) === 0 && Number(stayInfo.durationHours) === 3
-                          ? 'bg-black text-white shadow-xs'
-                          : 'bg-white hover:bg-gray-200 text-gray-700 border border-gray-200'
-                      }`}
-                    >
-                      ⚡ 3h (Day)
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-
-                  <div className="flex-1 relative">
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="0"
-                      value={stayInfo.durationDays}
-                      onChange={(e) =>
-                        setStayInfo((p) => ({
-                          ...p,
-                          durationDays: e.target.value === '' ? '' : Math.max(0, e.target.value)
-                        }))
-                      }
-                      className="w-full bg-white border border-gray-200 rounded-lg pl-3 pr-8 py-2 font-black text-base sm:text-lg outline-none focus:border-black transition-colors"
-                    />
-                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] font-black text-gray-400 uppercase tracking-widest pointer-events-none">
-                      Days
-                    </span>
-                  </div>
-
-                  <div className="flex-1 relative">
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="0"
-                      value={stayInfo.durationHours}
-                      onChange={(e) =>
-                        setStayInfo((p) => ({
-                          ...p,
-                          durationHours: e.target.value === '' ? '' : Math.max(0, e.target.value),
-                          isMorningCheckout: false
-                        }))
-                      }
-                      className="w-full bg-white border border-gray-200 rounded-lg pl-3 pr-9 py-2 font-black text-base sm:text-lg outline-none focus:border-black transition-colors"
-                    />
-                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] font-black text-gray-400 uppercase tracking-widest pointer-events-none">
-                      Hours
-                    </span>
-                  </div>
-
-                </div>
-
-                <div className="flex justify-between items-center mt-2">
-                  <p className="text-[10px] text-gray-400 font-bold truncate">
-                    {stayInfo.isMorningCheckout ? 'Standard 10:00 AM' : 'Days + Hours'}
-                  </p>
-                  <p className="text-[11px] font-black text-indigo-700 bg-indigo-50 border border-indigo-100/60 px-2 py-0.5 rounded shrink-0">
-                    Out: {
-                      (() => {
-                        const now = new Date();
-                        const expectedOutPreview = new Date();
-                        if (stayInfo.isMorningCheckout) {
-                          const days = Math.max(1, Number(stayInfo.durationDays) || 1);
-                          if (now.getHours() < 6) {
-                            expectedOutPreview.setHours(10, 0, 0, 0);
-                          } else {
-                            expectedOutPreview.setDate(now.getDate() + days);
-                            expectedOutPreview.setHours(10, 0, 0, 0);
-                          }
-                          return expectedOutPreview.toLocaleString('en-US', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-                        }
-                        expectedOutPreview.setDate(expectedOutPreview.getDate() + (Number(stayInfo.durationDays) || 0));
-                        expectedOutPreview.setHours(expectedOutPreview.getHours() + (Number(stayInfo.durationHours) || 0));
-                        return expectedOutPreview.toLocaleString('en-US', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-                      })()
-                    }
-                  </p>
-                </div>
-
-              </div>
-
-            </div>
-
-          </div>
-
-          {/* 2. ROOM SELECTION */}
-          <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-xs space-y-3">
-
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-
-              <h2 className="text-base sm:text-lg font-black text-gray-900 flex items-center gap-2">
-                <Bed className="text-gray-400" size={20} />
-                2. Select Room
-                <span className="text-xs font-black text-green-700 bg-green-100 px-2.5 py-0.5 rounded-full ml-1">
-                  {rooms.filter((r) => !r.isOccupied).length} Available
-                </span>
-              </h2>
-
-              <div className="relative">
-                <Search
-                  size={14}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                />
-                <input
-                  type="text"
-                  placeholder="Search room..."
-                  className="pl-8 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-black font-bold text-xs sm:text-sm w-full sm:w-56"
-                  value={roomSearchQuery}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setRoomSearchQuery(val);
-                    if (val.trim()) {
-                      const exactMatch = rooms.find(
-                        (r) => !r.isOccupied && r.roomNumber.toLowerCase() === val.trim().toLowerCase()
-                      );
-                      if (exactMatch) {
-                        setStayInfo((p) => ({ ...p, room: exactMatch._id }));
-                      }
-                    }
-                  }}
-                />
-              </div>
-
-            </div>
-
-            {loadingRooms ? (
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 sm:gap-2.5">
-                <SkeletonRoom />
-                <SkeletonRoom />
-                <SkeletonRoom />
-              </div>
-            ) : rooms.filter((r) => !r.isOccupied).length === 0 ? (
-              <div className="text-center py-6 bg-amber-50 text-amber-800 rounded-xl font-bold text-sm">
-                No vacant rooms available right now. All rooms are booked.
-              </div>
-            ) : (
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2 sm:gap-2.5 max-h-[220px] overflow-y-auto pr-1 custom-scrollbar">
-
-                {rooms
-                  .filter((r) => !r.isOccupied)
-                  .filter((r) =>
-                    r.roomNumber
-                      .toLowerCase()
-                      .includes(roomSearchQuery.toLowerCase())
-                  )
-                  .map((room) => {
-                    const active = stayInfo.room === room._id;
-
-                    return (
+                    <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-gray-200 w-full sm:w-fit justify-between sm:justify-start">
                       <button
-                        key={room._id}
                         type="button"
                         onClick={() =>
-                          setStayInfo((prev) => ({
-                            ...prev,
-                            room: room._id
+                          setStayInfo((p) => ({
+                            ...p,
+                            occupants: Math.max(1, (Number(p.occupants) || 1) - 1)
                           }))
                         }
-                        className={`relative p-2.5 sm:p-3 rounded-xl border-2 text-center transition-all ${
-                          active
-                            ? 'border-black bg-black text-white shadow-md scale-[1.03]'
-                            : 'border-gray-200 hover:border-black bg-white hover:shadow-xs'
-                        }`}
+                        className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center font-black text-base hover:bg-gray-200 active:scale-95 transition-all text-gray-800"
                       >
-                        {active && (
-                          <CheckCircle2
-                            className="absolute top-1.5 right-1.5 text-white"
-                            size={14}
-                          />
-                        )}
-
-                        <h3 className={`font-black text-base sm:text-lg ${active ? 'text-white' : 'text-gray-900'}`}>
-                          {room.roomNumber}
-                        </h3>
-
-                        <p className={`text-[9px] font-bold mt-0.5 ${active ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider`}>
-                          Cap. {room.capacity}
-                        </p>
+                        -
                       </button>
-                    );
-                  })}
 
+                      <input
+                        type="number"
+                        min="1"
+                        max="99"
+                        value={stayInfo.occupants}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value, 10) || 1);
+                          setStayInfo((p) => ({ ...p, occupants: val }));
+                        }}
+                        onBlur={() => {
+                          if (!stayInfo.occupants || stayInfo.occupants < 1) {
+                            setStayInfo((p) => ({ ...p, occupants: 1 }));
+                          }
+                        }}
+                        className="text-xl font-black w-12 text-center outline-none bg-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none font-mono text-gray-900"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setStayInfo((p) => ({
+                            ...p,
+                            occupants: (Number(p.occupants) || 1) + 1
+                          }))
+                        }
+                        className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center font-black text-base hover:bg-gray-200 active:scale-95 transition-all text-gray-800"
+                      >
+                        +
+                      </button>
+                    </div>
+
+                    {/* Instant Quick Numbers */}
+                    <div className="flex flex-wrap items-center gap-1 mt-2">
+                      <span className="text-[9px] font-bold text-gray-400 mr-0.5">Quick:</span>
+                      {[1, 2, 3, 4, 6, 10].map((num) => (
+                        <button
+                          key={num}
+                          type="button"
+                          onClick={() => setStayInfo((p) => ({ ...p, occupants: num }))}
+                          className={`px-2 py-0.5 rounded text-[11px] font-black transition-all ${
+                            Number(stayInfo.occupants) === num
+                              ? 'bg-black text-white shadow-xs'
+                              : 'bg-white hover:bg-gray-200 text-gray-700 border border-gray-200'
+                          }`}
+                        >
+                          {num}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* DURATION */}
+                  <div className="bg-gray-50 p-3 sm:p-3.5 rounded-xl border border-gray-100 flex flex-col justify-between">
+                    <div className="flex flex-wrap items-center justify-between gap-1 mb-1.5">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                        Stay Duration
+                      </label>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStayInfo(p => ({
+                              ...p,
+                              durationDays: 1,
+                              durationHours: 0,
+                              isMorningCheckout: true
+                            }));
+                          }}
+                          className={`px-2 py-0.5 rounded text-[10px] font-black transition-all ${
+                            stayInfo.isMorningCheckout
+                              ? 'bg-amber-400 text-black border border-amber-500 shadow-xs'
+                              : 'bg-amber-100 hover:bg-amber-200 text-amber-900'
+                          }`}
+                          title="Standard hotel checkout: Sharp 10:00 AM"
+                        >
+                          ☀️ 10 AM
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setStayInfo(p => ({ ...p, durationDays: 1, durationHours: 0, isMorningCheckout: false }))}
+                          className={`px-2 py-0.5 rounded text-[10px] font-black transition-all ${
+                            !stayInfo.isMorningCheckout && Number(stayInfo.durationDays) === 1 && (Number(stayInfo.durationHours) === 0 || !stayInfo.durationHours)
+                              ? 'bg-black text-white shadow-xs'
+                              : 'bg-white hover:bg-gray-200 text-gray-700 border border-gray-200'
+                          }`}
+                        >
+                          🌙 24h
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setStayInfo(p => ({ ...p, durationDays: 0, durationHours: 3, isMorningCheckout: false }))}
+                          className={`px-2 py-0.5 rounded text-[10px] font-black transition-all ${
+                            !stayInfo.isMorningCheckout && Number(stayInfo.durationDays) === 0 && Number(stayInfo.durationHours) === 3
+                              ? 'bg-black text-white shadow-xs'
+                              : 'bg-white hover:bg-gray-200 text-gray-700 border border-gray-200'
+                          }`}
+                        >
+                          ⚡ 3h
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <div className="flex-1 relative">
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="0"
+                          value={stayInfo.durationDays}
+                          onChange={(e) =>
+                            setStayInfo((p) => ({
+                              ...p,
+                              durationDays: e.target.value === '' ? '' : Math.max(0, e.target.value)
+                            }))
+                          }
+                          className="w-full bg-white border border-gray-200 rounded-lg pl-2.5 pr-8 py-1.5 font-black text-base outline-none focus:border-black transition-colors"
+                        />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-gray-400 uppercase tracking-widest pointer-events-none">
+                          Days
+                        </span>
+                      </div>
+
+                      <div className="flex-1 relative">
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="0"
+                          value={stayInfo.durationHours}
+                          onChange={(e) =>
+                            setStayInfo((p) => ({
+                              ...p,
+                              durationHours: e.target.value === '' ? '' : Math.max(0, e.target.value),
+                              isMorningCheckout: false
+                            }))
+                          }
+                          className="w-full bg-white border border-gray-200 rounded-lg pl-2.5 pr-9 py-1.5 font-black text-base outline-none focus:border-black transition-colors"
+                        />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-gray-400 uppercase tracking-widest pointer-events-none">
+                          Hours
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center mt-2">
+                      <p className="text-[10px] text-gray-400 font-bold truncate">
+                        {stayInfo.isMorningCheckout ? 'Standard 10:00 AM' : 'Custom Duration'}
+                      </p>
+                      <p className="text-[10px] font-black text-indigo-700 bg-indigo-50 border border-indigo-100/60 px-1.5 py-0.5 rounded shrink-0">
+                        Out: {expectedOutPreviewFormatted}
+                      </p>
+                    </div>
+                  </div>
+
+                </div>
               </div>
-            )}
 
-          </div>
+              {/* 2. SELECT ROOM */}
+              <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-xs space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base font-black text-gray-900 flex items-center gap-2">
+                      <Bed className="text-gray-400" size={18} />
+                      2. Select Room
+                    </h2>
+                    <span className="text-xs font-black text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
+                      {rooms.filter((r) => !r.isOccupied).length} Vacant
+                    </span>
+                  </div>
 
-          {/* 3. PAYMENT & SETTLEMENT */}
-          <div className="bg-gray-900 p-4 sm:p-6 rounded-2xl text-white shadow-lg space-y-4">
-
-            <h2 className="text-base sm:text-lg font-black text-gray-200 flex items-center gap-2">
-              <CreditCard className="text-gray-400" size={20} />
-              3. Payment & Settlement
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-
-              <div className="space-y-3.5">
-
-                <div className="flex justify-between items-center pb-3 border-b border-gray-800">
-                  <span className="text-gray-400 font-bold text-sm">
-                    Agreed Total
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-gray-500 font-black">₹</span>
+                  <div className="relative">
+                    <Search
+                      size={13}
+                      className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400"
+                    />
                     <input
-                      type="number"
-                      placeholder="0"
-                      value={stayInfo.totalAmount}
-                      onChange={(e) =>
-                        setStayInfo((p) => ({
-                          ...p,
-                          totalAmount: e.target.value
-                        }))
-                      }
-                      className="w-28 bg-transparent text-right font-black text-xl sm:text-2xl outline-none border-b-2 border-transparent focus:border-gray-600 placeholder:text-gray-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none font-mono"
+                      type="text"
+                      placeholder="Search room..."
+                      className="pl-7 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-black font-bold text-xs w-full sm:w-44"
+                      value={roomSearchQuery}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setRoomSearchQuery(val);
+                        if (val.trim()) {
+                          const exactMatch = rooms.find(
+                            (r) => !r.isOccupied && r.roomNumber.toLowerCase() === val.trim().toLowerCase()
+                          );
+                          if (exactMatch) {
+                            setStayInfo((p) => {
+                              const updated = { ...p, room: exactMatch._id };
+                              if ((!p.totalAmount || p.totalAmount === '0' || p.totalAmount === 0) && exactMatch.price24h > 0) {
+                                updated.totalAmount = exactMatch.price24h;
+                              }
+                              return updated;
+                            });
+                          }
+                        }
+                      }}
                     />
                   </div>
                 </div>
 
-                <div className="pb-3 border-b border-gray-800">
+                {/* FLOOR FILTER CHIPS */}
+                {availableFloors.length > 1 && (
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-gray-100">
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider mr-1">Floor:</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedFloorFilter('All')}
+                      className={`px-2 py-0.5 rounded text-[11px] font-black transition-all ${
+                        selectedFloorFilter === 'All'
+                          ? 'bg-black text-white shadow-xs'
+                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      }`}
+                    >
+                      All ({rooms.filter((r) => !r.isOccupied).length})
+                    </button>
+                    {availableFloors.map(({ floor, count }) => (
+                      <button
+                        key={floor}
+                        type="button"
+                        onClick={() => setSelectedFloorFilter(floor)}
+                        className={`px-2 py-0.5 rounded text-[11px] font-black transition-all ${
+                          selectedFloorFilter === floor
+                            ? 'bg-black text-white shadow-xs'
+                            : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                        }`}
+                      >
+                        Fl. {floor} ({count})
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* ROOM CARDS GRID */}
+                {loadingRooms ? (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                    <SkeletonRoom />
+                    <SkeletonRoom />
+                    <SkeletonRoom />
+                  </div>
+                ) : filteredRooms.length === 0 ? (
+                  <div className="text-center py-8 bg-amber-50 text-amber-800 rounded-xl font-bold text-xs">
+                    {rooms.filter((r) => !r.isOccupied).length === 0
+                      ? 'No vacant rooms available right now. All rooms are booked.'
+                      : 'No rooms match this floor or search.'}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+                    {filteredRooms.map((room) => {
+                      const active = stayInfo.room === room._id;
+                      return (
+                        <button
+                          key={room._id}
+                          type="button"
+                          onClick={() =>
+                            setStayInfo((prev) => {
+                              const updated = { ...prev, room: room._id };
+                              if ((!prev.totalAmount || prev.totalAmount === '0' || prev.totalAmount === 0) && room.price24h > 0) {
+                                updated.totalAmount = room.price24h;
+                              }
+                              return updated;
+                            })
+                          }
+                          className={`relative p-2.5 rounded-xl border-2 text-center transition-all ${
+                            active
+                              ? 'border-black bg-black text-white shadow-md scale-[1.02]'
+                              : 'border-gray-200 hover:border-black bg-white hover:shadow-xs'
+                          }`}
+                        >
+                          {active && (
+                            <CheckCircle2
+                              className="absolute top-1.5 right-1.5 text-white"
+                              size={13}
+                            />
+                          )}
+                          <h3 className={`font-black text-base sm:text-lg font-mono ${active ? 'text-white' : 'text-gray-900'}`}>
+                            {room.roomNumber}
+                          </h3>
+                          <div className={`text-[9px] font-bold mt-0.5 ${active ? 'text-gray-300' : 'text-gray-500'} truncate`}>
+                            {room.floor ? `Fl.${room.floor}` : ''} {room.roomType ? `• ${room.roomType.replace('Standard ', '')}` : ''}
+                          </div>
+                          {room.price24h > 0 && (
+                            <div className={`text-[10px] font-black mt-0.5 ${active ? 'text-amber-300' : 'text-gray-700'}`}>
+                              ₹{room.price24h}
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+            </div>
+
+            {/* RIGHT COLUMN: STICKY LIVE RESERVATION & BILLING DESK (5 Cols on Desktop) */}
+            <div className="lg:col-span-5 xl:col-span-5 lg:sticky lg:top-20 space-y-4">
+              <div className="bg-gradient-to-b from-gray-950 via-gray-900 to-black p-4 sm:p-5 rounded-2xl text-white shadow-xl border border-gray-800 space-y-3.5">
+
+                {/* SELECTED ROOM STATUS BANNER */}
+                <div className="p-3 rounded-xl bg-gray-800/80 border border-gray-700/60 flex items-center justify-between gap-2">
+                  {selectedRoomDetails ? (
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <h4 className="font-black text-base text-white tracking-wide">
+                          Room {selectedRoomDetails.roomNumber}
+                        </h4>
+                        <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-1.5 py-0.5 rounded">
+                          {selectedRoomDetails.roomType || 'Standard'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] font-bold text-gray-400 mt-0.5">
+                        {stayInfo.occupants} Occupant{Number(stayInfo.occupants) > 1 ? 's' : ''} • Floor {selectedRoomDetails.floor || '1'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 py-1 text-amber-300">
+                      <Bed size={16} className="animate-bounce" />
+                      <span className="text-xs font-black">👈 Please select a room</span>
+                    </div>
+                  )}
+
+                  {selectedRoomDetails && (
+                    <div className="text-right">
+                      <span className="text-[9px] uppercase tracking-wider text-gray-400 block font-bold">Standard</span>
+                      <span className="text-xs font-black text-white font-mono">
+                        {selectedRoomDetails.price24h ? `₹${selectedRoomDetails.price24h}` : 'Custom'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between pb-2 border-b border-gray-800">
+                  <h3 className="text-sm font-black text-gray-200 flex items-center gap-1.5">
+                    <CreditCard className="text-gray-400" size={16} />
+                    Payment & Settlement
+                  </h3>
+                  <span className="text-[10px] text-gray-400 font-mono">
+                    {stayInfo.paymentMethod}
+                  </span>
+                </div>
+
+                {/* AGREED TOTAL */}
+                <div className="pb-3 border-b border-gray-800/80">
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-400 font-bold text-sm">
+                    <span className="text-gray-400 font-bold text-xs uppercase tracking-wider">
+                      Agreed Total
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-gray-500 font-black">₹</span>
+                      <input
+                        type="number"
+                        placeholder="0"
+                        value={stayInfo.totalAmount}
+                        onChange={(e) =>
+                          setStayInfo((p) => ({
+                            ...p,
+                            totalAmount: e.target.value
+                          }))
+                        }
+                        className="w-28 bg-transparent text-right font-black text-xl outline-none border-b border-gray-700 focus:border-white text-white placeholder:text-gray-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Standard rate pill if room has pricing and total is different */}
+                  {selectedRoomDetails?.price24h > 0 && Number(stayInfo.totalAmount) !== selectedRoomDetails.price24h && (
+                    <div className="mt-1 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setStayInfo(p => ({ ...p, totalAmount: selectedRoomDetails.price24h }))}
+                        className="text-[10px] font-bold text-blue-400 hover:text-blue-300 underline"
+                      >
+                        💡 Set standard tariff: ₹{selectedRoomDetails.price24h}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* ADVANCE PAID */}
+                <div className="pb-3 border-b border-gray-800/80 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400 font-bold text-xs uppercase tracking-wider">
                       Advance Paid
                     </span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-green-500 font-black">₹</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-emerald-400 font-black">₹</span>
                       <input
                         type="number"
                         placeholder="0"
@@ -1693,13 +1802,13 @@ const CheckIn = () => {
                             paidAmount: e.target.value
                           }))
                         }
-                        className="w-28 bg-transparent text-right font-black text-xl sm:text-2xl outline-none border-b-2 border-transparent focus:border-gray-600 text-green-400 placeholder:text-green-800/60 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none font-mono"
+                        className="w-28 bg-transparent text-right font-black text-xl outline-none border-b border-gray-700 focus:border-emerald-400 text-emerald-400 placeholder:text-emerald-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none font-mono"
                       />
                     </div>
                   </div>
 
                   {/* QUICK ADVANCE CHIPS */}
-                  <div className="flex flex-wrap items-center gap-1.5 mt-2.5 justify-end">
+                  <div className="flex flex-wrap items-center gap-1.5 justify-end">
                     <button
                       type="button"
                       onClick={() => {
@@ -1710,16 +1819,16 @@ const CheckIn = () => {
                           }));
                         }
                       }}
-                      className={`px-2.5 py-1 rounded-md text-xs font-black transition-all ${
+                      className={`px-2.5 py-1 rounded text-[11px] font-black transition-all ${
                         stayInfo.paidAmount &&
                         stayInfo.totalAmount &&
                         Number(stayInfo.paidAmount) === Number(stayInfo.totalAmount) &&
                         Number(stayInfo.totalAmount) > 0
-                          ? 'bg-green-500 text-black shadow-sm scale-105'
+                          ? 'bg-emerald-500 text-black shadow-xs'
                           : 'bg-gray-800 hover:bg-gray-700 text-gray-300'
                       }`}
                     >
-                      ⚡ Full Paid {stayInfo.totalAmount ? `(₹${stayInfo.totalAmount})` : ''}
+                      ⚡ Full Paid
                     </button>
 
                     <button
@@ -1732,12 +1841,12 @@ const CheckIn = () => {
                           }));
                         }
                       }}
-                      className={`px-2.5 py-1 rounded-md text-xs font-black transition-all ${
+                      className={`px-2.5 py-1 rounded text-[11px] font-black transition-all ${
                         stayInfo.paidAmount &&
                         stayInfo.totalAmount &&
                         Number(stayInfo.paidAmount) === Math.round(Number(stayInfo.totalAmount) / 2) &&
                         Number(stayInfo.paidAmount) > 0
-                          ? 'bg-amber-400 text-black shadow-sm'
+                          ? 'bg-amber-400 text-black shadow-xs'
                           : 'bg-gray-800 hover:bg-gray-700 text-gray-300'
                       }`}
                     >
@@ -1752,7 +1861,7 @@ const CheckIn = () => {
                           paidAmount: '0'
                         }))
                       }
-                      className={`px-2.5 py-1 rounded-md text-xs font-black transition-all ${
+                      className={`px-2 py-1 rounded text-[11px] font-black transition-all ${
                         stayInfo.paidAmount === '0' || stayInfo.paidAmount === 0
                           ? 'bg-red-500/30 text-red-300 border border-red-500/50'
                           : 'bg-gray-800 hover:bg-gray-700 text-gray-400'
@@ -1763,62 +1872,29 @@ const CheckIn = () => {
                   </div>
                 </div>
 
-                <div className="flex justify-between items-center pt-1">
-                  <span className="text-gray-400 font-bold text-sm">
+                {/* BALANCE DUE */}
+                <div className="flex justify-between items-center py-1">
+                  <span className="text-gray-400 font-bold text-xs uppercase tracking-wider">
                     Balance Due
                   </span>
                   <span
-                    className={`font-black text-xl sm:text-2xl font-mono ${
+                    className={`font-black text-xl font-mono ${
                       (Number(stayInfo.totalAmount) || 0) - (Number(stayInfo.paidAmount) || 0) > 0
                         ? 'text-orange-400'
-                        : 'text-gray-300'
+                        : 'text-emerald-400'
                     }`}
                   >
-                    ₹
-                    {Math.max(
-                      0,
-                      (Number(stayInfo.totalAmount) || 0) - (Number(stayInfo.paidAmount) || 0)
+                    ₹{Math.max(0, (Number(stayInfo.totalAmount) || 0) - (Number(stayInfo.paidAmount) || 0))}
+                    {Number(stayInfo.totalAmount) > 0 && (Number(stayInfo.totalAmount) || 0) - (Number(stayInfo.paidAmount) || 0) === 0 && (
+                      <span className="text-[10px] font-bold text-emerald-400 ml-1.5 uppercase tracking-wider">
+                        (Cleared)
+                      </span>
                     )}
                   </span>
                 </div>
 
-              </div>
-
-              <div className="space-y-4">
-
-                <div>
-                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">
-                    Broker / Commission (Optional)
-                  </label>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <input
-                      type="text"
-                      placeholder="Broker Name"
-                      value={stayInfo.commissionTo}
-                      onChange={(e) =>
-                        setStayInfo((p) => ({
-                          ...p,
-                          commissionTo: e.target.value
-                        }))
-                      }
-                      className="w-full sm:flex-1 min-w-0 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 font-bold text-xs sm:text-sm outline-none focus:border-gray-500 text-white placeholder-gray-600"
-                    />
-                    <input
-                      type="number"
-                      placeholder="₹ Amount"
-                      value={stayInfo.commissionAmount}
-                      onChange={(e) =>
-                        setStayInfo((p) => ({
-                          ...p,
-                          commissionAmount: e.target.value
-                        }))
-                      }
-                      className="w-full sm:w-28 min-w-0 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 font-bold text-xs sm:text-sm outline-none focus:border-gray-500 text-white placeholder-gray-600"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-1.5 bg-gray-800 p-1.5 rounded-xl">
+                {/* PAYMENT METHOD */}
+                <div className="flex gap-1.5 bg-gray-800/90 p-1 rounded-xl">
                   {['Cash', 'UPI', 'Card'].map((method) => (
                     <button
                       key={method}
@@ -1829,7 +1905,7 @@ const CheckIn = () => {
                           paymentMethod: method
                         }))
                       }
-                      className={`flex-1 py-2.5 rounded-lg text-xs font-black transition-all ${
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-black transition-all ${
                         stayInfo.paymentMethod === method
                           ? 'bg-white text-black shadow-xs'
                           : 'text-gray-400 hover:text-white hover:bg-gray-700'
@@ -1840,17 +1916,62 @@ const CheckIn = () => {
                   ))}
                 </div>
 
-              </div>
+                {/* BROKER / COMMISSION (OPTIONAL) */}
+                <div className="pt-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Broker (Opt)"
+                      value={stayInfo.commissionTo}
+                      onChange={(e) =>
+                        setStayInfo((p) => ({
+                          ...p,
+                          commissionTo: e.target.value
+                        }))
+                      }
+                      className="flex-1 bg-gray-800/80 border border-gray-700 rounded-lg px-2.5 py-1.5 font-bold text-xs outline-none focus:border-gray-500 text-white placeholder-gray-500"
+                    />
+                    <input
+                      type="number"
+                      placeholder="₹ Comm"
+                      value={stayInfo.commissionAmount}
+                      onChange={(e) =>
+                        setStayInfo((p) => ({
+                          ...p,
+                          commissionAmount: e.target.value
+                        }))
+                      }
+                      className="w-24 bg-gray-800/80 border border-gray-700 rounded-lg px-2.5 py-1.5 font-bold text-xs outline-none focus:border-gray-500 text-white placeholder-gray-500"
+                    />
+                  </div>
+                </div>
 
+                {/* DESKTOP DIRECT NEXT BUTTON */}
+                <div className="hidden lg:block pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setStep(2)}
+                    disabled={!isStep1Valid}
+                    className="w-full py-3.5 bg-white text-black hover:bg-gray-100 rounded-xl font-black uppercase tracking-wider text-xs flex items-center justify-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-lg active:scale-[0.99]"
+                  >
+                    <span>Continue to Guest Details</span>
+                    <ArrowRight size={16} />
+                  </button>
+                  {!isStep1Valid && (
+                    <p className="text-[10px] text-gray-500 text-center mt-1.5 font-bold">
+                      {!stayInfo.room ? '👉 Please pick a room' : !stayInfo.totalAmount ? '👉 Please enter agreed price' : ''}
+                    </p>
+                  )}
+                </div>
+
+              </div>
             </div>
 
           </div>
 
-          {/* NEXT BUTTON (DESKTOP + MOBILE DOCK) */}
-          <div className="fixed md:static bottom-16 md:bottom-0 left-0 right-0 p-3 sm:p-4 md:p-0 bg-white/95 md:bg-transparent backdrop-blur-md md:backdrop-blur-none border-t md:border-0 border-gray-200 z-30 max-w-4xl mx-auto md:mt-6 shadow-xl md:shadow-none">
-
-            {/* Mobile status banner */}
-            <div className="md:hidden flex justify-between items-center px-1 pb-2 text-[11px] font-bold text-gray-700">
+          {/* MOBILE DOCKED BAR */}
+          <div className="lg:hidden fixed bottom-16 left-0 right-0 p-3 bg-white/95 backdrop-blur-md border-t border-gray-200 z-30 shadow-xl">
+            <div className="flex justify-between items-center px-1 pb-2 text-[11px] font-bold text-gray-700">
               <span>
                 Room: <span className="font-black text-black">{selectedRoomDetails?.roomNumber || 'Select Room'}</span>
               </span>
@@ -1859,16 +1980,14 @@ const CheckIn = () => {
                 {stayInfo.paidAmount ? ` (Adv: ₹${stayInfo.paidAmount})` : ''}
               </span>
             </div>
-
             <button
               onClick={() => setStep(2)}
               disabled={!isStep1Valid}
-              className="w-full py-3.5 bg-black text-white rounded-xl font-black uppercase tracking-wider text-xs sm:text-sm flex items-center justify-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-800 active:scale-[0.99] transition-all shadow-lg"
+              className="w-full py-3.5 bg-black text-white rounded-xl font-black uppercase tracking-wider text-xs flex items-center justify-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-800 active:scale-[0.99] transition-all shadow-lg"
             >
               <span>Continue to Guest Details</span>
               <ArrowRight size={18} />
             </button>
-
           </div>
 
         </div>
