@@ -128,9 +128,16 @@ function createWindow() {
     mainWindow.focus();
   });
 
-  // Track window resizing and moving
-  mainWindow.on('close', () => {
-    saveWindowState(mainWindow);
+  // Handle external links safely via user default browser
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('http:') || url.startsWith('https:')) {
+      if (!url.includes('nxhotel.nexisparkx.com') && !url.includes('localhost')) {
+        const { shell } = require('electron');
+        shell.openExternal(url);
+        return { action: 'deny' };
+      }
+    }
+    return { action: 'allow' };
   });
 
   // Determine target URL
