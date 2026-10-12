@@ -111,8 +111,9 @@ Do NOT wrap the output in markdown code blocks like \`\`\`json. Output ONLY the 
 
     // 6. Call Google Gemini Vision API with multi-model fallback
     const candidateModels = [
-      'gemini-3.8-flash',
-      'gemini-3.5-flash',
+      'gemini-2.5-flash',
+      'gemini-2.5-flash-lite',
+      'gemini-2.0-flash',
       'gemini-flash-latest'
     ];
 
@@ -157,7 +158,8 @@ Do NOT wrap the output in markdown code blocks like \`\`\`json. Output ONLY the 
         } else {
           lastErrorText = await response.text();
           console.warn(`Gemini model ${modelName} returned ${response.status}:`, lastErrorText);
-          if (response.status !== 404 && response.status !== 503) {
+          // Retry next model if 404, 503, or 429 (quota exceeded / rate limit)
+          if (response.status !== 404 && response.status !== 503 && response.status !== 429) {
             break;
           }
         }
