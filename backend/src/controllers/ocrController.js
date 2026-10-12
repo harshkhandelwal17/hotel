@@ -142,12 +142,14 @@ Return ONLY valid JSON.`;
 Return ONLY valid JSON.`;
     }
 
-    // 7. Active, ultra-fast Gemini candidate models (Lite model first for instant speed & high quota)
+    // 7. Gemini candidate models (high-quota lite models first, then flash fallbacks)
+    // NOTE: Timeout is 25s per model to handle VPS network latency to Google APIs
     const candidateModels = [
-      'gemini-3.5-flash-lite',
-      'gemini-flash-lite-latest',
-      'gemini-3.5-flash',
-      'gemini-3.8-flash'
+      'gemini-2.0-flash-lite',      // 1000 RPD free, fast
+      'gemini-2.5-flash-lite-preview-06-17', // high quota preview
+      'gemini-1.5-flash-8b',        // 1500 RPD free, very fast
+      'gemini-1.5-flash',           // 1500 RPD free
+      'gemini-2.0-flash',           // good fallback
     ];
 
     const requestPayload = {
@@ -178,14 +180,13 @@ Return ONLY valid JSON.`;
     for (const modelName of candidateModels) {
       try {
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-        // Fast 6.5-second timeout per model
         const response = await fetch(geminiUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(requestPayload),
-          signal: AbortSignal.timeout(6500)
+          signal: AbortSignal.timeout(25000)
         });
 
         if (response.ok) {
