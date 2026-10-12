@@ -127,10 +127,10 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
   const btnCls = 'w-full py-3 bg-black text-white font-bold rounded-xl disabled:opacity-50 active:scale-95 transition-all';
 
   return (
-    <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[95vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[95vh] sm:max-h-[90vh] overflow-hidden" onClick={e => e.stopPropagation()}>
         {/* Header */}
-        <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-start">
+        <div className="px-4 sm:px-5 py-3.5 sm:py-4 border-b border-gray-100 flex justify-between items-start shrink-0">
           <div>
             <h2 className="text-xl font-black text-gray-900">{stay.guest?.fullName}</h2>
             <p className="text-sm text-gray-500 font-semibold">
@@ -341,14 +341,14 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
         </div>
 
         {/* Footer actions */}
-        <div className="px-5 py-4 bg-gray-50 border-t border-gray-200 flex gap-3">
+        <div className="px-4 sm:px-5 py-3.5 sm:py-4 bg-gray-50 border-t border-gray-200 flex gap-2.5 sm:gap-3 shrink-0">
           <button onClick={() => printInvoice(stay, payments)}
-            className="flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-700 hover:bg-gray-100">
+            className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 sm:py-3 bg-white border border-gray-200 rounded-xl text-xs sm:text-sm font-bold text-gray-700 hover:bg-gray-100">
             <Printer size={16} /> Bill
           </button>
           {isOpen && (
             <button onClick={() => onCheckout(stay)}
-              className="flex-1 flex items-center justify-center gap-2 py-3 bg-red-600 text-white rounded-xl text-sm font-black uppercase tracking-wide hover:bg-red-700 active:scale-95">
+              className="flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 bg-red-600 text-white rounded-xl text-xs sm:text-sm font-black uppercase tracking-wide hover:bg-red-700 active:scale-95 shadow-md">
               <LogOut size={16} /> Checkout
             </button>
           )}

@@ -115,10 +115,10 @@ const RoomsView = () => {
             className="w-full pl-9 pr-4 py-3 bg-white border border-gray-200 rounded-xl font-bold text-sm text-gray-900 focus:border-black focus:ring-0 outline-none transition-all"
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 sm:pb-0 no-scrollbar">
           {['all', 'available', 'occupied', 'maintenance'].map(f => (
             <button key={f} onClick={() => setFilter(f)}
-              className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${filter === f ? 'bg-black text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:border-gray-400'}`}>
+              className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all shrink-0 ${filter === f ? 'bg-black text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:border-gray-400'}`}>
               {f}
             </button>
           ))}
@@ -209,8 +209,8 @@ const RoomsView = () => {
 
       {/* Maintenance dialog */}
       {mDialog && (
-        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setMDialog(null)}>
-          <form onSubmit={submitMaintenance} onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4" onClick={() => setMDialog(null)}>
+          <form onSubmit={submitMaintenance} onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5 sm:p-6 space-y-4 max-h-[92vh] flex flex-col overflow-y-auto">
             <div>
               <h2 className="text-lg font-black text-gray-900 flex items-center gap-2"><Wrench size={18} className="text-yellow-600" />
                 {mDialog.mode === 'start' ? `Room ${mDialog.room.roomNumber} → Maintenance` : `Room ${mDialog.room.roomNumber} repaired?`}
@@ -235,9 +235,9 @@ const RoomsView = () => {
               value={mText} onChange={e => setMText(e.target.value)}
               placeholder={mDialog.mode === 'start' ? 'What is the problem?' : 'What was fixed? (optional)'}
               className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-black outline-none" />
-            <div className="flex gap-3">
-              <button type="button" onClick={() => setMDialog(null)} className="flex-1 py-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-700 hover:bg-gray-50">Cancel</button>
-              <button disabled={mBusy} className="flex-1 py-3 bg-black text-white rounded-xl font-bold disabled:opacity-50">
+            <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3">
+              <button type="button" onClick={() => setMDialog(null)} className="w-full sm:flex-1 py-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-700 hover:bg-gray-50 text-sm">Cancel</button>
+              <button disabled={mBusy} className="w-full sm:flex-1 py-3 bg-black text-white rounded-xl font-bold disabled:opacity-50 text-sm shadow-md active:scale-95">
                 {mBusy ? 'Saving...' : mDialog.mode === 'start' ? 'Block Room' : 'Mark Repaired'}
               </button>
             </div>

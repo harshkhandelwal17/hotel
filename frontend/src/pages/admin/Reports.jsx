@@ -205,25 +205,25 @@ const Reports = () => {
           <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Financial & Profit Analytics</h1>
           <p className="text-sm text-gray-500 mt-1 font-medium">Track Bookings, Commissions, and real Cash Flow.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap sm:flex-nowrap gap-2 w-full sm:w-auto">
           <button 
             onClick={() => setShowPoliceModal(true)} 
-            className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition-colors shadow-sm flex items-center gap-2 active:scale-95"
+            className="flex-1 sm:flex-none justify-center px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition-colors shadow-sm flex items-center gap-2 active:scale-95"
             title="Generate Official Police Verification Report"
           >
             <ShieldCheck size={16} /> Police Report
           </button>
-          <button onClick={downloadCSV} className="px-6 py-2.5 bg-black text-white rounded-xl font-bold text-sm hover:bg-gray-800 transition-colors shadow-sm flex items-center gap-2 active:scale-95">
+          <button onClick={downloadCSV} className="flex-1 sm:flex-none justify-center px-5 sm:px-6 py-2.5 bg-black text-white rounded-xl font-bold text-sm hover:bg-gray-800 transition-colors shadow-sm flex items-center gap-2 active:scale-95">
             <Download size={16} /> Export CSV
           </button>
         </div>
       </div>
 
-      <div className="flex gap-2 p-1 bg-gray-100 rounded-xl w-fit">
-        <button onClick={() => setActiveTab('bookings')} className={`px-5 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === 'bookings' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}>
+      <div className="flex gap-2 p-1 bg-gray-100 rounded-xl w-full sm:w-fit">
+        <button onClick={() => setActiveTab('bookings')} className={`flex-1 sm:flex-none px-4 sm:px-5 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all text-center ${activeTab === 'bookings' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}>
           Booking Ledger
         </button>
-        <button onClick={() => setActiveTab('transactions')} className={`px-5 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === 'transactions' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}>
+        <button onClick={() => setActiveTab('transactions')} className={`flex-1 sm:flex-none px-4 sm:px-5 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all text-center ${activeTab === 'transactions' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}>
           Cash Flow / Payments
         </button>
       </div>

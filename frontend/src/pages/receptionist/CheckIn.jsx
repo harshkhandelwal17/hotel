@@ -2772,18 +2772,18 @@ const CheckIn = () => {
           WHATSAPP QR CONNECTION MODAL
       ===================================================== */}
       {waModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-gray-100 relative max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setWaModalOpen(false)}>
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full p-4 sm:p-6 shadow-2xl border border-gray-100 relative max-h-[92vh] sm:max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             {/* CLOSE BUTTON */}
             <button
               onClick={() => setWaModalOpen(false)}
-              className="absolute top-5 right-5 text-gray-400 hover:text-black p-2 rounded-full hover:bg-gray-100 transition-colors"
+              className="absolute top-4 right-4 text-gray-400 hover:text-black p-2 rounded-full hover:bg-gray-100 transition-colors"
             >
               <X size={20} />
             </button>
 
             {/* HEADER */}
-            <div className="flex items-center gap-3 mb-5">
+            <div className="flex items-center gap-3 mb-5 pr-8">
               <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-600 shadow-sm">
                 <MessageSquare size={24} />
               </div>
@@ -2882,18 +2882,18 @@ const CheckIn = () => {
                           <label className="block text-[11px] font-black uppercase text-gray-700 mb-1.5 tracking-wider">
                             Reception WhatsApp Number
                           </label>
-                          <div className="flex gap-2">
+                          <div className="flex flex-col sm:flex-row gap-2">
                             <input
                               type="tel"
                               placeholder="e.g. 9876543210 or 919876543210"
                               value={waPairingPhone}
                               onChange={(e) => setWaPairingPhone(e.target.value)}
-                              className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-black text-gray-900 outline-none focus:border-emerald-500 focus:bg-white"
+                              className="w-full sm:flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-black text-gray-900 outline-none focus:border-emerald-500 focus:bg-white"
                             />
                             <button
                               type="submit"
                               disabled={loadingPairingCode || !waPairingPhone.trim()}
-                              className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md shadow-emerald-600/20 transition-all active:scale-95 flex items-center gap-2 shrink-0"
+                              className="w-full sm:w-auto px-5 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md shadow-emerald-600/20 transition-all active:scale-95 flex items-center justify-center gap-2 shrink-0"
                             >
                               {loadingPairingCode ? (
                                 <RefreshCw size={14} className="animate-spin" />
@@ -3076,12 +3076,12 @@ const CheckIn = () => {
           WHATSAPP PHOTO PICKER MODAL
       ===================================================== */}
       {waPickerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-gray-100 relative max-h-[88vh] flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setWaPickerOpen(false)}>
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl border border-gray-100 relative max-h-[92vh] sm:max-h-[88vh] flex flex-col" onClick={e => e.stopPropagation()}>
             {/* CLOSE BUTTON */}
             <button
               onClick={() => setWaPickerOpen(false)}
-              className="absolute top-5 right-5 text-gray-400 hover:text-black p-2 rounded-full hover:bg-gray-100 transition-colors"
+              className="absolute top-4 right-4 text-gray-400 hover:text-black p-2 rounded-full hover:bg-gray-100 transition-colors"
             >
               <X size={20} />
             </button>
@@ -3215,16 +3215,16 @@ const CheckIn = () => {
       {waPreviewImage && (
         <div 
           onClick={() => setWaPreviewImage(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 cursor-zoom-out"
+          className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 cursor-zoom-out"
         >
-          <div className="relative max-w-3xl max-h-[90vh] bg-black rounded-3xl overflow-hidden shadow-2xl p-2" onClick={(e) => e.stopPropagation()}>
+          <div className="relative max-w-3xl max-h-[92vh] bg-black rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl p-2" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={() => setWaPreviewImage(null)}
-              className="absolute top-4 right-4 z-10 bg-black/60 text-white hover:bg-white hover:text-black p-2 rounded-full transition-colors"
+              className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10 bg-black/60 text-white hover:bg-white hover:text-black p-2 rounded-full transition-colors"
             >
               <X size={20} />
             </button>
-            <img src={waPreviewImage} alt="WhatsApp ID Full" className="max-w-full max-h-[85vh] object-contain rounded-2xl mx-auto" />
+            <img src={waPreviewImage} alt="WhatsApp ID Full" className="max-w-full max-h-[85vh] object-contain rounded-xl sm:rounded-2xl mx-auto" />
           </div>
         </div>
       )}

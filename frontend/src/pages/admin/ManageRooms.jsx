@@ -96,13 +96,13 @@ const ManageRooms = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Manage Rooms</h1>
           <p className="text-sm text-gray-500 mt-1">{rooms.length} rooms configured across all properties</p>
         </div>
         <button onClick={openModal}
-          className="bg-black text-white px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-gray-800 transition-colors shadow-md font-bold text-sm">
+          className="w-full sm:w-auto justify-center bg-black text-white px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-gray-800 transition-colors shadow-md font-bold text-sm active:scale-95">
           <Plus size={16} /> Add Room
         </button>
       </div>
@@ -167,11 +167,11 @@ const ManageRooms = () => {
 
       {/* Add Room Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4"
           onClick={closeModal}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300"
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[92vh] sm:max-h-[90vh] overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300"
             onClick={e => e.stopPropagation()}>
-            <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+            <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 shrink-0">
               <div>
                 <h2 className="text-xl font-bold text-gray-900">Add New Room</h2>
                 <p className="text-xs text-gray-500 mt-0.5">Configure pricing per person for accurate billing</p>
@@ -181,8 +181,8 @@ const ManageRooms = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit}>
-              <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+              <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto flex-1 min-h-0">
                 {formError && (
                   <div className="p-3 bg-red-50 text-red-700 text-sm rounded-xl border border-red-100">{formError}</div>
                 )}
@@ -205,7 +205,7 @@ const ManageRooms = () => {
                   </select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
                     <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Room No.</label>
                     <input type="text" required className="w-full px-3 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none text-sm font-medium"
@@ -218,9 +218,9 @@ const ManageRooms = () => {
                   </div>
                 </div>
               </div>
-              <div className="p-5 bg-gray-50 border-t border-gray-100 flex gap-3 rounded-b-2xl">
-                <button type="button" onClick={closeModal} className="flex-1 py-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
-                <button type="submit" disabled={saving} className="flex-1 py-3 bg-black rounded-xl font-bold text-white hover:bg-gray-800 transition-colors disabled:opacity-50">
+              <div className="p-4 sm:p-5 bg-gray-50 border-t border-gray-100 flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3 rounded-b-2xl shrink-0">
+                <button type="button" onClick={closeModal} className="w-full sm:flex-1 py-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-700 hover:bg-gray-100 transition-colors text-sm">Cancel</button>
+                <button type="submit" disabled={saving} className="w-full sm:flex-1 py-3 bg-black rounded-xl font-bold text-white hover:bg-gray-800 transition-colors disabled:opacity-50 text-sm shadow-md active:scale-95">
                   {saving ? 'Saving...' : 'Save Room'}
                 </button>
               </div>

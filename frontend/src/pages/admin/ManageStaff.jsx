@@ -74,14 +74,14 @@ const ManageStaff = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-end">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Staff Management</h1>
           <p className="text-sm text-gray-500 mt-1">Add receptionists and assign them to properties</p>
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
-          className="bg-black text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-gray-800 transition-colors shadow-sm flex items-center gap-2"
+          className="w-full sm:w-auto justify-center bg-black text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-gray-800 transition-colors shadow-sm flex items-center gap-2 active:scale-95"
         >
           <Plus size={16} /> Add Staff
         </button>
@@ -142,37 +142,37 @@ const ManageStaff = () => {
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setIsModalOpen(false)}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4" onClick={() => setIsModalOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[92vh] sm:max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 shrink-0">
               <h2 className="text-lg font-bold text-gray-900">Add New Receptionist</h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-700">✕</button>
+              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-700 p-1.5 rounded-full hover:bg-gray-100 transition-colors">✕</button>
             </div>
-            <form onSubmit={handleSubmit} className="p-6">
-              {error && <div className="mb-4 p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-100 font-medium">{error}</div>}
-              
-              <div className="space-y-4">
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+              <div className="p-4 sm:p-6 overflow-y-auto flex-1 min-h-0 space-y-4">
+                {error && <div className="mb-4 p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-100 font-medium">{error}</div>}
+                
                 <div>
                   <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Full Name</label>
-                  <input type="text" required className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-black outline-none font-medium" 
+                  <input type="text" required className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-black outline-none font-medium" 
                     value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="e.g. Rahul Kumar" />
                 </div>
                 
                 <div>
                   <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Email / Username</label>
-                  <input type="email" required className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-black outline-none font-medium" 
+                  <input type="email" required className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-black outline-none font-medium" 
                     value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="rahul@hotelpro.com" />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Password</label>
-                  <input type="password" required minLength="6" className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-black outline-none font-medium" 
+                  <input type="password" required minLength="6" className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-black outline-none font-medium" 
                     value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} placeholder="Min 6 characters" />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Assign Property</label>
-                  <select required className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-black outline-none font-medium appearance-none" 
+                  <select required className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-black outline-none font-medium" 
                     value={formData.assignedHostel} onChange={e => setFormData({...formData, assignedHostel: e.target.value})}>
                     {hostels.map(h => (
                       <option key={h._id} value={h._id}>{h.name}</option>
@@ -181,11 +181,11 @@ const ManageStaff = () => {
                 </div>
               </div>
 
-              <div className="mt-8 pt-4 border-t border-gray-100 flex gap-3">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl font-bold text-sm hover:bg-gray-50 transition-colors">
+              <div className="p-4 sm:px-6 py-4 bg-gray-50 border-t border-gray-100 flex flex-col-reverse sm:flex-row gap-2.5 rounded-b-2xl shrink-0">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="w-full sm:flex-1 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-bold text-sm hover:bg-gray-100 transition-colors">
                   Cancel
                 </button>
-                <button type="submit" disabled={saving} className="flex-1 px-4 py-2 bg-black text-white rounded-xl font-bold text-sm hover:bg-gray-800 transition-colors disabled:opacity-50">
+                <button type="submit" disabled={saving} className="w-full sm:flex-1 px-4 py-2.5 bg-black text-white rounded-xl font-bold text-sm hover:bg-gray-800 transition-colors disabled:opacity-50 shadow-md active:scale-95">
                   {saving ? 'Creating...' : 'Add Staff'}
                 </button>
               </div>

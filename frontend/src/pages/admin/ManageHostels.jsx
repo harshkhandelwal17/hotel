@@ -72,13 +72,13 @@ const ManageProperties = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Properties</h1>
           <p className="text-sm text-gray-500 mt-1">Manage your hotel properties</p>
         </div>
         <button onClick={() => { setFormError(''); setIsModalOpen(true); }}
-          className="bg-black text-white px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-gray-800 transition-colors shadow-md font-bold text-sm">
+          className="w-full sm:w-auto justify-center bg-black text-white px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-gray-800 transition-colors shadow-md font-bold text-sm active:scale-95">
           <Plus size={16} /> Add Property
         </button>
       </div>
@@ -134,11 +134,11 @@ const ManageProperties = () => {
 
       {/* Add Property Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4"
           onClick={closeModal}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[92vh] sm:max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
             onClick={e => e.stopPropagation()}>
-            <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+            <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 shrink-0">
               <div>
                 <h2 className="text-xl font-bold text-gray-900">Add New Property</h2>
                 <p className="text-xs text-gray-500 mt-0.5">Register a new hotel property</p>
@@ -148,8 +148,8 @@ const ManageProperties = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit}>
-              <div className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+              <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
                 {formError && <div className="p-3 bg-red-50 text-red-700 text-sm rounded-xl border border-red-100">{formError}</div>}
 
                 <div>
@@ -162,7 +162,7 @@ const ManageProperties = () => {
                   <input type="text" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none font-medium text-sm"
                     placeholder="123 MG Road, Delhi" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
                     <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Contact Number</label>
                     <input type="tel" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none font-medium text-sm"
@@ -176,9 +176,9 @@ const ManageProperties = () => {
                 </div>
               </div>
 
-              <div className="px-6 py-4 bg-gray-50 flex justify-end gap-3 border-t border-gray-100">
-                <button type="button" onClick={closeModal} className="px-5 py-2.5 border border-gray-200 bg-white text-gray-700 font-semibold rounded-xl text-sm hover:bg-gray-50">Cancel</button>
-                <button type="submit" disabled={saving} className="px-5 py-2.5 bg-black text-white font-bold rounded-xl text-sm hover:bg-gray-800 disabled:opacity-50 flex items-center gap-2">
+              <div className="p-4 sm:px-6 py-4 bg-gray-50 flex flex-col-reverse sm:flex-row justify-end gap-2.5 sm:gap-3 border-t border-gray-100 rounded-b-2xl shrink-0">
+                <button type="button" onClick={closeModal} className="w-full sm:w-auto px-5 py-2.5 border border-gray-200 bg-white text-gray-700 font-semibold rounded-xl text-sm hover:bg-gray-100 transition-colors">Cancel</button>
+                <button type="submit" disabled={saving} className="w-full sm:w-auto px-5 py-2.5 bg-black text-white font-bold rounded-xl text-sm hover:bg-gray-800 disabled:opacity-50 flex items-center justify-center gap-2 shadow-md active:scale-95">
                   {saving ? 'Saving...' : <><CheckCircle size={15} /> Save Property</>}
                 </button>
               </div>

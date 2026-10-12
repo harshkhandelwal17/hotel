@@ -65,12 +65,12 @@ const PaymentsList = () => {
           <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Pending Payments</h1>
           <p className="text-gray-500 text-sm mt-1">Total Outstanding: <span className="font-black text-red-600">₹{totalPending}</span></p>
         </div>
-        <div className="relative">
+        <div className="relative w-full sm:w-64">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Search guest..."
-            className="pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-black w-64"
+            placeholder="Search guest or room..."
+            className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-black"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -90,28 +90,28 @@ const PaymentsList = () => {
           {filteredStays.map(stay => {
             const balance = stay.totalAmount - stay.paidAmount;
             return (
-              <div key={stay._id} className="p-5 hover:bg-gray-50/50 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-full bg-red-50 flex items-center justify-center text-red-700 font-bold">
-                      {stay.guest?.fullName?.charAt(0)}
+              <div key={stay._id} className="p-4 sm:p-5 hover:bg-gray-50/50 transition-colors">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                  <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                    <div className="h-10 w-10 rounded-full bg-red-50 flex items-center justify-center text-red-700 font-bold shrink-0">
+                      {stay.guest?.fullName?.charAt(0) || 'G'}
                     </div>
-                    <div>
-                      <p className="font-bold text-gray-900 text-sm">{stay.guest?.fullName}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        Room {stay.room?.roomNumber} &bull; {stay.guest?.mobileNumber} &bull; Out: {format(new Date(stay.expectedCheckOutDate), 'dd MMM')}
+                    <div className="min-w-0">
+                      <p className="font-bold text-gray-900 text-sm truncate">{stay.guest?.fullName}</p>
+                      <p className="text-xs text-gray-500 mt-0.5 truncate">
+                        Room <span className="font-black text-indigo-600">{stay.room?.roomNumber}</span> &bull; {stay.guest?.mobileNumber}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <p className="text-xs text-gray-500">Balance Due</p>
-                      <p className="text-lg font-black text-red-600">₹{balance}</p>
-                      <p className="text-xs text-gray-400">Paid: ₹{stay.paidAmount} / ₹{stay.totalAmount}</p>
+                  <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 pt-2 sm:pt-0 border-t sm:border-0 border-gray-100">
+                    <div className="text-left sm:text-right">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Balance Due</p>
+                      <p className="text-base sm:text-lg font-black text-red-600">₹{balance}</p>
+                      <p className="text-[10px] text-gray-400 font-medium">Paid: ₹{stay.paidAmount} / ₹{stay.totalAmount}</p>
                     </div>
                     <button
                       onClick={() => { setSelectedStay(stay); setPayAmount(balance); }}
-                      className="flex items-center gap-1.5 bg-black text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-gray-800 transition-colors shadow-sm"
+                      className="flex items-center gap-1.5 bg-black text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-gray-800 transition-colors shadow-sm active:scale-95 shrink-0"
                     >
                       <Plus size={14} /> Collect
                     </button>
@@ -125,21 +125,21 @@ const PaymentsList = () => {
 
       {/* Quick Pay Modal */}
       {selectedStay && (
-        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setSelectedStay(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300" onClick={e => e.stopPropagation()}>
-            <div className="px-6 py-5 border-b border-gray-100">
-              <h3 className="font-bold text-gray-900">Collect Payment</h3>
-              <p className="text-sm text-gray-500 mt-0.5">{selectedStay.guest?.fullName} &bull; Room {selectedStay.room?.roomNumber}</p>
+        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4" onClick={() => setSelectedStay(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm flex flex-col max-h-[92vh] sm:max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-gray-100 bg-gray-50/50 shrink-0">
+              <h3 className="font-black text-gray-900 text-lg">Collect Payment</h3>
+              <p className="text-xs text-gray-500 mt-0.5 font-medium">{selectedStay.guest?.fullName} &bull; Room {selectedStay.room?.roomNumber}</p>
             </div>
-            <form onSubmit={handlePayment} className="p-6 space-y-4">
-              {payError && <div className="text-red-600 text-sm bg-red-50 p-3 rounded-xl">{payError}</div>}
+            <form onSubmit={handlePayment} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0 flex flex-col">
+              {payError && <div className="text-red-600 text-sm bg-red-50 p-3 rounded-xl border border-red-100 font-medium">{payError}</div>}
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Amount (₹)</label>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">Amount (₹)</label>
                 <input
                   type="number"
                   min="1"
                   max={selectedStay.totalAmount - selectedStay.paidAmount}
-                  className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none text-xl font-black"
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none text-xl font-black text-gray-900"
                   value={payAmount}
                   onChange={e => setPayAmount(e.target.value)}
                   required
@@ -148,14 +148,14 @@ const PaymentsList = () => {
               <div className="flex gap-2">
                 {['Cash', 'UPI', 'Card'].map(m => (
                   <button key={m} type="button" onClick={() => setPayMethod(m)}
-                    className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${payMethod === m ? 'bg-black text-white border-black' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                    className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all ${payMethod === m ? 'bg-black text-white border-black shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
                     {m}
                   </button>
                 ))}
               </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setSelectedStay(null)} className="flex-1 py-2.5 border border-gray-200 text-gray-700 font-semibold rounded-xl text-sm hover:bg-gray-50">Cancel</button>
-                <button type="submit" disabled={payLoading} className="flex-1 py-2.5 bg-green-600 text-white font-bold rounded-xl text-sm hover:bg-green-700 shadow-md disabled:opacity-50">
+              <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3 pt-3 mt-auto shrink-0">
+                <button type="button" onClick={() => setSelectedStay(null)} className="w-full sm:flex-1 py-2.5 border border-gray-200 text-gray-700 font-bold rounded-xl text-sm hover:bg-gray-50 transition-colors">Cancel</button>
+                <button type="submit" disabled={payLoading} className="w-full sm:flex-1 py-2.5 bg-green-600 text-white font-bold rounded-xl text-sm hover:bg-green-700 shadow-md disabled:opacity-50 active:scale-95 transition-all">
                   {payLoading ? 'Saving...' : 'Confirm ✓'}
                 </button>
               </div>
