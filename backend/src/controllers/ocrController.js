@@ -109,11 +109,11 @@ Return ONLY a valid JSON object matching this schema:
 Do NOT wrap the output in markdown code blocks like \`\`\`json. Output ONLY the raw JSON string.`;
     }
 
-    // 6. Call Google Gemini Vision API with multi-model fallback
+    // 6. Call Google Gemini Vision API with multi-model fallback (Lite model first: 500 RPD free quota)
     const candidateModels = [
-      'gemini-2.5-flash',
       'gemini-2.5-flash-lite',
       'gemini-2.0-flash',
+      'gemini-2.5-flash',
       'gemini-flash-latest'
     ];
 
