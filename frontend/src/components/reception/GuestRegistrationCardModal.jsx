@@ -129,7 +129,9 @@ export default function GuestRegistrationCardModal({
     });
   });
 
+  // Dynamic grid & height allocation based on number of guests to perfectly fill full A4 page
   const idCols = idCards.length <= 2 ? 2 : idCards.length <= 4 ? 4 : 3;
+  const idImgHeightPx = displayGuests.length === 1 ? 150 : (displayGuests.length === 2 ? 130 : 100);
 
   // =========================================================
   // HELPER: Convert rendered image on screen or URL to Data URI
@@ -165,7 +167,7 @@ export default function GuestRegistrationCardModal({
   };
 
   // =========================================================
-  // DEDICATED ISOLATED PRINT ENGINE (Single-Page, Pure White, Guaranteed Images)
+  // DEDICATED ISOLATED PRINT ENGINE (100% Full-Page A4 Fit)
   // =========================================================
   const handlePrint = async () => {
     if (isPrinting) return;
@@ -237,7 +239,7 @@ export default function GuestRegistrationCardModal({
             <style>
               @page {
                 size: A4 portrait;
-                margin: 4mm 6mm;
+                margin: 6mm 8mm;
               }
               * {
                 box-sizing: border-box !important;
@@ -250,26 +252,33 @@ export default function GuestRegistrationCardModal({
                 background: #ffffff !important;
                 color: #111827 !important;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
-                font-size: 10px !important;
-                line-height: 1.25 !important;
+                font-size: 11px !important;
+                line-height: 1.3 !important;
+                height: 100% !important;
               }
               body {
                 padding: 0 !important;
                 display: flex !important;
                 justify-content: center !important;
+                align-items: stretch !important;
               }
               #grc-printable-sheet {
-                display: block !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: space-between !important;
                 visibility: visible !important;
                 width: 100% !important;
                 max-width: 100% !important;
+                min-height: 280mm !important;
+                max-height: 283mm !important;
                 margin: 0 auto !important;
-                padding: 6px 8px !important;
-                border: 1.5px solid #111827 !important;
-                border-radius: 6px !important;
+                padding: 10px 14px !important;
+                border: 2px solid #111827 !important;
+                border-radius: 8px !important;
                 background: #ffffff !important;
                 page-break-inside: avoid !important;
                 page-break-after: avoid !important;
+                box-sizing: border-box !important;
               }
               #grc-printable-sheet * {
                 visibility: visible !important;
@@ -279,66 +288,67 @@ export default function GuestRegistrationCardModal({
                 flex-direction: row !important;
                 justify-content: space-between !important;
                 align-items: flex-start !important;
-                border-bottom: 2px solid #111827 !important;
-                padding-bottom: 6px !important;
-                margin-bottom: 6px !important;
-                gap: 10px !important;
+                border-bottom: 2.5px solid #111827 !important;
+                padding-bottom: 10px !important;
+                margin-bottom: 10px !important;
+                gap: 16px !important;
               }
               .grc-metric-row {
                 display: grid !important;
                 grid-template-columns: repeat(6, 1fr) !important;
-                gap: 1px !important;
-                background-color: #d1d5db !important;
-                border: 1.5px solid #111827 !important;
-                border-radius: 6px !important;
+                gap: 1.5px !important;
+                background-color: #9ca3af !important;
+                border: 2px solid #111827 !important;
+                border-radius: 8px !important;
                 overflow: hidden !important;
-                margin-bottom: 6px !important;
+                margin-bottom: 10px !important;
                 text-align: center !important;
               }
               .grc-metric-cell {
                 background: #ffffff !important;
-                padding: 3px 2px !important;
+                padding: 6px 4px !important;
                 display: flex !important;
                 flex-direction: column !important;
                 justify-content: center !important;
               }
               .grc-metric-label {
                 display: block !important;
-                font-size: 7.5px !important;
+                font-size: 8.5px !important;
                 font-weight: 800 !important;
                 text-transform: uppercase !important;
-                color: #6b7280 !important;
-                letter-spacing: 0.04em !important;
+                color: #4b5563 !important;
+                letter-spacing: 0.05em !important;
+                margin-bottom: 2px !important;
               }
               .grc-metric-val {
                 display: block !important;
-                font-size: 10px !important;
-                font-weight: 800 !important;
+                font-size: 11.5px !important;
+                font-weight: 900 !important;
                 color: #111827 !important;
               }
               .grc-box {
-                border: 1.5px solid #111827 !important;
-                border-radius: 6px !important;
+                border: 2px solid #111827 !important;
+                border-radius: 8px !important;
                 overflow: hidden !important;
-                margin-bottom: 6px !important;
+                margin-bottom: 10px !important;
                 background: #ffffff !important;
               }
               .grc-box-header {
                 background: #111827 !important;
                 color: #ffffff !important;
-                padding: 3px 6px !important;
-                font-size: 8.5px !important;
-                font-weight: 800 !important;
+                padding: 5px 10px !important;
+                font-size: 10px !important;
+                font-weight: 900 !important;
                 text-transform: uppercase !important;
-                letter-spacing: 0.05em !important;
+                letter-spacing: 0.06em !important;
                 display: flex !important;
                 justify-content: space-between !important;
                 align-items: center !important;
               }
               .grc-guest-card {
-                padding: 4px 6px !important;
+                padding: 8px 10px !important;
                 background: #ffffff !important;
-                border-bottom: 1px dashed #d1d5db !important;
+                border-bottom: 1.5px dashed #cbd5e1 !important;
               }
               .grc-guest-card:last-child {
                 border-bottom: none !important;
@@ -347,43 +357,45 @@ export default function GuestRegistrationCardModal({
                 display: flex !important;
                 justify-content: space-between !important;
                 align-items: center !important;
-                margin-bottom: 2px !important;
+                margin-bottom: 6px !important;
               }
               .grc-guest-grid {
                 display: grid !important;
-                grid-template-columns: 1.2fr 1.3fr 1.3fr 1fr !important;
-                gap: 2px 6px !important;
-                font-size: 9.5px !important;
+                grid-template-columns: 1.2fr 1.3fr 1.3fr 1.1fr !important;
+                gap: 5px 12px !important;
+                font-size: 10.5px !important;
               }
               .grc-field-lbl {
                 display: block !important;
-                font-size: 7.5px !important;
+                font-size: 8.5px !important;
                 font-weight: 800 !important;
                 text-transform: uppercase !important;
-                color: #6b7280 !important;
+                color: #64748b !important;
+                letter-spacing: 0.03em !important;
+                margin-bottom: 1px !important;
               }
               .grc-field-val {
                 display: block !important;
-                font-size: 9.5px !important;
-                font-weight: 700 !important;
-                color: #111827 !important;
+                font-size: 11px !important;
+                font-weight: 800 !important;
+                color: #0f172a !important;
               }
               .grc-address-row {
-                margin-top: 2px !important;
-                padding-top: 2px !important;
-                border-top: 1px solid #f3f4f6 !important;
-                font-size: 9px !important;
+                margin-top: 6px !important;
+                padding-top: 5px !important;
+                border-top: 1px solid #e2e8f0 !important;
+                font-size: 10.5px !important;
               }
               .grc-id-grid {
                 display: grid !important;
-                gap: 5px !important;
-                padding: 5px !important;
-                background: #f9fafb !important;
+                gap: 8px !important;
+                padding: 8px !important;
+                background: #f8fafc !important;
               }
               .grc-id-card {
-                border: 1px solid #e5e7eb !important;
-                border-radius: 4px !important;
-                padding: 3px !important;
+                border: 1.5px solid #cbd5e1 !important;
+                border-radius: 6px !important;
+                padding: 5px !important;
                 background: #ffffff !important;
                 display: flex !important;
                 flex-direction: column !important;
@@ -393,11 +405,11 @@ export default function GuestRegistrationCardModal({
                 box-sizing: border-box !important;
               }
               .grc-id-card-title {
-                font-size: 7.5px !important;
-                font-weight: 800 !important;
+                font-size: 9px !important;
+                font-weight: 900 !important;
                 text-transform: uppercase !important;
-                color: #4b5563 !important;
-                margin-bottom: 2px !important;
+                color: #334155 !important;
+                margin-bottom: 4px !important;
                 width: 100% !important;
                 white-space: nowrap !important;
                 overflow: hidden !important;
@@ -405,48 +417,50 @@ export default function GuestRegistrationCardModal({
               }
               .grc-id-card-img-wrap {
                 width: 100% !important;
-                height: 72px !important;
+                height: ${idImgHeightPx}px !important;
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
                 overflow: hidden !important;
               }
               .grc-id-img {
-                max-height: 70px !important;
+                max-height: ${idImgHeightPx - 4}px !important;
                 max-width: 100% !important;
                 object-fit: contain !important;
-                border-radius: 3px !important;
-                border: 1px solid #e5e7eb !important;
+                border-radius: 4px !important;
+                border: 1px solid #e2e8f0 !important;
                 display: block !important;
               }
               .grc-id-placeholder {
-                height: 64px !important;
+                height: ${idImgHeightPx - 6}px !important;
                 width: 100% !important;
-                border: 1px dashed #d1d5db !important;
-                border-radius: 4px !important;
+                border: 2px dashed #cbd5e1 !important;
+                border-radius: 6px !important;
                 display: flex !important;
+                flex-direction: column !important;
                 align-items: center !important;
                 justify-content: center !important;
-                color: #9ca3af !important;
-                font-size: 8.5px !important;
-                font-weight: 700 !important;
+                color: #64748b !important;
+                font-size: 10px !important;
+                font-weight: 800 !important;
                 text-align: center !important;
-                padding: 2px !important;
+                padding: 6px !important;
+                background: #f8fafc !important;
               }
               .grc-decl-box {
-                border: 1.5px solid #111827 !important;
-                border-radius: 6px !important;
+                border: 2px solid #111827 !important;
+                border-radius: 8px !important;
                 overflow: hidden !important;
                 background: #ffffff !important;
-                margin-top: 5px !important;
+                margin-top: auto !important;
               }
               .grc-decl-text {
-                padding: 4px 6px !important;
-                background: #f9fafb !important;
-                border-bottom: 1px solid #e5e7eb !important;
-                font-size: 8px !important;
-                color: #374151 !important;
-                line-height: 1.25 !important;
+                padding: 8px 12px !important;
+                background: #f8fafc !important;
+                border-bottom: 1.5px solid #cbd5e1 !important;
+                font-size: 9.5px !important;
+                color: #334155 !important;
+                line-height: 1.4 !important;
               }
               .grc-signatures {
                 display: grid !important;
@@ -454,15 +468,15 @@ export default function GuestRegistrationCardModal({
                 background: #ffffff !important;
               }
               .grc-sig-col {
-                padding: 5px 8px !important;
+                padding: 10px 14px !important;
                 display: flex !important;
                 flex-direction: column !important;
                 justify-content: space-between !important;
-                min-height: 72px !important;
+                min-height: 105px !important;
                 box-sizing: border-box !important;
               }
               .grc-sig-col:first-child {
-                border-right: 1px solid #e5e7eb !important;
+                border-right: 1.5px solid #cbd5e1 !important;
               }
               .grc-hidden {
                 display: none !important;
@@ -516,14 +530,14 @@ export default function GuestRegistrationCardModal({
       onClick={handleOverlayClick}
       className="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-md p-2 sm:p-4 md:p-6 flex items-center justify-center overflow-hidden animate-in fade-in duration-200"
     >
-      {/* SCOPED EMBEDDED CSS FOR PERFECT PREVIEW & PRINT RESISTANCE */}
+      {/* SCOPED EMBEDDED CSS FOR PERFECT PREVIEW */}
       <style>{`
         .grc-sheet {
           box-sizing: border-box;
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
           color: #111827;
-          font-size: 10.5px;
-          line-height: 1.25;
+          font-size: 11px;
+          line-height: 1.3;
           background: #ffffff;
         }
         .grc-header-row {
@@ -531,67 +545,67 @@ export default function GuestRegistrationCardModal({
           flex-direction: row;
           justify-content: space-between;
           align-items: flex-start;
-          border-bottom: 2px solid #111827;
-          padding-bottom: 8px;
-          margin-bottom: 8px;
-          gap: 12px;
+          border-bottom: 2.5px solid #111827;
+          padding-bottom: 10px;
+          margin-bottom: 10px;
+          gap: 16px;
         }
         .grc-metric-row {
           display: grid;
           grid-template-columns: repeat(6, 1fr);
-          gap: 1px;
-          background-color: #d1d5db;
-          border: 1.5px solid #111827;
-          border-radius: 6px;
+          gap: 1.5px;
+          background-color: #9ca3af;
+          border: 2px solid #111827;
+          border-radius: 8px;
           overflow: hidden;
-          margin-bottom: 8px;
+          margin-bottom: 10px;
           text-align: center;
         }
         .grc-metric-cell {
           background: #ffffff;
-          padding: 4px 2px;
+          padding: 6px 4px;
           display: flex;
           flex-direction: column;
           justify-content: center;
         }
         .grc-metric-label {
           display: block;
-          font-size: 8px;
+          font-size: 8.5px;
           font-weight: 800;
           text-transform: uppercase;
-          color: #6b7280;
-          letter-spacing: 0.04em;
+          color: #4b5563;
+          letter-spacing: 0.05em;
+          margin-bottom: 2px;
         }
         .grc-metric-val {
           display: block;
-          font-size: 10.5px;
-          font-weight: 800;
+          font-size: 11.5px;
+          font-weight: 900;
           color: #111827;
-          line-height: 1.2;
         }
         .grc-box {
-          border: 1.5px solid #111827;
-          border-radius: 6px;
+          border: 2px solid #111827;
+          border-radius: 8px;
           overflow: hidden;
-          margin-bottom: 8px;
+          margin-bottom: 10px;
           background: #ffffff;
         }
         .grc-box-header {
           background: #111827;
           color: #ffffff;
-          padding: 3.5px 8px;
-          font-size: 9px;
-          font-weight: 800;
+          padding: 5px 10px;
+          font-size: 10px;
+          font-weight: 900;
           text-transform: uppercase;
-          letter-spacing: 0.05em;
+          letter-spacing: 0.06em;
           display: flex;
           justify-content: space-between;
           align-items: center;
         }
         .grc-guest-card {
-          padding: 5px 8px;
+          padding: 8px 10px;
           background: #ffffff;
-          border-bottom: 1px dashed #d1d5db;
+          border-bottom: 1.5px dashed #cbd5e1;
         }
         .grc-guest-card:last-child {
           border-bottom: none;
@@ -600,44 +614,45 @@ export default function GuestRegistrationCardModal({
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 3px;
+          margin-bottom: 6px;
         }
         .grc-guest-grid {
           display: grid;
-          grid-template-columns: 1.2fr 1.3fr 1.3fr 1fr;
-          gap: 3px 6px;
-          font-size: 10px;
+          grid-template-columns: 1.2fr 1.3fr 1.3fr 1.1fr;
+          gap: 5px 12px;
+          font-size: 10.5px;
         }
         .grc-field-lbl {
           display: block;
-          font-size: 8px;
+          font-size: 8.5px;
           font-weight: 800;
           text-transform: uppercase;
-          color: #6b7280;
+          color: #64748b;
           letter-spacing: 0.03em;
+          margin-bottom: 1px;
         }
         .grc-field-val {
           display: block;
-          font-size: 10px;
-          font-weight: 700;
-          color: #111827;
+          font-size: 11px;
+          font-weight: 800;
+          color: #0f172a;
         }
         .grc-address-row {
-          margin-top: 3px;
-          padding-top: 2px;
-          border-top: 1px solid #f3f4f6;
-          font-size: 9.5px;
+          margin-top: 6px;
+          padding-top: 5px;
+          border-top: 1px solid #e2e8f0;
+          font-size: 10.5px;
         }
         .grc-id-grid {
           display: grid;
-          gap: 6px;
-          padding: 6px;
-          background: #f9fafb;
+          gap: 8px;
+          padding: 8px;
+          background: #f8fafc;
         }
         .grc-id-card {
-          border: 1px solid #e5e7eb;
-          border-radius: 5px;
-          padding: 4px;
+          border: 1.5px solid #cbd5e1;
+          border-radius: 6px;
+          padding: 5px;
           background: #ffffff;
           display: flex;
           flex-direction: column;
@@ -647,11 +662,11 @@ export default function GuestRegistrationCardModal({
           box-sizing: border-box;
         }
         .grc-id-card-title {
-          font-size: 8px;
-          font-weight: 800;
+          font-size: 9px;
+          font-weight: 900;
           text-transform: uppercase;
-          color: #4b5563;
-          margin-bottom: 2px;
+          color: #334155;
+          margin-bottom: 4px;
           width: 100%;
           white-space: nowrap;
           overflow: hidden;
@@ -659,48 +674,50 @@ export default function GuestRegistrationCardModal({
         }
         .grc-id-card-img-wrap {
           width: 100%;
-          height: 76px;
+          height: ${idImgHeightPx}px;
           display: flex;
           align-items: center;
           justify-content: center;
           overflow: hidden;
         }
         .grc-id-img {
-          max-height: 74px;
+          max-height: ${idImgHeightPx - 4}px;
           max-width: 100%;
           object-fit: contain;
-          border-radius: 3px;
-          border: 1px solid #e5e7eb;
+          border-radius: 4px;
+          border: 1px solid #e2e8f0;
           display: block;
         }
         .grc-id-placeholder {
-          height: 68px;
+          height: ${idImgHeightPx - 6}px;
           width: 100%;
-          border: 1.5px dashed #d1d5db;
-          border-radius: 4px;
+          border: 2px dashed #cbd5e1;
+          border-radius: 6px;
           display: flex;
+          flex-direction: column;
           align-items: center;
           justify-content: center;
-          color: #9ca3af;
-          font-size: 9px;
-          font-weight: 700;
+          color: #64748b;
+          font-size: 10px;
+          font-weight: 800;
           text-align: center;
-          padding: 4px;
+          padding: 6px;
+          background: #f8fafc;
         }
         .grc-decl-box {
-          border: 1.5px solid #111827;
-          border-radius: 6px;
+          border: 2px solid #111827;
+          border-radius: 8px;
           overflow: hidden;
           background: #ffffff;
-          margin-top: 6px;
+          margin-top: 8px;
         }
         .grc-decl-text {
-          padding: 4px 8px;
-          background: #f9fafb;
-          border-bottom: 1px solid #e5e7eb;
-          font-size: 8.5px;
-          color: #374151;
-          line-height: 1.25;
+          padding: 8px 12px;
+          background: #f8fafc;
+          border-bottom: 1.5px solid #cbd5e1;
+          font-size: 9.5px;
+          color: #334155;
+          line-height: 1.4;
         }
         .grc-signatures {
           display: grid;
@@ -708,15 +725,15 @@ export default function GuestRegistrationCardModal({
           background: #ffffff;
         }
         .grc-sig-col {
-          padding: 6px 10px;
+          padding: 10px 14px;
           display: flex;
           flex-direction: column;
           justify-content: space-between;
-          min-height: 76px;
+          min-height: 105px;
           box-sizing: border-box;
         }
         .grc-sig-col:first-child {
-          border-right: 1px solid #e5e7eb;
+          border-right: 1.5px solid #cbd5e1;
         }
         .grc-hidden {
           display: none !important;
@@ -730,10 +747,10 @@ export default function GuestRegistrationCardModal({
       <div
         id="grc-modal-card"
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl sm:rounded-3xl max-w-4xl w-full h-[94vh] sm:h-[90vh] max-h-[880px] shadow-2xl border border-gray-200 flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200"
+        className="bg-white rounded-2xl sm:rounded-3xl max-w-4xl w-full h-[96vh] sm:h-[92vh] max-h-[920px] shadow-2xl border border-gray-200 flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200"
       >
         {/* TOP CONTROL BAR */}
-        <div className="no-print px-4 sm:px-6 py-3 bg-gray-950 text-white flex items-center justify-between gap-3 border-b border-gray-800 shrink-0 z-30">
+        <div className="no-print px-4 sm:px-6 py-3.5 bg-gray-950 text-white flex items-center justify-between gap-3 border-b border-gray-800 shrink-0 z-30">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30 shrink-0">
               <ShieldCheck size={18} />
@@ -748,7 +765,7 @@ export default function GuestRegistrationCardModal({
                 </span>
               </div>
               <p className="text-[10px] sm:text-[11px] text-gray-400 font-medium truncate hidden sm:block">
-                Print on A4 for physical verification & guest signature · {displayGuests.length} Registered Guest(s)
+                Full Page A4 Format · {displayGuests.length} Registered Guest(s)
               </p>
             </div>
           </div>
@@ -758,7 +775,7 @@ export default function GuestRegistrationCardModal({
               onClick={handlePrint}
               disabled={isPrinting}
               type="button"
-              className="px-3 sm:px-4 py-1.5 sm:py-2 bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center gap-1.5 active:scale-95 cursor-pointer disabled:opacity-50"
+              className="px-3.5 sm:px-5 py-2 sm:py-2.5 bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center gap-1.5 active:scale-95 cursor-pointer disabled:opacity-50"
             >
               {isPrinting ? (
                 <>
@@ -767,8 +784,8 @@ export default function GuestRegistrationCardModal({
                 </>
               ) : (
                 <>
-                  <Printer size={14} />
-                  <span>Print A4</span>
+                  <Printer size={15} />
+                  <span>Print Full A4</span>
                 </>
               )}
             </button>
@@ -777,7 +794,7 @@ export default function GuestRegistrationCardModal({
               <button
                 onClick={onProceedToDashboard}
                 type="button"
-                className="hidden sm:inline-flex px-3 py-2 bg-gray-800 hover:bg-gray-700 text-white font-bold text-xs rounded-xl transition-all border border-gray-700 active:scale-95 cursor-pointer"
+                className="hidden sm:inline-flex px-3.5 py-2 bg-gray-800 hover:bg-gray-700 text-white font-bold text-xs rounded-xl transition-all border border-gray-700 active:scale-95 cursor-pointer"
               >
                 Dashboard
               </button>
@@ -802,36 +819,36 @@ export default function GuestRegistrationCardModal({
         >
           
           {/* ====================================================================
-              OFFICIAL PRINTABLE GRC SHEET (100% SINGLE A4 FIT, NO SKEW/DISTORTION)
+              OFFICIAL PRINTABLE GRC SHEET (100% FULL A4 PAGE FIT)
           ==================================================================== */}
           <div
             id="grc-printable-sheet"
             ref={printAreaRef}
-            className="grc-sheet w-full max-w-[780px] bg-white border border-gray-300 sm:border-2 sm:border-gray-900 rounded-xl p-3.5 sm:p-4 shadow-sm text-left leading-tight"
+            className="grc-sheet w-full max-w-[780px] bg-white border-2 border-gray-900 rounded-xl p-4 sm:p-5 shadow-sm text-left leading-normal"
           >
             {/* 1. HOTEL HEADER & GRC BADGE */}
             <div className="grc-header-row">
               <div style={{ flex: 1, minWidth: 0 }}>
-                <h1 style={{ fontSize: '17px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '-0.02em', color: '#111827', margin: 0, lineHeight: 1.2 }}>
+                <h1 style={{ fontSize: '20px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '-0.02em', color: '#111827', margin: 0, lineHeight: 1.15 }}>
                   {hotelName}
                 </h1>
-                <p style={{ fontSize: '10px', fontWeight: 700, color: '#374151', margin: '2px 0 0 0', lineHeight: 1.3 }}>
+                <p style={{ fontSize: '11px', fontWeight: 700, color: '#334155', margin: '3px 0 0 0', lineHeight: 1.35 }}>
                   {hotelAddress}
                 </p>
-                <p style={{ fontSize: '9.5px', fontWeight: 600, color: '#4b5563', margin: '2px 0 0 0' }}>
+                <p style={{ fontSize: '10px', fontWeight: 600, color: '#475569', margin: '3px 0 0 0' }}>
                   <strong>Contact:</strong> {hotelContact} {hotelEmail ? ` | Email: ${hotelEmail}` : ''}
                 </p>
               </div>
 
               {/* GRC DOCUMENT BADGE */}
-              <div style={{ flexShrink: 0, textAlign: 'right', border: '1.5px solid #111827', borderRadius: '6px', padding: '5px 8px', background: '#f9fafb' }}>
-                <span style={{ display: 'block', fontSize: '9.5px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#111827' }}>
+              <div style={{ flexShrink: 0, textAlign: 'right', border: '2px solid #111827', borderRadius: '8px', padding: '6px 12px', background: '#f8fafc' }}>
+                <span style={{ display: 'block', fontSize: '10.5px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#111827' }}>
                   Guest Registration Card
                 </span>
-                <span style={{ display: 'block', fontSize: '11px', fontFamily: 'monospace', fontWeight: 900, color: '#047857', marginTop: '1px' }}>
+                <span style={{ display: 'block', fontSize: '13px', fontFamily: 'monospace', fontWeight: 900, color: '#047857', marginTop: '2px' }}>
                   {grNumber}
                 </span>
-                <span style={{ display: 'block', fontSize: '8px', fontWeight: 700, color: '#6b7280', marginTop: '1px' }}>
+                <span style={{ display: 'block', fontSize: '9px', fontWeight: 700, color: '#64748b', marginTop: '2px' }}>
                   Generated: {formattedGeneratedAt}
                 </span>
               </div>
@@ -841,7 +858,7 @@ export default function GuestRegistrationCardModal({
             <div className="grc-metric-row">
               <div className="grc-metric-cell">
                 <span className="grc-metric-label">Room No.</span>
-                <span className="grc-metric-val" style={{ fontSize: '12px' }}>{roomData?.roomNumber || '—'}</span>
+                <span className="grc-metric-val" style={{ fontSize: '14px' }}>{roomData?.roomNumber || '—'}</span>
               </div>
               <div className="grc-metric-cell">
                 <span className="grc-metric-label">Room Type</span>
@@ -873,7 +890,7 @@ export default function GuestRegistrationCardModal({
                 <span>
                   Registered Guests Information ({displayGuests.length} {displayGuests.length > 1 ? 'Guests' : 'Guest'})
                 </span>
-                <span style={{ fontSize: '8px', fontWeight: 500, color: '#d1d5db' }}>
+                <span style={{ fontSize: '8.5px', fontWeight: 600, color: '#cbd5e1' }}>
                   Govt ID Verified for Police & Hotel Compliance
                 </span>
               </div>
@@ -886,16 +903,16 @@ export default function GuestRegistrationCardModal({
                     <div key={idx} className="grc-guest-card">
                       <div className="grc-guest-tag">
                         <span style={{ fontWeight: 800, color: '#111827' }}>
-                          <span style={{ background: isLead ? '#111827' : '#4b5563', color: '#fff', fontSize: '8.5px', padding: '1px 5px', borderRadius: '3px', marginRight: '5px' }}>
+                          <span style={{ background: isLead ? '#111827' : '#475569', color: '#fff', fontSize: '9px', fontWeight: 900, padding: '2px 6px', borderRadius: '4px', marginRight: '6px' }}>
                             Guest #{idx + 1}
                           </span>
-                          <strong style={{ fontSize: '11px', textTransform: 'uppercase' }}>{guest.fullName || '—'}</strong>
-                          <span style={{ fontSize: '9px', color: '#6b7280', fontWeight: 600, marginLeft: '6px' }}>
+                          <strong style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.02em' }}>{guest.fullName || '—'}</strong>
+                          <span style={{ fontSize: '9.5px', color: '#64748b', fontWeight: 600, marginLeft: '6px' }}>
                             {isLead ? '(Primary / Lead Guest)' : '(Accompanying Guest)'}
                           </span>
                         </span>
-                        <span style={{ background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', padding: '1px 6px', fontSize: '9px', fontWeight: 700, color: '#1f2937' }}>
-                          {guest.idProofType || 'Aadhaar'}: <strong style={{ fontFamily: 'monospace', letterSpacing: '0.04em' }}>{guest.idProofNumber || 'Verified'}</strong>
+                        <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '5px', padding: '2px 8px', fontSize: '9.5px', fontWeight: 800, color: '#0f172a' }}>
+                          {guest.idProofType || 'Aadhaar'}: <strong style={{ fontFamily: 'monospace', letterSpacing: '0.05em' }}>{guest.idProofNumber || 'Verified'}</strong>
                         </span>
                       </div>
 
@@ -930,8 +947,8 @@ export default function GuestRegistrationCardModal({
                       </div>
 
                       <div className="grc-address-row">
-                        <span className="grc-field-lbl" style={{ display: 'inline', marginRight: '4px' }}>Permanent Address:</span>
-                        <span style={{ fontWeight: 600, color: '#111827' }}>
+                        <span className="grc-field-lbl" style={{ display: 'inline', marginRight: '5px' }}>Permanent Residential Address:</span>
+                        <span style={{ fontWeight: 700, color: '#0f172a' }}>
                           {guest.address || (isLead ? '—' : (primaryGuest.address || 'Physical Address Verified at Desk'))}
                         </span>
                       </div>
@@ -947,7 +964,7 @@ export default function GuestRegistrationCardModal({
                 <span>
                   Attached Identity Proof Documents ({idCards.filter(c => c.url).length} Uploaded / Verified)
                 </span>
-                <span style={{ fontSize: '8px', fontWeight: 500, color: '#d1d5db' }}>
+                <span style={{ fontSize: '8.5px', fontWeight: 600, color: '#cbd5e1' }}>
                   Documentary Verification
                 </span>
               </div>
@@ -980,6 +997,7 @@ export default function GuestRegistrationCardModal({
                       <div
                         className={`grc-id-placeholder ${card.url ? 'grc-hidden' : 'grc-flex'}`}
                       >
+                        <ShieldCheck size={20} className="text-gray-400 mb-1" />
                         <span>[ {card.side} ID Verified at Desk ]</span>
                       </div>
                     </div>
@@ -988,90 +1006,112 @@ export default function GuestRegistrationCardModal({
               </div>
             </div>
 
-            {/* 5. LEGAL DECLARATION & DUAL SIGNATURE BOXES (NO PAYMENT SHOWN) */}
+            {/* 5. HOTEL HOUSE RULES & LEGAL DECLARATION */}
             <div className="grc-decl-box">
-              {/* POLICY DECLARATION */}
+              {/* POLICY & RULES */}
               <div className="grc-decl-text">
-                <strong style={{ display: 'block', textTransform: 'uppercase', fontWeight: 800, color: '#111827', fontSize: '8.5px', marginBottom: '2px', letterSpacing: '0.04em' }}>
-                  Declaration & Hotel Policy Acknowledgement:
-                </strong>
-                I/We hereby declare that all personal details and identity proofs furnished above are true and accurate. I/We agree to strictly comply with the hotel house rules, room policies, check-out timings, and local government/police regulations. Any damage caused to property or missing amenities shall be charged in full. As per the IT Act 2000, electronic identity verification and digital records maintained by the front desk are legally binding.
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '8px', paddingBottom: '8px', borderBottom: '1px dashed #cbd5e1' }}>
+                  <div>
+                    <strong style={{ display: 'block', textTransform: 'uppercase', color: '#0f172a', fontSize: '9.5px', marginBottom: '3px', letterSpacing: '0.04em' }}>
+                      Hotel House Rules & Timings:
+                    </strong>
+                    <ul style={{ margin: 0, paddingLeft: '14px', fontSize: '9px', color: '#475569', lineHeight: 1.4 }}>
+                      <li>Standard Check-Out time is 10:00 AM / 11:00 AM sharp.</li>
+                      <li>Strictly no smoking, narcotics, or illegal items permitted in rooms.</li>
+                      <li>Outside visitors are not permitted in guest rooms after 10:00 PM.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <strong style={{ display: 'block', textTransform: 'uppercase', color: '#0f172a', fontSize: '9.5px', marginBottom: '3px', letterSpacing: '0.04em' }}>
+                      Safety & Property Compliance:
+                    </strong>
+                    <ul style={{ margin: 0, paddingLeft: '14px', fontSize: '9px', color: '#475569', lineHeight: 1.4 }}>
+                      <li>Damage caused to hotel amenities or lost keycard will be charged.</li>
+                      <li>Management holds no liability for unattended valuables left in room.</li>
+                      <li>Identity proofs are electronically logged for local police inspection.</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div style={{ fontSize: '9.5px', color: '#1e293b', lineHeight: 1.4 }}>
+                  <strong style={{ textTransform: 'uppercase' }}>Declaration:</strong> I/We hereby solemnly declare that all personal particulars, mobile numbers, and identity documents furnished above are true and accurate. I/We agree to strictly comply with the hotel house rules, room policies, check-out timings, and local government/police regulations. As per the IT Act 2000, electronic identity verification and digital records maintained by the front desk are legally binding.
+                </div>
               </div>
 
               {/* DUAL SIGNATURE BOXES */}
               <div className="grc-signatures">
                 {/* GUEST SIGNATURE */}
                 <div className="grc-sig-col">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '8.5px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#4b5563' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#334155' }}>
                     <span>Guest Signature</span>
-                    <span style={{ fontSize: '8px', color: '#9ca3af', fontFamily: 'monospace' }}>(Sign in Box)</span>
+                    <span style={{ fontSize: '8.5px', color: '#94a3b8', fontFamily: 'monospace' }}>(Sign in Box)</span>
                   </div>
                   
                   {/* Signing zone */}
-                  <div style={{ height: '34px', borderBottom: '1.5px dashed #9ca3af', display: 'flex', alignItems: 'flex-end', paddingBottom: '2px' }}>
-                    <span style={{ fontSize: '8.5px', fontFamily: 'monospace', color: '#d1d5db', paddingLeft: '4px' }}>x______________________</span>
+                  <div style={{ height: '52px', borderBottom: '2px dashed #94a3b8', display: 'flex', alignItems: 'flex-end', paddingBottom: '4px' }}>
+                    <span style={{ fontSize: '9px', fontFamily: 'monospace', color: '#cbd5e1', paddingLeft: '4px' }}>x__________________________________</span>
                   </div>
 
-                  <div style={{ marginTop: '5px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ marginTop: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                      <span style={{ display: 'block', fontSize: '9.5px', fontWeight: 800, textTransform: 'uppercase', color: '#111827', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span style={{ display: 'block', fontSize: '10.5px', fontWeight: 900, textTransform: 'uppercase', color: '#0f172a', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {displayGuests.map(g => g.fullName).filter(Boolean).join(', ') || 'Registered Guest'}
                       </span>
-                      <span style={{ display: 'block', fontSize: '8px', fontWeight: 700, color: '#6b7280' }}>
-                        {displayGuests.length > 1 ? `All Registered Guests (${displayGuests.length})` : 'Primary Guest Sign'}
+                      <span style={{ display: 'block', fontSize: '8.5px', fontWeight: 700, color: '#64748b' }}>
+                        {displayGuests.length > 1 ? `All Registered Guests (${displayGuests.length})` : 'Primary Guest Signature'}
                       </span>
                     </div>
-                    <span style={{ fontSize: '8px', fontFamily: 'monospace', color: '#9ca3af' }}>Date: ____________</span>
+                    <span style={{ fontSize: '9px', fontFamily: 'monospace', color: '#64748b' }}>Date: ____________</span>
                   </div>
                 </div>
 
                 {/* FRONT DESK / DUTY MANAGER */}
                 <div className="grc-sig-col">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '8.5px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#4b5563' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#334155' }}>
                     <span>Front Desk / Duty Manager</span>
-                    <span style={{ fontSize: '8px', color: '#9ca3af', fontFamily: 'monospace' }}>(Seal & Signature)</span>
+                    <span style={{ fontSize: '8.5px', color: '#94a3b8', fontFamily: 'monospace' }}>(Seal & Stamp)</span>
                   </div>
                   
                   {/* Stamping zone */}
-                  <div style={{ height: '34px', borderBottom: '1.5px dashed #9ca3af', display: 'flex', alignItems: 'flex-end', paddingBottom: '2px' }}>
-                    <span style={{ fontSize: '8.5px', fontFamily: 'monospace', color: '#d1d5db', paddingLeft: '4px' }}>[ Official Seal / Stamp ]</span>
+                  <div style={{ height: '52px', borderBottom: '2px dashed #94a3b8', display: 'flex', alignItems: 'flex-end', paddingBottom: '4px' }}>
+                    <span style={{ fontSize: '9px', fontFamily: 'monospace', color: '#cbd5e1', paddingLeft: '4px' }}>[ Official Hotel Seal / Signature ]</span>
                   </div>
 
-                  <div style={{ marginTop: '5px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ marginTop: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                      <span style={{ display: 'block', fontSize: '9.5px', fontWeight: 800, textTransform: 'uppercase', color: '#111827' }}>
+                      <span style={{ display: 'block', fontSize: '10.5px', fontWeight: 900, textTransform: 'uppercase', color: '#0f172a' }}>
                         Reception Desk
                       </span>
-                      <span style={{ display: 'block', fontSize: '8px', fontWeight: 700, color: '#047857' }}>
+                      <span style={{ display: 'block', fontSize: '8.5px', fontWeight: 800, color: '#047857' }}>
                         Verified & Checked In
                       </span>
                     </div>
-                    <span style={{ fontSize: '8px', fontFamily: 'monospace', color: '#9ca3af' }}>Time: ____________</span>
+                    <span style={{ fontSize: '9px', fontFamily: 'monospace', color: '#64748b' }}>Time: ____________</span>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* CARD SYSTEM FOOTNOTE */}
-            <div style={{ marginTop: '6px', paddingTop: '4px', borderTop: '1px solid #e5e7eb', textAlign: 'center', fontSize: '7.5px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'monospace' }}>
-              Official Guest Registration Card · Generated digitally via NXHotel PMS
+            <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px solid #cbd5e1', textAlign: 'center', fontSize: '8.5px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'monospace' }}>
+              Official Guest Registration Card · Generated digitally via NXHotel PMS · Legal Identity Record
             </div>
 
           </div>
         </div>
 
         {/* BOTTOM ACTION BAR (PINNED, ALWAYS VISIBLE) */}
-        <div className="no-print px-4 sm:px-6 py-3 bg-white border-t border-gray-200 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 shrink-0 z-30">
+        <div className="no-print px-4 sm:px-6 py-3.5 bg-white border-t border-gray-200 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 shrink-0 z-30">
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
               type="button"
-              className="px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer"
+              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer"
             >
               Close
             </button>
             <p className="text-xs text-gray-500 font-medium hidden md:block">
-              Tip: Press <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-800 font-mono text-[11px] border border-gray-200">Ctrl + P</kbd> or click <strong>Print A4</strong> to print.
+              Tip: Press <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-800 font-mono text-[11px] border border-gray-200">Ctrl + P</kbd> or click <strong>Print Full A4</strong>.
             </p>
           </div>
 
@@ -1080,7 +1120,7 @@ export default function GuestRegistrationCardModal({
               <button
                 onClick={onProceedToDashboard}
                 type="button"
-                className="flex-1 sm:flex-initial px-3.5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer text-center"
+                className="flex-1 sm:flex-initial px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer text-center"
               >
                 Dashboard
               </button>
@@ -1090,7 +1130,7 @@ export default function GuestRegistrationCardModal({
               onClick={handlePrint}
               disabled={isPrinting}
               type="button"
-              className="flex-1 sm:flex-initial px-4 sm:px-5 py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-lg flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer disabled:opacity-50"
+              className="flex-1 sm:flex-initial px-5 sm:px-6 py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-lg flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer disabled:opacity-50"
             >
               {isPrinting ? (
                 <>
@@ -1100,7 +1140,7 @@ export default function GuestRegistrationCardModal({
               ) : (
                 <>
                   <Printer size={15} />
-                  <span>Print A4 Now</span>
+                  <span>Print Full A4 Now</span>
                 </>
               )}
             </button>
