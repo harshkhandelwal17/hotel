@@ -26,7 +26,8 @@ import {
   Copy,
   FileText,
   RotateCcw,
-  Printer
+  Printer,
+  Trash2
 } from 'lucide-react';
 
 import { useToast } from '../../components/ui/Toast';
@@ -921,6 +922,29 @@ const CheckIn = () => {
       toast({ message: 'Failed to refresh WhatsApp photos', type: 'error' });
     } finally {
       setSyncingWaMedia(false);
+    }
+  };
+
+  const [cleaningWaMedia, setCleaningWaMedia] = useState(false);
+
+  const handleCleanupUnusedWaMedia = async () => {
+    if (!window.confirm('Are you sure you want to delete all unused WhatsApp photos from Cloudflare storage? Any ID photos already saved to checked-in guests will remain completely safe.')) {
+      return;
+    }
+    setCleaningWaMedia(true);
+    try {
+      const res = await axios.post(`${API}/api/whatsapp/cleanup-unused`);
+      if (res.data?.success) {
+        toast({
+          message: `Cleaned up! Removed unused photos from Cloudflare storage.`,
+          type: 'success'
+        });
+        await handleRefreshWaMedia();
+      }
+    } catch (_) {
+      toast({ message: 'Failed to clean unused photos', type: 'error' });
+    } finally {
+      setCleaningWaMedia(false);
     }
   };
 
@@ -1905,6 +1929,17 @@ const CheckIn = () => {
                       >
                         <RefreshCw size={12} className={syncingWaMedia ? 'animate-spin text-emerald-600' : 'text-gray-500'} />
                         <span>Sync</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleCleanupUnusedWaMedia}
+                        disabled={cleaningWaMedia}
+                        className="px-2 py-1.5 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 font-bold text-xs rounded-xl flex items-center gap-1 transition-all shadow-xs active:scale-95 disabled:opacity-50"
+                        title="Delete unused WhatsApp photos from Cloudflare storage"
+                      >
+                        <Trash2 size={12} className={cleaningWaMedia ? 'animate-spin' : ''} />
+                        <span className="hidden sm:inline">Clean</span>
                       </button>
 
                       {waStatus === 'disconnected' && !waPhone && (
@@ -3120,6 +3155,16 @@ const CheckIn = () => {
               >
                 <RefreshCw size={13} />
                 <span>Sync</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleCleanupUnusedWaMedia}
+                disabled={cleaningWaMedia}
+                className="px-3 py-2.5 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 font-black text-xs rounded-xl transition-colors flex items-center gap-1.5 shrink-0 disabled:opacity-50"
+                title="Delete unused WhatsApp photos from Cloudflare storage"
+              >
+                <Trash2 size={13} className={cleaningWaMedia ? 'animate-spin' : ''} />
+                <span>Clean Junk</span>
               </button>
             </div>
 

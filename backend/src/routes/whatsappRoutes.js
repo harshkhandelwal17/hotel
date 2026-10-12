@@ -5,7 +5,8 @@ const {
   disconnect,
   getRecentMedia,
   markMediaUsed,
-  requestPairingCode
+  requestPairingCode,
+  cleanupUnused
 } = require('../controllers/whatsappController');
 const { protect } = require('../middlewares/auth');
 
@@ -19,6 +20,7 @@ router.post('/pairing-code', requestPairingCode);
 router.post('/disconnect', disconnect);
 router.get('/recent-media', getRecentMedia);
 router.put('/mark-used/:id', markMediaUsed);
+router.post('/cleanup-unused', cleanupUnused);
 
 module.exports = router;
 
