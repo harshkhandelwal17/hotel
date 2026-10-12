@@ -29,6 +29,36 @@ export const AuthProvider = ({ children }) => {
     } else {
       setLoading(false);
     }
+
+    // ⚡ Global 401 Interceptor: If backend revokes session (password reset or deactivated),
+    // instantly clear credentials and log out across all devices on their next action!
+    const interceptor = axios.interceptors.response.use(
+      response => response,
+      error => {
+        if (error.response && error.response.status === 401) {
+          console.warn('Session expired or revoked (401). Logging out...');
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          delete axios.defaults.headers.common['Authorization'];
+          setUser(null);
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    // Re-verify session when user switches back to the tab
+    const handleFocus = () => {
+      const currentToken = localStorage.getItem('token');
+      if (currentToken) {
+        fetchUser();
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      axios.interceptors.response.eject(interceptor);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, []);
 
   const fetchUser = async () => {

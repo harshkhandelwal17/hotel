@@ -20,6 +20,17 @@ exports.protect = async (req, res, next) => {
     if (!req.user || !req.user.isActive) {
       return res.status(401).json({ success: false, message: 'Not authorized to access this route' });
     }
+
+    // Invalidate session if password was reset or token was revoked
+    const userTokenVersion = req.user.tokenVersion || 0;
+    const tokenVersion = decoded.tokenVersion || 0;
+    if (tokenVersion !== userTokenVersion) {
+      return res.status(401).json({
+        success: false,
+        code: 'SESSION_REVOKED',
+        message: 'Your session has expired because your password was changed. Please log in again.'
+      });
+    }
     
     next();
   } catch (error) {

@@ -2,8 +2,13 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const env = require('../config/env');
 
-const generateToken = (id) => {
-  return jwt.sign({ id }, env.jwtSecret, {
+const generateToken = (user) => {
+  const userId = user._id || user;
+  const tokenVersion = typeof user === 'object' && user.tokenVersion !== undefined ? user.tokenVersion : 0;
+  return jwt.sign({ 
+    id: userId,
+    tokenVersion: tokenVersion
+  }, env.jwtSecret, {
     expiresIn: '365d',
   });
 };
@@ -41,7 +46,7 @@ exports.login = async (req, res, next) => {
         email: user.email,
         role: user.role,
         assignedHostel: user.assignedHostel,
-        token: generateToken(user._id)
+        token: generateToken(user)
       }
     });
   } catch (error) {

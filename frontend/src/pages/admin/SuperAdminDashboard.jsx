@@ -95,12 +95,12 @@ const SuperAdminDashboard = () => {
     const newPassword = window.prompt("Enter new password for this user:", "123456");
     if (!newPassword) return; // User cancelled
     
-    if (!window.confirm(`Are you sure you want to change the password to "${newPassword}"?`)) return;
+    if (!window.confirm(`Are you sure you want to change the password to "${newPassword}"?\n\n⚡ All active sessions across all devices for this user will be immediately logged out.`)) return;
     
     try {
       const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
       await axios.put(`${API}/api/superadmin/users/${userId}/reset-password`, { password: newPassword });
-      alert(`Password reset successfully to: ${newPassword}`);
+      alert(`✅ Password reset successfully to: ${newPassword}\n\nAll active devices have been logged out.`);
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to reset password');
     }

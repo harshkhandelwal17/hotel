@@ -58,7 +58,10 @@ exports.impersonateUser = async (req, res, next) => {
     const user = await User.findById(userId).populate('assignedHostel', 'name');
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
     
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'nxhotel_permanent_jwt_secret_key_2026_prod', {
+    const token = jwt.sign({ 
+      id: user._id,
+      tokenVersion: user.tokenVersion || 0 
+    }, process.env.JWT_SECRET || 'nxhotel_permanent_jwt_secret_key_2026_prod', {
       expiresIn: process.env.JWT_EXPIRE || '365d'
     });
     
@@ -88,6 +91,7 @@ exports.toggleUserStatus = async (req, res, next) => {
     }
     
     user.isActive = !user.isActive;
+    user.tokenVersion = (user.tokenVersion || 0) + 1; // Invalidate all active sessions across all devices
     await user.save({ validateBeforeSave: false }); // skip password validation
     
     res.status(200).json({ success: true, data: user });
@@ -103,9 +107,10 @@ exports.resetUserPassword = async (req, res, next) => {
     
     const newPassword = req.body.password || '123456';
     user.password = newPassword;
+    user.tokenVersion = (user.tokenVersion || 0) + 1; // ⚡ Invalidate all active sessions across all devices immediately
     await user.save();
     
-    res.status(200).json({ success: true, message: 'Password reset successfully' });
+    res.status(200).json({ success: true, message: 'Password reset successfully. All active sessions logged out.' });
   } catch (error) {
     next(error);
   }
