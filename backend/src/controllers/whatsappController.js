@@ -141,14 +141,14 @@ exports.getRecentMedia = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Hostel context required' });
     }
 
-    // Only get media from last 24 hours
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    // Get media from last 72 hours (3 days) for comfortable check-in window
+    const since = new Date(Date.now() - 72 * 60 * 60 * 1000);
     const media = await WhatsAppMedia.find({
       hostel: hostelId,
       createdAt: { $gte: since }
     })
       .sort({ createdAt: -1 })
-      .limit(30);
+      .limit(50);
 
     res.status(200).json({ success: true, count: media.length, data: media });
   } catch (err) {

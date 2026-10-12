@@ -21,10 +21,6 @@ connectDB().then(async () => {
     // Auto-resume active WhatsApp sessions
     const { initAllSavedWhatsAppSessions } = require('./src/services/whatsappService');
     initAllSavedWhatsAppSessions();
-
-    // Start automated cleanup for unselected WhatsApp media (protects checkin IDs, removes junk)
-    const { startScheduledCleanup } = require('./src/services/mediaCleanupService');
-    startScheduledCleanup();
   });
 }).catch(err => {
   console.error("Failed to start server due to DB connection error", err);

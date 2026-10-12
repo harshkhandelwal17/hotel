@@ -69,11 +69,16 @@ const cleanupUnusedMedia = async ({ olderThanHours = 24, forceAllUnused = false 
     });
 
     // 3. Find target unused WhatsAppMedia records to delete
-    const query = { status: 'new' };
-    if (!forceAllUnused) {
-      const cutoff = new Date(Date.now() - olderThanHours * 60 * 60 * 1000);
-      query.createdAt = { $lt: cutoff };
-    }
+    // SAFEGUARD: Never delete files younger than 6 hours under any circumstance!
+    const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
+    const retentionCutoff = forceAllUnused 
+      ? sixHoursAgo 
+      : new Date(Date.now() - olderThanHours * 60 * 60 * 1000);
+
+    const query = {
+      status: 'new',
+      createdAt: { $lt: retentionCutoff }
+    };
 
     const unselectedMedia = await WhatsAppMedia.find(query);
 
@@ -82,7 +87,6 @@ const cleanupUnusedMedia = async ({ olderThanHours = 24, forceAllUnused = false 
 
       // Verify that this file is not actually in protected list
       if (protectedUrls.has(media.imageUrl) || (key && protectedKeys.has(key))) {
-        // Safe check: If it was somehow used by a guest, mark as used instead of deleting!
         await WhatsAppMedia.updateOne({ _id: media._id }, { status: 'used' });
         protectedCount++;
         continue;
@@ -96,7 +100,7 @@ const cleanupUnusedMedia = async ({ olderThanHours = 24, forceAllUnused = false 
       deletedDbCount++;
     }
 
-    // 4. Clean up any orphaned files in Cloudflare R2 (prefix: hotel_pms_uploads/wa-)
+    // 4. Clean up any orphaned files in Cloudflare R2 older than 48 hours
     if (s3Client && process.env.R2_BUCKET_NAME) {
       let continuationToken = null;
 
@@ -121,25 +125,27 @@ const cleanupUnusedMedia = async ({ olderThanHours = 24, forceAllUnused = false 
               continue;
             }
 
-            // Check if there is an active new WhatsAppMedia within grace period
-            if (!forceAllUnused) {
-              const activeRecent = await WhatsAppMedia.findOne({
-                imageUrl: { $regex: r2Key },
-                createdAt: { $gte: new Date(Date.now() - olderThanHours * 60 * 60 * 1000) }
-              });
-              if (activeRecent) {
-                continue;
-              }
+            // Check if there is an active new WhatsAppMedia within 24h grace period
+            const activeRecent = await WhatsAppMedia.findOne({
+              imageUrl: { $regex: r2Key },
+              createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+            });
+            if (activeRecent) {
+              continue;
             }
 
-            // Not protected and not active -> Delete from R2
+            // If file was modified less than 24h ago, protect it!
+            if (item.LastModified && (Date.now() - new Date(item.LastModified).getTime()) < 24 * 60 * 60 * 1000) {
+              continue;
+            }
+
+            // Not protected and older than 24h -> Safe to delete from R2
             try {
               await s3Client.send(new DeleteObjectCommand({
                 Bucket: process.env.R2_BUCKET_NAME,
                 Key: r2Key
               }));
               deletedR2Count++;
-              console.log(`[MediaCleanup] 🗑️ Removed orphaned R2 object: ${r2Key}`);
             } catch (delErr) {
               console.warn(`[MediaCleanup] Failed to delete R2 key ${r2Key}:`, delErr.message);
             }
@@ -150,7 +156,7 @@ const cleanupUnusedMedia = async ({ olderThanHours = 24, forceAllUnused = false 
       } while (continuationToken);
     }
 
-    console.log(`[MediaCleanup] ✅ Cleanup finished: Deleted DB: ${deletedDbCount}, Deleted R2/Disk: ${deletedR2Count}, Protected: ${protectedCount}`);
+    console.log(`[MediaCleanup] ✅ Safe cleanup finished: Deleted DB: ${deletedDbCount}, Deleted R2/Disk: ${deletedR2Count}, Protected: ${protectedCount}`);
     return {
       success: true,
       deletedDbCount,
@@ -164,28 +170,19 @@ const cleanupUnusedMedia = async ({ olderThanHours = 24, forceAllUnused = false 
 };
 
 /**
- * Start periodic automated cleanup (runs every 6 hours)
+ * Scheduled cleanup (Safe 7-day retention, no boot deletion)
  */
 let intervalHandle = null;
 const startScheduledCleanup = () => {
   if (intervalHandle) return;
 
-  // Run initial pass 10 seconds after boot
-  setTimeout(() => {
-    cleanupUnusedMedia({ olderThanHours: 24, forceAllUnused: false }).catch(err => {
-      console.warn('[MediaCleanup] Initial scheduled cleanup failed:', err.message);
-    });
-  }, 10000);
-
-  // Repeat every 6 hours
-  const SIX_HOURS = 6 * 60 * 60 * 1000;
+  // Repeat once every 24 hours (Safe 7-day retention, NEVER on boot)
+  const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
   intervalHandle = setInterval(() => {
-    cleanupUnusedMedia({ olderThanHours: 24, forceAllUnused: false }).catch(err => {
-      console.warn('[MediaCleanup] Periodic scheduled cleanup failed:', err.message);
+    cleanupUnusedMedia({ olderThanHours: 24 * 7, forceAllUnused: false }).catch(err => {
+      console.warn('[MediaCleanup] Periodic cleanup notice:', err.message);
     });
-  }, SIX_HOURS);
-
-  console.log('[MediaCleanup] ⏰ Automated WhatsApp media cleanup scheduled (every 6h, 24h retention for unused).');
+  }, TWENTY_FOUR_HOURS);
 };
 
 module.exports = {

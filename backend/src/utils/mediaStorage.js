@@ -32,30 +32,38 @@ exports.extractStorageKey = extractStorageKey;
 
 exports.saveMediaBuffer = async (buffer, mimeType = 'image/jpeg') => {
   const ext = mimeType.includes('png') ? '.png' : '.jpg';
-  const uniqueKey = `hotel_pms_uploads/wa-${Date.now()}-${Math.round(Math.random() * 1E6)}${ext}`;
+  const filename = `wa-${Date.now()}-${Math.round(Math.random() * 1E6)}${ext}`;
+  const uniqueKey = `hotel_pms_uploads/${filename}`;
 
-  if (s3Client && process.env.R2_BUCKET_NAME) {
-    await s3Client.send(new PutObjectCommand({
-      Bucket: process.env.R2_BUCKET_NAME,
-      Key: uniqueKey,
-      Body: buffer,
-      ContentType: mimeType
-    }));
-
-    if (process.env.R2_PUBLIC_DOMAIN) {
-      return `${process.env.R2_PUBLIC_DOMAIN}/${uniqueKey}`;
-    }
-    return `https://${process.env.R2_BUCKET_NAME}.r2.cloudflarestorage.com/${uniqueKey}`;
-  } else {
-    const dir = path.join(__dirname, '../../uploads');
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    const filename = `wa-${Date.now()}-${Math.round(Math.random() * 1E6)}${ext}`;
-    const filePath = path.join(dir, filename);
-    await fs.promises.writeFile(filePath, buffer);
-    return `/uploads/${filename}`;
+  // 1. Bulletproof local persistence: Always write to local uploads folder first
+  const dir = path.join(__dirname, '../../uploads');
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
   }
+  const localFilePath = path.join(dir, filename);
+  await fs.promises.writeFile(localFilePath, buffer);
+
+  // 2. Cloudflare R2 upload for cloud CDN & multi-device sync
+  if (s3Client && process.env.R2_BUCKET_NAME) {
+    try {
+      await s3Client.send(new PutObjectCommand({
+        Bucket: process.env.R2_BUCKET_NAME,
+        Key: uniqueKey,
+        Body: buffer,
+        ContentType: mimeType
+      }));
+
+      if (process.env.R2_PUBLIC_DOMAIN) {
+        return `${process.env.R2_PUBLIC_DOMAIN}/${uniqueKey}`;
+      }
+      return `https://${process.env.R2_BUCKET_NAME}.r2.cloudflarestorage.com/${uniqueKey}`;
+    } catch (r2Err) {
+      console.warn('[Storage] R2 upload error, using local fallback:', r2Err.message);
+      return `/uploads/${filename}`;
+    }
+  }
+
+  return `/uploads/${filename}`;
 };
 
 exports.deleteMediaFile = async (imageUrl) => {

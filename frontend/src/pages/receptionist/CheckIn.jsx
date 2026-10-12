@@ -2089,6 +2089,9 @@ const CheckIn = () => {
                                   src={mediaUrl}
                                   alt="WhatsApp ID"
                                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                  }}
                                 />
                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-black uppercase tracking-wider gap-1 backdrop-blur-[2px]">
                                   <Search size={13} /> Zoom Photo
@@ -2572,7 +2575,14 @@ const CheckIn = () => {
                       ) : (
                         <div>
                           <div className="relative mt-2 rounded-xl overflow-hidden border-2 border-green-500 shadow-sm group h-[88px]">
-                            <img src={getFullImageUrl(guest.idProofImage)} alt="ID Front" className="w-full h-full object-cover" />
+                            <img 
+                              src={getFullImageUrl(guest.idProofImage)} 
+                              alt="ID Front" 
+                              className="w-full h-full object-cover" 
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                              }}
+                            />
                             <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                               <a href={getFullImageUrl(guest.idProofImage)} target="_blank" rel="noreferrer" className="text-white text-[10px] font-black uppercase tracking-widest bg-black/60 px-3 py-1.5 rounded-full backdrop-blur-sm hover:bg-black transition-colors">
                                 View Full
@@ -2688,7 +2698,14 @@ const CheckIn = () => {
                       ) : (
                         <div>
                           <div className="relative mt-2 rounded-xl overflow-hidden border-2 border-green-500 shadow-sm group h-[88px]">
-                            <img src={getFullImageUrl(guest.idProofImageBack)} alt="ID Back" className="w-full h-full object-cover" />
+                            <img 
+                              src={getFullImageUrl(guest.idProofImageBack)} 
+                              alt="ID Back" 
+                              className="w-full h-full object-cover" 
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                              }}
+                            />
                             <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                               <a href={getFullImageUrl(guest.idProofImageBack)} target="_blank" rel="noreferrer" className="text-white text-[10px] font-black uppercase tracking-widest bg-black/60 px-3 py-1.5 rounded-full backdrop-blur-sm hover:bg-black transition-colors">
                                 View Full
@@ -3221,7 +3238,14 @@ const CheckIn = () => {
                               onClick={() => setWaPreviewImage(mediaUrl)}
                               className="relative h-32 rounded-xl overflow-hidden bg-gray-200 mb-2.5 cursor-pointer group"
                             >
-                              <img src={mediaUrl} alt="WhatsApp ID" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                              <img 
+                                src={mediaUrl} 
+                                alt="WhatsApp ID" 
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform" 
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                }}
+                              />
                               <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-black uppercase tracking-wider">
                                 Click to Zoom
                               </div>

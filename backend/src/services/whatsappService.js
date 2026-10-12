@@ -726,8 +726,7 @@ const requestHostelPairingCode = async (hostelId, phoneNumber) => {
 const initAllSavedWhatsAppSessions = async () => {
   try {
     const activeHostels = await Hostel.find({
-      whatsappSyncEnabled: true,
-      whatsappStatus: { $ne: 'disconnected' }
+      whatsappSyncEnabled: true
     }).select('_id name');
 
     for (const h of activeHostels) {
@@ -736,7 +735,7 @@ const initAllSavedWhatsAppSessions = async () => {
       if (fs.existsSync(credsPath)) {
         try {
           const stats = fs.statSync(credsPath);
-          if (stats.size > 100) {
+          if (stats.size > 50) {
             console.log(`[WhatsApp] 🔌 Boot auto-resuming WhatsApp session for ${h.name} (${h._id})...`);
             startHostelWhatsApp(h._id.toString()).catch((err) => {
               console.warn(`[WhatsApp] Failed to boot-resume session for ${h.name}:`, err.message);
