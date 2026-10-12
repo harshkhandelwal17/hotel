@@ -1847,7 +1847,7 @@ const CheckIn = () => {
           </div>
 
           {/* NEXT BUTTON (DESKTOP + MOBILE DOCK) */}
-          <div className="fixed md:static bottom-14 md:bottom-0 left-0 right-0 p-3 sm:p-4 md:p-0 bg-white/95 md:bg-transparent backdrop-blur-md md:backdrop-blur-none border-t md:border-0 border-gray-200 z-30 max-w-4xl mx-auto md:mt-6 shadow-xl md:shadow-none">
+          <div className="fixed md:static bottom-16 md:bottom-0 left-0 right-0 p-3 sm:p-4 md:p-0 bg-white/95 md:bg-transparent backdrop-blur-md md:backdrop-blur-none border-t md:border-0 border-gray-200 z-30 max-w-4xl mx-auto md:mt-6 shadow-xl md:shadow-none">
 
             {/* Mobile status banner */}
             <div className="md:hidden flex justify-between items-center px-1 pb-2 text-[11px] font-bold text-gray-700">
@@ -2214,12 +2214,10 @@ const CheckIn = () => {
                         return updated;
                       });
                       toast({ message: `${cg.fullName} added!`, type: 'success' });
-                    } else if (guests.length < (selectedRoomDetails?.capacity || 99)) {
+                    } else {
                       setGuests(prev => [...prev, { ...cg, isSearching: false }]);
                       setStayInfo(p => ({ ...p, occupants: p.occupants + 1 }));
                       toast({ message: `${cg.fullName} added!`, type: 'success' });
-                    } else {
-                      toast({ message: 'Room capacity reached!', type: 'error' });
                     }
                   }} className="shrink-0 flex items-center gap-3 bg-white px-4 py-2 rounded-xl border border-blue-200 hover:border-blue-500 hover:shadow-md transition-all">
                     <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-600">
