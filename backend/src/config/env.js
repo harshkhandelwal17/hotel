@@ -4,5 +4,5 @@ module.exports = {
   port: process.env.PORT || 5000,
   nodeEnv: process.env.NODE_ENV || 'development',
   mongoUri: process.env.MONGO_URI,
-  jwtSecret: process.env.JWT_SECRET || 'secret'
+  jwtSecret: process.env.JWT_SECRET || 'nxhotel_permanent_jwt_secret_key_2026_prod'
 };

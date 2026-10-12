@@ -4,7 +4,7 @@ const env = require('../config/env');
 
 const generateToken = (id) => {
   return jwt.sign({ id }, env.jwtSecret, {
-    expiresIn: '30d',
+    expiresIn: '365d',
   });
 };
 
