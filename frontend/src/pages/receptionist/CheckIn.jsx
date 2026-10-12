@@ -1201,8 +1201,6 @@ const CheckIn = () => {
       Number(stayInfo.durationHours) > 0
     ) &&
     stayInfo.occupants >= 1 &&
-    selectedRoomDetails?.capacity >=
-      stayInfo.occupants &&
     stayInfo.totalAmount !== '';
 
   const isStep2Valid = guests.every((g, idx) => {
@@ -1569,11 +1567,7 @@ const CheckIn = () => {
                               .toLowerCase()
                         );
 
-                      if (
-                        exactMatch &&
-                        stayInfo.occupants <=
-                          exactMatch.capacity
-                      ) {
+                      if (exactMatch) {
                         setStayInfo(
                           (p) => ({
                             ...p,
@@ -1614,25 +1608,19 @@ const CheckIn = () => {
                   )
                   .map((room) => {
                     const active = stayInfo.room === room._id;
-                    const isFull = stayInfo.occupants > room.capacity;
-                    const isDisabled = isFull;
 
                     return (
                       <button
                         key={room._id}
                         onClick={() =>
-                          !isDisabled &&
                           setStayInfo((prev) => ({
                             ...prev,
                             room: room._id
                           }))
                         }
-                        disabled={isDisabled}
                         className={`relative p-4 rounded-2xl border-2 text-center transition-all ${
                           active
                             ? 'border-black bg-black text-white shadow-xl scale-[1.02]'
-                            : isFull
-                            ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
                             : 'border-gray-200 hover:border-black bg-white hover:shadow-md'
                         }`}
                       >
@@ -1660,27 +1648,12 @@ const CheckIn = () => {
                           Cap. {room.capacity}
                         </p>
 
-                        {isFull && (
-                          <span className="text-[9px] text-red-500 font-black block mt-1 uppercase">
-                            Too small
-                          </span>
-                        )}
-
                       </button>
                     );
                   })}
 
               </div>
             )}
-
-            {selectedRoomDetails?.capacity <
-              stayInfo.occupants &&
-              stayInfo.room && (
-                <p className="text-xs text-red-500 font-bold mt-4 text-center">
-                  Warning: Selected room capacity is{' '}
-                  {selectedRoomDetails.capacity}.
-                </p>
-              )}
 
           </div>
 
