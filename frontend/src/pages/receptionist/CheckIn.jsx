@@ -1054,22 +1054,31 @@ const CheckIn = () => {
 
       const checkInDate = new Date();
 
-      const expectedOut =
-        new Date();
+      const expectedOut = new Date();
 
-      expectedOut.setDate(
-        expectedOut.getDate() +
-          (Number(
-            stayInfo.durationDays
-          ) || 0)
-      );
+      if (stayInfo.isMorningCheckout) {
+        const days = Math.max(1, Number(stayInfo.durationDays) || 1);
+        if (checkInDate.getHours() < 6) {
+          expectedOut.setHours(10, 0, 0, 0); // 10:00 AM sharp today
+        } else {
+          expectedOut.setDate(checkInDate.getDate() + days);
+          expectedOut.setHours(10, 0, 0, 0); // 10:00 AM sharp on checkout day
+        }
+      } else {
+        expectedOut.setDate(
+          expectedOut.getDate() +
+            (Number(
+              stayInfo.durationDays
+            ) || 0)
+        );
 
-      expectedOut.setHours(
-        expectedOut.getHours() +
-          (Number(
-            stayInfo.durationHours
-          ) || 0)
-      );
+        expectedOut.setHours(
+          expectedOut.getHours() +
+            (Number(
+              stayInfo.durationHours
+            ) || 0)
+        );
+      }
 
       // =====================================================
       // 5. CREATE STAY
@@ -1385,33 +1394,30 @@ const CheckIn = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        const now = new Date();
-                        const target = new Date();
-                        if (now.getHours() < 6) {
-                          target.setHours(10, 0, 0, 0);
-                        } else {
-                          target.setDate(now.getDate() + 1);
-                          target.setHours(10, 0, 0, 0);
-                        }
-                        const diffMs = target.getTime() - now.getTime();
-                        const totalHours = Math.max(1, Math.round(diffMs / (1000 * 60 * 60)));
-                        const days = Math.floor(totalHours / 24);
-                        const hours = totalHours % 24;
                         setStayInfo(p => ({
                           ...p,
-                          durationDays: days,
-                          durationHours: hours
+                          durationDays: 1,
+                          durationHours: 0,
+                          isMorningCheckout: true
                         }));
                       }}
-                      className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg text-[11px] font-black transition-all shadow-sm"
-                      title="Standard hotel checkout: Tomorrow 10:00 AM"
+                      className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all shadow-sm ${
+                        stayInfo.isMorningCheckout
+                          ? 'bg-amber-400 text-black border border-amber-500 shadow-md scale-105'
+                          : 'bg-amber-100 hover:bg-amber-200 text-amber-900'
+                      }`}
+                      title="Standard hotel checkout: Sharp 10:00 AM"
                     >
-                      ☀️ Morning 10 AM Checkout
+                      ☀️ Morning 10:00 AM Checkout
                     </button>
                     <button
                       type="button"
-                      onClick={() => setStayInfo(p => ({ ...p, durationDays: 1, durationHours: 0 }))}
-                      className="px-2.5 py-1 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg text-[11px] font-black transition-all"
+                      onClick={() => setStayInfo(p => ({ ...p, durationDays: 1, durationHours: 0, isMorningCheckout: false }))}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${
+                        !stayInfo.isMorningCheckout && Number(stayInfo.durationDays) === 1 && (Number(stayInfo.durationHours) === 0 || !stayInfo.durationHours)
+                          ? 'bg-black text-white shadow-md'
+                          : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
+                      }`}
                     >
                       🌙 24 Hours
                     </button>
@@ -1468,7 +1474,8 @@ const CheckIn = () => {
                               : Math.max(
                                   0,
                                   e.target.value
-                                )
+                                ),
+                          isMorningCheckout: false
                         }))
                       }
                       className="w-full bg-white border border-gray-200 rounded-2xl pl-5 pr-14 py-3 font-black text-xl outline-none focus:border-black transition-colors"
@@ -1484,12 +1491,23 @@ const CheckIn = () => {
 
                 <div className="flex justify-between items-center mt-3">
                   <p className="text-[10px] text-gray-400 font-bold">
-                    Combine both (e.g. 1 Day 2 Hours)
+                    {stayInfo.isMorningCheckout ? 'Standard checkout time: Sharp 10:00 AM' : 'Combine both (e.g. 1 Day 2 Hours)'}
                   </p>
                   <p className="text-xs font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded">
                     Out: {
                       (() => {
+                        const now = new Date();
                         const expectedOutPreview = new Date();
+                        if (stayInfo.isMorningCheckout) {
+                          const days = Math.max(1, Number(stayInfo.durationDays) || 1);
+                          if (now.getHours() < 6) {
+                            expectedOutPreview.setHours(10, 0, 0, 0);
+                          } else {
+                            expectedOutPreview.setDate(now.getDate() + days);
+                            expectedOutPreview.setHours(10, 0, 0, 0);
+                          }
+                          return expectedOutPreview.toLocaleString('en-US', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+                        }
                         expectedOutPreview.setDate(expectedOutPreview.getDate() + (Number(stayInfo.durationDays) || 0));
                         expectedOutPreview.setHours(expectedOutPreview.getHours() + (Number(stayInfo.durationHours) || 0));
                         return expectedOutPreview.toLocaleString('en-US', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
