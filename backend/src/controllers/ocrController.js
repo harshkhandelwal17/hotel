@@ -143,17 +143,19 @@ Return ONLY valid JSON.`;
     }
 
     // 7. Gemini candidate models — ordered by quota (highest free RPD first)
-    // Based on rate limits dashboard for this API key:
-    // - gemini-3.5-flash-lite  → 500 RPD ⭐ (use first — highest quota!)
-    // - gemini-3-flash          → 20 RPD
-    // - gemini-2.5-flash        → 20 RPD
-    // - gemini-3.6-flash        → 20 RPD (fallback)
+    // Based on full rate limits dashboard for this API key:
+    // - gemini-3.5-flash-lite  → 500 RPD ⭐ (highest quota!)
+    // - gemini-3.1-flash-lite  → 500 RPD ⭐ (also 500 RPD!)
+    // - gemini-3-flash          → 20 RPD fallback
+    // - gemini-3.5-flash        → 20 RPD fallback
+    // - gemini-3.7-flash        → 20 RPD last resort
     // Timeout is 25s per model to handle VPS network latency to Google APIs
     const candidateModels = [
-      'gemini-3.5-flash-lite',   // 500 RPD free — highest quota, try first
-      'gemini-3-flash',          // 20 RPD free
-      'gemini-2.5-flash',        // 20 RPD free
-      'gemini-3.6-flash',        // 20 RPD free (last resort)
+      'gemini-3.5-flash-lite',   // 500 RPD free ⭐
+      'gemini-3.1-flash-lite',   // 500 RPD free ⭐ (second high-quota option)
+      'gemini-3-flash',          // 20 RPD fallback
+      'gemini-3.5-flash',        // 20 RPD fallback
+      'gemini-3.7-flash',        // 20 RPD last resort
     ];
 
     const requestPayload = {
