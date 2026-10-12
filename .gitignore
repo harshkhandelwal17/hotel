@@ -7,5 +7,7 @@ backend/.env
 .DS_Store
 dist/
 build/
+desktop/node_modules/
+desktop/dist-electron/
 *.log
 

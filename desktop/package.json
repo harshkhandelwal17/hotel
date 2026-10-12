@@ -1,0 +1,60 @@
+{
+  "name": "hotel-pms-desktop",
+  "version": "1.0.0",
+  "description": "NXHotel PMS Desktop Command Center",
+  "main": "main.cjs",
+  "author": "NXHotel",
+  "license": "ISC",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build:frontend": "cd ../frontend && npm run build",
+    "dist": "npm run build:frontend && electron-builder",
+    "dist:win": "npm run build:frontend && electron-builder --win",
+    "dist:win-portable": "npm run build:frontend && electron-builder --win portable",
+    "dist:mac": "npm run build:frontend && electron-builder --mac",
+    "dist:linux": "npm run build:frontend && electron-builder --linux"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.nxhotel.pms",
+    "productName": "NXHotel PMS",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "config.json",
+      "offline.html",
+      "assets/**/*",
+      "../frontend/dist/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "NXHotel PMS"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "assets/icon.png",
+      "category": "public.app-category.business"
+    }
+  }
+}
+

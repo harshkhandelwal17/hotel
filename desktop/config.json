@@ -1,0 +1,9 @@
+{
+  "serverUrl": "",
+  "appName": "NXHotel PMS",
+  "fullscreenOnStart": false,
+  "silentPrintByDefault": false,
+  "autoReconnect": true,
+  "reconnectIntervalMs": 5000
+}
+

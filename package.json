@@ -1,0 +1,25 @@
+{
+  "name": "hotel-management-system",
+  "version": "1.0.0",
+  "description": "NXHotel PMS - Cloud & Desktop Hotel Management System",
+  "private": true,
+  "scripts": {
+    "dev": "cd frontend && npm run dev",
+    "backend": "cd backend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "desktop": "cd desktop && npm start",
+    "desktop:dev": "cd desktop && npm run dev",
+    "desktop:build:win": "cd frontend && npm run build && cd ../desktop && npm run dist:win",
+    "desktop:build:portable": "cd frontend && npm run build && cd ../desktop && npm run dist:win-portable",
+    "desktop:build:mac": "cd frontend && npm run build && cd ../desktop && npm run dist:mac"
+  },
+  "keywords": [
+    "hotel",
+    "pms",
+    "electron",
+    "react"
+  ],
+  "author": "NXHotel",
+  "license": "ISC"
+}
+

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NXHotel PMS — Connection Status</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    body {
+      background: #0f172a;
+      color: #f8fafc;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 24px;
+      padding: 36px 32px;
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+    .icon-badge {
+      width: 64px;
+      height: 64px;
+      border-radius: 20px;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      color: #10b981;
+    }
+    h1 {
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+    p {
+      font-size: 13px;
+      color: #94a3b8;
+      line-height: 1.5;
+      margin-bottom: 24px;
+    }
+    .server-url {
+      background: #0f172a;
+      border: 1px solid #334155;
+      padding: 8px 12px;
+      border-radius: 12px;
+      font-family: monospace;
+      font-size: 11px;
+      color: #38bdf8;
+      word-break: break-all;
+      margin-bottom: 20px;
+    }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #fbbf24;
+      background: rgba(251, 191, 36, 0.1);
+      padding: 6px 14px;
+      border-radius: 9999px;
+      margin-bottom: 24px;
+      border: 1px solid rgba(251, 191, 36, 0.2);
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #fbbf24;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+    .btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    button {
+      width: 100%;
+      padding: 12px 20px;
+      border-radius: 14px;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .btn-primary {
+      background: #10b981;
+      color: #022c22;
+    }
+    .btn-primary:hover {
+      background: #34d399;
+      transform: translateY(-1px);
+    }
+    .btn-secondary {
+      background: #334155;
+      color: #f8fafc;
+    }
+    .btn-secondary:hover {
+      background: #475569;
+    }
+    .btn-link {
+      background: transparent;
+      color: #94a3b8;
+      font-size: 11px;
+      text-decoration: underline;
+      padding: 6px;
+    }
+    .config-box {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #334155;
+      display: none;
+      text-align: left;
+    }
+    .config-box input {
+      width: 100%;
+      padding: 10px 12px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      color: white;
+      font-size: 12px;
+      margin: 8px 0;
+      outline: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon-badge">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+    </div>
+
+    <h1>Connecting to NXHotel Server</h1>
+    <p>Please check your internet connection or verify the hotel server is active.</p>
+
+    <div class="status-pill">
+      <span class="status-dot"></span>
+      <span id="countdown">Auto-retrying in 5s...</span>
+    </div>
+
+    <div class="server-url" id="display-url">Checking target server...</div>
+
+    <div class="btn-group">
+      <button class="btn-primary" onclick="retryNow()">Retry Connection Now</button>
+      <button class="btn-secondary" onclick="loadLocalMode()">Load Local Offline Mode</button>
+      <button class="btn-link" onclick="toggleConfig()">Change Server URL / IP</button>
+    </div>
+
+    <div class="config-box" id="config-box">
+      <label style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Cloud Server URL:</label>
+      <input type="text" id="custom-url" placeholder="https://hotel.yourdomain.com" />
+      <button class="btn-primary" style="padding: 8px;" onclick="saveCustomUrl()">Save & Connect</button>
+    </div>
+  </div>
+
+  <script>
+    let secondsLeft = 5;
+    let timer = null;
+
+    async function init() {
+      if (window.electronAPI) {
+        const config = await window.electronAPI.getConfig();
+        document.getElementById('display-url').innerText = config.serverUrl || 'Local Bundled Frontend';
+        document.getElementById('custom-url').value = config.serverUrl || '';
+      }
+      startCountdown();
+    }
+
+    function startCountdown() {
+      secondsLeft = 5;
+      clearInterval(timer);
+      timer = setInterval(() => {
+        secondsLeft--;
+        document.getElementById('countdown').innerText = `Auto-retrying in ${secondsLeft}s...`;
+        if (secondsLeft <= 0) {
+          clearInterval(timer);
+          retryNow();
+        }
+      }, 1000);
+    }
+
+    function retryNow() {
+      if (window.electronAPI) {
+        window.electronAPI.reloadApp(true);
+      } else {
+        window.location.reload();
+      }
+    }
+
+    async function loadLocalMode() {
+      if (window.electronAPI) {
+        await window.electronAPI.saveServerUrl('');
+        window.electronAPI.reloadApp(true);
+      }
+    }
+
+    function toggleConfig() {
+      const box = document.getElementById('config-box');
+      box.style.display = box.style.display === 'block' ? 'none' : 'block';
+    }
+
+    async function saveCustomUrl() {
+      const url = document.getElementById('custom-url').value.trim();
+      if (window.electronAPI) {
+        await window.electronAPI.saveServerUrl(url);
+        window.electronAPI.reloadApp(true);
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
+
