@@ -1,4 +1,20 @@
+const path = require('path');
+const fs = require('fs');
 const Hostel = require('../models/Hostel');
+
+// In-memory cache for instant OCR response (Key: imageUrl + ':' + side)
+const ocrCache = new Map();
+const CACHE_TTL_MS = 20 * 60 * 1000; // 20 minutes
+
+// Periodic cache cleanup
+const cleanExpiredCache = () => {
+  const now = Date.now();
+  for (const [key, item] of ocrCache.entries()) {
+    if (now - item.timestamp > CACHE_TTL_MS) {
+      ocrCache.delete(key);
+    }
+  }
+};
 
 /**
  * Scan ID Proof using Google Gemini Vision AI
@@ -6,6 +22,7 @@ const Hostel = require('../models/Hostel');
  * @access Private (Hostel Staff / Admin / Superadmin)
  */
 exports.scanIdCard = async (req, res, next) => {
+  const scanStartTime = Date.now();
   try {
     const { imageUrl, side = 'front', hostelId, idProofType = 'Aadhaar' } = req.body;
 
@@ -13,7 +30,21 @@ exports.scanIdCard = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Image URL is required for scanning' });
     }
 
-    // 1. Resolve Hostel
+    // 1. Check in-memory cache for instant response (0.01s)
+    cleanExpiredCache();
+    const cacheKey = `${imageUrl}:${side}:${idProofType}`;
+    if (ocrCache.has(cacheKey)) {
+      const cached = ocrCache.get(cacheKey);
+      console.log(`[OCR] ⚡ Served from cache in ${Date.now() - scanStartTime}ms for ${side} ID`);
+      return res.status(200).json({
+        success: true,
+        side,
+        data: cached.data,
+        cached: true
+      });
+    }
+
+    // 2. Resolve Hostel
     let targetHostelId = hostelId || req.user.assignedHostel;
     if (!targetHostelId && req.user.role === 'admin') {
       const myHostels = await Hostel.find({ owner: req.user.id });
@@ -24,7 +55,7 @@ exports.scanIdCard = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Property context required for AI scanning' });
     }
 
-    // 2. Check if property has AI OCR enabled (Superadmin bypasses)
+    // 3. Check if property has AI OCR enabled (Superadmin bypasses)
     if (req.user.role !== 'superadmin' && targetHostelId) {
       const hostel = await Hostel.findById(targetHostelId);
       if (!hostel) {
@@ -41,7 +72,7 @@ exports.scanIdCard = async (req, res, next) => {
       }
     }
 
-    // 3. Verify Gemini API Key
+    // 4. Verify Gemini API Key
     let apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       try {
@@ -52,11 +83,11 @@ exports.scanIdCard = async (req, res, next) => {
     if (!apiKey) {
       return res.status(500).json({
         success: false,
-        message: 'GEMINI_API_KEY is not configured in backend environment. Please set GEMINI_API_KEY in .env file.'
+        message: 'GEMINI_API_KEY is not configured in backend environment.'
       });
     }
 
-    // 4. Download Image Buffer and Convert to Base64
+    // 5. Download Image Buffer and Convert to Base64 (High-speed local read if available)
     let base64Image = '';
     let mimeType = 'image/jpeg';
 
@@ -65,8 +96,20 @@ exports.scanIdCard = async (req, res, next) => {
       const mimeMatch = parts[0].match(/:(.*?);/);
       if (mimeMatch) mimeType = mimeMatch[1];
       base64Image = parts[1];
+    } else if (imageUrl.startsWith('/uploads/') || imageUrl.startsWith('uploads/')) {
+      // Direct disk read: zero network latency!
+      const filename = path.basename(imageUrl.split('?')[0]);
+      const localPath = path.join(__dirname, '../../uploads', filename);
+      if (fs.existsSync(localPath)) {
+        const buffer = await fs.promises.readFile(localPath);
+        base64Image = buffer.toString('base64');
+        mimeType = filename.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
+      } else {
+        return res.status(404).json({ success: false, message: 'Local image file not found on server' });
+      }
     } else {
-      const imgRes = await fetch(imageUrl);
+      // Remote fetch with 8s timeout
+      const imgRes = await fetch(imageUrl, { signal: AbortSignal.timeout(8000) });
       if (!imgRes.ok) {
         return res.status(400).json({ success: false, message: 'Could not fetch uploaded ID image for AI analysis' });
       }
@@ -77,44 +120,34 @@ exports.scanIdCard = async (req, res, next) => {
       if (headerType) mimeType = headerType.split(';')[0];
     }
 
-    // 5. Construct Prompts for Front vs Back ID
+    // 6. Fast, concise prompts optimized for token speed
     let prompt = '';
     if (side === 'front') {
-      prompt = `You are a high-precision Indian government ID and Aadhaar OCR reader for an automated hotel check-in system.
-Examine this ${idProofType} front image carefully.
-Even if the image has glare, tilted angles, reflection, shadows, or mixed Hindi/English text, extract the exact information.
-
-Return ONLY a valid JSON object matching this schema:
+      prompt = `Extract Indian ${idProofType} front details as JSON:
 {
-  "fullName": "Full name of the person in English with proper title case (e.g. Rahul Sharma). If name is written in both Hindi and English, extract the English name.",
-  "idProofNumber": "ID proof number. For Aadhaar, extract 12 digits (format with spaces: 'XXXX XXXX XXXX'). For Passport/DL/Voter ID, extract official alphanumeric number.",
-  "gender": "Male or Female or Other (standard capitalized)",
-  "dateOfBirth": "Date of birth in DD/MM/YYYY format, or YYYY if only birth year is present",
-  "fatherName": "Father's name or Husband's name if clearly present, otherwise empty string"
+  "fullName": "Full name in English title case (e.g. Rahul Sharma)",
+  "idProofNumber": "ID number with spaces (e.g. 1234 5678 9012 for Aadhaar)",
+  "gender": "Male or Female or Other",
+  "dateOfBirth": "DD/MM/YYYY or YYYY",
+  "fatherName": "Father's or husband's name if present, else empty string"
 }
-
-Do NOT wrap the output in markdown code blocks like \`\`\`json. Output ONLY the raw JSON string.`;
+Return ONLY valid JSON.`;
     } else {
-      prompt = `You are a high-precision Indian government ID and Aadhaar OCR reader for an automated hotel check-in system.
-Examine this ${idProofType} back image carefully to extract the permanent residential address.
-Even if the image is tilted, has low resolution, glare, shadows, or mixed Hindi and English, decode the full English address.
-
-Return ONLY a valid JSON object matching this schema:
+      prompt = `Extract Indian ${idProofType} back address details as JSON:
 {
-  "address": "Complete permanent address formatted cleanly as a single comma-separated line (e.g., House No / Ward, Street or Mohalla, Village or Colony, Tehsil / Taluk, District, State - PINCODE). Clean any noisy words like UIDAI or Government of India.",
+  "address": "Complete clean residential address formatted as single comma-separated line (e.g., House No, Street, Colony, City, State - PINCODE). Clean UIDAI or noisy text.",
   "pincode": "6-digit postal PIN code (e.g. 452010)",
-  "careOf": "Care of (C/O, S/O, D/O, W/O) person name if present, otherwise empty string"
+  "careOf": "Care of (C/O, S/O, D/O, W/O) person name if present, else empty string"
 }
-
-Do NOT wrap the output in markdown code blocks like \`\`\`json. Output ONLY the raw JSON string.`;
+Return ONLY valid JSON.`;
     }
 
-    // 6. Call Google Gemini Vision API with multi-model fallback (Lite model first: 500 RPD free quota)
+    // 7. Active, ultra-fast Gemini candidate models (Lite model first for instant speed & high quota)
     const candidateModels = [
-      'gemini-2.5-flash-lite',
-      'gemini-2.0-flash',
-      'gemini-2.5-flash',
-      'gemini-flash-latest'
+      'gemini-3.5-flash-lite',
+      'gemini-flash-lite-latest',
+      'gemini-3.5-flash',
+      'gemini-3.8-flash'
     ];
 
     const requestPayload = {
@@ -133,47 +166,51 @@ Do NOT wrap the output in markdown code blocks like \`\`\`json. Output ONLY the 
       ],
       generationConfig: {
         temperature: 0.1,
-        maxOutputTokens: 600,
+        maxOutputTokens: 300,
         responseMimeType: "application/json"
       }
     };
 
     let apiResponse = null;
+    let successfulModel = '';
     let lastErrorText = '';
 
     for (const modelName of candidateModels) {
       try {
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+        // Fast 6.5-second timeout per model
         const response = await fetch(geminiUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(requestPayload)
+          body: JSON.stringify(requestPayload),
+          signal: AbortSignal.timeout(6500)
         });
 
         if (response.ok) {
           apiResponse = response;
+          successfulModel = modelName;
           break;
         } else {
           lastErrorText = await response.text();
-          console.warn(`Gemini model ${modelName} returned ${response.status}:`, lastErrorText);
-          // Retry next model if 404, 503, or 429 (quota exceeded / rate limit)
-          if (response.status !== 404 && response.status !== 503 && response.status !== 429) {
+          console.warn(`[OCR] Gemini ${modelName} returned ${response.status}:`, lastErrorText.slice(0, 150));
+          // Continue to next model on 404, 503, 500, or 429
+          if (response.status !== 404 && response.status !== 503 && response.status !== 429 && response.status !== 500) {
             break;
           }
         }
       } catch (err) {
         lastErrorText = err.message;
-        console.warn(`Gemini request to ${modelName} failed:`, err.message);
+        console.warn(`[OCR] Model ${modelName} attempt error:`, err.message);
       }
     }
 
     if (!apiResponse) {
-      console.error('All Gemini Vision model candidates failed:', lastErrorText);
+      console.error('[OCR] All Gemini Vision candidates failed:', lastErrorText);
       return res.status(502).json({
         success: false,
-        message: 'AI Vision service error. Please try again or fill manually.',
+        message: 'AI OCR service busy or quota limit reached. Please fill fields manually or try again in a moment.',
         details: lastErrorText
       });
     }
@@ -181,28 +218,45 @@ Do NOT wrap the output in markdown code blocks like \`\`\`json. Output ONLY the 
     const result = await apiResponse.json();
     const candidateText = result.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
 
-    // Parse returned JSON cleanly
+    // 8. Robust JSON extraction
     let extractedData = {};
     try {
       const cleanedText = candidateText
         .replace(/```json/gi, '')
         .replace(/```/g, '')
         .trim();
-      extractedData = JSON.parse(cleanedText);
+
+      const firstBrace = cleanedText.indexOf('{');
+      const lastBrace = cleanedText.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace !== -1) {
+        extractedData = JSON.parse(cleanedText.substring(firstBrace, lastBrace + 1));
+      } else {
+        extractedData = JSON.parse(cleanedText);
+      }
     } catch (parseErr) {
-      console.error('Failed to parse Gemini JSON output:', candidateText);
+      console.error('[OCR] Failed to parse JSON output:', candidateText);
       extractedData = { rawText: candidateText };
     }
+
+    // 9. Store in cache for instant re-use
+    ocrCache.set(cacheKey, {
+      timestamp: Date.now(),
+      data: extractedData
+    });
+
+    const totalElapsed = Date.now() - scanStartTime;
+    console.log(`[OCR] 🚀 Successfully scanned ID (${side}) using ${successfulModel} in ${totalElapsed}ms`);
 
     res.status(200).json({
       success: true,
       side,
-      data: extractedData
+      data: extractedData,
+      modelUsed: successfulModel,
+      latencyMs: totalElapsed
     });
 
   } catch (error) {
-    console.error('ID OCR scanning failed:', error);
+    console.error('[OCR] ID scanning failed:', error);
     next(error);
   }
 };
-
