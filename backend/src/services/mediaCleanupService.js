@@ -69,16 +69,11 @@ const cleanupUnusedMedia = async ({ olderThanHours = 24, forceAllUnused = false 
     });
 
     // 3. Find target unused WhatsAppMedia records to delete
-    // SAFEGUARD: Never delete files younger than 6 hours under any circumstance!
-    const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
-    const retentionCutoff = forceAllUnused 
-      ? sixHoursAgo 
-      : new Date(Date.now() - olderThanHours * 60 * 60 * 1000);
-
-    const query = {
-      status: 'new',
-      createdAt: { $lt: retentionCutoff }
-    };
+    const query = { status: 'new' };
+    if (!forceAllUnused) {
+      const cutoff = new Date(Date.now() - olderThanHours * 60 * 60 * 1000);
+      query.createdAt = { $lt: cutoff };
+    }
 
     const unselectedMedia = await WhatsAppMedia.find(query);
 
