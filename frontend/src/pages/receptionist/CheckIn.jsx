@@ -1367,30 +1367,30 @@ const CheckIn = () => {
         <div className="animate-in slide-in-from-right-4 duration-300">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6 items-start">
 
-            {/* LEFT COLUMN: GUESTS, DURATION & ROOM MATRIX (7 Cols on Desktop) */}
-            <div className="lg:col-span-7 xl:col-span-7 space-y-4">
+            {/* LEFT COLUMN: GUESTS, DURATION & ROOM MATRIX (8 Cols on Desktop - Bada & Prominent) */}
+            <div className="lg:col-span-8 xl:col-span-8 space-y-4 sm:space-y-5">
 
               {/* 1. GUESTS & DURATION */}
-              <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-xs space-y-3.5">
+              <div className="bg-white p-5 sm:p-6 rounded-2xl border border-gray-100 shadow-xs space-y-4">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-base font-black text-gray-900 flex items-center gap-2">
-                    <Users className="text-gray-400" size={18} />
+                  <h2 className="text-base sm:text-lg font-black text-gray-900 flex items-center gap-2">
+                    <Users className="text-gray-400" size={20} />
                     1. Guests & Duration
                   </h2>
-                  <span className="text-[11px] font-bold text-gray-500">
+                  <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full">
                     {stayInfo.occupants || 1} Guest{Number(stayInfo.occupants) > 1 ? 's' : ''}
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
                   {/* OCCUPANTS */}
-                  <div className="bg-gray-50 p-3 sm:p-3.5 rounded-xl border border-gray-100 flex flex-col justify-between">
-                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">
+                  <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex flex-col justify-between">
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">
                       Total Occupants
                     </label>
 
-                    <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-gray-200 w-full sm:w-fit justify-between sm:justify-start">
+                    <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-gray-200 w-full sm:w-fit justify-between sm:justify-start shadow-xs">
                       <button
                         type="button"
                         onClick={() =>
@@ -1399,7 +1399,7 @@ const CheckIn = () => {
                             occupants: Math.max(1, (Number(p.occupants) || 1) - 1)
                           }))
                         }
-                        className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center font-black text-base hover:bg-gray-200 active:scale-95 transition-all text-gray-800"
+                        className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center font-black text-xl hover:bg-gray-200 active:scale-95 transition-all text-gray-800"
                       >
                         -
                       </button>
@@ -1418,7 +1418,7 @@ const CheckIn = () => {
                             setStayInfo((p) => ({ ...p, occupants: 1 }));
                           }
                         }}
-                        className="text-xl font-black w-12 text-center outline-none bg-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none font-mono text-gray-900"
+                        className="text-2xl sm:text-3xl font-black w-16 text-center outline-none bg-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none font-mono text-gray-900"
                       />
 
                       <button
@@ -1429,23 +1429,23 @@ const CheckIn = () => {
                             occupants: (Number(p.occupants) || 1) + 1
                           }))
                         }
-                        className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center font-black text-base hover:bg-gray-200 active:scale-95 transition-all text-gray-800"
+                        className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center font-black text-xl hover:bg-gray-200 active:scale-95 transition-all text-gray-800"
                       >
                         +
                       </button>
                     </div>
 
                     {/* Instant Quick Numbers */}
-                    <div className="flex flex-wrap items-center gap-1 mt-2">
-                      <span className="text-[9px] font-bold text-gray-400 mr-0.5">Quick:</span>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-3">
+                      <span className="text-[10px] font-bold text-gray-400 mr-0.5">Quick:</span>
                       {[1, 2, 3, 4, 6, 10].map((num) => (
                         <button
                           key={num}
                           type="button"
                           onClick={() => setStayInfo((p) => ({ ...p, occupants: num }))}
-                          className={`px-2 py-0.5 rounded text-[11px] font-black transition-all ${
+                          className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all ${
                             Number(stayInfo.occupants) === num
-                              ? 'bg-black text-white shadow-xs'
+                              ? 'bg-black text-white shadow-xs scale-105'
                               : 'bg-white hover:bg-gray-200 text-gray-700 border border-gray-200'
                           }`}
                         >
@@ -1456,8 +1456,8 @@ const CheckIn = () => {
                   </div>
 
                   {/* DURATION */}
-                  <div className="bg-gray-50 p-3 sm:p-3.5 rounded-xl border border-gray-100 flex flex-col justify-between">
-                    <div className="flex flex-wrap items-center justify-between gap-1 mb-1.5">
+                  <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex flex-col justify-between">
+                    <div className="flex flex-wrap items-center justify-between gap-1.5 mb-2">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
                         Stay Duration
                       </label>
@@ -1472,9 +1472,9 @@ const CheckIn = () => {
                               isMorningCheckout: true
                             }));
                           }}
-                          className={`px-2 py-0.5 rounded text-[10px] font-black transition-all ${
+                          className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all shadow-xs ${
                             stayInfo.isMorningCheckout
-                              ? 'bg-amber-400 text-black border border-amber-500 shadow-xs'
+                              ? 'bg-amber-400 text-black border border-amber-500 shadow-xs scale-105'
                               : 'bg-amber-100 hover:bg-amber-200 text-amber-900'
                           }`}
                           title="Standard hotel checkout: Sharp 10:00 AM"
@@ -1484,7 +1484,7 @@ const CheckIn = () => {
                         <button
                           type="button"
                           onClick={() => setStayInfo(p => ({ ...p, durationDays: 1, durationHours: 0, isMorningCheckout: false }))}
-                          className={`px-2 py-0.5 rounded text-[10px] font-black transition-all ${
+                          className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all ${
                             !stayInfo.isMorningCheckout && Number(stayInfo.durationDays) === 1 && (Number(stayInfo.durationHours) === 0 || !stayInfo.durationHours)
                               ? 'bg-black text-white shadow-xs'
                               : 'bg-white hover:bg-gray-200 text-gray-700 border border-gray-200'
@@ -1495,7 +1495,7 @@ const CheckIn = () => {
                         <button
                           type="button"
                           onClick={() => setStayInfo(p => ({ ...p, durationDays: 0, durationHours: 3, isMorningCheckout: false }))}
-                          className={`px-2 py-0.5 rounded text-[10px] font-black transition-all ${
+                          className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all ${
                             !stayInfo.isMorningCheckout && Number(stayInfo.durationDays) === 0 && Number(stayInfo.durationHours) === 3
                               ? 'bg-black text-white shadow-xs'
                               : 'bg-white hover:bg-gray-200 text-gray-700 border border-gray-200'
@@ -1506,7 +1506,7 @@ const CheckIn = () => {
                       </div>
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex gap-2.5">
                       <div className="flex-1 relative">
                         <input
                           type="number"
@@ -1519,9 +1519,9 @@ const CheckIn = () => {
                               durationDays: e.target.value === '' ? '' : Math.max(0, e.target.value)
                             }))
                           }
-                          className="w-full bg-white border border-gray-200 rounded-lg pl-2.5 pr-8 py-1.5 font-black text-base outline-none focus:border-black transition-colors"
+                          className="w-full bg-white border border-gray-200 rounded-lg pl-3 pr-9 py-2 font-black text-lg outline-none focus:border-black transition-colors"
                         />
-                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-gray-400 uppercase tracking-widest pointer-events-none">
+                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-400 uppercase tracking-widest pointer-events-none">
                           Days
                         </span>
                       </div>
@@ -1539,19 +1539,19 @@ const CheckIn = () => {
                               isMorningCheckout: false
                             }))
                           }
-                          className="w-full bg-white border border-gray-200 rounded-lg pl-2.5 pr-9 py-1.5 font-black text-base outline-none focus:border-black transition-colors"
+                          className="w-full bg-white border border-gray-200 rounded-lg pl-3 pr-10 py-2 font-black text-lg outline-none focus:border-black transition-colors"
                         />
-                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-gray-400 uppercase tracking-widest pointer-events-none">
+                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-400 uppercase tracking-widest pointer-events-none">
                           Hours
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex justify-between items-center mt-2">
-                      <p className="text-[10px] text-gray-400 font-bold truncate">
+                    <div className="flex justify-between items-center mt-2.5">
+                      <p className="text-[11px] text-gray-400 font-bold truncate">
                         {stayInfo.isMorningCheckout ? 'Standard 10:00 AM' : 'Custom Duration'}
                       </p>
-                      <p className="text-[10px] font-black text-indigo-700 bg-indigo-50 border border-indigo-100/60 px-1.5 py-0.5 rounded shrink-0">
+                      <p className="text-[11px] font-black text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md shrink-0">
                         Out: {expectedOutPreviewFormatted}
                       </p>
                     </div>
@@ -1560,28 +1560,28 @@ const CheckIn = () => {
                 </div>
               </div>
 
-              {/* 2. SELECT ROOM */}
-              <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-xs space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-base font-black text-gray-900 flex items-center gap-2">
-                      <Bed className="text-gray-400" size={18} />
+              {/* 2. SELECT ROOM (LARGER & MORE PROMINENT) */}
+              <div className="bg-white p-5 sm:p-6 rounded-2xl border border-gray-100 shadow-xs space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <h2 className="text-lg sm:text-xl font-black text-gray-900 flex items-center gap-2">
+                      <Bed className="text-gray-400" size={22} />
                       2. Select Room
                     </h2>
-                    <span className="text-xs font-black text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
+                    <span className="text-xs font-black text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full">
                       {rooms.filter((r) => !r.isOccupied).length} Vacant
                     </span>
                   </div>
 
                   <div className="relative">
                     <Search
-                      size={13}
-                      className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400"
+                      size={15}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
                     />
                     <input
                       type="text"
                       placeholder="Search room..."
-                      className="pl-7 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-black font-bold text-xs w-full sm:w-44"
+                      className="pl-9 pr-3.5 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-black font-bold text-sm w-full sm:w-56"
                       value={roomSearchQuery}
                       onChange={(e) => {
                         const val = e.target.value;
@@ -1605,16 +1605,16 @@ const CheckIn = () => {
                   </div>
                 </div>
 
-                {/* FLOOR FILTER CHIPS */}
+                {/* FLOOR FILTER CHIPS (PROMINENT TABS) */}
                 {availableFloors.length > 1 && (
-                  <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-gray-100">
-                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider mr-1">Floor:</span>
+                  <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-gray-100">
+                    <span className="text-[11px] font-black text-gray-400 uppercase tracking-wider mr-1">Floor:</span>
                     <button
                       type="button"
                       onClick={() => setSelectedFloorFilter('All')}
-                      className={`px-2 py-0.5 rounded text-[11px] font-black transition-all ${
+                      className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-black transition-all ${
                         selectedFloorFilter === 'All'
-                          ? 'bg-black text-white shadow-xs'
+                          ? 'bg-black text-white shadow-xs scale-105'
                           : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                       }`}
                     >
@@ -1625,33 +1625,33 @@ const CheckIn = () => {
                         key={floor}
                         type="button"
                         onClick={() => setSelectedFloorFilter(floor)}
-                        className={`px-2 py-0.5 rounded text-[11px] font-black transition-all ${
+                        className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-black transition-all ${
                           selectedFloorFilter === floor
-                            ? 'bg-black text-white shadow-xs'
+                            ? 'bg-black text-white shadow-xs scale-105'
                             : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                         }`}
                       >
-                        Fl. {floor} ({count})
+                        Floor {floor} ({count})
                       </button>
                     ))}
                   </div>
                 )}
 
-                {/* ROOM CARDS GRID */}
+                {/* ROOM CARDS GRID (EXPANDED TO MAX-H-460PX WITH BIG KEYCARDS) */}
                 {loadingRooms ? (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                     <SkeletonRoom />
                     <SkeletonRoom />
                     <SkeletonRoom />
                   </div>
                 ) : filteredRooms.length === 0 ? (
-                  <div className="text-center py-8 bg-amber-50 text-amber-800 rounded-xl font-bold text-xs">
+                  <div className="text-center py-12 bg-amber-50 text-amber-800 rounded-2xl font-bold text-sm">
                     {rooms.filter((r) => !r.isOccupied).length === 0
                       ? 'No vacant rooms available right now. All rooms are booked.'
                       : 'No rooms match this floor or search.'}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-3 max-h-[460px] overflow-y-auto pr-1.5 custom-scrollbar">
                     {filteredRooms.map((room) => {
                       const active = stayInfo.room === room._id;
                       return (
@@ -1667,29 +1667,32 @@ const CheckIn = () => {
                               return updated;
                             })
                           }
-                          className={`relative p-2.5 rounded-xl border-2 text-center transition-all ${
+                          className={`relative p-3.5 sm:p-4 rounded-2xl border-2 text-center transition-all cursor-pointer ${
                             active
-                              ? 'border-black bg-black text-white shadow-md scale-[1.02]'
-                              : 'border-gray-200 hover:border-black bg-white hover:shadow-xs'
+                              ? 'border-black bg-black text-white shadow-xl scale-[1.03]'
+                              : 'border-gray-200 hover:border-black bg-white hover:shadow-md'
                           }`}
                         >
                           {active && (
                             <CheckCircle2
-                              className="absolute top-1.5 right-1.5 text-white"
-                              size={13}
+                              className="absolute top-2 right-2 text-white"
+                              size={16}
                             />
                           )}
-                          <h3 className={`font-black text-base sm:text-lg font-mono ${active ? 'text-white' : 'text-gray-900'}`}>
+                          <h3 className={`font-black text-xl sm:text-2xl font-mono tracking-tight ${active ? 'text-white' : 'text-gray-900'}`}>
                             {room.roomNumber}
                           </h3>
-                          <div className={`text-[9px] font-bold mt-0.5 ${active ? 'text-gray-300' : 'text-gray-500'} truncate`}>
+                          <div className={`text-[10px] sm:text-[11px] font-bold mt-1 px-1.5 py-0.5 rounded-md inline-block truncate max-w-full ${active ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'}`}>
                             {room.floor ? `Fl.${room.floor}` : ''} {room.roomType ? `• ${room.roomType.replace('Standard ', '')}` : ''}
                           </div>
                           {room.price24h > 0 && (
-                            <div className={`text-[10px] font-black mt-0.5 ${active ? 'text-amber-300' : 'text-gray-700'}`}>
+                            <div className={`text-xs sm:text-sm font-black font-mono mt-1 ${active ? 'text-amber-300' : 'text-emerald-700'}`}>
                               ₹{room.price24h}
                             </div>
                           )}
+                          <div className={`text-[9px] font-bold mt-0.5 ${active ? 'text-gray-400' : 'text-gray-400'} uppercase tracking-wider`}>
+                            Cap. {room.capacity}
+                          </div>
                         </button>
                       );
                     })}
@@ -1699,8 +1702,8 @@ const CheckIn = () => {
 
             </div>
 
-            {/* RIGHT COLUMN: STICKY LIVE RESERVATION & BILLING DESK (5 Cols on Desktop) */}
-            <div className="lg:col-span-5 xl:col-span-5 lg:sticky lg:top-20 space-y-4">
+            {/* RIGHT COLUMN: STICKY LIVE RESERVATION & BILLING DESK (4 Cols on Desktop) */}
+            <div className="lg:col-span-4 xl:col-span-4 lg:sticky lg:top-20 space-y-4">
               <div className="bg-gradient-to-b from-gray-950 via-gray-900 to-black p-4 sm:p-5 rounded-2xl text-white shadow-xl border border-gray-800 space-y-3.5">
 
                 {/* SELECTED ROOM STATUS BANNER */}
