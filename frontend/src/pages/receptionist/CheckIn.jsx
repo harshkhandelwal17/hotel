@@ -1205,12 +1205,8 @@ const CheckIn = () => {
         type: 'success'
       });
 
-      // If property has AI or WhatsApp feature, trigger GRC modal for 1-click printing & physical signing!
-      if (aiOcrEnabled || waSyncEnabled) {
-        setGrcModalOpen(true);
-      } else {
-        navigate('/dashboard');
-      }
+      // Trigger GRC modal for 1-click printing & physical signing!
+      setGrcModalOpen(true);
     } catch (err) {
       console.error(
         'Check-in failed:',
@@ -2936,17 +2932,15 @@ const CheckIn = () => {
               </span>
             </button>
 
-            {(aiOcrEnabled || waSyncEnabled) && (
-              <button
-                type="button"
-                onClick={() => setGrcModalOpen(true)}
-                className="px-3 sm:px-5 py-3.5 sm:py-4 bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-200 rounded-2xl font-bold uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 shrink-0"
-                title="Preview & Print Guest Registration Card"
-              >
-                <Printer size={16} className="text-emerald-700" />
-                <span className="hidden sm:inline font-black">Print GRC</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setGrcModalOpen(true)}
+              className="px-3 sm:px-5 py-3.5 sm:py-4 bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-200 rounded-2xl font-bold uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 shrink-0"
+              title="Preview & Print Guest Registration Card"
+            >
+              <Printer size={16} className="text-emerald-700" />
+              <span className="hidden sm:inline font-black">Print GRC</span>
+            </button>
 
             <button
               onClick={handleSubmit}
