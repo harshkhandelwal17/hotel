@@ -35,7 +35,8 @@ export const AuthProvider = ({ children }) => {
     const interceptor = axios.interceptors.response.use(
       response => response,
       error => {
-        if (error.response && error.response.status === 401) {
+        const isLoginEndpoint = error.config?.url?.includes('/api/auth/login');
+        if (!isLoginEndpoint && error.response && error.response.status === 401) {
           console.warn('Session expired or revoked (401). Logging out...');
           localStorage.removeItem('token');
           localStorage.removeItem('user');
@@ -46,8 +47,13 @@ export const AuthProvider = ({ children }) => {
       }
     );
 
-    // Re-verify session when user switches back to the tab
+    // Re-verify session when user switches back to the tab (throttled to at most once every 15s)
+    let lastFocusCheck = 0;
     const handleFocus = () => {
+      const now = Date.now();
+      if (now - lastFocusCheck < 15000) return;
+      lastFocusCheck = now;
+
       const currentToken = localStorage.getItem('token');
       if (currentToken) {
         fetchUser();
