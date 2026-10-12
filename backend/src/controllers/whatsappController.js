@@ -182,7 +182,7 @@ exports.markMediaUsed = async (req, res, next) => {
 exports.cleanupUnused = async (req, res, next) => {
   try {
     const { cleanupUnusedMedia } = require('../services/mediaCleanupService');
-    const forceAll = req.body.forceAll !== false;
+    const forceAll = req.body?.forceAll !== false && req.query?.forceAll !== 'false';
     const result = await cleanupUnusedMedia({ olderThanHours: 0, forceAllUnused: forceAll });
     res.status(200).json({ success: true, data: result });
   } catch (err) {

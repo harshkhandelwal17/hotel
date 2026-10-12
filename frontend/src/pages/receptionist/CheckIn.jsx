@@ -933,7 +933,7 @@ const CheckIn = () => {
     }
     setCleaningWaMedia(true);
     try {
-      const res = await axios.post(`${API}/api/whatsapp/cleanup-unused`);
+      const res = await axios.post(`${API}/api/whatsapp/cleanup-unused`, { forceAll: true });
       if (res.data?.success) {
         toast({
           message: `Cleaned up! Removed unused photos from Cloudflare storage.`,
