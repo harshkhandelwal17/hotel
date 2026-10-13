@@ -1,5 +1,18 @@
 const express = require('express');
-const { getSystemStats, getAllUsers, impersonateUser, toggleUserStatus, resetUserPassword, getAllHostels, toggleHostelAiOcr, toggleHostelWhatsAppSync, toggleHostelStatus, updateHostelPlan } = require('../controllers/superAdminController');
+const { 
+  getSystemStats, 
+  getAllUsers, 
+  createUser, 
+  deleteUser, 
+  impersonateUser, 
+  toggleUserStatus, 
+  resetUserPassword, 
+  getAllHostels, 
+  toggleHostelAiOcr, 
+  toggleHostelWhatsAppSync, 
+  toggleHostelStatus, 
+  updateHostelPlan 
+} = require('../controllers/superAdminController');
 const { protect, authorize } = require('../middlewares/auth');
 
 const router = express.Router();
@@ -9,6 +22,8 @@ router.use(authorize('superadmin'));
 
 router.get('/stats', getSystemStats);
 router.get('/users', getAllUsers);
+router.post('/users', createUser);
+router.delete('/users/:id', deleteUser);
 router.get('/hostels', getAllHostels);
 router.post('/impersonate', impersonateUser);
 router.put('/users/:id/toggle-status', toggleUserStatus);

@@ -121,9 +121,58 @@ exports.resetUserPassword = async (req, res, next) => {
 exports.getAllHostels = async (req, res, next) => {
   try {
     const hostels = await Hostel.find()
-      .populate('owner', 'name email')
+      .populate('owner', 'name email phone')
       .sort('-createdAt');
     res.status(200).json({ success: true, data: hostels });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.createUser = async (req, res, next) => {
+  try {
+    const { name, email, password, phone, role, assignedHostel } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ success: false, message: 'Please provide name, email, and password' });
+    }
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ success: false, message: 'A user with this email already exists' });
+    }
+
+    const user = await User.create({
+      name,
+      email,
+      password,
+      phone: phone || '',
+      role: role || 'admin',
+      assignedHostel: assignedHostel || null
+    });
+
+    res.status(201).json({
+      success: true,
+      message: `${user.role === 'admin' ? 'Hotel Owner (Admin)' : 'User'} created successfully`,
+      data: user
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteUser = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    if (user.role === 'superadmin' && user._id.toString() === req.user.id) {
+      return res.status(400).json({ success: false, message: 'Cannot delete your own superadmin account' });
+    }
+
+    await User.findByIdAndDelete(req.params.id);
+    res.status(200).json({ success: true, message: 'User deleted successfully' });
   } catch (error) {
     next(error);
   }

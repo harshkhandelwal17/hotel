@@ -291,8 +291,12 @@ const AppLayout = ({ children }) => {
                   onChange={e => { handlePropertyChange(e.target.value); setIsMobileMenuOpen(false); }}
                   className="w-full bg-gray-50 border border-gray-200 text-gray-700 text-sm rounded-xl focus:ring-black focus:border-black block p-3 font-semibold shadow-sm outline-none mb-4"
                 >
-                  <option value="all">🏢 All Properties</option>
-                  {hostels.map(h => <option key={h._id} value={h._id}>{h.name}</option>)}
+                  <option value="all">🏢 All Active Properties</option>
+                  {hostels.map(h => (
+                    <option key={h._id} value={h._id} disabled={h.isActive === false}>
+                      {h.name} {h.isActive === false ? '🔒 (Locked / Expired)' : ''}
+                    </option>
+                  ))}
                 </select>
               )}
             </div>
