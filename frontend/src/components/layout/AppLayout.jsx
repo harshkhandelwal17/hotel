@@ -138,7 +138,7 @@ const AppLayout = ({ children }) => {
               
               {/* Mobile Menu Button (Hidden now since we have bottom nav, but kept in DOM for reference) */}
               <div className="hidden"></div>
-              <Link to="/dashboard" className="flex-shrink-0 flex items-center space-x-2 mr-4">
+              <Link to={user?.role === 'superadmin' ? '/superadmin' : '/dashboard'} className="flex-shrink-0 flex items-center space-x-2 mr-4">
                 <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
                   <Hexagon className="text-white w-5 h-5" />
                 </div>
@@ -270,12 +270,12 @@ const AppLayout = ({ children }) => {
           
           <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white shadow-2xl animate-in slide-in-from-left duration-300">
             <div className="p-5 border-b border-gray-100 flex justify-between items-center">
-              <div className="flex items-center space-x-2">
+              <Link to={user?.role === 'superadmin' ? '/superadmin' : '/dashboard'} onClick={() => setIsMobileMenuOpen(false)} className="flex items-center space-x-2">
                 <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
                   <Hexagon className="text-white w-5 h-5" />
                 </div>
                 <span className="text-xl font-black tracking-tight text-gray-900">NX<span className="text-gray-400">Hotel</span></span>
-              </div>
+              </Link>
               <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-gray-400 hover:text-red-600 rounded-full">
                 <X size={24} />
               </button>
@@ -340,36 +340,38 @@ const AppLayout = ({ children }) => {
         </div>
       )}
 
-      {/* ─── Mobile Bottom App Bar ─── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-200 pb-[env(safe-area-inset-bottom)] z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-        <div className="flex justify-around items-center h-16 px-2">
-          <Link to="/dashboard" className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${location.pathname === '/dashboard' ? 'text-black' : 'text-gray-400'}`}>
-            <Home size={22} className={location.pathname === '/dashboard' ? 'fill-black' : ''} />
-            <span className="text-[9px] font-bold mt-1 uppercase tracking-widest">Home</span>
-          </Link>
-          
-          <Link to="/checkouts" className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${location.pathname.startsWith('/checkouts') || location.pathname.startsWith('/guests') ? 'text-black' : 'text-gray-400'}`}>
-            <Users size={22} className={location.pathname.startsWith('/checkouts') || location.pathname.startsWith('/guests') ? 'fill-black' : ''} />
-            <span className="text-[9px] font-bold mt-1 uppercase tracking-widest">Guests</span>
-          </Link>
-          
-          <div className="relative -top-5">
-            <Link to="/checkin" className="flex items-center justify-center w-14 h-14 bg-black text-white rounded-full shadow-xl hover:bg-gray-800 transition-all active:scale-95 border-4 border-[#F9FAFB]">
-              <PlusCircle size={28} />
+      {/* ─── Mobile Bottom App Bar (Staff & Admin only) ─── */}
+      {user?.role !== 'superadmin' && (
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-200 pb-[env(safe-area-inset-bottom)] z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+          <div className="flex justify-around items-center h-16 px-2">
+            <Link to="/dashboard" className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${location.pathname === '/dashboard' ? 'text-black' : 'text-gray-400'}`}>
+              <Home size={22} className={location.pathname === '/dashboard' ? 'fill-black' : ''} />
+              <span className="text-[9px] font-bold mt-1 uppercase tracking-widest">Home</span>
             </Link>
+            
+            <Link to="/checkouts" className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${location.pathname.startsWith('/checkouts') || location.pathname.startsWith('/guests') ? 'text-black' : 'text-gray-400'}`}>
+              <Users size={22} className={location.pathname.startsWith('/checkouts') || location.pathname.startsWith('/guests') ? 'fill-black' : ''} />
+              <span className="text-[9px] font-bold mt-1 uppercase tracking-widest">Guests</span>
+            </Link>
+            
+            <div className="relative -top-5">
+              <Link to="/checkin" className="flex items-center justify-center w-14 h-14 bg-black text-white rounded-full shadow-xl hover:bg-gray-800 transition-all active:scale-95 border-4 border-[#F9FAFB]">
+                <PlusCircle size={28} />
+              </Link>
+            </div>
+            
+            <Link to="/payments" className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${location.pathname === '/payments' ? 'text-black' : 'text-gray-400'}`}>
+              <CreditCard size={22} className={location.pathname === '/payments' ? 'fill-black' : ''} />
+              <span className="text-[9px] font-bold mt-1 uppercase tracking-widest">Pay</span>
+            </Link>
+            
+            <button onClick={() => setIsMobileMenuOpen(true)} className="flex flex-col items-center justify-center w-16 h-full text-gray-400 hover:text-black transition-colors">
+              <Menu size={22} />
+              <span className="text-[9px] font-bold mt-1 uppercase tracking-widest">More</span>
+            </button>
           </div>
-          
-          <Link to="/payments" className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${location.pathname === '/payments' ? 'text-black' : 'text-gray-400'}`}>
-            <CreditCard size={22} className={location.pathname === '/payments' ? 'fill-black' : ''} />
-            <span className="text-[9px] font-bold mt-1 uppercase tracking-widest">Pay</span>
-          </Link>
-          
-          <button onClick={() => setIsMobileMenuOpen(true)} className="flex flex-col items-center justify-center w-16 h-full text-gray-400 hover:text-black transition-colors">
-            <Menu size={22} />
-            <span className="text-[9px] font-bold mt-1 uppercase tracking-widest">More</span>
-          </button>
-        </div>
-      </nav>
+        </nav>
+      )}
       
     </div>
   );

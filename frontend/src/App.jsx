@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { BrowserRouter, HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, AuthContext } from './context/AuthContext';
 import ProtectedRoute from './routes/ProtectedRoute';
 
 // Automatically choose HashRouter for local Electron file:// and BrowserRouter for Web/Cloud
@@ -26,6 +26,21 @@ const SuperAdminDashboard = lazy(() => import('./pages/admin/SuperAdminDashboard
 
 import { ToastProvider } from './components/ui/Toast';
 
+// Role-aware root redirect component
+const RootRedirect = () => {
+  const { user, loading } = useContext(AuthContext);
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-black"></div>
+      </div>
+    );
+  }
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role === 'superadmin') return <Navigate to="/superadmin" replace />;
+  return <Navigate to="/dashboard" replace />;
+};
+
 function App() {
   return (
     <AuthProvider>
@@ -35,8 +50,8 @@ function App() {
           <Routes>
           <Route path="/login" element={<Login />} />
 
-          {/* Shared staff routes */}
-          <Route element={<ProtectedRoute allowedRoles={['receptionist', 'admin', 'superadmin']} />}>
+          {/* Shared staff routes (Only for receptionists and hotel admins) */}
+          <Route element={<ProtectedRoute allowedRoles={['receptionist', 'admin']} />}>
             <Route element={<AppLayout />}>
               <Route path="/dashboard" element={<ReceptionistDashboard />} />
               <Route path="/checkin" element={<CheckIn />} />
@@ -48,8 +63,8 @@ function App() {
             </Route>
           </Route>
 
-          {/* Admin-only */}
-          <Route element={<ProtectedRoute allowedRoles={['admin', 'superadmin']} />}>
+          {/* Hotel Admin only */}
+          <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
             <Route element={<AppLayout />}>
               <Route path="/admin/hostels" element={<ManageHostels />} />
               <Route path="/admin/rooms" element={<ManageRooms />} />
@@ -58,14 +73,16 @@ function App() {
             </Route>
           </Route>
 
-          {/* Superadmin-only */}
+          {/* Superadmin Headquarters only */}
           <Route element={<ProtectedRoute allowedRoles={['superadmin']} />}>
             <Route element={<AppLayout />}>
               <Route path="/superadmin" element={<SuperAdminDashboard />} />
             </Route>
           </Route>
 
-          <Route path="/" element={<Navigate to="/dashboard" />} />
+          {/* Smart Root & Fallback Redirects */}
+          <Route path="/" element={<RootRedirect />} />
+          <Route path="*" element={<RootRedirect />} />
         </Routes>
         </Suspense>
       </Router>

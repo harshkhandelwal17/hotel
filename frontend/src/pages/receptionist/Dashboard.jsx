@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useOutletContext, Link } from 'react-router-dom';
+import { useState, useEffect, useCallback, useContext } from 'react';
+import { useOutletContext, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { format, isPast } from 'date-fns';
 import { Users, BedDouble, CalendarCheck, Clock, CreditCard, ChevronRight, AlertTriangle, PlusCircle, RefreshCw, Download } from 'lucide-react';
+import { AuthContext } from '../../context/AuthContext';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
 
@@ -14,6 +15,15 @@ const SkeletonCard = () => (
 );
 
 const ReceptionistDashboard = () => {
+  const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user?.role === 'superadmin') {
+      navigate('/superadmin', { replace: true });
+    }
+  }, [user, navigate]);
+
   const [stats, setStats] = useState(null);
   const [recentStays, setRecentStays] = useState([]);
   const [loading, setLoading] = useState(true);
