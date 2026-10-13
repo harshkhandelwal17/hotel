@@ -16,6 +16,20 @@ const SuperAdminDashboard = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('users');
 
+  // Plan management state (must be at top level before any early return)
+  const [selectedPlanHostel, setSelectedPlanHostel] = useState(null);
+  const [planForm, setPlanForm] = useState({
+    plan: 'starter',
+    planStatus: 'active',
+    planStartDate: '',
+    planEndDate: '',
+    planPrice: 0,
+    billingCycle: 'monthly',
+    maxRooms: 20,
+    planNotes: ''
+  });
+  const [savingPlan, setSavingPlan] = useState(false);
+
   useEffect(() => {
     if (user?.role !== 'superadmin') {
       navigate('/dashboard');
@@ -125,19 +139,6 @@ const SuperAdminDashboard = () => {
       alert(err.response?.data?.message || 'Failed to toggle WhatsApp Sync status');
     }
   };
-
-  const [selectedPlanHostel, setSelectedPlanHostel] = useState(null);
-  const [planForm, setPlanForm] = useState({
-    plan: 'starter',
-    planStatus: 'active',
-    planStartDate: '',
-    planEndDate: '',
-    planPrice: 0,
-    billingCycle: 'monthly',
-    maxRooms: 20,
-    planNotes: ''
-  });
-  const [savingPlan, setSavingPlan] = useState(false);
 
   const openPlanModal = (h) => {
     setSelectedPlanHostel(h);
