@@ -1,5 +1,5 @@
 const express = require('express');
-const { getSystemStats, getAllUsers, impersonateUser, toggleUserStatus, resetUserPassword, getAllHostels, toggleHostelAiOcr, toggleHostelWhatsAppSync } = require('../controllers/superAdminController');
+const { getSystemStats, getAllUsers, impersonateUser, toggleUserStatus, resetUserPassword, getAllHostels, toggleHostelAiOcr, toggleHostelWhatsAppSync, updateHostelPlan } = require('../controllers/superAdminController');
 const { protect, authorize } = require('../middlewares/auth');
 
 const router = express.Router();
@@ -15,6 +15,7 @@ router.put('/users/:id/toggle-status', toggleUserStatus);
 router.put('/users/:id/reset-password', resetUserPassword);
 router.put('/hostels/:id/toggle-ai-ocr', toggleHostelAiOcr);
 router.put('/hostels/:id/toggle-whatsapp-sync', toggleHostelWhatsAppSync);
+router.put('/hostels/:id/plan', updateHostelPlan);
 
 module.exports = router;
 

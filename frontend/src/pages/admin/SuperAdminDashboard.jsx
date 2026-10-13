@@ -126,6 +126,52 @@ const SuperAdminDashboard = () => {
     }
   };
 
+  const [selectedPlanHostel, setSelectedPlanHostel] = useState(null);
+  const [planForm, setPlanForm] = useState({
+    plan: 'starter',
+    planStatus: 'active',
+    planStartDate: '',
+    planEndDate: '',
+    planPrice: 0,
+    billingCycle: 'monthly',
+    maxRooms: 20,
+    planNotes: ''
+  });
+  const [savingPlan, setSavingPlan] = useState(false);
+
+  const openPlanModal = (h) => {
+    setSelectedPlanHostel(h);
+    const startIso = h.planStartDate ? new Date(h.planStartDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+    const endIso = h.planEndDate ? new Date(h.planEndDate).toISOString().split('T')[0] : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    setPlanForm({
+      plan: h.plan || 'demo',
+      planStatus: h.planStatus || 'trial',
+      planStartDate: startIso,
+      planEndDate: endIso,
+      planPrice: h.planPrice || 0,
+      billingCycle: h.billingCycle || 'monthly',
+      maxRooms: h.maxRooms || 20,
+      planNotes: h.planNotes || ''
+    });
+  };
+
+  const handleSavePlan = async (e) => {
+    e.preventDefault();
+    if (!selectedPlanHostel) return;
+    try {
+      setSavingPlan(true);
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      const res = await axios.put(`${API}/api/superadmin/hostels/${selectedPlanHostel._id}/plan`, planForm);
+      setHostels(hostels.map(h => h._id === selectedPlanHostel._id ? res.data.data : h));
+      alert(`✅ Subscription plan updated successfully for ${selectedPlanHostel.name}`);
+      setSelectedPlanHostel(null);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update plan');
+    } finally {
+      setSavingPlan(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="bg-red-600 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
@@ -262,67 +308,103 @@ const SuperAdminDashboard = () => {
             <thead className="bg-white border-b border-gray-100">
               <tr>
                 <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Property Name</th>
-                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Address</th>
                 <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Owner</th>
-                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">AI ID Scanner</th>
-                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">WhatsApp Sync</th>
-                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Status</th>
+                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Subscription Plan</th>
+                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Plan Validity</th>
+                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">AI & WhatsApp</th>
+                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
-              {hostels.map(h => (
-                <tr key={h._id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center font-bold">
-                        <Building size={20} />
+              {hostels.map(h => {
+                const isTrial = h.planStatus === 'trial' || h.plan === 'demo';
+                const isExpired = h.planStatus === 'expired' || (h.planEndDate && new Date(h.planEndDate) < new Date());
+                const daysLeft = h.planEndDate ? Math.max(0, Math.ceil((new Date(h.planEndDate) - new Date()) / (1000 * 60 * 60 * 24))) : null;
+
+                return (
+                  <tr key={h._id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center font-bold">
+                          <Building size={20} />
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-900">{h.name}</p>
+                          <p className="text-[10px] font-bold text-gray-400">📞 {h.contactNumber || 'No Phone'}</p>
+                        </div>
                       </div>
-                      <p className="font-bold text-gray-900">{h.name}</p>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-xs font-semibold text-gray-500 max-w-[200px] truncate">{h.address}</p>
-                    <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-widest flex items-center gap-1">
-                      📞 {h.contactNumber || 'No Number'}
-                    </p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="font-bold text-gray-900">{h.owner?.name || 'Unknown'}</div>
-                    <div className="text-xs text-gray-500">{h.owner?.email || 'N/A'}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <button
-                      onClick={() => handleToggleAiOcr(h._id)}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 ${
-                        h.aiOcrEnabled
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
-                          : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200 hover:text-gray-700'
-                      }`}
-                      title={h.aiOcrEnabled ? 'Click to disable AI Scanner' : 'Click to enable AI Scanner'}
-                    >
-                      <Sparkles size={12} className={h.aiOcrEnabled ? 'text-emerald-500 fill-emerald-500' : 'text-gray-400'} />
-                      {h.aiOcrEnabled ? 'AI Enabled' : 'Disabled'}
-                    </button>
-                  </td>
-                  <td className="px-6 py-4">
-                    <button
-                      onClick={() => handleToggleWhatsAppSync(h._id)}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 ${
-                        h.whatsappSyncEnabled
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
-                          : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200 hover:text-gray-700'
-                      }`}
-                      title={h.whatsappSyncEnabled ? 'Click to disable WhatsApp Sync' : 'Click to enable WhatsApp Sync'}
-                    >
-                      <MessageSquare size={12} className={h.whatsappSyncEnabled ? 'text-emerald-500 fill-emerald-500' : 'text-gray-400'} />
-                      {h.whatsappSyncEnabled ? 'WA Enabled' : 'Disabled'}
-                    </button>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <span className="px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-lg bg-green-100 text-green-700">Active</span>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="font-bold text-gray-900">{h.owner?.name || 'Unknown'}</div>
+                      <div className="text-xs text-gray-500">{h.owner?.email || 'N/A'}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col gap-1">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider w-max ${
+                          h.plan === 'enterprise' ? 'bg-indigo-100 text-indigo-700' :
+                          h.plan === 'professional' ? 'bg-purple-100 text-purple-700' :
+                          h.plan === 'starter' ? 'bg-blue-100 text-blue-700' :
+                          'bg-amber-100 text-amber-800'
+                        }`}>
+                          {h.plan || 'Demo'} Plan ({h.billingCycle || 'trial'})
+                        </span>
+                        <span className="text-[11px] font-bold text-gray-500">
+                          ₹{h.planPrice || 0} · Max {h.maxRooms || 20} Rooms
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col">
+                        <span className={`text-xs font-black ${isExpired ? 'text-red-600' : isTrial ? 'text-amber-600' : 'text-emerald-700'}`}>
+                          {isExpired ? '⚠️ Expired' : isTrial ? 'Trial / Demo' : '● Active'}
+                        </span>
+                        <span className="text-[11px] font-semibold text-gray-500 mt-0.5">
+                          {h.planEndDate ? new Date(h.planEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'No End Date'}
+                        </span>
+                        {daysLeft !== null && !isExpired && (
+                          <span className="text-[10px] font-bold text-emerald-600">{daysLeft} days remaining</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => handleToggleAiOcr(h._id)}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase transition-all shadow-sm active:scale-95 ${
+                            h.aiOcrEnabled
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-gray-100 text-gray-400 border border-gray-200'
+                          }`}
+                          title="Toggle AI OCR Scanner"
+                        >
+                          <Sparkles size={11} className={h.aiOcrEnabled ? 'text-emerald-500 fill-emerald-500' : 'text-gray-400'} />
+                          {h.aiOcrEnabled ? 'OCR On' : 'OCR Off'}
+                        </button>
+                        <button
+                          onClick={() => handleToggleWhatsAppSync(h._id)}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase transition-all shadow-sm active:scale-95 ${
+                            h.whatsappSyncEnabled
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-gray-100 text-gray-400 border border-gray-200'
+                          }`}
+                          title="Toggle WhatsApp Sync"
+                        >
+                          <MessageSquare size={11} className={h.whatsappSyncEnabled ? 'text-emerald-500 fill-emerald-500' : 'text-gray-400'} />
+                          {h.whatsappSyncEnabled ? 'WA On' : 'WA Off'}
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        onClick={() => openPlanModal(h)}
+                        className="px-3.5 py-1.5 bg-black hover:bg-gray-800 text-white text-[10px] font-black uppercase tracking-wider rounded-lg transition-all shadow-sm active:scale-95"
+                      >
+                        Manage Plan
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
               {hostels.length === 0 && (
                 <tr><td colSpan="6" className="text-center py-8 text-gray-500 font-bold">No properties found.</td></tr>
               )}
@@ -332,6 +414,149 @@ const SuperAdminDashboard = () => {
         </>
         )}
       </div>
+
+      {/* 🎟️ EDIT SUBSCRIPTION PLAN MODAL */}
+      {selectedPlanHostel && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSelectedPlanHostel(null)}>
+          <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="p-6 bg-gray-950 text-white flex justify-between items-start">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full">
+                  Subscription & Billing
+                </span>
+                <h3 className="text-lg font-black text-white mt-1.5">{selectedPlanHostel.name}</h3>
+                <p className="text-xs text-gray-400">Owner: {selectedPlanHostel.owner?.name || 'Unknown'} ({selectedPlanHostel.owner?.email})</p>
+              </div>
+              <button onClick={() => setSelectedPlanHostel(null)} className="p-2 text-gray-400 hover:text-white rounded-full hover:bg-gray-800 transition-colors">
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePlan} className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">Plan Type</label>
+                  <select
+                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                    value={planForm.plan}
+                    onChange={e => setPlanForm({ ...planForm, plan: e.target.value })}
+                  >
+                    <option value="demo">Demo / Free Trial</option>
+                    <option value="starter">Starter Plan</option>
+                    <option value="professional">Professional Plan</option>
+                    <option value="enterprise">Enterprise Plan</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">Status</label>
+                  <select
+                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                    value={planForm.planStatus}
+                    onChange={e => setPlanForm({ ...planForm, planStatus: e.target.value })}
+                  >
+                    <option value="trial">Trial</option>
+                    <option value="active">Active (Paid)</option>
+                    <option value="expired">Expired</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">Start Date</label>
+                  <input
+                    type="date"
+                    required
+                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                    value={planForm.planStartDate}
+                    onChange={e => setPlanForm({ ...planForm, planStartDate: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">End Date (Expiry)</label>
+                  <input
+                    type="date"
+                    required
+                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                    value={planForm.planEndDate}
+                    onChange={e => setPlanForm({ ...planForm, planEndDate: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">Amount (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                    value={planForm.planPrice}
+                    onChange={e => setPlanForm({ ...planForm, planPrice: Number(e.target.value) })}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">Billing Cycle</label>
+                  <select
+                    className="w-full px-2.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                    value={planForm.billingCycle}
+                    onChange={e => setPlanForm({ ...planForm, billingCycle: e.target.value })}
+                  >
+                    <option value="trial">Trial</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="quarterly">Quarterly</option>
+                    <option value="yearly">Yearly</option>
+                    <option value="lifetime">Lifetime</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">Max Rooms</label>
+                  <input
+                    type="number"
+                    min="1"
+                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                    value={planForm.maxRooms}
+                    onChange={e => setPlanForm({ ...planForm, maxRooms: Number(e.target.value) })}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">Internal Notes (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Paid ₹3000 via UPI on 12th Oct"
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium text-sm outline-none focus:ring-2 focus:ring-black"
+                  value={planForm.planNotes}
+                  onChange={e => setPlanForm({ ...planForm, planNotes: e.target.value })}
+                />
+              </div>
+
+              <div className="pt-3 flex gap-3 justify-end border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setSelectedPlanHostel(null)}
+                  className="px-4 py-2.5 border border-gray-200 text-gray-700 font-bold rounded-xl text-xs hover:bg-gray-100 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingPlan}
+                  className="px-5 py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50"
+                >
+                  {savingPlan ? 'Saving...' : 'Save Plan Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

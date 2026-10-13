@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
-import { Building, Plus, X, MapPin, Phone, Mail, CheckCircle } from 'lucide-react';
+import { Building, Plus, X, MapPin, Phone, Mail, CheckCircle, ShieldCheck, Sparkles, Calendar, HelpCircle } from 'lucide-react';
+import { AuthContext } from '../../context/AuthContext';
 
 const ManageProperties = () => {
+  const { user } = useContext(AuthContext);
+  const isSuperAdmin = user?.role === 'superadmin';
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -74,54 +77,119 @@ const ManageProperties = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Properties</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage your hotel properties</p>
+          <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Property Profile</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {isSuperAdmin ? 'Manage registered hotel properties' : 'View your registered hotel details & active subscription plan'}
+          </p>
         </div>
-        <button onClick={() => { setFormError(''); setIsModalOpen(true); }}
-          className="w-full sm:w-auto justify-center bg-black text-white px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-gray-800 transition-colors shadow-md font-bold text-sm active:scale-95">
-          <Plus size={16} /> Add Property
-        </button>
+        {isSuperAdmin ? (
+          <button onClick={() => { setFormError(''); setIsModalOpen(true); }}
+            className="w-full sm:w-auto justify-center bg-black text-white px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-gray-800 transition-colors shadow-md font-bold text-sm active:scale-95">
+            <Plus size={16} /> Add Property
+          </button>
+        ) : (
+          <div className="inline-flex items-center gap-2 px-3.5 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-800">
+            <ShieldCheck size={16} className="text-emerald-600" />
+            <span>Managed & Verified Property</span>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {properties.map(property => (
-          <div key={property._id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-            <div className="bg-gradient-to-r from-gray-900 to-gray-700 px-6 py-5">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="font-black text-white text-lg">{property.name}</h3>
+        {properties.map(property => {
+          const isTrial = property.planStatus === 'trial' || property.plan === 'demo';
+          const isExpired = property.planStatus === 'expired' || (property.planEndDate && new Date(property.planEndDate) < new Date());
+          const daysLeft = property.planEndDate ? Math.max(0, Math.ceil((new Date(property.planEndDate) - new Date()) / (1000 * 60 * 60 * 24))) : null;
+
+          return (
+            <div key={property._id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow flex flex-col justify-between">
+              <div>
+                <div className="bg-gradient-to-r from-gray-900 to-gray-800 px-6 py-5 text-white">
+                  <div className="flex justify-between items-start gap-2">
+                    <div>
+                      <h3 className="font-black text-white text-lg">{property.name}</h3>
+                      <p className="text-xs text-gray-400 mt-0.5">License ID: {property._id.slice(-6).toUpperCase()}</p>
+                    </div>
+                    <span className={`text-[11px] font-black uppercase px-2.5 py-1 rounded-full ${
+                      isExpired 
+                        ? 'bg-red-500/20 text-red-300 border border-red-500/30' 
+                        : isTrial 
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' 
+                        : 'bg-green-400/20 text-green-300 border border-green-500/30'
+                    }`}>
+                      {isExpired ? 'Expired' : isTrial ? 'Trial / Demo' : '● Active'}
+                    </span>
+                  </div>
                 </div>
-                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${property.isActive ? 'bg-green-400/20 text-green-300 border border-green-500/30' : 'bg-red-400/20 text-red-300'}`}>
-                  {property.isActive ? '● Active' : '● Inactive'}
-                </span>
+
+                {/* SUBSCRIPTION PLAN STRIP */}
+                <div className="bg-slate-50 border-b border-gray-100 p-4 space-y-2">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-bold text-gray-500 uppercase tracking-wider text-[10px]">Active Plan:</span>
+                    <span className="font-black text-gray-900 uppercase tracking-wide bg-white px-2 py-0.5 rounded border border-gray-200">
+                      {property.plan || 'Demo Plan'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-bold text-gray-500 text-[10px] uppercase tracking-wider">Validity:</span>
+                    <span className={`font-bold ${isExpired ? 'text-red-600' : 'text-gray-700'}`}>
+                      {property.planEndDate ? new Date(property.planEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Lifetime'}
+                      {daysLeft !== null && !isExpired && (
+                        <span className="ml-1.5 text-[10px] text-emerald-600 font-extrabold">({daysLeft} days left)</span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-bold text-gray-500 text-[10px] uppercase tracking-wider">Room Capacity:</span>
+                    <span className="font-bold text-gray-700">Up to {property.maxRooms || 20} Rooms</span>
+                  </div>
+                </div>
+
+                {/* ACTION BUTTONS */}
+                <div className="flex bg-gray-50 border-b border-gray-100">
+                  <button onClick={() => handleEdit(property)} className="flex-1 py-2 text-xs font-bold text-gray-700 hover:text-black hover:bg-gray-100 transition-colors">
+                    Edit Contact Info
+                  </button>
+                  {isSuperAdmin && (
+                    <button onClick={() => handleDelete(property._id)} className="flex-1 py-2 text-xs font-bold text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors border-l border-gray-100">
+                      Delete Property
+                    </button>
+                  )}
+                </div>
+
+                <div className="p-5 space-y-2.5">
+                  {property.address && (
+                    <div className="flex items-start gap-2.5 text-sm">
+                      <MapPin size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
+                      <span className="text-gray-600">{property.address}</span>
+                    </div>
+                  )}
+                  {property.contactNumber && (
+                    <div className="flex items-center gap-2.5 text-sm">
+                      <Phone size={14} className="text-gray-400 flex-shrink-0" />
+                      <span className="text-gray-600">{property.contactNumber}</span>
+                    </div>
+                  )}
+                  {property.email && (
+                    <div className="flex items-center gap-2.5 text-sm">
+                      <Mail size={14} className="text-gray-400 flex-shrink-0" />
+                      <span className="text-gray-600">{property.email}</span>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-            <div className="flex bg-gray-50 border-b border-gray-100">
-              <button onClick={() => handleEdit(property)} className="flex-1 py-2 text-xs font-bold text-gray-600 hover:text-black hover:bg-gray-100 transition-colors border-r border-gray-100">Edit</button>
-              <button onClick={() => handleDelete(property._id)} className="flex-1 py-2 text-xs font-bold text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors">Delete</button>
-            </div>
-            <div className="p-5 space-y-2.5">
-              {property.address && (
-                <div className="flex items-start gap-2.5 text-sm">
-                  <MapPin size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                  <span className="text-gray-600">{property.address}</span>
-                </div>
-              )}
-              {property.contactNumber && (
-                <div className="flex items-center gap-2.5 text-sm">
-                  <Phone size={14} className="text-gray-400 flex-shrink-0" />
-                  <span className="text-gray-600">{property.contactNumber}</span>
-                </div>
-              )}
-              {property.email && (
-                <div className="flex items-center gap-2.5 text-sm">
-                  <Mail size={14} className="text-gray-400 flex-shrink-0" />
-                  <span className="text-gray-600">{property.email}</span>
+
+              {!isSuperAdmin && (
+                <div className="p-4 bg-amber-50/50 border-t border-amber-100/80 rounded-b-2xl">
+                  <p className="text-[11px] font-semibold text-amber-800 flex items-center gap-1.5">
+                    <HelpCircle size={13} className="text-amber-600 flex-shrink-0" />
+                    To add another branch/property or upgrade your plan, contact Central Support.
+                  </p>
                 </div>
               )}
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {properties.length === 0 && (
           <div className="col-span-full bg-white rounded-2xl p-12 text-center border border-dashed border-gray-200">

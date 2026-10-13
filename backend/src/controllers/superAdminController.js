@@ -167,5 +167,29 @@ exports.toggleHostelWhatsAppSync = async (req, res, next) => {
     next(error);
   }
 };
+exports.updateHostelPlan = async (req, res, next) => {
+  try {
+    const { plan, planStatus, planStartDate, planEndDate, planPrice, billingCycle, maxRooms, planNotes } = req.body;
+    const hostel = await Hostel.findById(req.params.id);
+    if (!hostel) return res.status(404).json({ success: false, message: 'Property not found' });
 
+    if (plan !== undefined) hostel.plan = plan;
+    if (planStatus !== undefined) hostel.planStatus = planStatus;
+    if (planStartDate !== undefined) hostel.planStartDate = planStartDate;
+    if (planEndDate !== undefined) hostel.planEndDate = planEndDate;
+    if (planPrice !== undefined) hostel.planPrice = planPrice;
+    if (billingCycle !== undefined) hostel.billingCycle = billingCycle;
+    if (maxRooms !== undefined) hostel.maxRooms = maxRooms;
+    if (planNotes !== undefined) hostel.planNotes = planNotes;
 
+    await hostel.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Plan updated successfully for ${hostel.name}`,
+      data: hostel
+    });
+  } catch (error) {
+    next(error);
+  }
+};

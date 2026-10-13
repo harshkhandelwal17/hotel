@@ -2,7 +2,9 @@ const Hostel = require('../models/Hostel');
 
 exports.createHostel = async (req, res, next) => {
   try {
-    req.body.owner = req.user.id;
+    if (!req.body.owner) {
+      req.body.owner = req.user.id;
+    }
     const hostel = await Hostel.create(req.body);
     res.status(201).json({ success: true, data: hostel });
   } catch (error) {
@@ -54,7 +56,20 @@ exports.updateHostel = async (req, res, next) => {
     if (req.user.role === 'admin') {
       query.owner = req.user.id;
     }
-    const hostel = await Hostel.findOneAndUpdate(query, req.body, {
+    let updateData = { ...req.body };
+    if (req.user.role !== 'superadmin') {
+      // Normal admins cannot alter plan, dates, or pricing!
+      delete updateData.plan;
+      delete updateData.planStatus;
+      delete updateData.planStartDate;
+      delete updateData.planEndDate;
+      delete updateData.planPrice;
+      delete updateData.billingCycle;
+      delete updateData.maxRooms;
+      delete updateData.owner;
+    }
+
+    const hostel = await Hostel.findOneAndUpdate(query, updateData, {
       new: true,
       runValidators: true
     });

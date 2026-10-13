@@ -8,11 +8,11 @@ router.use(protect);
 
 router.route('/')
   .get(getHostels)
-  .post(authorize('admin'), createHostel);
+  .post(authorize('superadmin'), createHostel);
 
 router.route('/:id')
   .get(getHostel)
-  .put(authorize('admin'), updateHostel)
-  .delete(authorize('admin'), deleteHostel);
+  .put(authorize('admin', 'superadmin'), updateHostel)
+  .delete(authorize('superadmin'), deleteHostel);
 
 module.exports = router;
