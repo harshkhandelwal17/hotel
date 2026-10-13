@@ -167,6 +167,24 @@ exports.toggleHostelWhatsAppSync = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.toggleHostelStatus = async (req, res, next) => {
+  try {
+    const hostel = await Hostel.findById(req.params.id);
+    if (!hostel) return res.status(404).json({ success: false, message: 'Property not found' });
+
+    hostel.isActive = !hostel.isActive;
+    await hostel.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Property ${hostel.isActive ? 'activated' : 'deactivated'} successfully`,
+      data: hostel
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 exports.updateHostelPlan = async (req, res, next) => {
   try {
     const { plan, planStatus, planStartDate, planEndDate, planPrice, billingCycle, maxRooms, planNotes } = req.body;

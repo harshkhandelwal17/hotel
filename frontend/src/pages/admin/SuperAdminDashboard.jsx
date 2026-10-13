@@ -158,6 +158,16 @@ const SuperAdminDashboard = () => {
     }
   };
 
+  const handleToggleHostelStatus = async (hostelId) => {
+    try {
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      const res = await axios.put(`${API}/api/superadmin/hostels/${hostelId}/toggle-status`);
+      setHostels(hostels.map(h => h._id === hostelId ? { ...h, isActive: res.data.data.isActive } : h));
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to toggle property status');
+    }
+  };
+
   const openPlanModal = (h) => {
     setSelectedPlanHostel(h);
     const startIso = h.planStartDate ? new Date(h.planStartDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
@@ -453,12 +463,25 @@ const SuperAdminDashboard = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => openPlanModal(h)}
-                        className="px-3.5 py-1.5 bg-black hover:bg-gray-800 text-white text-[10px] font-black uppercase tracking-wider rounded-lg transition-all shadow-sm active:scale-95"
-                      >
-                        Manage Plan
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleToggleHostelStatus(h._id)}
+                          className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all shadow-sm active:scale-95 ${
+                            h.isActive !== false
+                              ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                              : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                          }`}
+                          title={h.isActive !== false ? 'Click to Disable / Lock Property' : 'Click to Enable Property'}
+                        >
+                          {h.isActive !== false ? 'Disable' : 'Enable'}
+                        </button>
+                        <button
+                          onClick={() => openPlanModal(h)}
+                          className="px-3.5 py-1.5 bg-black hover:bg-gray-800 text-white text-[10px] font-black uppercase tracking-wider rounded-lg transition-all shadow-sm active:scale-95"
+                        >
+                          Manage Plan
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

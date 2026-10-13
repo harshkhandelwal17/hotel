@@ -181,8 +181,12 @@ const AppLayout = ({ children }) => {
                   onChange={e => handlePropertyChange(e.target.value)}
                   className="hidden md:block bg-gray-50 border border-gray-200 text-gray-700 text-sm rounded-lg focus:ring-black focus:border-black p-2 font-semibold shadow-sm outline-none"
                 >
-                  <option value="all">🏢 All Properties</option>
-                  {hostels.map(h => <option key={h._id} value={h._id}>{h.name}</option>)}
+                  <option value="all">🏢 All Active Properties</option>
+                  {hostels.map(h => (
+                    <option key={h._id} value={h._id} disabled={h.isActive === false}>
+                      {h.name} {h.isActive === false ? '🔒 (Locked / Expired)' : ''}
+                    </option>
+                  ))}
                 </select>
               )}
               <div className="relative">
