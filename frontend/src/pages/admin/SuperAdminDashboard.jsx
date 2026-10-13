@@ -30,6 +30,24 @@ const SuperAdminDashboard = () => {
   });
   const [savingPlan, setSavingPlan] = useState(false);
 
+  // 🏨 Add New Property Modal State (Super Admin Only)
+  const [isAddPropertyOpen, setIsAddPropertyOpen] = useState(false);
+  const [newPropertyForm, setNewPropertyForm] = useState({
+    name: '',
+    address: '',
+    contactNumber: '',
+    email: '',
+    owner: '',
+    plan: 'demo',
+    planStatus: 'trial',
+    planStartDate: new Date().toISOString().split('T')[0],
+    planEndDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    planPrice: 0,
+    billingCycle: 'trial',
+    maxRooms: 20
+  });
+  const [addingProperty, setAddingProperty] = useState(false);
+
   useEffect(() => {
     if (user?.role !== 'superadmin') {
       navigate('/dashboard');
@@ -173,6 +191,39 @@ const SuperAdminDashboard = () => {
     }
   };
 
+  const handleCreateProperty = async (e) => {
+    e.preventDefault();
+    if (!newPropertyForm.name.trim()) return alert('Property name is required');
+    if (!newPropertyForm.owner) return alert('Please select a hotel owner / admin for this property');
+
+    try {
+      setAddingProperty(true);
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      const res = await axios.post(`${API}/api/hostels`, newPropertyForm);
+      alert(`✅ New property "${res.data.data.name}" registered successfully!`);
+      setIsAddPropertyOpen(false);
+      setNewPropertyForm({
+        name: '',
+        address: '',
+        contactNumber: '',
+        email: '',
+        owner: '',
+        plan: 'demo',
+        planStatus: 'trial',
+        planStartDate: new Date().toISOString().split('T')[0],
+        planEndDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        planPrice: 0,
+        billingCycle: 'trial',
+        maxRooms: 20
+      });
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to create property');
+    } finally {
+      setAddingProperty(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="bg-red-600 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
@@ -303,6 +354,12 @@ const SuperAdminDashboard = () => {
             <h2 className="text-lg font-black text-gray-900">Registered Properties</h2>
             <p className="text-xs text-gray-500 font-medium mt-1">Total {hostels.length} unique hotels/hostels in the system.</p>
           </div>
+          <button
+            onClick={() => setIsAddPropertyOpen(true)}
+            className="w-full sm:w-auto px-5 py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2"
+          >
+            <span>+ Add New Property</span>
+          </button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
@@ -552,6 +609,204 @@ const SuperAdminDashboard = () => {
                   className="px-5 py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50"
                 >
                   {savingPlan ? 'Saving...' : 'Save Plan Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 🏨 ADD NEW PROPERTY MODAL (SUPER ADMIN ONLY) */}
+      {isAddPropertyOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setIsAddPropertyOpen(false)}>
+          <div className="bg-white rounded-3xl max-w-xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="p-6 bg-gray-950 text-white flex justify-between items-start sticky top-0 z-10">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-purple-400 bg-purple-500/20 px-2.5 py-0.5 rounded-full">
+                  Super Admin Provisioning
+                </span>
+                <h3 className="text-lg font-black text-white mt-1.5">Register New Hotel / Property</h3>
+                <p className="text-xs text-gray-400">Assign to hotel owner and allocate their initial subscription plan.</p>
+              </div>
+              <button onClick={() => setIsAddPropertyOpen(false)} className="p-2 text-gray-400 hover:text-white rounded-full hover:bg-gray-800 transition-colors">
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateProperty} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">Hotel / Property Name <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Royal Heritage Palace"
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                  value={newPropertyForm.name}
+                  onChange={e => setNewPropertyForm({ ...newPropertyForm, name: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">Assign Property Owner (Admin) <span className="text-red-500">*</span></label>
+                <select
+                  required
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                  value={newPropertyForm.owner}
+                  onChange={e => setNewPropertyForm({ ...newPropertyForm, owner: e.target.value })}
+                >
+                  <option value="">Select an Admin / Owner...</option>
+                  {users.filter(u => u.role === 'admin' || u.role === 'superadmin').map(u => (
+                    <option key={u._id} value={u._id}>
+                      {u.name} ({u.email}) — [{u.role.toUpperCase()}]
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-gray-400 mt-1">This user will be the primary owner and will manage this hotel.</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">Contact Phone</label>
+                  <input
+                    type="tel"
+                    placeholder="9876543210"
+                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium text-sm outline-none focus:ring-2 focus:ring-black"
+                    value={newPropertyForm.contactNumber}
+                    onChange={e => setNewPropertyForm({ ...newPropertyForm, contactNumber: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">Official Email</label>
+                  <input
+                    type="email"
+                    placeholder="hotel@gmail.com"
+                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium text-sm outline-none focus:ring-2 focus:ring-black"
+                    value={newPropertyForm.email}
+                    onChange={e => setNewPropertyForm({ ...newPropertyForm, email: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">Full Address</label>
+                <input
+                  type="text"
+                  placeholder="Plot 42, Civil Lines, Jaipur, Rajasthan"
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium text-sm outline-none focus:ring-2 focus:ring-black"
+                  value={newPropertyForm.address}
+                  onChange={e => setNewPropertyForm({ ...newPropertyForm, address: e.target.value })}
+                />
+              </div>
+
+              {/* INITIAL SUBSCRIPTION PLAN ALLOCATION */}
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                <span className="text-[11px] font-black uppercase tracking-wider text-slate-700 block">
+                  🎟️ Initial Subscription Plan Settings
+                </span>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1">Plan</label>
+                    <select
+                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl font-bold text-xs outline-none"
+                      value={newPropertyForm.plan}
+                      onChange={e => setNewPropertyForm({ ...newPropertyForm, plan: e.target.value })}
+                    >
+                      <option value="demo">Demo / Free Trial</option>
+                      <option value="starter">Starter Plan</option>
+                      <option value="professional">Professional Plan</option>
+                      <option value="enterprise">Enterprise Plan</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1">Status</label>
+                    <select
+                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl font-bold text-xs outline-none"
+                      value={newPropertyForm.planStatus}
+                      onChange={e => setNewPropertyForm({ ...newPropertyForm, planStatus: e.target.value })}
+                    >
+                      <option value="trial">Trial</option>
+                      <option value="active">Active (Paid)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">Price (₹)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl font-bold text-xs outline-none"
+                      value={newPropertyForm.planPrice}
+                      onChange={e => setNewPropertyForm({ ...newPropertyForm, planPrice: Number(e.target.value) })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">Billing</label>
+                    <select
+                      className="w-full px-2 py-2 bg-white border border-gray-200 rounded-xl font-bold text-xs outline-none"
+                      value={newPropertyForm.billingCycle}
+                      onChange={e => setNewPropertyForm({ ...newPropertyForm, billingCycle: e.target.value })}
+                    >
+                      <option value="trial">Trial</option>
+                      <option value="monthly">Monthly</option>
+                      <option value="quarterly">Quarterly</option>
+                      <option value="yearly">Yearly</option>
+                      <option value="lifetime">Lifetime</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">Max Rooms</label>
+                    <input
+                      type="number"
+                      min="1"
+                      className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl font-bold text-xs outline-none"
+                      value={newPropertyForm.maxRooms}
+                      onChange={e => setNewPropertyForm({ ...newPropertyForm, maxRooms: Number(e.target.value) })}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">Start Date</label>
+                    <input
+                      type="date"
+                      required
+                      className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl font-bold text-xs outline-none"
+                      value={newPropertyForm.planStartDate}
+                      onChange={e => setNewPropertyForm({ ...newPropertyForm, planStartDate: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">End Date</label>
+                    <input
+                      type="date"
+                      required
+                      className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl font-bold text-xs outline-none"
+                      value={newPropertyForm.planEndDate}
+                      onChange={e => setNewPropertyForm({ ...newPropertyForm, planEndDate: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-3 flex gap-3 justify-end border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setIsAddPropertyOpen(false)}
+                  className="px-4 py-2.5 border border-gray-200 text-gray-700 font-bold rounded-xl text-xs hover:bg-gray-100 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={addingProperty}
+                  className="px-6 py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50"
+                >
+                  {addingProperty ? 'Registering...' : 'Register & Allocate Plan'}
                 </button>
               </div>
             </form>
