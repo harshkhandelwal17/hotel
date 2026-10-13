@@ -208,8 +208,8 @@ const ManageProperties = () => {
             onClick={e => e.stopPropagation()}>
             <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 shrink-0">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Add New Property</h2>
-                <p className="text-xs text-gray-500 mt-0.5">Register a new hotel property</p>
+                <h2 className="text-xl font-bold text-gray-900">{editingId ? 'Edit Property Details' : 'Add New Property'}</h2>
+                <p className="text-xs text-gray-500 mt-0.5">{editingId ? 'Update hotel contact and address details' : 'Register a new hotel property'}</p>
               </div>
               <button onClick={closeModal} className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
                 <X size={20} className="text-gray-400" />

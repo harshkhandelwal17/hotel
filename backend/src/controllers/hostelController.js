@@ -2,10 +2,20 @@ const Hostel = require('../models/Hostel');
 
 exports.createHostel = async (req, res, next) => {
   try {
-    if (!req.body.owner) {
-      req.body.owner = req.user.id;
+    const payload = { ...req.body };
+    if (!payload.owner) {
+      payload.owner = req.user.id;
     }
-    const hostel = await Hostel.create(req.body);
+    if (!payload.email || payload.email.trim() === '') {
+      delete payload.email;
+    }
+    if (!payload.contactNumber || payload.contactNumber.trim() === '') {
+      payload.contactNumber = 'N/A';
+    }
+    if (!payload.address || payload.address.trim() === '') {
+      payload.address = 'N/A';
+    }
+    const hostel = await Hostel.create(payload);
     res.status(201).json({ success: true, data: hostel });
   } catch (error) {
     next(error);
@@ -69,6 +79,10 @@ exports.updateHostel = async (req, res, next) => {
       delete updateData.billingCycle;
       delete updateData.maxRooms;
       delete updateData.owner;
+    }
+
+    if (updateData.email === '' || updateData.email === null) {
+      delete updateData.email;
     }
 
     const hostel = await Hostel.findOneAndUpdate(query, updateData, {

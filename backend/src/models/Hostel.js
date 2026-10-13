@@ -9,11 +9,11 @@ const hostelSchema = new mongoose.Schema({
   },
   address: {
     type: String,
-    required: [true, 'Please add an address']
+    default: ''
   },
   contactNumber: {
     type: String,
-    required: [true, 'Please add a contact number']
+    default: ''
   },
   email: {
     type: String,
