@@ -34,7 +34,8 @@ function App() {
         <Suspense fallback={<div className="flex items-center justify-center h-screen w-screen"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
           <Routes>
           <Route path="/login" element={<Login />} />
-          
+
+          {/* Shared staff routes */}
           <Route element={<ProtectedRoute allowedRoles={['receptionist', 'admin', 'superadmin']} />}>
             <Route element={<AppLayout />}>
               <Route path="/dashboard" element={<ReceptionistDashboard />} />
@@ -43,15 +44,27 @@ function App() {
               <Route path="/rooms" element={<RoomsView />} />
               <Route path="/payments" element={<PaymentsList />} />
               <Route path="/guests/:id" element={<GuestProfile />} />
+              <Route path="/guests" element={<GuestDirectory />} />
+            </Route>
+          </Route>
+
+          {/* Admin-only */}
+          <Route element={<ProtectedRoute allowedRoles={['admin', 'superadmin']} />}>
+            <Route element={<AppLayout />}>
               <Route path="/admin/hostels" element={<ManageHostels />} />
               <Route path="/admin/rooms" element={<ManageRooms />} />
               <Route path="/admin/reports" element={<Reports />} />
               <Route path="/admin/staff" element={<ManageStaff />} />
-              <Route path="/guests" element={<GuestDirectory />} />
+            </Route>
+          </Route>
+
+          {/* Superadmin-only */}
+          <Route element={<ProtectedRoute allowedRoles={['superadmin']} />}>
+            <Route element={<AppLayout />}>
               <Route path="/superadmin" element={<SuperAdminDashboard />} />
             </Route>
           </Route>
-          
+
           <Route path="/" element={<Navigate to="/dashboard" />} />
         </Routes>
         </Suspense>

@@ -2,7 +2,7 @@ import React, { useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
-import { Home, Users, Bed, LogOut, Bell, PlusCircle, Building, CreditCard, BarChart3, Hexagon, ShieldCheck, Menu, X, ShieldAlert } from 'lucide-react';
+import { Home, Users, Bed, LogOut, Bell, PlusCircle, Building, CreditCard, BarChart3, Hexagon, ShieldCheck, Menu, X, ShieldAlert, LayoutGrid } from 'lucide-react';
 import GlobalSearch from '../common/GlobalSearch';
 
 const AppLayout = ({ children }) => {
@@ -94,6 +94,7 @@ const AppLayout = ({ children }) => {
     navItems = [
       { name: 'Dashboard', path: '/dashboard', icon: Home },
       { name: 'Stays', path: '/checkouts', icon: Bed },
+      { name: 'Rooms', path: '/rooms', icon: LayoutGrid },
       { name: 'History', path: '/guests', icon: Users },
       { name: 'Payments', path: '/payments', icon: CreditCard },
     ];

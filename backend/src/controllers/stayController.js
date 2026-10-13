@@ -1,100 +1,132 @@
 const Stay = require('../models/Stay');
 const Room = require('../models/Room');
-const Bed = require('../models/Bed');
 const Payment = require('../models/Payment');
-const mongoose = require('mongoose');
+const Guest = require('../models/Guest');
+const { assertHostelAccess, getHostelFilter, userCanAccessHostel } = require('../utils/hostelAccess');
+
+const OPEN_STATUSES = ['Upcoming', 'Active', 'Checkout Due', 'Overdue'];
+
+const roomOverlapFilter = (roomId, checkInDate, expectedCheckOutDate, excludeStayId) => {
+  const filter = {
+    room: roomId,
+    status: { $in: OPEN_STATUSES },
+    checkInDate: { $lt: expectedCheckOutDate },
+    expectedCheckOutDate: { $gt: checkInDate }
+  };
+  if (excludeStayId) filter._id = { $ne: excludeStayId };
+  return filter;
+};
 
 exports.createStay = async (req, res, next) => {
   try {
-    const { guest, room, checkInDate, expectedCheckOutDate, initialPaymentAmount, paymentMethod, durationOption, occupants, coGuests, commissionTo, commissionAmount } = req.body;
+    const {
+      guest, room, checkInDate, expectedCheckOutDate, initialPaymentAmount,
+      paymentMethod, durationOption, occupants, coGuests, commissionTo, commissionAmount
+    } = req.body;
+
     let hostel = req.user.assignedHostel;
-    
-    if (req.user.role === 'admin') {
-      const Hostel = require('../models/Hostel');
-      const hostelExists = await Hostel.findOne({ _id: req.body.hostel, owner: req.user.id });
-      if (!hostelExists) return res.status(403).json({ success: false, message: 'Not authorized for this hostel' });
+
+    if (req.user.role === 'admin' || req.user.role === 'superadmin') {
+      if (!req.body.hostel) throw new Error('Hostel is required');
+      await assertHostelAccess(req.user, req.body.hostel);
       hostel = req.body.hostel;
     }
-    
-    // Validate overlapping stays for the ROOM (not bed)
-    const overlapping = await Stay.findOne({
-      room,
-      status: { $in: ['Upcoming', 'Active', 'Checkout Due', 'Overdue'] },
-      $or: [
-        { checkInDate: { $lt: expectedCheckOutDate }, expectedCheckOutDate: { $gt: checkInDate } }
-      ]
-    });
 
+    if (!guest || !room || !checkInDate || !expectedCheckOutDate) {
+      throw new Error('Guest, room, check-in and check-out dates are required');
+    }
+
+    const guestDoc = await Guest.findById(guest);
+    if (!guestDoc) throw new Error('Guest not found');
+    if (guestDoc.hostel.toString() !== hostel.toString()) {
+      throw new Error('Guest does not belong to this property');
+    }
+
+    const coGuestIds = Array.isArray(coGuests) ? coGuests : [];
+    if (coGuestIds.length > 0) {
+      const coGuestDocs = await Guest.find({ _id: { $in: coGuestIds } });
+      if (coGuestDocs.length !== coGuestIds.length) {
+        throw new Error('One or more co-guests were not found');
+      }
+      for (const cg of coGuestDocs) {
+        if (cg.hostel.toString() !== hostel.toString()) {
+          throw new Error('Co-guest does not belong to this property');
+        }
+      }
+    }
+
+    const overlapping = await Stay.findOne(
+      roomOverlapFilter(room, checkInDate, expectedCheckOutDate)
+    );
     if (overlapping) {
       throw new Error('The selected room is already booked for the requested dates.');
     }
-    
-    // Get Room price
+
     const roomDoc = await Room.findById(room);
     if (!roomDoc) throw new Error('Room not found');
-    if (roomDoc.hostel.toString() !== hostel.toString()) throw new Error('This room does not belong to the selected property');
-    if (roomDoc.status !== 'Active') throw new Error(`Room ${roomDoc.roomNumber} is not available (${roomDoc.status})`);
-    
-    // Runtime manual pricing
+    if (roomDoc.hostel.toString() !== hostel.toString()) {
+      throw new Error('This room does not belong to the selected property');
+    }
+    if (roomDoc.status !== 'Active') {
+      throw new Error(`Room ${roomDoc.roomNumber} is not available (${roomDoc.status})`);
+    }
+
     let totalAmount = Number(req.body.totalAmount) || 0;
     totalAmount = Math.max(0, totalAmount);
-    if ((Number(initialPaymentAmount) || 0) > totalAmount) {
+    const advance = Number(initialPaymentAmount) || 0;
+    if (advance > totalAmount) {
       throw new Error('Advance payment cannot be more than the total amount');
     }
 
-    const stay = await Stay.create([{
+    const stay = await Stay.create({
       guest,
-      coGuests: coGuests || [],
+      coGuests: coGuestIds,
       hostel,
       room,
       checkInDate,
       expectedCheckOutDate,
       durationOption: durationOption || '24h',
       totalAmount,
-      paidAmount: initialPaymentAmount || 0,
+      paidAmount: advance,
       occupants: occupants || 1,
       commissionTo: commissionTo || '',
       commissionAmount: Number(commissionAmount) || 0,
       createdBy: req.user._id
-    }]);
+    });
 
-    if (initialPaymentAmount > 0) {
-      await Payment.create([{
-        stay: stay[0]._id,
-        guest,
-        hostel,
-        amount: initialPaymentAmount,
-        paymentMethod: paymentMethod || 'Cash',
-        createdBy: req.user._id
-      }]);
+    // Double-check after create to shrink race window for double-booking
+    const conflicts = await Stay.find(
+      roomOverlapFilter(room, checkInDate, expectedCheckOutDate, stay._id)
+    );
+    if (conflicts.length > 0) {
+      await Stay.deleteOne({ _id: stay._id });
+      throw new Error('The selected room is already booked for the requested dates.');
     }
 
-    res.status(201).json({ success: true, data: stay[0] });
+    if (advance > 0) {
+      await Payment.create({
+        stay: stay._id,
+        guest,
+        hostel,
+        amount: advance,
+        paymentMethod: paymentMethod || 'Cash',
+        createdBy: req.user._id
+      });
+    }
+
+    res.status(201).json({ success: true, data: stay });
   } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ success: false, message: error.message });
+    }
     next(error);
   }
 };
 
 exports.getStays = async (req, res, next) => {
   try {
-    let filter = {};
-    if (req.user.role !== 'admin') {
-      filter.hostel = req.user.assignedHostel;
-    } else {
-      const Hostel = require('../models/Hostel');
-      const myHostels = await Hostel.find({ owner: req.user.id }).select('_id');
-      const hostelIds = myHostels.map(h => h._id);
-      
-      if (req.query.hostel && req.query.hostel !== 'all') {
-        if (!hostelIds.some(id => id.toString() === req.query.hostel)) {
-          return res.status(403).json({ success: false, message: 'Not authorized' });
-        }
-        filter.hostel = req.query.hostel;
-      } else {
-        filter.hostel = { $in: hostelIds };
-      }
-    }
-    
+    const filter = await getHostelFilter(req.user, req.query.hostel);
+
     if (req.query.status) {
       filter.status = req.query.status;
     }
@@ -106,18 +138,18 @@ exports.getStays = async (req, res, next) => {
       .populate('hostel', 'name address contactNumber')
       .sort('-expectedCheckOutDate')
       .lean();
-      
+
     res.status(200).json({ success: true, count: stays.length, data: stays });
   } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ success: false, message: error.message });
+    }
     next(error);
   }
 };
 
-
 // ---------------------------------------------------------------------------
 // Helper: load a stay and make sure the logged-in user is allowed to touch it.
-//  - admin        -> stay's hostel must be owned by this admin
-//  - receptionist -> stay's hostel must be their assigned hostel
 // ---------------------------------------------------------------------------
 const loadAuthorizedStay = async (req) => {
   const stay = await Stay.findById(req.params.id);
@@ -127,15 +159,7 @@ const loadAuthorizedStay = async (req) => {
     throw err;
   }
 
-  let allowed = false;
-  if (req.user.role === 'admin') {
-    const Hostel = require('../models/Hostel');
-    allowed = !!(await Hostel.exists({ _id: stay.hostel, owner: req.user.id }));
-  } else {
-    allowed = !!req.user.assignedHostel && stay.hostel.toString() === req.user.assignedHostel.toString();
-  }
-
-  if (!allowed) {
+  if (!(await userCanAccessHostel(req.user, stay.hostel))) {
     const err = new Error('Not authorized for this stay');
     err.statusCode = 403;
     throw err;
@@ -150,9 +174,7 @@ const sendError = (res, next, error) => {
   return next(error);
 };
 
-const OPEN_STATUSES = ['Active', 'Checkout Due', 'Overdue'];
-
-// GET /api/stays/:id  -> full detail (guest, room, charges, payments, history)
+// GET /api/stays/:id
 exports.getStay = async (req, res, next) => {
   try {
     const authorized = await loadAuthorizedStay(req);
@@ -168,7 +190,6 @@ exports.getStay = async (req, res, next) => {
   }
 };
 
-// POST /api/stays/:id/charges  { description, category, quantity, rate | amount }
 exports.addCharge = async (req, res, next) => {
   try {
     const stay = await loadAuthorizedStay(req);
@@ -208,7 +229,6 @@ exports.addCharge = async (req, res, next) => {
   }
 };
 
-// DELETE /api/stays/:id/charges/:chargeId  (mistake correction)
 exports.removeCharge = async (req, res, next) => {
   try {
     const stay = await loadAuthorizedStay(req);
@@ -228,7 +248,6 @@ exports.removeCharge = async (req, res, next) => {
   }
 };
 
-// POST /api/stays/:id/payments  { amount, paymentMethod, notes }  (part payment during the stay)
 exports.addPayment = async (req, res, next) => {
   try {
     const stay = await loadAuthorizedStay(req);
@@ -238,7 +257,25 @@ exports.addPayment = async (req, res, next) => {
     if (!Number.isFinite(amount) || amount <= 0) throw new Error('Please enter a valid amount');
 
     const balance = stay.totalAmount - stay.paidAmount;
-    if (amount > balance) throw new Error(`Amount is more than the balance due (₹${balance})`);
+    if (amount > balance + 0.01) throw new Error(`Amount is more than the balance due (₹${Math.max(0, balance)})`);
+
+    const updated = await Stay.findOneAndUpdate(
+      {
+        _id: stay._id,
+        status: { $ne: 'Cancelled' },
+        $expr: {
+          $lte: [{ $add: ['$paidAmount', amount] }, { $add: ['$totalAmount', 0.01] }]
+        }
+      },
+      { $inc: { paidAmount: amount } },
+      { new: true }
+    );
+
+    if (!updated) {
+      const err = new Error('Could not record payment — balance may have changed. Please refresh and try again.');
+      err.statusCode = 409;
+      throw err;
+    }
 
     await Payment.create({
       stay: stay._id,
@@ -249,10 +286,8 @@ exports.addPayment = async (req, res, next) => {
       notes: req.body.notes,
       createdBy: req.user._id
     });
-    stay.paidAmount += amount;
-    await stay.save();
 
-    res.status(201).json({ success: true, data: stay });
+    res.status(201).json({ success: true, data: updated });
   } catch (error) {
     sendError(res, next, error);
   }
@@ -267,10 +302,11 @@ exports.checkout = async (req, res, next) => {
     const checkoutPayment = Number(req.body.checkoutPayment) || 0;
     const { paymentMethod, additionalChargesNote } = req.body;
 
-    if (checkoutPayment > stay.totalAmount + additionalCharges - stay.paidAmount) {
-      throw new Error('Payment is more than the balance due');
+    if (checkoutPayment < 0 || !Number.isFinite(checkoutPayment)) {
+      throw new Error('Invalid payment amount');
     }
 
+    // Apply checkout charges first (on the in-memory doc), then compute required payment
     if (req.body.chargesList && Array.isArray(req.body.chargesList) && req.body.chargesList.length > 0) {
       let totalNewCharges = 0;
       for (const charge of req.body.chargesList) {
@@ -300,25 +336,50 @@ exports.checkout = async (req, res, next) => {
       stay.totalAmount += additionalCharges;
     }
 
+    const balanceDue = stay.totalAmount - stay.paidAmount;
+    if (checkoutPayment > balanceDue + 0.01) {
+      throw new Error('Payment is more than the balance due');
+    }
+
+    // Require full settlement (matches frontend CheckoutModal)
+    if (checkoutPayment + 0.01 < balanceDue) {
+      throw new Error(`Full payment required to checkout. Balance due: ₹${Math.max(0, balanceDue)}`);
+    }
+
+    // Atomic status flip — prevents double checkout
+    const flipped = await Stay.findOneAndUpdate(
+      { _id: stay._id, status: { $ne: 'Checked Out' } },
+      {
+        $set: {
+          status: 'Checked Out',
+          actualCheckOutDate: new Date(),
+          charges: stay.charges,
+          additionalCharges: stay.additionalCharges,
+          totalAmount: stay.totalAmount,
+          paidAmount: stay.paidAmount + checkoutPayment
+        }
+      },
+      { new: true }
+    );
+
+    if (!flipped) {
+      throw new Error('Stay is already checked out');
+    }
+
     if (checkoutPayment > 0) {
-      stay.paidAmount += checkoutPayment;
-      await Payment.create([{
+      await Payment.create({
         stay: stay._id,
         guest: stay.guest,
         hostel: stay.hostel,
         amount: checkoutPayment,
         paymentMethod: paymentMethod || 'Cash',
         createdBy: req.user._id
-      }]);
+      });
     }
 
-    stay.status = 'Checked Out';
-    stay.actualCheckOutDate = new Date();
-    await stay.save();
-    
     const payments = await Payment.find({ stay: stay._id }).sort('paymentDate');
 
-    res.status(200).json({ success: true, data: stay, payments });
+    res.status(200).json({ success: true, data: flipped, payments });
   } catch (error) {
     sendError(res, next, error);
   }
@@ -333,23 +394,21 @@ exports.extendStay = async (req, res, next) => {
     const newOutDate = new Date(newCheckOutDate);
     if (isNaN(newOutDate.getTime())) throw new Error('Invalid new checkout date');
 
-    // Verify no overlaps for the room
-    const overlapping = await Stay.findOne({
-      room: stay.room,
-      _id: { $ne: stay._id },
-      status: { $in: ['Upcoming', 'Active'] },
-      checkInDate: { $lt: newOutDate, $gte: stay.checkInDate }
-    });
-    if (overlapping) throw new Error('Cannot extend. Room is booked by another guest for the requested dates.');
-
     const oldOutDate = new Date(stay.expectedCheckOutDate);
     if (newOutDate <= oldOutDate) throw new Error('New checkout date must be after current checkout date');
 
+    // Proper interval overlap vs other open stays on this room
+    const overlapping = await Stay.findOne(
+      roomOverlapFilter(stay.room, stay.checkInDate, newOutDate, stay._id)
+    );
+    if (overlapping) throw new Error('Cannot extend. Room is booked by another guest for the requested dates.');
+
     const additionalCost = Math.max(0, Number(req.body.additionalRent) || 0);
     const pay = Math.max(0, Number(extensionPayment) || 0);
-    if (pay > stay.totalAmount + additionalCost - stay.paidAmount) {
+    if (pay > stay.totalAmount + additionalCost - stay.paidAmount + 0.01) {
       throw new Error('Payment is more than the balance due');
     }
+
     stay.totalAmount += additionalCost;
     stay.expectedCheckOutDate = newOutDate;
     if (stay.status === 'Overdue' || stay.status === 'Checkout Due') stay.status = 'Active';
@@ -360,17 +419,30 @@ exports.extendStay = async (req, res, next) => {
 
     if (pay > 0) {
       stay.paidAmount += pay;
-      await Payment.create([{
+      await Payment.create({
         stay: stay._id,
         guest: stay.guest,
         hostel: stay.hostel,
         amount: pay,
         paymentMethod: paymentMethod || 'Cash',
         createdBy: req.user._id
-      }]);
+      });
     }
 
     await stay.save();
+
+    // Post-save overlap re-check
+    const conflicts = await Stay.find(
+      roomOverlapFilter(stay.room, stay.checkInDate, newOutDate, stay._id)
+    );
+    if (conflicts.length > 0) {
+      stay.expectedCheckOutDate = oldOutDate;
+      stay.totalAmount -= additionalCost;
+      if (pay > 0) stay.paidAmount -= pay;
+      await stay.save();
+      throw new Error('Cannot extend. Room is booked by another guest for the requested dates.');
+    }
+
     res.status(200).json({ success: true, data: stay });
   } catch (error) {
     sendError(res, next, error);
@@ -397,18 +469,14 @@ exports.shiftRoom = async (req, res, next) => {
       throw new Error(`Room ${newRoom.roomNumber} is not available (${newRoom.status})`);
     }
 
-    // Is the new room free right now / for the rest of this stay?
-    const overlapping = await Stay.findOne({
-      room: newRoomId,
-      _id: { $ne: stay._id },
-      status: { $in: ['Upcoming', 'Active', 'Checkout Due', 'Overdue'] },
-      checkInDate: { $lt: stay.expectedCheckOutDate },
-      expectedCheckOutDate: { $gt: new Date() }
-    });
+    const overlapping = await Stay.findOne(
+      roomOverlapFilter(newRoomId, new Date(), stay.expectedCheckOutDate, stay._id)
+    );
     if (overlapping) throw new Error('New room is already booked for these dates');
 
     const oldRoom = await Room.findById(stay.room);
     const oldRoomNumber = oldRoom ? oldRoom.roomNumber : 'Unknown';
+    const previousRoomId = stay.room;
 
     stay.roomHistory.push({
       fromRoom: stay.room,
@@ -429,6 +497,18 @@ exports.shiftRoom = async (req, res, next) => {
     stay.notes = stay.notes ? `${stay.notes}\n${shiftNote}` : shiftNote;
 
     await stay.save();
+
+    const conflicts = await Stay.find(
+      roomOverlapFilter(newRoomId, new Date(), stay.expectedCheckOutDate, stay._id)
+    );
+    if (conflicts.length > 0) {
+      stay.room = previousRoomId;
+      if (priceAdjustment) stay.totalAmount = Math.max(0, stay.totalAmount - priceAdjustment);
+      stay.roomHistory.pop();
+      await stay.save();
+      throw new Error('New room is already booked for these dates');
+    }
+
     res.status(200).json({ success: true, data: stay });
   } catch (error) {
     sendError(res, next, error);
@@ -441,7 +521,6 @@ exports.deleteStay = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Not authorized to delete stay' });
     }
     const stay = await loadAuthorizedStay(req);
-    const Payment = require('../models/Payment');
     await Payment.deleteMany({ stay: stay._id });
     await stay.deleteOne();
     res.status(200).json({ success: true, message: 'Stay deleted successfully' });

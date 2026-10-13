@@ -41,33 +41,21 @@ exports.createRoom = async (req, res, next) => {
 
 exports.getRooms = async (req, res, next) => {
   try {
-    let filter = {};
-    if (req.user.role !== 'admin') {
-      filter.hostel = req.user.assignedHostel;
-    } else {
-      const Hostel = require('../models/Hostel');
-      const myHostels = await Hostel.find({ owner: req.user.id }).select('_id');
-      const hostelIds = myHostels.map(h => h._id);
-      
-      if (req.query.hostel && req.query.hostel !== 'all') {
-        if (!hostelIds.some(id => id.toString() === req.query.hostel)) {
-          return res.status(403).json({ success: false, message: 'Not authorized' });
-        }
-        filter.hostel = req.query.hostel;
-      } else {
-        filter.hostel = { $in: hostelIds };
-      }
-    }
+    const { getHostelFilter } = require('../utils/hostelAccess');
+    const filter = await getHostelFilter(req.user, req.query.hostel);
 
     const rooms = await Room.find(filter).populate('hostel', 'name address contactNumber email aiOcrEnabled whatsappSyncEnabled');
 
-    // Find all currently active/booked room IDs
-    const activeStays = await Stay.find({
+    // Only load open stays for the same hostel scope (not globally)
+    const stayFilter = {
       status: { $in: ['Active', 'Upcoming', 'Checkout Due', 'Overdue'] }
-    }).select('room');
+    };
+    if (filter.hostel !== undefined) {
+      stayFilter.hostel = filter.hostel;
+    }
+    const activeStays = await Stay.find(stayFilter).select('room');
     const occupiedRoomIds = new Set(activeStays.map(s => s.room.toString()));
 
-    // Add isOccupied flag to each room
     const roomsWithStatus = rooms.map(room => ({
       ...room.toObject(),
       isOccupied: occupiedRoomIds.has(room._id.toString())
@@ -75,6 +63,9 @@ exports.getRooms = async (req, res, next) => {
 
     res.status(200).json({ success: true, count: rooms.length, data: roomsWithStatus });
   } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ success: false, message: error.message });
+    }
     next(error);
   }
 };

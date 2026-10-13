@@ -7,12 +7,12 @@ const {
   disconnectHostelWhatsApp,
   requestHostelPairingCode
 } = require('../services/whatsappService');
+const { assertHostelAccess, userCanAccessHostel, userId } = require('../utils/hostelAccess');
 
-// Helper to determine target hostel
+// Helper to determine target hostel (always ownership-checked)
 const getTargetHostelId = async (req) => {
   let hostelId = req.query.hostelId || req.body.hostelId;
 
-  // Handle object or serialized string representations
   if (typeof hostelId === 'object' && hostelId !== null) {
     hostelId = hostelId._id || hostelId.id;
   }
@@ -26,15 +26,13 @@ const getTargetHostelId = async (req) => {
     hostelId = null;
   }
 
-  // Fallback to user assignedHostel
   if (!hostelId && req.user && req.user.assignedHostel) {
     const assigned = req.user.assignedHostel;
     hostelId = typeof assigned === 'object' ? (assigned._id || assigned) : assigned;
   }
 
-  // Fallback for admin to their first property
   if (!hostelId && req.user && req.user.role === 'admin') {
-    const myHostels = await Hostel.find({ owner: req.user.id }).select('_id');
+    const myHostels = await Hostel.find({ owner: userId(req.user) }).select('_id');
     if (myHostels.length > 0) hostelId = myHostels[0]._id;
   }
 
@@ -45,14 +43,12 @@ const getTargetHostelId = async (req) => {
     }
   }
 
+  if (!hostelId) return null;
+
+  await assertHostelAccess(req.user, hostelId);
   return hostelId;
 };
 
-/**
- * Get WhatsApp Connection Status & QR Code
- * @route GET /api/whatsapp/status
- * @access Private
- */
 exports.getStatus = async (req, res, next) => {
   try {
     const hostelId = await getTargetHostelId(req);
@@ -63,15 +59,13 @@ exports.getStatus = async (req, res, next) => {
     const statusInfo = await getHostelWhatsAppStatus(hostelId);
     res.status(200).json({ success: true, data: statusInfo });
   } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ success: false, message: err.message });
+    }
     next(err);
   }
 };
 
-/**
- * Initiate WhatsApp Connection (generate QR code)
- * @route POST /api/whatsapp/connect
- * @access Private
- */
 exports.connect = async (req, res, next) => {
   try {
     const hostelId = await getTargetHostelId(req);
@@ -82,15 +76,13 @@ exports.connect = async (req, res, next) => {
     const result = await startHostelWhatsApp(hostelId);
     res.status(200).json({ success: true, data: result });
   } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ success: false, message: err.message });
+    }
     res.status(400).json({ success: false, message: err.message });
   }
 };
 
-/**
- * Request 8-digit Pairing Code for WhatsApp Phone Link
- * @route POST /api/whatsapp/pairing-code
- * @access Private
- */
 exports.requestPairingCode = async (req, res, next) => {
   try {
     const hostelId = await getTargetHostelId(req);
@@ -106,15 +98,13 @@ exports.requestPairingCode = async (req, res, next) => {
     const result = await requestHostelPairingCode(hostelId, phoneNumber);
     res.status(200).json({ success: true, data: result });
   } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ success: false, message: err.message });
+    }
     res.status(400).json({ success: false, message: err.message });
   }
 };
 
-/**
- * Disconnect WhatsApp
- * @route POST /api/whatsapp/disconnect
- * @access Private
- */
 exports.disconnect = async (req, res, next) => {
   try {
     const hostelId = await getTargetHostelId(req);
@@ -125,15 +115,13 @@ exports.disconnect = async (req, res, next) => {
     const result = await disconnectHostelWhatsApp(hostelId);
     res.status(200).json({ success: true, data: result });
   } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ success: false, message: err.message });
+    }
     next(err);
   }
 };
 
-/**
- * Get Recent WhatsApp Guest Media (last 24h)
- * @route GET /api/whatsapp/recent-media
- * @access Private
- */
 exports.getRecentMedia = async (req, res, next) => {
   try {
     const hostelId = await getTargetHostelId(req);
@@ -141,7 +129,6 @@ exports.getRecentMedia = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Hostel context required' });
     }
 
-    // Get media from last 72 hours (3 days) for comfortable check-in window
     const since = new Date(Date.now() - 72 * 60 * 60 * 1000);
     const media = await WhatsAppMedia.find({
       hostel: hostelId,
@@ -152,42 +139,64 @@ exports.getRecentMedia = async (req, res, next) => {
 
     res.status(200).json({ success: true, count: media.length, data: media });
   } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ success: false, message: err.message });
+    }
     next(err);
   }
 };
 
-/**
- * Mark Media as Used
- * @route PUT /api/whatsapp/mark-used/:id
- * @access Private
- */
 exports.markMediaUsed = async (req, res, next) => {
   try {
-    const media = await WhatsAppMedia.findByIdAndUpdate(
-      req.params.id,
-      { status: 'used' },
-      { new: true }
-    );
+    const media = await WhatsAppMedia.findById(req.params.id);
+    if (!media) {
+      return res.status(404).json({ success: false, message: 'Media not found' });
+    }
+
+    if (!(await userCanAccessHostel(req.user, media.hostel))) {
+      return res.status(403).json({ success: false, message: 'Not authorized for this media' });
+    }
+
+    media.status = 'used';
+    await media.save();
     res.status(200).json({ success: true, data: media });
   } catch (err) {
     next(err);
   }
 };
 
-/**
- * Cleanup Unused WhatsApp Media (Delete from Cloudflare R2 and MongoDB)
- * @route POST /api/whatsapp/cleanup-unused
- * @access Private
- */
 exports.cleanupUnused = async (req, res, next) => {
   try {
+    // Only admin / superadmin may trigger cleanup
+    if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+      return res.status(403).json({ success: false, message: 'Not authorized to run media cleanup' });
+    }
+
     const { cleanupUnusedMedia } = require('../services/mediaCleanupService');
     const forceAll = req.body?.forceAll !== false && req.query?.forceAll !== 'false';
-    const result = await cleanupUnusedMedia({ olderThanHours: 0, forceAllUnused: forceAll });
+
+    let hostelId = null;
+    if (req.user.role === 'superadmin') {
+      // Superadmin may optionally scope; default is global
+      hostelId = req.body?.hostelId || req.query?.hostelId || null;
+      if (hostelId === 'all') hostelId = null;
+    } else {
+      hostelId = await getTargetHostelId(req);
+      if (!hostelId) {
+        return res.status(400).json({ success: false, message: 'Hostel context required' });
+      }
+    }
+
+    const result = await cleanupUnusedMedia({
+      olderThanHours: 0,
+      forceAllUnused: forceAll,
+      hostelId
+    });
     res.status(200).json({ success: true, data: result });
   } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ success: false, message: err.message });
+    }
     next(err);
   }
 };
-
-

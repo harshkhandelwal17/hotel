@@ -44,15 +44,24 @@ exports.scanIdCard = async (req, res, next) => {
       });
     }
 
-    // 2. Resolve Hostel
+    // 2. Resolve Hostel + ownership check
+    const { assertHostelAccess, userId } = require('../utils/hostelAccess');
     let targetHostelId = hostelId || req.user.assignedHostel;
     if (!targetHostelId && req.user.role === 'admin') {
-      const myHostels = await Hostel.find({ owner: req.user.id });
+      const myHostels = await Hostel.find({ owner: userId(req.user) });
       if (myHostels.length > 0) targetHostelId = myHostels[0]._id;
     }
 
     if (!targetHostelId && req.user.role !== 'superadmin') {
       return res.status(400).json({ success: false, message: 'Property context required for AI scanning' });
+    }
+
+    if (targetHostelId && req.user.role !== 'superadmin') {
+      try {
+        await assertHostelAccess(req.user, targetHostelId);
+      } catch (accessErr) {
+        return res.status(403).json({ success: false, message: accessErr.message });
+      }
     }
 
     // 3. Check if property has AI OCR enabled (Superadmin bypasses)

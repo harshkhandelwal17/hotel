@@ -4,6 +4,7 @@ const Stay = require('../models/Stay');
 const Payment = require('../models/Payment');
 const Room = require('../models/Room');
 const jwt = require('jsonwebtoken');
+const env = require('../config/env');
 
 exports.getSystemStats = async (req, res, next) => {
   try {
@@ -58,11 +59,11 @@ exports.impersonateUser = async (req, res, next) => {
     const user = await User.findById(userId).populate('assignedHostel', 'name');
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
     
-    const token = jwt.sign({ 
+    const token = jwt.sign({
       id: user._id,
-      tokenVersion: user.tokenVersion || 0 
-    }, process.env.JWT_SECRET || 'nxhotel_permanent_jwt_secret_key_2026_prod', {
-      expiresIn: process.env.JWT_EXPIRE || '365d'
+      tokenVersion: user.tokenVersion || 0
+    }, env.jwtSecret, {
+      expiresIn: env.jwtExpire || '7d'
     });
     
     res.status(200).json({

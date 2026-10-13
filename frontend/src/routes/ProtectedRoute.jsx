@@ -14,7 +14,9 @@ const ProtectedRoute = ({ allowedRoles }) => {
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/unauthorized" replace />;
+    // Superadmin home is /superadmin; everyone else lands on dashboard
+    const fallback = user.role === 'superadmin' ? '/superadmin' : '/dashboard';
+    return <Navigate to={fallback} replace />;
   }
 
   return <Outlet />;

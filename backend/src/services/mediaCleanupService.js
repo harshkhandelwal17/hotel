@@ -26,8 +26,8 @@ if (process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID && process.env.R2_
  * @param {number} options.olderThanHours - delete unused items older than this (default 24h)
  * @param {boolean} options.forceAllUnused - if true, deletes ALL unused items regardless of age
  */
-const cleanupUnusedMedia = async ({ olderThanHours = 24, forceAllUnused = false } = {}) => {
-  console.log(`[MediaCleanup] 🧹 Starting cleanup (olderThanHours: ${olderThanHours}, forceAll: ${forceAllUnused})...`);
+const cleanupUnusedMedia = async ({ olderThanHours = 24, forceAllUnused = false, hostelId = null } = {}) => {
+  console.log(`[MediaCleanup] 🧹 Starting cleanup (olderThanHours: ${olderThanHours}, forceAll: ${forceAllUnused}, hostel: ${hostelId || 'all'})...`);
 
   let deletedDbCount = 0;
   let deletedR2Count = 0;
@@ -70,6 +70,9 @@ const cleanupUnusedMedia = async ({ olderThanHours = 24, forceAllUnused = false 
 
     // 3. Find target unused WhatsAppMedia records to delete
     const query = { status: 'new' };
+    if (hostelId) {
+      query.hostel = hostelId;
+    }
     if (!forceAllUnused) {
       const cutoff = new Date(Date.now() - olderThanHours * 60 * 60 * 1000);
       query.createdAt = { $lt: cutoff };

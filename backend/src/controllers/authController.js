@@ -9,7 +9,7 @@ const generateToken = (user) => {
     id: userId,
     tokenVersion: tokenVersion
   }, env.jwtSecret, {
-    expiresIn: '365d',
+    expiresIn: env.jwtExpire || '7d',
   });
 };
 
