@@ -64,7 +64,9 @@ const roomSchema = new mongoose.Schema({
   }]
 }, { timestamps: true });
 
-// Prevent duplicate room numbers in the same hostel
-roomSchema.index({ roomNumber: 1, hostel: 1 }, { unique: true });
+// Prevent duplicate room numbers in the same hostel & optimize queries
+roomSchema.index({ hostel: 1, roomNumber: 1 }, { unique: true });
+roomSchema.index({ hostel: 1, status: 1 });
+roomSchema.index({ hostel: 1, floor: 1 });
 
 module.exports = mongoose.model('Room', roomSchema);

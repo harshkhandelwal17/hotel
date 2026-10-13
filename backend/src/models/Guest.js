@@ -46,6 +46,8 @@ const guestSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-
+guestSchema.index({ hostel: 1, mobileNumber: 1 });
+guestSchema.index({ hostel: 1, idProofNumber: 1 });
+guestSchema.index({ hostel: 1, fullName: 1 });
 
 module.exports = mongoose.model('Guest', guestSchema);

@@ -6,10 +6,22 @@ exports.createRoom = async (req, res, next) => {
   try {
     const { roomNumber, hostel, floor, capacity, roomType, price12h, price24h, extraPerPerson12h, extraPerPerson24h, customRates } = req.body;
     
-    if (req.user.role === 'admin') {
-      const Hostel = require('../models/Hostel');
-      const hostelExists = await Hostel.findOne({ _id: hostel, owner: req.user.id });
-      if (!hostelExists) return res.status(403).json({ success: false, message: 'Not authorized to add room to this hostel' });
+    const Hostel = require('../models/Hostel');
+    const targetHostel = await Hostel.findById(hostel);
+    if (!targetHostel) return res.status(404).json({ success: false, message: 'Hostel/Property not found' });
+
+    if (req.user.role === 'admin' && String(targetHostel.owner) !== String(req.user.id)) {
+      return res.status(403).json({ success: false, message: 'Not authorized to add room to this hostel' });
+    }
+
+    // 🔒 Enforce subscription plan room limit!
+    const currentRoomCount = await Room.countDocuments({ hostel });
+    const maxAllowedRooms = targetHostel.maxRooms || 20;
+    if (currentRoomCount >= maxAllowedRooms) {
+      return res.status(403).json({
+        success: false,
+        message: `Plan room limit reached! Your active plan allows up to ${maxAllowedRooms} rooms (Currently: ${currentRoomCount}). Please contact administrator to upgrade your plan.`
+      });
     }
 
     const room = await Room.create({
