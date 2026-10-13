@@ -18,6 +18,8 @@ exports.getHostels = async (req, res, next) => {
     if (req.user.role === 'admin') {
       // Find hostels owned by this admin
       query = Hostel.find({ owner: req.user.id });
+    } else if (req.user.role === 'superadmin') {
+      query = Hostel.find();
     } else {
       query = Hostel.find({ _id: req.user.assignedHostel });
     }

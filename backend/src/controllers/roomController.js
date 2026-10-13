@@ -98,6 +98,8 @@ const loadAuthorizedRoom = async (req) => {
   if (req.user.role === 'admin') {
     const Hostel = require('../models/Hostel');
     allowed = !!(await Hostel.exists({ _id: room.hostel, owner: req.user.id }));
+  } else if (req.user.role === 'superadmin') {
+    allowed = true;
   } else {
     allowed = !!req.user.assignedHostel && room.hostel.toString() === req.user.assignedHostel.toString();
   }

@@ -25,12 +25,20 @@ const userCanAccessHostel = async (user, hostelId) => {
 /**
  * Throw 403 if user cannot access hostel.
  */
-const assertHostelAccess = async (user, hostelId) => {
+const assertHostelAccess = async (user, hostelId, requireActive = false) => {
   const ok = await userCanAccessHostel(user, hostelId);
   if (!ok) {
     const err = new Error('Not authorized for this property');
     err.statusCode = 403;
     throw err;
+  }
+  if (requireActive && user.role !== 'superadmin') {
+    const hostel = await Hostel.findById(hostelId);
+    if (hostel && hostel.isActive === false) {
+      const err = new Error('This property is currently locked or inactive. Please contact Super Admin to activate subscription.');
+      err.statusCode = 403;
+      throw err;
+    }
   }
 };
 

@@ -28,8 +28,10 @@ exports.createStay = async (req, res, next) => {
 
     if (req.user.role === 'admin' || req.user.role === 'superadmin') {
       if (!req.body.hostel) throw new Error('Hostel is required');
-      await assertHostelAccess(req.user, req.body.hostel);
+      await assertHostelAccess(req.user, req.body.hostel, true);
       hostel = req.body.hostel;
+    } else {
+      await assertHostelAccess(req.user, hostel, true);
     }
 
     if (!guest || !room || !checkInDate || !expectedCheckOutDate) {
