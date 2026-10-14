@@ -34,10 +34,17 @@ const assertHostelAccess = async (user, hostelId, requireActive = false) => {
   }
   if (requireActive && user.role !== 'superadmin') {
     const hostel = await Hostel.findById(hostelId);
-    if (hostel && hostel.isActive === false) {
-      const err = new Error('This property is currently locked or inactive. Please contact Super Admin to activate subscription.');
-      err.statusCode = 403;
-      throw err;
+    if (hostel) {
+      if (hostel.isActive === false) {
+        const err = new Error('This property is currently locked or inactive. Please contact Super Admin to activate subscription.');
+        err.statusCode = 403;
+        throw err;
+      }
+      if (hostel.planStatus === 'expired' || (hostel.planEndDate && new Date(hostel.planEndDate) < new Date())) {
+        const err = new Error('Subscription plan has expired for this property. Please contact Super Admin to renew.');
+        err.statusCode = 403;
+        throw err;
+      }
     }
   }
 };

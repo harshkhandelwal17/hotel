@@ -14,6 +14,10 @@ exports.createRoom = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Not authorized to add room to this hostel' });
     }
 
+    if (targetHostel.isActive === false && req.user.role !== 'superadmin') {
+      return res.status(403).json({ success: false, message: 'This property is currently locked or inactive. Please contact Super Admin to activate.' });
+    }
+
     // 🔒 Enforce subscription plan room limit!
     const currentRoomCount = await Room.countDocuments({ hostel });
     const maxAllowedRooms = targetHostel.maxRooms || 20;

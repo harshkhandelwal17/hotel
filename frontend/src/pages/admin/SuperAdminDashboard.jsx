@@ -24,7 +24,8 @@ import {
   Mail,
   Calendar,
   Layers,
-  ArrowRight
+  ArrowRight,
+  Pencil
 } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -87,6 +88,17 @@ const SuperAdminDashboard = () => {
     planNotes: ''
   });
   const [savingPlan, setSavingPlan] = useState(false);
+
+  // ✏️ Edit Property Details Modal State
+  const [selectedEditHostel, setSelectedEditHostel] = useState(null);
+  const [editPropertyForm, setEditPropertyForm] = useState({
+    name: '',
+    address: '',
+    contactNumber: '',
+    email: '',
+    owner: ''
+  });
+  const [savingEditProperty, setSavingEditProperty] = useState(false);
 
   // --- 2. DATA FETCHING EFFECT ---
   useEffect(() => {
@@ -330,6 +342,34 @@ const SuperAdminDashboard = () => {
       alert(err.response?.data?.message || 'Failed to update plan');
     } finally {
       setSavingPlan(false);
+    }
+  };
+
+  const openEditPropertyModal = (h) => {
+    setSelectedEditHostel(h);
+    setEditPropertyForm({
+      name: h.name || '',
+      address: h.address || '',
+      contactNumber: h.contactNumber || '',
+      email: h.email || '',
+      owner: h.owner?._id || h.owner || ''
+    });
+  };
+
+  const handleSaveEditProperty = async (e) => {
+    e.preventDefault();
+    if (!selectedEditHostel) return;
+    try {
+      setSavingEditProperty(true);
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      await axios.put(`${API}/api/hostels/${selectedEditHostel._id}`, editPropertyForm);
+      alert(`✅ Property details updated successfully for "${editPropertyForm.name}"`);
+      setSelectedEditHostel(null);
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update property details');
+    } finally {
+      setSavingEditProperty(false);
     }
   };
 
@@ -907,6 +947,15 @@ const SuperAdminDashboard = () => {
                       {/* Actions */}
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => openEditPropertyModal(h)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all shadow-sm active:scale-95"
+                            title="Edit property details"
+                          >
+                            <Pencil size={11} />
+                            <span>Edit Info</span>
+                          </button>
+
                           <button
                             onClick={() => openPlanModal(h)}
                             className="px-3 py-1.5 bg-black hover:bg-gray-800 text-white text-[10px] font-black uppercase tracking-wider rounded-lg transition-all shadow-sm active:scale-95"
@@ -1506,6 +1555,114 @@ const SuperAdminDashboard = () => {
                   className="px-5 py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50"
                 >
                   {savingPlan ? 'Saving...' : 'Save Plan Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ✏️ EDIT PROPERTY DETAILS MODAL */}
+      {selectedEditHostel && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setSelectedEditHostel(null)}>
+          <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="p-6 bg-gradient-to-r from-gray-950 to-gray-900 text-white flex justify-between items-start">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 bg-blue-500/20 px-2.5 py-0.5 rounded-full">
+                  Property Configuration
+                </span>
+                <h3 className="text-xl font-black text-white mt-1.5">Edit Property Details</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Modify property name, address, contact, or reassign owner.</p>
+              </div>
+              <button onClick={() => setSelectedEditHostel(null)} className="p-2 text-gray-400 hover:text-white rounded-full hover:bg-gray-800 transition-colors">
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditProperty} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                  Property Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                  value={editPropertyForm.name}
+                  onChange={e => setEditPropertyForm({ ...editPropertyForm, name: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                  Assigned Hotel Owner (Admin) <span className="text-red-500">*</span>
+                </label>
+                <select
+                  required
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                  value={editPropertyForm.owner}
+                  onChange={e => setEditPropertyForm({ ...editPropertyForm, owner: e.target.value })}
+                >
+                  <option value="">Select an Owner...</option>
+                  {hotelOwners.map(u => (
+                    <option key={u._id} value={u._id}>
+                      {u.name} ({u.email})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                    Contact Phone
+                  </label>
+                  <input
+                    type="tel"
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium text-sm outline-none focus:ring-2 focus:ring-black"
+                    value={editPropertyForm.contactNumber}
+                    onChange={e => setEditPropertyForm({ ...editPropertyForm, contactNumber: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                    Official Email
+                  </label>
+                  <input
+                    type="email"
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium text-sm outline-none focus:ring-2 focus:ring-black"
+                    value={editPropertyForm.email}
+                    onChange={e => setEditPropertyForm({ ...editPropertyForm, email: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                  Full Address
+                </label>
+                <input
+                  type="text"
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium text-sm outline-none focus:ring-2 focus:ring-black"
+                  value={editPropertyForm.address}
+                  onChange={e => setEditPropertyForm({ ...editPropertyForm, address: e.target.value })}
+                />
+              </div>
+
+              <div className="pt-3 flex gap-3 justify-end border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setSelectedEditHostel(null)}
+                  className="px-4 py-2.5 border border-gray-200 text-gray-700 font-bold rounded-xl text-xs hover:bg-gray-100 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEditProperty}
+                  className="px-6 py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50"
+                >
+                  {savingEditProperty ? 'Saving...' : 'Save Details'}
                 </button>
               </div>
             </form>
