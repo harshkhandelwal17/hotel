@@ -1,13 +1,14 @@
 /**
  * soundAlert.js
- * High-fidelity, Loud Hotel Concierge Desk Bell synthesis using Web Audio API.
- * Synthesizes ~5 seconds of loud, clear acoustic brass bell chimes with dynamic compression.
+ * Ultra-High Volume Hotel Concierge Desk Bell synthesis using Web Audio API.
+ * Uses harmonic multi-wave synthesis (Triangle + Sine) + Multi-stage Dynamic Booster
+ * to produce maximum room-filling loudness on laptop and mobile speakers without distortion.
  */
 
 class SoundAlertManager {
   constructor() {
     this.ctx = null;
-    this.compressor = null;
+    this.masterOut = null;
     this.isMuted = typeof window !== 'undefined' ? localStorage.getItem('nx_alert_muted') === 'true' : false;
     this.hasInteracted = false;
     this.pendingVariant = null;
@@ -48,18 +49,33 @@ class SoundAlertManager {
     return this.ctx;
   }
 
+  /**
+   * Multi-stage high-gain mastering chain:
+   * High Pre-Amp (3.0x Boost) -> Fast Brickwall Limiter/Compressor -> Output
+   * Guarantees maximum acoustic loudness without speaker crackle.
+   */
   getOutputNode(ctx) {
-    if (!this.compressor) {
-      // Hardware-quality dynamic compression to maximize loudness without clipping
-      this.compressor = ctx.createDynamicsCompressor();
-      this.compressor.threshold.setValueAtTime(-14, ctx.currentTime);
-      this.compressor.knee.setValueAtTime(25, ctx.currentTime);
-      this.compressor.ratio.setValueAtTime(10, ctx.currentTime);
-      this.compressor.attack.setValueAtTime(0.002, ctx.currentTime);
-      this.compressor.release.setValueAtTime(0.2, ctx.currentTime);
-      this.compressor.connect(ctx.destination);
+    if (!this.masterOut) {
+      const preBoost = ctx.createGain();
+      preBoost.gain.setValueAtTime(3.0, ctx.currentTime); // 300% loudness boost
+
+      const compressor = ctx.createDynamicsCompressor();
+      compressor.threshold.setValueAtTime(-14, ctx.currentTime);
+      compressor.knee.setValueAtTime(8, ctx.currentTime);
+      compressor.ratio.setValueAtTime(16, ctx.currentTime);
+      compressor.attack.setValueAtTime(0.001, ctx.currentTime);
+      compressor.release.setValueAtTime(0.12, ctx.currentTime);
+
+      const postGain = ctx.createGain();
+      postGain.gain.setValueAtTime(1.4, ctx.currentTime); // Extra final boost
+
+      preBoost.connect(compressor);
+      compressor.connect(postGain);
+      postGain.connect(ctx.destination);
+
+      this.masterOut = preBoost;
     }
-    return this.compressor;
+    return this.masterOut;
   }
 
   toggleMute() {
@@ -94,7 +110,7 @@ class SoundAlertManager {
    * Plays a loud, 5-second continuous hotel desk concierge bell sequence
    * @param {'single' | 'double'} variant
    * 'single': 5-second rhythmic melodic concierge chimes (for 10m upcoming checkout)
-   * 'double': 5-second high-energy urgent double-ring bell sequence (for 30m overdue checkout)
+   * 'double': 5-second loud high-presence urgent double-bell sequence (for 30m overdue checkout)
    */
   playHotelBell(variant = 'double') {
     if (this.isMuted) return;
@@ -110,25 +126,28 @@ class SoundAlertManager {
     try {
       const output = this.getOutputNode(ctx);
 
-      // Single strike of high-presence brass counter bell
-      const ringDing = (startTime, pitch = 1568, masterVol = 0.85, decaySec = 2.2) => {
+      // Single powerful strike of high-presence brass counter bell
+      const ringDing = (startTime, pitch = 1175, masterVol = 1.0, decaySec = 2.4) => {
+        // Multi-frequency harmonic spectrum:
+        // Triangle wave provides rich body harmonics that cut through room noise,
+        // Sine wave adds bright crystal overtones.
         const partials = [
-          { ratio: 1.0, gain: 0.55, decay: decaySec },         // Crisp fundamental G6 (~1568Hz)
-          { ratio: 0.50, gain: 0.35, decay: decaySec * 1.1 },   // Deep resonant body (~784Hz)
-          { ratio: 1.50, gain: 0.40, decay: decaySec * 0.85 },  // Quint harmonic (~2352Hz)
-          { ratio: 2.00, gain: 0.30, decay: decaySec * 0.7 },   // Upper octave (~3136Hz)
-          { ratio: 2.75, gain: 0.22, decay: decaySec * 0.5 },   // Brass shimmer (~4312Hz)
-          { ratio: 4.05, gain: 0.15, decay: 0.35 }              // Hard strike transient
+          { freq: pitch, type: 'triangle', gain: 0.70, decay: decaySec },           // Primary body (loud punch)
+          { freq: pitch * 1.5, type: 'sine', gain: 0.60, decay: decaySec * 0.9 },   // Quint harmonic
+          { freq: pitch * 2.0, type: 'sine', gain: 0.50, decay: decaySec * 0.75 },  // Upper chime
+          { freq: pitch * 0.5, type: 'triangle', gain: 0.40, decay: decaySec * 1.1 },// Deep brass resonance
+          { freq: pitch * 2.76, type: 'sine', gain: 0.35, decay: decaySec * 0.55 }, // Metallic shimmer
+          { freq: pitch * 4.15, type: 'triangle', gain: 0.25, decay: 0.4 }          // Crisp hammer transient
         ];
 
-        partials.forEach(({ ratio, gain: partGain, decay }) => {
+        partials.forEach(({ freq, type, gain: partGain, decay }) => {
           const osc = ctx.createOscillator();
           const gainNode = ctx.createGain();
 
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(pitch * ratio, startTime);
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, startTime);
 
-          // Fast hammer strike attack (<2ms) and long smooth decay
+          // Instant strike attack (<2ms) and long smooth decay
           gainNode.gain.setValueAtTime(0.0001, startTime);
           gainNode.gain.linearRampToValueAtTime(partGain * masterVol, startTime + 0.002);
           gainNode.gain.exponentialRampToValueAtTime(0.0001, startTime + decay);
@@ -144,25 +163,25 @@ class SoundAlertManager {
       const now = ctx.currentTime;
 
       if (variant === 'single') {
-        // 🔔 10-Minute Upcoming Reminder: 5-Second Concierge Melodic Chime Sequence
-        // 4 ringing chimes across 5.2 seconds
-        ringDing(now + 0.0, 1568, 0.85, 2.0); // 0.0s (Ding 1)
-        ringDing(now + 1.2, 1760, 0.88, 2.0); // 1.2s (Ding 2)
-        ringDing(now + 2.4, 1568, 0.88, 2.0); // 2.4s (Ding 3)
-        ringDing(now + 3.6, 2093, 0.95, 2.5); // 3.6s (Ding 4 - high final note, rings till ~6s)
+        // 🔔 10-Minute Upcoming Reminder: 5-Second Melodic Concierge Chime Sequence
+        // 4 loud, crystal-clear brass chimes across 5.5 seconds
+        ringDing(now + 0.0, 1046.5, 1.0, 2.2); // 0.0s (C6 - rich chime)
+        ringDing(now + 1.2, 1318.5, 1.0, 2.2); // 1.2s (E6 - melodic harmony)
+        ringDing(now + 2.4, 1174.6, 1.0, 2.2); // 2.4s (D6)
+        ringDing(now + 3.6, 1568.0, 1.0, 2.8); // 3.6s (G6 - high final chime, rings till ~6.2s)
       } else {
         // 🚨 30-Minute Overdue Alert: 5-Second Loud Urgent Double-Bell Sequence
         // Rapid double dings repeating at 0s, 1.3s, 2.6s, 3.8s through 5.5s
-        ringDing(now + 0.0, 1760, 0.90, 1.6);
-        ringDing(now + 0.35, 1760, 0.95, 1.8);
+        ringDing(now + 0.0, 1318.5, 1.0, 1.8);
+        ringDing(now + 0.32, 1568.0, 1.0, 1.8);
 
-        ringDing(now + 1.3, 1760, 0.90, 1.6);
-        ringDing(now + 1.65, 1760, 0.95, 1.8);
+        ringDing(now + 1.3, 1318.5, 1.0, 1.8);
+        ringDing(now + 1.62, 1568.0, 1.0, 1.8);
 
-        ringDing(now + 2.7, 1760, 0.90, 1.6);
-        ringDing(now + 3.05, 1760, 0.95, 1.8);
+        ringDing(now + 2.6, 1318.5, 1.0, 1.8);
+        ringDing(now + 2.92, 1568.0, 1.0, 1.8);
 
-        ringDing(now + 4.0, 1975, 1.00, 2.5); // High final alert note rings smoothly through second 5.5-6.0
+        ringDing(now + 3.9, 1760.0, 1.0, 2.8); // High loud final chime ringing smoothly to 6.5s!
       }
     } catch (err) {
       console.warn('Hotel bell alert could not play:', err);
