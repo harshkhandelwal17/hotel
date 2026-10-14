@@ -115,7 +115,9 @@ class SoundAlertManager {
   playHotelBell(variant = 'double') {
     if (this.isMuted) return;
 
-    const fileUrl = variant === 'single' ? '/sounds/upcoming_alert.wav' : '/sounds/checkout_alert.wav';
+    const base = (import.meta.env?.BASE_URL || '/').replace(/\/+$/, '') + '/';
+    const fileName = variant === 'single' ? 'upcoming_alert.wav' : 'checkout_alert.wav';
+    const fileUrl = `${base}sounds/${fileName}`;
 
     // 1. Try HTML5 Audio (full system hardware volume)
     if (typeof window !== 'undefined' && typeof Audio !== 'undefined') {
@@ -126,8 +128,14 @@ class SoundAlertManager {
         }
 
         const audio = new Audio(fileUrl);
+        audio.preload = 'auto';
         audio.volume = 1.0;
         this.currentAudio = audio;
+
+        audio.onerror = () => {
+          // If file could not load or 404, fallback to Web Audio synthesizer
+          this.playSynthesizedFallback(variant);
+        };
 
         const playPromise = audio.play();
         if (playPromise !== undefined) {
@@ -136,7 +144,7 @@ class SoundAlertManager {
               // Successfully started hardware audio playback!
             })
             .catch(() => {
-              // If browser blocked autoplay, remember pending or fallback to Web Audio
+              // If browser blocked autoplay due to no interaction yet
               this.pendingVariant = variant;
               this.playSynthesizedFallback(variant);
             });
