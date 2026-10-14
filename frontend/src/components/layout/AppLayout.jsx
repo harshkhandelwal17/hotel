@@ -2,8 +2,9 @@ import React, { useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
-import { Home, Users, Bed, LogOut, Bell, PlusCircle, Building, CreditCard, BarChart3, Hexagon, ShieldCheck, Menu, X, ShieldAlert, LayoutGrid } from 'lucide-react';
+import { Home, Users, Bed, LogOut, Bell, PlusCircle, Building, CreditCard, BarChart3, Hexagon, ShieldCheck, Menu, X, ShieldAlert, LayoutGrid, Volume2, VolumeX, Phone } from 'lucide-react';
 import GlobalSearch from '../common/GlobalSearch';
+import soundAlert from '../../utils/soundAlert';
 
 const AppLayout = ({ children }) => {
   const { user, logout } = useContext(AuthContext);
@@ -35,15 +36,21 @@ const AppLayout = ({ children }) => {
     }
   }, [user]);
 
+  const [isAlertMuted, setIsAlertMuted] = useState(soundAlert.getMuteState());
+
   useEffect(() => {
+    let lastSoundPlayedAt = 0;
+
     const checkCheckouts = async () => {
-      if (!user) return;
+      if (!user || user.role === 'superadmin') return;
       try {
         let propQuery = globalProperty !== 'all' ? `&hostel=${globalProperty}` : '';
         const res = await axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + `/api/stays?status=Active${propQuery}`);
         const stays = res.data.data;
         const now = new Date();
         const upcoming = [];
+        let hasOverdue = false;
+        let hasSoon = false;
         
         stays.forEach(stay => {
           const checkoutDate = new Date(stay.expectedCheckOutDate);
@@ -52,22 +59,53 @@ const AppLayout = ({ children }) => {
           
           const roomDisplay = stay.room ? stay.room.roomNumber : 'N/A';
           const guestName = stay.guest ? stay.guest.fullName : 'Unknown Guest';
+          const guestPhone = stay.guest?.mobileNumber || '';
           
           if (diffMins <= 30 && diffMins > 0) {
-            upcoming.push({ id: stay._id, type: 'warning', title: 'Checkout Soon', text: `${guestName} (Room ${roomDisplay}) checkout in ${diffMins} mins.` });
+            hasSoon = true;
+            upcoming.push({ 
+              id: stay._id, 
+              type: 'warning', 
+              title: 'Checkout Soon', 
+              text: `${guestName} (Room ${roomDisplay}) checkout in ${diffMins} mins.`,
+              phone: guestPhone,
+              guestName,
+              room: roomDisplay
+            });
           } else if (diffMins <= 0 && diffMins >= -1440) {
-            upcoming.push({ id: stay._id, type: 'danger', title: 'Checkout Overdue', text: `${guestName} (Room ${roomDisplay}) is overdue by ${Math.abs(diffMins)} mins!` });
+            hasOverdue = true;
+            upcoming.push({ 
+              id: stay._id, 
+              type: 'danger', 
+              title: 'Checkout Overdue', 
+              text: `${guestName} (Room ${roomDisplay}) is overdue by ${Math.abs(diffMins)} mins!`,
+              phone: guestPhone,
+              guestName,
+              room: roomDisplay
+            });
           }
         });
         
         setNotifications(upcoming);
+
+        // 🔊 Sound alert throttle: play at most once every 60 seconds
+        const nowMs = Date.now();
+        if (nowMs - lastSoundPlayedAt >= 50000) {
+          if (hasOverdue) {
+            soundAlert.playOverdueBeep();
+            lastSoundPlayedAt = nowMs;
+          } else if (hasSoon) {
+            soundAlert.playUpcomingBeep();
+            lastSoundPlayedAt = nowMs;
+          }
+        }
       } catch (err) {
         console.error(err);
       }
     };
 
     checkCheckouts();
-    const interval = setInterval(checkCheckouts, 60000); // Check every minute
+    const interval = setInterval(checkCheckouts, 45000); // Check every 45 seconds
     
     const handlePropChange = () => checkCheckouts();
     window.addEventListener('propertyChanged', handlePropChange);
@@ -77,6 +115,11 @@ const AppLayout = ({ children }) => {
       window.removeEventListener('propertyChanged', handlePropChange);
     };
   }, [globalProperty, user]);
+
+  const toggleSoundMute = () => {
+    const muted = soundAlert.toggleMute();
+    setIsAlertMuted(muted);
+  };
 
   const handlePropertyChange = (val) => {
     setGlobalProperty(val);
@@ -203,29 +246,55 @@ const AppLayout = ({ children }) => {
                 {showNotifications && (
                   <div className="absolute right-0 mt-2 w-[90vw] max-w-sm sm:w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
                     <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
-                      <h3 className="text-sm font-black text-gray-900">Alerts</h3>
-                      <span className="text-[10px] font-bold bg-black text-white px-2 py-0.5 rounded-full">{notifications.length}</span>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-black text-gray-900">Checkout Alerts</h3>
+                        <span className="text-[10px] font-bold bg-black text-white px-2 py-0.5 rounded-full">{notifications.length}</span>
+                      </div>
+                      <button 
+                        onClick={toggleSoundMute}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase transition-all ${
+                          isAlertMuted ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                        }`}
+                        title={isAlertMuted ? "Sound alerts muted. Click to un-mute" : "Sound alerts active. Click to mute"}
+                      >
+                        {isAlertMuted ? <VolumeX size={12} /> : <Volume2 size={12} />}
+                        <span>{isAlertMuted ? 'Muted' : 'Sound On'}</span>
+                      </button>
                     </div>
-                    <div className="max-h-72 overflow-y-auto">
+                    <div className="max-h-80 overflow-y-auto">
                       {notifications.length === 0 ? (
-                        <div className="p-6 text-center text-gray-500 text-sm">No new notifications</div>
+                        <div className="p-6 text-center text-gray-500 text-sm">No checkout alerts right now. All on schedule!</div>
                       ) : (
                         <div className="divide-y divide-gray-100">
                           {notifications.map((notif, idx) => (
-                            <Link 
-                              to="/checkouts" 
+                            <div 
                               key={idx} 
-                              onClick={() => setShowNotifications(false)}
-                              className={`block p-4 transition-colors hover:bg-gray-50 ${notif.type === 'danger' ? 'bg-red-50/30' : 'bg-orange-50/30'}`}
+                              className={`p-3.5 transition-colors flex items-center justify-between gap-3 ${notif.type === 'danger' ? 'bg-red-50/40' : 'bg-orange-50/40'}`}
                             >
-                              <div className="flex items-start gap-3">
-                                <div className={`mt-0.5 w-2 h-2 rounded-full flex-shrink-0 ${notif.type === 'danger' ? 'bg-red-500 animate-pulse' : 'bg-orange-400'}`}></div>
-                                <div>
-                                  <p className={`text-xs font-black uppercase tracking-widest mb-1 ${notif.type === 'danger' ? 'text-red-700' : 'text-orange-700'}`}>{notif.title}</p>
-                                  <p className="text-sm font-bold text-gray-800 leading-tight">{notif.text}</p>
+                              <Link 
+                                to="/checkouts" 
+                                onClick={() => setShowNotifications(false)}
+                                className="flex items-start gap-2.5 flex-1 min-w-0"
+                              >
+                                <div className={`mt-1 w-2.5 h-2.5 rounded-full flex-shrink-0 ${notif.type === 'danger' ? 'bg-red-500 animate-pulse' : 'bg-orange-400'}`}></div>
+                                <div className="min-w-0">
+                                  <p className={`text-[10px] font-black uppercase tracking-wider ${notif.type === 'danger' ? 'text-red-700' : 'text-orange-700'}`}>{notif.title}</p>
+                                  <p className="text-xs font-bold text-gray-800 leading-snug truncate">{notif.text}</p>
                                 </div>
-                              </div>
-                            </Link>
+                              </Link>
+
+                              {notif.phone && (
+                                <a 
+                                  href={`tel:${notif.phone}`}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm active:scale-95 transition-all shrink-0"
+                                  title={`Call ${notif.guestName} (${notif.phone})`}
+                                  onClick={e => e.stopPropagation()}
+                                >
+                                  <Phone size={11} className="stroke-[2.5]" />
+                                  <span>Call</span>
+                                </a>
+                              )}
+                            </div>
                           ))}
                         </div>
                       )}

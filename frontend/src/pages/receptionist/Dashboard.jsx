@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useContext } from 'react';
 import { useOutletContext, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { format, isPast } from 'date-fns';
-import { Users, BedDouble, CalendarCheck, Clock, CreditCard, ChevronRight, AlertTriangle, PlusCircle, RefreshCw, Download } from 'lucide-react';
+import { Users, BedDouble, CalendarCheck, Clock, CreditCard, ChevronRight, AlertTriangle, PlusCircle, RefreshCw, Download, Phone } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
@@ -227,9 +227,20 @@ const ReceptionistDashboard = () => {
                         {balance > 0 && (
                           <span className="text-[10px] font-black text-red-600 bg-red-50 px-2 py-0.5 rounded-md">₹{balance} due</span>
                         )}
-                        <Link to={`/checkouts?stay=${stay._id}`} className={`px-3 py-1.5 text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-all active:scale-95 shadow-sm ${isOverdue ? 'bg-red-600 hover:bg-red-700' : 'bg-black hover:bg-gray-800'}`}>
-                          {isOverdue ? 'Urgent' : 'Manage'}
-                        </Link>
+                        <div className="flex items-center gap-1.5">
+                          {stay.guest?.mobileNumber && (
+                            <a
+                              href={`tel:${stay.guest.mobileNumber}`}
+                              className="p-1.5 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-all active:scale-90 shadow-xs"
+                              title={`Direct Call: ${stay.guest?.fullName} (${stay.guest?.mobileNumber})`}
+                            >
+                              <Phone size={13} className="stroke-[2.5]" />
+                            </a>
+                          )}
+                          <Link to={`/checkouts?stay=${stay._id}`} className={`px-3 py-1.5 text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-all active:scale-95 shadow-sm ${isOverdue ? 'bg-red-600 hover:bg-red-700' : 'bg-black hover:bg-gray-800'}`}>
+                            {isOverdue ? 'Urgent' : 'Manage'}
+                          </Link>
+                        </div>
                       </div>
                     </div>
                   </li>

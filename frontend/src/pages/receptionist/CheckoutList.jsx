@@ -4,7 +4,7 @@ import axios from 'axios';
 import CheckoutModal from './CheckoutModal';
 import StayManageModal from './StayManageModal';
 import { format, isPast, isToday } from 'date-fns';
-import { Users, Clock, Download, AlertTriangle, Search, ChevronRight } from 'lucide-react';
+import { Users, Clock, Download, AlertTriangle, Search, ChevronRight, Phone } from 'lucide-react';
 
 const CheckoutList = () => {
   const [stays, setStays] = useState([]);
@@ -184,9 +184,22 @@ const CheckoutList = () => {
                             {badge.label}
                           </span>
                         </div>
-                        <p className="text-xs font-semibold text-gray-500 mt-1">
-                          {stay.guest?.mobileNumber} &bull; <span className="text-indigo-600 font-bold">Room {stay.room?.roomNumber}</span>
-                        </p>
+                        <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-gray-500 mt-1">
+                          <span className="text-gray-700 font-bold">{stay.guest?.mobileNumber}</span>
+                          {stay.guest?.mobileNumber && (
+                            <a
+                              href={`tel:${stay.guest.mobileNumber}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-md text-[11px] font-bold shadow-xs active:scale-95 transition-all"
+                              title={`Direct Call: ${stay.guest.fullName}`}
+                            >
+                              <Phone size={11} className="stroke-[2.5]" />
+                              <span>Call</span>
+                            </a>
+                          )}
+                          <span>&bull;</span>
+                          <span className="text-indigo-600 font-bold">Room {stay.room?.roomNumber}</span>
+                        </div>
                         
                         {/* Mobile Details */}
                         <div className="mt-2 block sm:hidden">

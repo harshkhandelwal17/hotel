@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { format, addDays, addHours } from 'date-fns';
-import { X, Receipt, Plus, Wallet, ArrowRightLeft, CalendarPlus, Printer, Trash2, LogOut, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { X, Receipt, Plus, Wallet, ArrowRightLeft, CalendarPlus, Printer, Trash2, LogOut, AlertCircle, CheckCircle2, Phone } from 'lucide-react';
 import { printInvoice } from '../../utils/invoice';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
@@ -133,9 +133,18 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
         <div className="px-4 sm:px-5 py-3.5 sm:py-4 border-b border-gray-100 flex justify-between items-start shrink-0">
           <div>
             <h2 className="text-xl font-black text-gray-900">{stay.guest?.fullName}</h2>
-            <p className="text-sm text-gray-500 font-semibold">
-              Room <span className="text-indigo-600 font-black">{stay.room?.roomNumber}</span> &bull; {stay.guest?.mobileNumber}
-            </p>
+            <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 font-semibold mt-0.5">
+              <span>Room <span className="text-indigo-600 font-black">{stay.room?.roomNumber}</span> &bull; {stay.guest?.mobileNumber}</span>
+              {stay.guest?.mobileNumber && (
+                <a
+                  href={`tel:${stay.guest.mobileNumber}`}
+                  className="inline-flex items-center gap-1 text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-md font-bold text-xs active:scale-95 transition-all"
+                  title={`Call ${stay.guest?.fullName}`}
+                >
+                  <Phone size={11} className="stroke-[2.5]" /> Call
+                </a>
+              )}
+            </div>
             <p className="text-xs text-gray-400 mt-0.5">
               {format(new Date(stay.checkInDate), 'dd MMM, hh:mm a')} &rarr; {format(new Date(stay.expectedCheckOutDate), 'dd MMM, hh:mm a')}
             </p>
