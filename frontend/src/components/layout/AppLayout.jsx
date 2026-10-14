@@ -80,14 +80,24 @@ const AppLayout = ({ children }) => {
               soundAlert.markAlertRung(stay._id, '10m_upcoming');
             }
           } 
-          // 2. Overdue checkout
-          else if (diffMins <= 0 && diffMins >= -1440) {
+          // 2. Overdue checkout (any stay whose expected checkout time has passed)
+          else if (diffMins <= 0) {
             const overdueMins = Math.abs(diffMins);
+            let timeText = `${overdueMins} mins`;
+            if (overdueMins >= 1440) {
+              const days = Math.floor(overdueMins / 1440);
+              timeText = `${days} day${days > 1 ? 's' : ''}`;
+            } else if (overdueMins >= 60) {
+              const hrs = Math.floor(overdueMins / 60);
+              const mins = overdueMins % 60;
+              timeText = mins > 0 ? `${hrs}h ${mins}m` : `${hrs} hours`;
+            }
+
             upcoming.push({ 
               id: stay._id, 
               type: 'danger', 
               title: 'Checkout Overdue', 
-              text: `${guestName} (Room ${roomDisplay}) is overdue by ${overdueMins} mins!`,
+              text: `${guestName} (Room ${roomDisplay}) is overdue by ${timeText}!`,
               phone: guestPhone,
               guestName,
               room: roomDisplay
@@ -251,7 +261,9 @@ const AppLayout = ({ children }) => {
                 >
                   <Bell size={20} className={notifications.length > 0 ? 'animate-pulse' : ''} />
                   {notifications.length > 0 && (
-                    <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-600 text-white text-[10px] font-black rounded-full border-2 border-white flex items-center justify-center shadow-sm">
+                      {notifications.length}
+                    </span>
                   )}
                 </button>
                 

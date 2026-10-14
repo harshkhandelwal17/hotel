@@ -9,13 +9,20 @@ class SoundAlertManager {
     this.ctx = null;
     this.isMuted = typeof window !== 'undefined' ? localStorage.getItem('nx_alert_muted') === 'true' : false;
     this.hasInteracted = false;
+    this.pendingVariant = null;
 
     // Listen for any user click/tap/keypress to resume AudioContext (browser autoplay policy)
     if (typeof window !== 'undefined') {
       const unlockAudio = () => {
         this.hasInteracted = true;
         if (this.ctx && this.ctx.state === 'suspended') {
-          this.ctx.resume().catch(() => {});
+          this.ctx.resume().then(() => {
+            if (this.pendingVariant) {
+              const v = this.pendingVariant;
+              this.pendingVariant = null;
+              this.playHotelBell(v);
+            }
+          }).catch(() => {});
         }
         window.removeEventListener('click', unlockAudio);
         window.removeEventListener('keydown', unlockAudio);
@@ -86,6 +93,12 @@ class SoundAlertManager {
     if (this.isMuted) return;
     const ctx = this.getAudioContext();
     if (!ctx) return;
+
+    if (ctx.state === 'suspended') {
+      this.pendingVariant = variant;
+      ctx.resume().catch(() => {});
+      return;
+    }
 
     try {
       const ringDing = (startTime, masterVol = 0.4) => {
