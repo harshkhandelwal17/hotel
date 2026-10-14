@@ -39,7 +39,7 @@ const AppLayout = ({ children }) => {
   const [isAlertMuted, setIsAlertMuted] = useState(soundAlert.getMuteState());
 
   useEffect(() => {
-    let lastSoundPlayedAt = 0;
+    const isReceptionist = user?.role === 'receptionist';
 
     const checkCheckouts = async () => {
       if (!user || user.role === 'superadmin') return;
@@ -49,8 +49,9 @@ const AppLayout = ({ children }) => {
         const stays = res.data.data;
         const now = new Date();
         const upcoming = [];
-        let hasOverdue = false;
-        let hasSoon = false;
+
+        let shouldPlayUpcoming = false;
+        let shouldPlayOverdue = false;
         
         stays.forEach(stay => {
           const checkoutDate = new Date(stay.expectedCheckOutDate);
@@ -61,8 +62,8 @@ const AppLayout = ({ children }) => {
           const guestName = stay.guest ? stay.guest.fullName : 'Unknown Guest';
           const guestPhone = stay.guest?.mobileNumber || '';
           
+          // 1. Upcoming checkout (in bell dropdown list)
           if (diffMins <= 30 && diffMins > 0) {
-            hasSoon = true;
             upcoming.push({ 
               id: stay._id, 
               type: 'warning', 
@@ -72,31 +73,42 @@ const AppLayout = ({ children }) => {
               guestName,
               room: roomDisplay
             });
-          } else if (diffMins <= 0 && diffMins >= -1440) {
-            hasOverdue = true;
+
+            // 🛎️ Audio Bell 1: Only for receptionist, exactly 1 time at 10 minutes before checkout
+            if (isReceptionist && diffMins <= 10 && !soundAlert.hasAlertRung(stay._id, '10m_upcoming')) {
+              shouldPlayUpcoming = true;
+              soundAlert.markAlertRung(stay._id, '10m_upcoming');
+            }
+          } 
+          // 2. Overdue checkout
+          else if (diffMins <= 0 && diffMins >= -1440) {
+            const overdueMins = Math.abs(diffMins);
             upcoming.push({ 
               id: stay._id, 
               type: 'danger', 
               title: 'Checkout Overdue', 
-              text: `${guestName} (Room ${roomDisplay}) is overdue by ${Math.abs(diffMins)} mins!`,
+              text: `${guestName} (Room ${roomDisplay}) is overdue by ${overdueMins} mins!`,
               phone: guestPhone,
               guestName,
               room: roomDisplay
             });
+
+            // 🛎️ Audio Bell 2: Only for receptionist, exactly 1 time when 30 minutes overdue
+            if (isReceptionist && overdueMins >= 30 && !soundAlert.hasAlertRung(stay._id, '30m_overdue')) {
+              shouldPlayOverdue = true;
+              soundAlert.markAlertRung(stay._id, '30m_overdue');
+            }
           }
         });
         
         setNotifications(upcoming);
 
-        // 🔊 Sound alert throttle: play at most once every 60 seconds
-        const nowMs = Date.now();
-        if (nowMs - lastSoundPlayedAt >= 50000) {
-          if (hasOverdue) {
-            soundAlert.playOverdueBeep();
-            lastSoundPlayedAt = nowMs;
-          } else if (hasSoon) {
-            soundAlert.playUpcomingBeep();
-            lastSoundPlayedAt = nowMs;
+        // Play the concierge desk bell only for receptionist (double chime for overdue, single chime for 10m upcoming)
+        if (isReceptionist) {
+          if (shouldPlayOverdue) {
+            soundAlert.playHotelBell('double');
+          } else if (shouldPlayUpcoming) {
+            soundAlert.playHotelBell('single');
           }
         }
       } catch (err) {
@@ -105,7 +117,7 @@ const AppLayout = ({ children }) => {
     };
 
     checkCheckouts();
-    const interval = setInterval(checkCheckouts, 45000); // Check every 45 seconds
+    const interval = setInterval(checkCheckouts, 30000); // Check every 30 seconds for precise time window
     
     const handlePropChange = () => checkCheckouts();
     window.addEventListener('propertyChanged', handlePropChange);

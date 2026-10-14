@@ -1,21 +1,21 @@
 /**
  * soundAlert.js
- * Generates audio alerts using the Web Audio API without requiring any external mp3 files.
- * Works across modern browsers (Chrome, Safari, Edge, Firefox, Mobile).
+ * High-fidelity Hotel Concierge Desk Bell synthesis using the Web Audio API.
+ * Synthesizes realistic acoustic brass bell harmonics without external MP3 files.
  */
 
 class SoundAlertManager {
   constructor() {
     this.ctx = null;
-    this.isMuted = localStorage.getItem('nx_alert_muted') === 'true';
+    this.isMuted = typeof window !== 'undefined' ? localStorage.getItem('nx_alert_muted') === 'true' : false;
     this.hasInteracted = false;
 
-    // Listen for any user click/tap to resume AudioContext (browser autoplay policy)
+    // Listen for any user click/tap/keypress to resume AudioContext (browser autoplay policy)
     if (typeof window !== 'undefined') {
       const unlockAudio = () => {
         this.hasInteracted = true;
         if (this.ctx && this.ctx.state === 'suspended') {
-          this.ctx.resume();
+          this.ctx.resume().catch(() => {});
         }
         window.removeEventListener('click', unlockAudio);
         window.removeEventListener('keydown', unlockAudio);
@@ -43,7 +43,9 @@ class SoundAlertManager {
 
   toggleMute() {
     this.isMuted = !this.isMuted;
-    localStorage.setItem('nx_alert_muted', String(this.isMuted));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('nx_alert_muted', String(this.isMuted));
+    }
     return this.isMuted;
   }
 
@@ -52,74 +54,94 @@ class SoundAlertManager {
   }
 
   /**
-   * High-alert loud dual-tone chime for overdue checkouts
+   * Check if sound was already played for this stay and stage
+   * Uses sessionStorage so it persists across page transitions but resets on new session
    */
-  playOverdueBeep() {
-    if (this.isMuted) return;
-    const ctx = this.getAudioContext();
-    if (!ctx) return;
-
+  hasAlertRung(stayId, alertType) {
+    if (typeof window === 'undefined') return false;
     try {
-      const now = ctx.currentTime;
-
-      // Play 3 pulsing attention beeps: High-Low-High (880Hz -> 659Hz -> 880Hz)
-      const playTone = (freq, startTime, duration, type = 'sine') => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-
-        osc.type = type;
-        osc.frequency.setValueAtTime(freq, startTime);
-
-        // Quick attack and release envelope to prevent clicking
-        gain.gain.setValueAtTime(0.0001, startTime);
-        gain.gain.exponentialRampToValueAtTime(0.35, startTime + 0.03);
-        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
-
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-
-        osc.start(startTime);
-        osc.stop(startTime + duration + 0.05);
-      };
-
-      // Beep pattern
-      playTone(880, now, 0.18, 'triangle');       // Note 1 (High A5)
-      playTone(659.25, now + 0.22, 0.18, 'triangle'); // Note 2 (E5)
-      playTone(987.77, now + 0.44, 0.28, 'sine');     // Note 3 (High B5 alert)
-    } catch (err) {
-      console.warn('Audio alert could not play:', err);
+      return sessionStorage.getItem(`nx_bell_${stayId}_${alertType}`) === 'true';
+    } catch (e) {
+      return false;
     }
   }
 
   /**
-   * Gentle reminder chime when checkout is approaching (within 15-30 mins)
+   * Mark alert as played so it NEVER rings again for this stay
    */
-  playUpcomingBeep() {
+  markAlertRung(stayId, alertType) {
+    if (typeof window === 'undefined') return;
+    try {
+      sessionStorage.setItem(`nx_bell_${stayId}_${alertType}`, 'true');
+    } catch (e) {}
+  }
+
+  /**
+   * Plays a high-fidelity hotel front-desk service bell (brass concierge chime)
+   * @param {'single' | 'double'} variant
+   * 'single': 1 crisp brass bell ring (for 10-minute upcoming reminder)
+   * 'double': 2 distinct brass bell rings (for 30-minute overdue alert)
+   */
+  playHotelBell(variant = 'single') {
     if (this.isMuted) return;
     const ctx = this.getAudioContext();
     if (!ctx) return;
 
     try {
-      const now = ctx.currentTime;
-      const playChime = (freq, startTime, duration) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, startTime);
-        gain.gain.setValueAtTime(0.001, startTime);
-        gain.gain.exponentialRampToValueAtTime(0.2, startTime + 0.04);
-        gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(startTime);
-        osc.stop(startTime + duration + 0.05);
+      const ringDing = (startTime, masterVol = 0.4) => {
+        // Physical brass bell acoustic overtone series
+        const partials = [
+          { ratio: 1.0, gain: 0.35, decay: 2.2 },   // Fundamental crystal chime (~1568Hz / G6)
+          { ratio: 0.54, gain: 0.16, decay: 2.5 },  // Warm brass body hum (~846Hz)
+          { ratio: 1.52, gain: 0.22, decay: 1.8 },  // Quint overtone (~2383Hz)
+          { ratio: 2.01, gain: 0.18, decay: 1.4 },  // High octave resonance (~3151Hz)
+          { ratio: 2.76, gain: 0.12, decay: 0.9 },  // Metallic ring shimmer (~4327Hz)
+          { ratio: 4.15, gain: 0.08, decay: 0.45 }  // Initial strike impact transient
+        ];
+
+        const baseFreq = 1568; // G6 note - crystal clear bright concierge bell
+
+        partials.forEach(({ ratio, gain: partGain, decay }) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(baseFreq * ratio, startTime);
+
+          // Fast hammer strike attack (<3ms) followed by natural exponential decay
+          gain.gain.setValueAtTime(0.0001, startTime);
+          gain.gain.linearRampToValueAtTime(partGain * masterVol, startTime + 0.003);
+          gain.gain.exponentialRampToValueAtTime(0.0001, startTime + decay);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start(startTime);
+          osc.stop(startTime + decay + 0.05);
+        });
       };
 
-      playChime(587.33, now, 0.2); // D5
-      playChime(880, now + 0.2, 0.35); // A5
+      const now = ctx.currentTime;
+      if (variant === 'single') {
+        // 10 mins before checkout: 1 classic hotel desk chime
+        ringDing(now, 0.4);
+      } else if (variant === 'double') {
+        // 30 mins overdue: 2 distinct firm hotel desk chimes
+        ringDing(now, 0.42);
+        ringDing(now + 0.38, 0.48);
+      }
     } catch (err) {
-      console.warn('Audio alert could not play:', err);
+      console.warn('Hotel bell alert could not play:', err);
     }
+  }
+
+  // Backwards compatibility aliases
+  playUpcomingBeep() {
+    this.playHotelBell('single');
+  }
+
+  playOverdueBeep() {
+    this.playHotelBell('double');
   }
 }
 
