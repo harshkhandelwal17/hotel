@@ -21,7 +21,8 @@ exports.createStay = async (req, res, next) => {
   try {
     const {
       guest, room, checkInDate, expectedCheckOutDate, initialPaymentAmount,
-      paymentMethod, durationOption, occupants, coGuests, commissionTo, commissionAmount
+      paymentMethod, durationOption, occupants, coGuests, commissionTo, commissionAmount,
+      isAlreadyCheckedOut, actualCheckOutDate
     } = req.body;
 
     let hostel = req.user.assignedHostel;
@@ -80,13 +81,20 @@ exports.createStay = async (req, res, next) => {
       throw new Error('Advance payment cannot be more than the total amount');
     }
 
+    const isPastCheckout = Boolean(isAlreadyCheckedOut);
+    const parsedActualOut = isPastCheckout 
+      ? new Date(actualCheckOutDate || expectedCheckOutDate) 
+      : undefined;
+
     const stay = await Stay.create({
       guest,
       coGuests: coGuestIds,
       hostel,
       room,
-      checkInDate,
-      expectedCheckOutDate,
+      checkInDate: new Date(checkInDate),
+      expectedCheckOutDate: new Date(expectedCheckOutDate),
+      actualCheckOutDate: parsedActualOut,
+      status: isPastCheckout ? 'Checked Out' : 'Active',
       durationOption: durationOption || '24h',
       totalAmount,
       paidAmount: advance,

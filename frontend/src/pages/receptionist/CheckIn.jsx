@@ -27,9 +27,11 @@ import {
   FileText,
   RotateCcw,
   Printer,
-  Trash2
+  Trash2,
+  CalendarClock
 } from 'lucide-react';
 
+import { format, isPast } from 'date-fns';
 import { useToast } from '../../components/ui/Toast';
 import { compressImage } from '../../utils/imageCompression';
 import { extractAddressFromBackId } from '../../utils/idOcr';
@@ -47,6 +49,14 @@ const SkeletonRoom = () => (
   </div>
   
 );
+
+const toDateTimeLocal = (d) => {
+  if (!d) return '';
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
 
 const CheckIn = () => {
   const loadState = (key, defaultVal) => {
@@ -118,7 +128,11 @@ const CheckIn = () => {
       paidAmount: '',
       paymentMethod: 'Cash',
       commissionTo: '',
-      commissionAmount: ''
+      commissionAmount: '',
+      isBackdated: false,
+      checkInDate: '',
+      isAlreadyCheckedOut: false,
+      actualCheckOutDate: ''
     };
     const saved = loadState('checkin_stayInfo', defaultStay);
     // If the saved state only has the old unedited default, reset durationDays to 0 and paidAmount to empty
@@ -126,7 +140,11 @@ const CheckIn = () => {
       return { 
         ...saved, 
         durationDays: saved.durationDays === 1 ? 0 : saved.durationDays,
-        paidAmount: saved.paidAmount === 0 || saved.paidAmount === '0' ? '' : saved.paidAmount
+        paidAmount: saved.paidAmount === 0 || saved.paidAmount === '0' ? '' : saved.paidAmount,
+        isBackdated: saved.isBackdated || false,
+        checkInDate: saved.checkInDate || '',
+        isAlreadyCheckedOut: saved.isAlreadyCheckedOut || false,
+        actualCheckOutDate: saved.actualCheckOutDate || ''
       };
     }
     return saved;
@@ -228,16 +246,18 @@ const CheckIn = () => {
 
   const availableFloors = useMemo(() => {
     const floorMap = {};
-    rooms.filter(r => !r.isOccupied).forEach(r => {
+    const allowOccupied = Boolean(stayInfo.isBackdated && stayInfo.isAlreadyCheckedOut);
+    rooms.filter(r => allowOccupied || !r.isOccupied).forEach(r => {
       const fl = (r.floor || '1').toString().trim();
       floorMap[fl] = (floorMap[fl] || 0) + 1;
     });
     return Object.entries(floorMap).map(([floor, count]) => ({ floor, count }));
-  }, [rooms]);
+  }, [rooms, stayInfo.isBackdated, stayInfo.isAlreadyCheckedOut]);
 
   const filteredRooms = useMemo(() => {
+    const allowOccupied = Boolean(stayInfo.isBackdated && stayInfo.isAlreadyCheckedOut);
     return rooms
-      .filter((r) => !r.isOccupied)
+      .filter((r) => allowOccupied || !r.isOccupied)
       .filter((r) => {
         if (selectedFloorFilter !== 'All') {
           const fl = (r.floor || '1').toString().trim();
@@ -248,25 +268,29 @@ const CheckIn = () => {
         }
         return true;
       });
-  }, [rooms, selectedFloorFilter, roomSearchQuery]);
+  }, [rooms, selectedFloorFilter, roomSearchQuery, stayInfo.isBackdated, stayInfo.isAlreadyCheckedOut]);
 
   const expectedOutPreviewFormatted = useMemo(() => {
-    const now = new Date();
-    const expectedOutPreview = new Date();
+    const baseCheckIn = (stayInfo.isBackdated && stayInfo.checkInDate)
+      ? new Date(stayInfo.checkInDate)
+      : new Date();
+    const expectedOutPreview = new Date(baseCheckIn.getTime());
+
     if (stayInfo.isMorningCheckout) {
       const days = Math.max(1, Number(stayInfo.durationDays) || 1);
-      if (now.getHours() < 6) {
+      if (baseCheckIn.getHours() < 6) {
         expectedOutPreview.setHours(10, 0, 0, 0);
       } else {
-        expectedOutPreview.setDate(now.getDate() + days);
+        expectedOutPreview.setDate(baseCheckIn.getDate() + days);
         expectedOutPreview.setHours(10, 0, 0, 0);
       }
-      return expectedOutPreview.toLocaleString('en-US', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+      return format(expectedOutPreview, 'dd MMM, hh:mm a');
     }
+
     expectedOutPreview.setDate(expectedOutPreview.getDate() + (Number(stayInfo.durationDays) || 0));
     expectedOutPreview.setHours(expectedOutPreview.getHours() + (Number(stayInfo.durationHours) || 0));
-    return expectedOutPreview.toLocaleString('en-US', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-  }, [stayInfo.isMorningCheckout, stayInfo.durationDays, stayInfo.durationHours]);
+    return format(expectedOutPreview, 'dd MMM, hh:mm a');
+  }, [stayInfo.isMorningCheckout, stayInfo.durationDays, stayInfo.durationHours, stayInfo.isBackdated, stayInfo.checkInDate]);
 
   // =========================================================
   // IMPORTANT:
@@ -1095,9 +1119,11 @@ const CheckIn = () => {
       // 4. CHECK-IN / CHECK-OUT DATE
       // =====================================================
 
-      const checkInDate = new Date();
+      const checkInDate = (stayInfo.isBackdated && stayInfo.checkInDate)
+        ? new Date(stayInfo.checkInDate)
+        : new Date();
 
-      const expectedOut = new Date();
+      const expectedOut = new Date(checkInDate.getTime());
 
       if (stayInfo.isMorningCheckout) {
         const days = Math.max(1, Number(stayInfo.durationDays) || 1);
@@ -1126,6 +1152,11 @@ const CheckIn = () => {
       // =====================================================
       // 5. CREATE STAY
       // =====================================================
+
+      const isPastCheckout = Boolean(stayInfo.isBackdated && stayInfo.isAlreadyCheckedOut);
+      const actualOutIso = isPastCheckout
+        ? (stayInfo.actualCheckOutDate ? new Date(stayInfo.actualCheckOutDate).toISOString() : expectedOut.toISOString())
+        : undefined;
 
       const stayPayload = {
         guest: pGuestId,
@@ -1161,10 +1192,13 @@ const CheckIn = () => {
             stayInfo.commissionAmount
           ) || 0,
 
-        checkInDate,
+        checkInDate: checkInDate.toISOString(),
 
-        expectedCheckOutDate:
-          expectedOut
+        expectedCheckOutDate: expectedOut.toISOString(),
+
+        isAlreadyCheckedOut: isPastCheckout,
+
+        actualCheckOutDate: actualOutIso
       };
 
       console.log(
@@ -1554,6 +1588,156 @@ const CheckIn = () => {
                   </div>
 
                 </div>
+
+                {/* 🕒 CHECK-IN TIMING: INSTANT WALK-IN (DEFAULT) vs BACKDATED REGISTER ENTRY */}
+                <div className="pt-3 border-t border-gray-100">
+                  {!stayInfo.isBackdated ? (
+                    <div className="flex flex-wrap items-center justify-between gap-2.5 p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-xl">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="text-xs font-black text-emerald-950">
+                          Check-In: <span className="font-bold text-emerald-800">Instant Walk-In (Right Now)</span>
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const now = new Date();
+                          setStayInfo(p => ({
+                            ...p,
+                            isBackdated: true,
+                            checkInDate: toDateTimeLocal(now)
+                          }));
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-emerald-100/80 border border-emerald-300 text-emerald-900 rounded-lg text-xs font-black transition-all shadow-xs active:scale-95"
+                      >
+                        <CalendarClock size={13} className="text-emerald-700" />
+                        <span>Register / Backdated Entry?</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-amber-50/80 border-2 border-amber-200 rounded-2xl space-y-3.5 animate-in fade-in duration-200">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <CalendarClock size={16} className="text-amber-700" />
+                          <h4 className="text-xs sm:text-sm font-black text-amber-950 uppercase tracking-tight">
+                            Register / Backdated Check-In (Pichli Entry)
+                          </h4>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStayInfo(p => ({
+                              ...p,
+                              isBackdated: false,
+                              checkInDate: '',
+                              isAlreadyCheckedOut: false,
+                              actualCheckOutDate: ''
+                            }));
+                          }}
+                          className="text-[11px] font-bold text-gray-600 hover:text-black bg-white hover:bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-200 transition-colors shadow-2xs"
+                        >
+                          ✕ Reset to Instant Walk-In
+                        </button>
+                      </div>
+
+                      {/* QUICK PRESET CHIPS */}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] font-black text-amber-800 uppercase tracking-wider mr-1">Quick:</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const d = new Date(Date.now() - 2 * 3600000);
+                            setStayInfo(p => ({ ...p, checkInDate: toDateTimeLocal(d) }));
+                          }}
+                          className="px-2.5 py-1 bg-white hover:bg-amber-100 border border-amber-200 text-amber-900 rounded-lg text-xs font-bold transition-all shadow-2xs active:scale-95"
+                        >
+                          2h Ago
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const d = new Date(Date.now() - 4 * 3600000);
+                            setStayInfo(p => ({ ...p, checkInDate: toDateTimeLocal(d) }));
+                          }}
+                          className="px-2.5 py-1 bg-white hover:bg-amber-100 border border-amber-200 text-amber-900 rounded-lg text-xs font-bold transition-all shadow-2xs active:scale-95"
+                        >
+                          4h Ago
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const d = new Date();
+                            d.setDate(d.getDate() - 1);
+                            d.setHours(10, 0, 0, 0);
+                            setStayInfo(p => ({ ...p, checkInDate: toDateTimeLocal(d) }));
+                          }}
+                          className="px-2.5 py-1 bg-white hover:bg-amber-100 border border-amber-200 text-amber-900 rounded-lg text-xs font-bold transition-all shadow-2xs active:scale-95"
+                        >
+                          Yesterday 10 AM
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const d = new Date();
+                            d.setDate(d.getDate() - 1);
+                            d.setHours(19, 0, 0, 0);
+                            setStayInfo(p => ({ ...p, checkInDate: toDateTimeLocal(d) }));
+                          }}
+                          className="px-2.5 py-1 bg-white hover:bg-amber-100 border border-amber-200 text-amber-900 rounded-lg text-xs font-bold transition-all shadow-2xs active:scale-95"
+                        >
+                          Yesterday 7 PM
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const d = new Date();
+                            d.setDate(d.getDate() - 2);
+                            d.setHours(10, 0, 0, 0);
+                            setStayInfo(p => ({ ...p, checkInDate: toDateTimeLocal(d) }));
+                          }}
+                          className="px-2.5 py-1 bg-white hover:bg-amber-100 border border-amber-200 text-amber-900 rounded-lg text-xs font-bold transition-all shadow-2xs active:scale-95"
+                        >
+                          2 Days Ago
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        <div>
+                          <label className="block text-[10px] font-black text-amber-900 uppercase tracking-widest mb-1">
+                            Actual Check-In Date & Time
+                          </label>
+                          <input
+                            type="datetime-local"
+                            value={stayInfo.checkInDate || ''}
+                            onChange={(e) => setStayInfo(p => ({ ...p, checkInDate: e.target.value }))}
+                            className="w-full px-3 py-2 bg-white border border-amber-300 rounded-xl text-sm font-black text-gray-900 outline-none focus:border-amber-600 shadow-2xs"
+                          />
+                        </div>
+
+                        {/* ALREADY CHECKED OUT TOGGLE */}
+                        <div className="flex flex-col justify-end">
+                          <label className="flex items-center gap-2 p-2.5 bg-white border border-amber-200 rounded-xl cursor-pointer hover:bg-amber-50/50 transition-colors shadow-2xs">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(stayInfo.isAlreadyCheckedOut)}
+                              onChange={(e) => setStayInfo(p => ({ ...p, isAlreadyCheckedOut: e.target.checked }))}
+                              className="w-4 h-4 text-amber-600 rounded focus:ring-0"
+                            />
+                            <div className="min-w-0">
+                              <span className="text-xs font-black text-gray-900 block leading-tight">
+                                Guest already checked out?
+                              </span>
+                              <span className="text-[10px] font-bold text-gray-500 block">
+                                Room will stay vacant today for other guests
+                              </span>
+                            </div>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* 2. SELECT ROOM (LARGER & MORE PROMINENT) */}
@@ -1735,6 +1919,23 @@ const CheckIn = () => {
                     </div>
                   )}
                 </div>
+
+                {stayInfo.isBackdated && (
+                  <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-bold space-y-1">
+                    <div className="flex items-center gap-1.5 font-black text-amber-200">
+                      <CalendarClock size={13} />
+                      <span>Register / Backdated Check-In</span>
+                    </div>
+                    <div className="text-[11px] text-amber-300/90 leading-tight">
+                      In: {format(new Date(stayInfo.checkInDate || Date.now()), 'dd MMM, hh:mm a')}
+                    </div>
+                    {stayInfo.isAlreadyCheckedOut && (
+                      <span className="inline-block px-1.5 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded text-[10px] font-black uppercase">
+                        ✓ Marked as Already Checked Out
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between pb-2 border-b border-gray-800">
                   <h3 className="text-sm font-black text-gray-200 flex items-center gap-1.5">
