@@ -1,8 +1,8 @@
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useContext, useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
-import { Home, Users, Bed, LogOut, Bell, PlusCircle, Building, CreditCard, BarChart3, Hexagon, ShieldCheck, Menu, X, ShieldAlert, LayoutGrid, Volume2, VolumeX, Phone, BellRing } from 'lucide-react';
+import { Home, Users, Bed, LogOut, Bell, PlusCircle, Building, CreditCard, BarChart3, Hexagon, ShieldCheck, Menu, X, ShieldAlert, LayoutGrid, Volume2, VolumeX, Phone, BellRing, ChevronDown } from 'lucide-react';
 import GlobalSearch from '../common/GlobalSearch';
 import soundAlert from '../../utils/soundAlert';
 import PoliceReportModal from '../../pages/admin/PoliceReportModal';
@@ -151,6 +151,32 @@ const AppLayout = ({ children }) => {
     window.dispatchEvent(new Event('propertyChanged')); // simple way to notify
   };
 
+  const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
+  const adminMenuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (adminMenuRef.current && !adminMenuRef.current.contains(e.target)) {
+        setIsAdminMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    setIsAdminMenuOpen(false);
+  }, [location.pathname]);
+
+  const adminMenuItems = [
+    { name: 'Financials & Reports', desc: 'Revenue, collections & PDF', path: '/admin/reports', icon: BarChart3, color: 'text-emerald-600' },
+    { name: 'Properties', desc: 'Manage hotel branches', path: '/admin/hostels', icon: Building, color: 'text-blue-600' },
+    { name: 'Staff Management', desc: 'Receptionist logins & access', path: '/admin/staff', icon: ShieldCheck, color: 'text-purple-600' },
+    { name: 'Manage Rooms', desc: 'Room setup, pricing & types', path: '/admin/rooms', icon: Bed, color: 'text-amber-600' },
+  ];
+
+  const isAdminRouteActive = adminMenuItems.some(item => location.pathname.startsWith(item.path));
+
   let navItems = [];
   
   if (user?.role === 'superadmin') {
@@ -167,12 +193,14 @@ const AppLayout = ({ children }) => {
     ];
     
     if (user?.role === 'admin') {
+      navItems.push({ name: 'Financials', path: '/admin/reports', icon: BarChart3 });
       navItems.push({ name: 'Properties', path: '/admin/hostels', icon: Building });
       navItems.push({ name: 'Staff', path: '/admin/staff', icon: ShieldCheck });
       navItems.push({ name: 'Manage Rooms', path: '/admin/rooms', icon: Bed });
-      navItems.push({ name: 'Financials', path: '/admin/reports', icon: BarChart3 });
     }
   }
+
+  const primaryNavItems = user?.role === 'superadmin' ? navItems : navItems.slice(0, 5);
 
   const handleReturnToSuperAdmin = () => {
     const saToken = localStorage.getItem('superAdminToken');
@@ -186,40 +214,37 @@ const AppLayout = ({ children }) => {
   const isImpersonating = !!localStorage.getItem('superAdminToken');
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB] flex flex-col font-sans">
+    <div className="min-h-screen bg-[#F9FAFB] flex flex-col font-sans overflow-x-hidden w-full max-w-full">
       {isImpersonating && (
-        <div className="bg-orange-500 text-white px-4 py-2 text-xs font-black uppercase tracking-widest flex items-center justify-between shadow-sm z-50 relative">
-          <span>⚠️ You are impersonating {user?.name} ({user?.role})</span>
-          <button onClick={handleReturnToSuperAdmin} className="bg-black/20 hover:bg-black/40 px-3 py-1.5 rounded transition-colors active:scale-95">
+        <div className="bg-orange-500 text-white px-4 py-2 text-xs font-black uppercase tracking-widest flex items-center justify-between shadow-sm z-50 relative w-full">
+          <span className="truncate mr-2">⚠️ You are impersonating {user?.name} ({user?.role})</span>
+          <button onClick={handleReturnToSuperAdmin} className="bg-black/20 hover:bg-black/40 px-3 py-1.5 rounded transition-colors active:scale-95 shrink-0">
             Return to Superadmin
           </button>
         </div>
       )}
       {/* Premium Topbar */}
-      <header className="bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-sm sticky top-0 z-40">
-        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+      <header className="bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-sm sticky top-0 z-40 w-full">
+        <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 lg:px-6">
+          <div className="flex justify-between items-center h-16 gap-2">
             
             {/* Logo & Navigation */}
-            <div className="flex items-center space-x-4 md:space-x-6">
-              
-              {/* Mobile Menu Button (Hidden now since we have bottom nav, but kept in DOM for reference) */}
-              <div className="hidden"></div>
-              <Link to={user?.role === 'superadmin' ? '/superadmin' : '/dashboard'} className="flex-shrink-0 flex items-center space-x-2 mr-4">
+            <div className="flex items-center space-x-2 lg:space-x-4 shrink-0">
+              <Link to={user?.role === 'superadmin' ? '/superadmin' : '/dashboard'} className="flex-shrink-0 flex items-center space-x-2 mr-1 sm:mr-3">
                 <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
                   <Hexagon className="text-white w-5 h-5" />
                 </div>
                 <span className="text-xl font-black tracking-tight text-gray-900">NX<span className="text-gray-400">Hotel</span></span>
               </Link>
-              <nav className="hidden md:flex space-x-2">
-                {navItems.map((item) => {
+              <nav className="hidden md:flex items-center space-x-1 lg:space-x-1.5">
+                {primaryNavItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = location.pathname.startsWith(item.path);
                   return (
                     <Link
                       key={item.name}
                       to={item.path}
-                      className={`px-3 py-2 rounded-xl text-sm font-bold transition-all flex items-center ${
+                      className={`px-2.5 lg:px-3 py-2 rounded-xl text-xs lg:text-sm font-bold transition-all flex items-center ${
                         isActive
                           ? 'bg-black text-white shadow-md'
                           : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
@@ -230,28 +255,78 @@ const AppLayout = ({ children }) => {
                     </Link>
                   );
                 })}
+
+                {/* Admin Management Dropdown */}
+                {user?.role === 'admin' && (
+                  <div className="relative" ref={adminMenuRef}>
+                    <button
+                      type="button"
+                      onClick={() => setIsAdminMenuOpen(!isAdminMenuOpen)}
+                      className={`px-2.5 lg:px-3 py-2 rounded-xl text-xs lg:text-sm font-bold transition-all flex items-center gap-1.5 ${
+                        isAdminRouteActive
+                          ? 'bg-black text-white shadow-md'
+                          : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
+                      }`}
+                      title="Hotel Administration & Settings"
+                    >
+                      <ShieldCheck className={`h-4 w-4 ${isAdminRouteActive ? 'text-white' : 'text-gray-400'}`} />
+                      <span>Admin</span>
+                      <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${isAdminMenuOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {isAdminMenuOpen && (
+                      <div className="absolute left-0 mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 z-50 animate-in fade-in slide-in-from-top-2">
+                        <div className="px-3.5 py-1.5 border-b border-gray-100 mb-1">
+                          <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Management</p>
+                        </div>
+                        {adminMenuItems.map((item) => {
+                          const Icon = item.icon;
+                          const isActive = location.pathname.startsWith(item.path);
+                          return (
+                            <Link
+                              key={item.name}
+                              to={item.path}
+                              onClick={() => setIsAdminMenuOpen(false)}
+                              className={`flex items-center gap-3 px-3.5 py-2.5 transition-colors ${
+                                isActive ? 'bg-gray-100 text-black font-black' : 'text-gray-700 hover:bg-gray-50 font-bold'
+                              }`}
+                            >
+                              <div className={`p-1.5 rounded-lg bg-gray-50 border border-gray-100 ${item.color}`}>
+                                <Icon className="h-4 w-4" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs leading-tight">{item.name}</p>
+                                <p className="text-[10px] text-gray-400 font-normal truncate mt-0.5">{item.desc}</p>
+                              </div>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </nav>
             </div>
             
             {/* Search Bar */}
-            <div className="hidden md:flex flex-1 items-center justify-center px-4 sm:px-6">
-              <div className="w-full max-w-md">
+            <div className="hidden lg:flex items-center justify-center shrink-1 min-w-0">
+              <div className="w-32 lg:w-44 xl:w-56 focus-within:w-60 transition-all duration-300">
                 <GlobalSearch />
               </div>
             </div>
             
             {/* Profile & Actions */}
-            <div className="flex items-center gap-2 md:gap-3">
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               {/* Official Police Verification Report Button for Staff / Receptionists / Admin */}
               {user && user.role !== 'superadmin' && (
                 <button
                   type="button"
                   onClick={() => setShowPoliceModal(true)}
-                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-sm transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                  className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-sm transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer shrink-0"
                   title="Generate Official Police Verification Report"
                 >
                   <ShieldCheck size={14} />
-                  <span className="hidden sm:inline">Police Report</span>
+                  <span className="hidden xl:inline">Police Report</span>
                 </button>
               )}
 
@@ -259,12 +334,13 @@ const AppLayout = ({ children }) => {
                 <select 
                   value={globalProperty} 
                   onChange={e => handlePropertyChange(e.target.value)}
-                  className="hidden md:block bg-gray-50 border border-gray-200 text-gray-700 text-sm rounded-lg focus:ring-black focus:border-black p-2 font-semibold shadow-sm outline-none"
+                  className="hidden md:block max-w-[120px] lg:max-w-[150px] truncate bg-gray-50 border border-gray-200 text-gray-700 text-xs rounded-xl focus:ring-black focus:border-black p-2 font-semibold shadow-sm outline-none shrink-0"
+                  title="Filter by Property"
                 >
-                  <option value="all">🏢 All Active Properties</option>
+                  <option value="all">🏢 All Properties</option>
                   {hostels.map(h => (
                     <option key={h._id} value={h._id} disabled={h.isActive === false}>
-                      {h.name} {h.isActive === false ? '🔒 (Locked / Expired)' : ''}
+                      {h.name} {h.isActive === false ? '🔒' : ''}
                     </option>
                   ))}
                 </select>
@@ -353,24 +429,27 @@ const AppLayout = ({ children }) => {
                 )}
               </div>
               
-              <div className="hidden md:block h-8 w-[1px] bg-gray-200 mx-1"></div>
+              <div className="hidden md:block h-6 w-[1px] bg-gray-200 mx-0.5 shrink-0"></div>
               
-              <div className="hidden md:flex items-center space-x-3">
-                <div className="text-right hidden sm:block">
-                  <p className="text-sm font-bold text-gray-900 leading-tight">{user?.name}</p>
-                  <p className="text-xs font-semibold text-gray-500 capitalize">{user?.role}</p>
+              <div className="hidden md:flex items-center space-x-2 shrink-0">
+                <div className="text-right hidden xl:block">
+                  <p className="text-xs font-bold text-gray-900 leading-tight truncate max-w-[110px]">{user?.name}</p>
+                  <p className="text-[10px] font-semibold text-gray-500 capitalize">{user?.role}</p>
                 </div>
-                <div className="h-9 w-9 rounded-full bg-gradient-to-tr from-gray-100 to-gray-200 border border-gray-300 shadow-sm flex items-center justify-center text-gray-700 font-bold uppercase">
+                <div 
+                  className="h-8 w-8 rounded-full bg-gradient-to-tr from-gray-100 to-gray-200 border border-gray-300 shadow-sm flex items-center justify-center text-gray-700 font-bold text-xs uppercase"
+                  title={`${user?.name} (${user?.role})`}
+                >
                   {user?.name?.charAt(0) || 'U'}
                 </div>
               </div>
               
               <button 
                 onClick={logout}
-                className="hidden md:block ml-1 p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                className="hidden md:block p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors shrink-0"
                 title="Logout"
               >
-                <LogOut size={20} />
+                <LogOut size={18} />
               </button>
             </div>
           </div>

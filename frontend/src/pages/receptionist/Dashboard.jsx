@@ -130,7 +130,7 @@ const ReceptionistDashboard = () => {
       )}
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 group hover:border-blue-200 hover:shadow-md transition-all">
           <div className="flex justify-between items-start mb-4">
             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Occupied</span>

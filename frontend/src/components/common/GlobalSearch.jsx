@@ -56,13 +56,13 @@ const GlobalSearch = ({ onResultClick }) => {
   return (
     <div className="relative" ref={searchRef}>
       <div className="relative">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <Search className="h-4 w-4 text-gray-400" />
+        <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
+          <Search className="h-3.5 w-3.5 text-gray-400" />
         </div>
         <input
           type="text"
-          className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md leading-5 bg-gray-50 placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors"
-          placeholder="Search guest, mobile..."
+          className="block w-full pl-8 pr-7 py-1.5 border border-gray-200 rounded-xl leading-5 bg-gray-50 placeholder-gray-400 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-black focus:border-black text-xs font-semibold transition-all shadow-2xs"
+          placeholder="Search guest, phone..."
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
