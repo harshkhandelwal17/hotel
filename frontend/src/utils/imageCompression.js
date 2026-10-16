@@ -20,12 +20,12 @@ export const compressImage = (file) => {
       
       if (width > height) {
         if (width > MAX_WIDTH) {
-          height = Math.round((height *= MAX_WIDTH / width));
+          height = Math.round(height * (MAX_WIDTH / width));
           width = MAX_WIDTH;
         }
       } else {
         if (height > MAX_HEIGHT) {
-          width = Math.round((width *= MAX_HEIGHT / height));
+          width = Math.round(width * (MAX_HEIGHT / height));
           height = MAX_HEIGHT;
         }
       }
