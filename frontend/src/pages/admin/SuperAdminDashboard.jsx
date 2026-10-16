@@ -475,29 +475,7 @@ const SuperAdminDashboard = () => {
         </div>
 
         {/* 3-Step Logical Workflow Hint Card */}
-        <div className="mt-8 pt-6 border-t border-white/10 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-          <div className="flex items-start gap-3 bg-white/5 p-3.5 rounded-2xl border border-white/5">
-            <div className="w-6 h-6 rounded-full bg-red-600 text-white flex items-center justify-center font-black text-[11px] shrink-0">1</div>
-            <div>
-              <p className="font-bold text-white">Create Hotel Owner (Admin)</p>
-              <p className="text-gray-400 text-[11px] mt-0.5">Create client ID with their Name, Email, & Password.</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3 bg-white/5 p-3.5 rounded-2xl border border-white/5">
-            <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-black text-[11px] shrink-0">2</div>
-            <div>
-              <p className="font-bold text-white">Attach Properties (1 or more)</p>
-              <p className="text-gray-400 text-[11px] mt-0.5">Link all hotels owned by this client under their account.</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3 bg-white/5 p-3.5 rounded-2xl border border-white/5">
-            <div className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center font-black text-[11px] shrink-0">3</div>
-            <div>
-              <p className="font-bold text-white">Enable / Disable & Set Plans</p>
-              <p className="text-gray-400 text-[11px] mt-0.5">Toggle each property Active/Locked and assign pricing.</p>
-            </div>
-          </div>
-        </div>
+        
       </div>
 
       {/* 📊 SYSTEM METRICS */}
