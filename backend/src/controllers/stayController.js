@@ -377,11 +377,6 @@ exports.checkout = async (req, res, next) => {
       throw new Error('Stay is already checked out');
     }
 
-    // Automatically mark the room as Dirty for housekeeping
-    await Room.findByIdAndUpdate(stay.room, {
-      $set: { housekeepingStatus: 'Dirty' }
-    });
-
     if (checkoutPayment > 0) {
       await Payment.create({
         stay: stay._id,

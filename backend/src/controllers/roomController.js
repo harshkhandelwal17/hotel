@@ -60,9 +60,7 @@ exports.getRooms = async (req, res, next) => {
     const { getHostelFilter } = require('../utils/hostelAccess');
     const filter = await getHostelFilter(req.user, req.query.hostel);
 
-    const rooms = await Room.find(filter)
-      .populate('hostel', 'name address contactNumber email aiOcrEnabled whatsappSyncEnabled')
-      .populate('lastCleanedBy', 'name');
+    const rooms = await Room.find(filter).populate('hostel', 'name address contactNumber email aiOcrEnabled whatsappSyncEnabled');
 
     // Only load open stays for the same hostel scope (not globally)
     const stayFilter = {
@@ -218,32 +216,6 @@ exports.endMaintenance = async (req, res, next) => {
     await room.save();
 
     res.status(200).json({ success: true, data: room });
-  } catch (error) {
-    sendError(res, next, error);
-  }
-};
-
-// PATCH /api/rooms/:id/housekeeping  { housekeepingStatus }
-exports.updateHousekeeping = async (req, res, next) => {
-  try {
-    const room = await loadAuthorizedRoom(req);
-    const { housekeepingStatus } = req.body;
-
-    if (!['Clean', 'Dirty', 'Cleaning'].includes(housekeepingStatus)) {
-      throw new Error('Invalid housekeeping status. Must be Clean, Dirty, or Cleaning');
-    }
-
-    room.housekeepingStatus = housekeepingStatus;
-    if (housekeepingStatus === 'Clean') {
-      room.lastCleanedAt = new Date();
-      room.lastCleanedBy = req.user._id;
-    }
-    await room.save();
-
-    const populated = await Room.findById(room._id)
-      .populate('lastCleanedBy', 'name');
-
-    res.status(200).json({ success: true, data: populated });
   } catch (error) {
     sendError(res, next, error);
   }

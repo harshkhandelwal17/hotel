@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext, Link } from 'react-router-dom';
 import axios from 'axios';
-import { Users, Clock, CheckCircle2, Wrench, BedDouble, RefreshCw, Search, Sparkles } from 'lucide-react';
+import { Users, Clock, CheckCircle2, Wrench, BedDouble, RefreshCw, Search } from 'lucide-react';
 import { format, isPast } from 'date-fns';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
@@ -56,45 +56,22 @@ const RoomsView = () => {
     finally { setLoading(false); }
   };
 
-  const handleHousekeeping = async (room, status) => {
-    try {
-      // Optimistic instant UI update
-      setRooms(prev => prev.map(r => r._id === room._id ? { ...r, housekeepingStatus: status, lastCleanedAt: status === 'Clean' ? new Date() : r.lastCleanedAt } : r));
-      await axios.patch(`${API}/api/rooms/${room._id}/housekeeping`, { housekeepingStatus: status });
-    } catch (err) {
-      console.error('Failed to update housekeeping:', err);
-      fetchData(); // Rollback on error
-    }
-  };
-
   const getRoomStatus = (room) => {
     const stay = activeStays.find(s => s.room?._id === room._id);
-    if (room.status === 'Maintenance') return { label: 'Maintenance', stay: null, hk: 'Maintenance' };
-    if (stay) return { label: 'Occupied', stay, hk: 'Occupied' };
-    const hk = room.housekeepingStatus || 'Clean';
-    return { label: 'Available', stay: null, hk };
+    if (room.status === 'Maintenance') return { label: 'Maintenance', stay: null };
+    if (stay) return { label: 'Occupied', stay };
+    return { label: 'Available', stay: null };
   };
 
   const filtered = rooms.filter(room => {
     const status = getRoomStatus(room);
     const matchSearch = !search || room.roomNumber.toLowerCase().includes(search.toLowerCase()) ||
       status.stay?.guest?.fullName?.toLowerCase().includes(search.toLowerCase());
-    
-    let matchFilter = true;
-    if (filter === 'clean') {
-      matchFilter = status.label === 'Available' && (room.housekeepingStatus === 'Clean' || !room.housekeepingStatus);
-    } else if (filter === 'dirty') {
-      matchFilter = status.label === 'Available' && (room.housekeepingStatus === 'Dirty' || room.housekeepingStatus === 'Cleaning');
-    } else if (filter === 'occupied') {
-      matchFilter = status.label === 'Occupied';
-    } else if (filter === 'maintenance') {
-      matchFilter = status.label === 'Maintenance';
-    }
+    const matchFilter = filter === 'all' || status.label.toLowerCase() === filter;
     return matchSearch && matchFilter;
   });
 
-  const cleanCount = rooms.filter(r => getRoomStatus(r).label === 'Available' && (r.housekeepingStatus === 'Clean' || !r.housekeepingStatus)).length;
-  const dirtyCount = rooms.filter(r => getRoomStatus(r).label === 'Available' && (r.housekeepingStatus === 'Dirty' || r.housekeepingStatus === 'Cleaning')).length;
+  const availCount = rooms.filter(r => getRoomStatus(r).label === 'Available').length;
   const occupCount = rooms.filter(r => getRoomStatus(r).label === 'Occupied').length;
   const maintCount = rooms.filter(r => getRoomStatus(r).label === 'Maintenance').length;
 
@@ -116,27 +93,14 @@ const RoomsView = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4">
         <div>
-          <h1 className="text-3xl font-black text-gray-900 tracking-tight">Room Status & Housekeeping</h1>
-          <div className="flex items-center gap-3 mt-2 flex-wrap text-xs sm:text-sm font-bold">
-            <span className="flex items-center gap-1.5 text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200/60">
-              <Sparkles size={13} className="text-emerald-600" /> {cleanCount} Clean & Ready
-            </span>
-            {dirtyCount > 0 && (
-              <span className="flex items-center gap-1.5 text-amber-800 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200 animate-pulse">
-                🧹 {dirtyCount} Needs Cleaning
-              </span>
-            )}
-            <span className="flex items-center gap-1.5 text-red-700 bg-red-50 px-2.5 py-1 rounded-lg border border-red-200/60">
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" /> {occupCount} Occupied
-            </span>
-            {maintCount > 0 && (
-              <span className="flex items-center gap-1.5 text-yellow-700 bg-yellow-50 px-2.5 py-1 rounded-lg border border-yellow-200/60">
-                <Wrench size={13} className="text-yellow-600" /> {maintCount} Maintenance
-              </span>
-            )}
+          <h1 className="text-3xl font-black text-gray-900 tracking-tight">Room Status</h1>
+          <div className="flex items-center gap-4 mt-2 flex-wrap">
+            <span className="flex items-center gap-1.5 text-sm font-bold text-green-600"><span className="w-2 h-2 rounded-full bg-green-500" />{availCount} Available</span>
+            <span className="flex items-center gap-1.5 text-sm font-bold text-red-600"><span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />{occupCount} Occupied</span>
+            {maintCount > 0 && <span className="flex items-center gap-1.5 text-sm font-bold text-yellow-600"><span className="w-2 h-2 rounded-full bg-yellow-500" />{maintCount} Maintenance</span>}
           </div>
         </div>
-        <button onClick={fetchData} className="p-2.5 text-gray-500 hover:text-black bg-white border border-gray-200 rounded-xl hover:border-gray-400 transition-all self-start sm:self-auto shadow-xs">
+        <button onClick={fetchData} className="p-2.5 text-gray-500 hover:text-black bg-white border border-gray-200 rounded-xl hover:border-gray-400 transition-all self-start sm:self-auto">
           <RefreshCw size={18} />
         </button>
       </div>
@@ -148,20 +112,14 @@ const RoomsView = () => {
           <input
             type="text" placeholder="Search room or guest..." value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-3 bg-white border border-gray-200 rounded-xl font-bold text-sm text-gray-900 focus:border-black focus:ring-0 outline-none transition-all shadow-xs"
+            className="w-full pl-9 pr-4 py-3 bg-white border border-gray-200 rounded-xl font-bold text-sm text-gray-900 focus:border-black focus:ring-0 outline-none transition-all"
           />
         </div>
         <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 sm:pb-0 no-scrollbar">
-          {[
-            { key: 'all', label: `All (${rooms.length})` },
-            { key: 'clean', label: `Clean (${cleanCount})` },
-            { key: 'dirty', label: `Dirty (${dirtyCount})` },
-            { key: 'occupied', label: `Occupied (${occupCount})` },
-            { key: 'maintenance', label: `Maintenance (${maintCount})` }
-          ].map(f => (
-            <button key={f.key} onClick={() => setFilter(f.key)}
-              className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all shrink-0 ${filter === f.key ? 'bg-black text-white shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-400'}`}>
-              {f.label}
+          {['all', 'available', 'occupied', 'maintenance'].map(f => (
+            <button key={f} onClick={() => setFilter(f)}
+              className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all shrink-0 ${filter === f ? 'bg-black text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:border-gray-400'}`}>
+              {f}
             </button>
           ))}
         </div>
@@ -169,78 +127,35 @@ const RoomsView = () => {
 
       {/* Room Grid */}
       {filtered.length === 0 ? (
-        <div className="text-center py-20 text-gray-400 font-bold bg-white rounded-2xl border border-gray-100">No rooms match the current filter.</div>
+        <div className="text-center py-20 text-gray-400 font-bold">No rooms found.</div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
           {filtered.map((room) => {
             const { label, stay } = getRoomStatus(room);
-            const isDirty = label === 'Available' && room.housekeepingStatus === 'Dirty';
-            const isCleaning = label === 'Available' && room.housekeepingStatus === 'Cleaning';
-            
-            // Dynamic Header border
-            const cardBorder = label === 'Occupied' 
-              ? 'border-red-200 hover:border-red-400 shadow-xs' 
-              : label === 'Maintenance' 
-              ? 'border-yellow-200' 
-              : isDirty 
-              ? 'border-amber-300 shadow-xs' 
-              : isCleaning 
-              ? 'border-blue-300' 
-              : 'border-emerald-200 hover:border-emerald-400 shadow-xs';
-
-            const topBarColor = label === 'Occupied' 
-              ? 'bg-red-500' 
-              : label === 'Maintenance' 
-              ? 'bg-yellow-400' 
-              : isDirty 
-              ? 'bg-amber-400' 
-              : isCleaning 
-              ? 'bg-blue-400' 
-              : 'bg-emerald-500';
-
-            const headerBg = label === 'Occupied' 
-              ? 'bg-red-50/50' 
-              : label === 'Maintenance' 
-              ? 'bg-yellow-50/50' 
-              : isDirty 
-              ? 'bg-amber-50/50' 
-              : isCleaning 
-              ? 'bg-blue-50/50' 
-              : 'bg-emerald-50/50';
-
+            const cfg = statusConfig[label];
             const balance = stay ? stay.totalAmount - stay.paidAmount : 0;
             const isOverdue = stay && isPast(new Date(stay.expectedCheckOutDate));
-
             return (
-              <div key={room._id} className={`bg-white rounded-2xl border-2 overflow-hidden transition-all hover:shadow-md ${cardBorder}`}>
+              <div key={room._id} className={`bg-white rounded-2xl border-2 shadow-sm overflow-hidden transition-all hover:shadow-md ${cfg.card}`}>
                 {/* Top Color Bar */}
-                <div className={`h-1.5 w-full ${topBarColor}`} />
+                <div className={`h-1.5 w-full ${label === 'Available' ? 'bg-green-400' : label === 'Occupied' ? 'bg-red-500' : 'bg-yellow-400'}`} />
                 
-                <div className={`px-4 py-3 ${headerBg} border-b border-gray-100`}>
+                <div className={`px-4 py-3 ${cfg.header} border-b border-gray-100`}>
                   <div className="flex justify-between items-start">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full ${label === 'Occupied' ? 'bg-red-500 animate-pulse' : label === 'Maintenance' ? 'bg-yellow-500' : isDirty ? 'bg-amber-500' : isCleaning ? 'bg-blue-500 animate-pulse' : 'bg-emerald-500'} flex-shrink-0`} />
+                        <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot} flex-shrink-0`} />
                         <h3 className="font-black text-gray-900 text-lg leading-none">Room {room.roomNumber}</h3>
                       </div>
                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Floor {room.floor || '-'} • Cap {room.capacity}</p>
                     </div>
-
-                    {label === 'Occupied' ? (
-                      <span className="text-[10px] font-black text-red-700 bg-red-100 px-2 py-0.5 rounded-md uppercase">Occupied</span>
-                    ) : label === 'Maintenance' ? (
-                      <Wrench size={18} className="text-yellow-600" />
-                    ) : isDirty ? (
-                      <span className="text-[10px] font-black text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md uppercase">Dirty</span>
-                    ) : isCleaning ? (
-                      <span className="text-[10px] font-black text-blue-700 bg-blue-100 px-2 py-0.5 rounded-md uppercase">Cleaning</span>
-                    ) : (
-                      <CheckCircle2 size={18} className="text-emerald-600" />
-                    )}
+                    {label === 'Available' ? <CheckCircle2 size={18} className="text-green-500" /> :
+                     label === 'Occupied' ? <Users size={18} className="text-red-500" /> :
+                     <Wrench size={18} className="text-yellow-500" />}
                   </div>
                 </div>
 
-                <div className="p-3.5 space-y-2.5">
+                <div className="p-3 space-y-2">
                   {stay ? (
                     <>
                       <p className="font-black text-gray-900 text-sm truncate">{stay.guest?.fullName}</p>
@@ -253,106 +168,24 @@ const RoomsView = () => {
                         <div className="bg-red-50 border border-red-100 text-red-700 text-[10px] font-black px-2 py-1 rounded-lg">₹{balance} due</div>
                       )}
                       {isOverdue && <div className="bg-red-500 text-white text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-widest">⚠ Overdue</div>}
-                      <Link to={`/checkouts?stay=${stay._id}`} className="block mt-1 text-center text-[10px] font-black uppercase tracking-widest py-2 bg-black text-white rounded-xl hover:bg-gray-800 transition-all active:scale-95 shadow-xs">
+                      <Link to={`/checkouts?stay=${stay._id}`} className="block mt-1 text-center text-[10px] font-black uppercase tracking-widest py-2 bg-black text-white rounded-xl hover:bg-gray-800 transition-all active:scale-95">
                         Manage →
                       </Link>
                     </>
                   ) : label === 'Available' ? (
-                    <div className="space-y-2">
-                      {/* Housekeeping Pill */}
-                      {isDirty ? (
-                        <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-2.5 text-center">
-                          <p className="text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 text-amber-900">
-                            🧹 Needs Cleaning
-                          </p>
-                          <p className="text-[10px] text-amber-700 font-semibold mt-0.5">Guest checked out</p>
-                        </div>
-                      ) : isCleaning ? (
-                        <div className="bg-blue-50 border border-blue-200 text-blue-900 rounded-xl p-2.5 text-center">
-                          <p className="text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 text-blue-800 animate-pulse">
-                            ⏳ Cleaning in Progress...
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-xl p-2 text-center">
-                          <p className="text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 text-emerald-700">
-                            <Sparkles size={12} /> Clean & Ready
-                          </p>
-                          {room.lastCleanedAt && (
-                            <p className="text-[9px] text-emerald-600 font-bold mt-0.5">
-                              Cleaned: {format(new Date(room.lastCleanedAt), 'dd MMM, hh:mm a')}
-                            </p>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Tariffs */}
-                      <div className="space-y-1 text-[10px] text-gray-500 pt-1 border-t border-gray-100">
+                    <>
+                      <p className="text-xs font-bold text-gray-400 text-center mt-1">Ready for guest</p>
+                      <div className="space-y-1.5 text-[10px] text-gray-500">
                         <div className="flex justify-between"><span>12h Rate</span><span className="font-black text-gray-800">₹{room.price12h || '—'}</span></div>
                         <div className="flex justify-between"><span>24h Rate</span><span className="font-black text-gray-800">₹{room.price24h || '—'}</span></div>
                       </div>
-
-                      {/* Actions based on Housekeeping Status */}
-                      {isDirty ? (
-                        <div className="space-y-1.5 pt-1">
-                          <button
-                            type="button"
-                            onClick={() => handleHousekeeping(room, 'Clean')}
-                            className="w-full text-center text-[10px] font-black uppercase tracking-widest py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all active:scale-95 shadow-sm flex items-center justify-center gap-1.5"
-                          >
-                            <Sparkles size={12} /> Mark Cleaned
-                          </button>
-                          <div className="grid grid-cols-2 gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handleHousekeeping(room, 'Cleaning')}
-                              className="text-[9px] font-bold py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg transition-colors"
-                            >
-                              ⏳ In Progress
-                            </button>
-                            <Link
-                              to="/checkin"
-                              className="text-[9px] font-bold py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-center rounded-lg transition-colors"
-                            >
-                              + Check-In
-                            </Link>
-                          </div>
-                        </div>
-                      ) : isCleaning ? (
-                        <div className="space-y-1.5 pt-1">
-                          <button
-                            type="button"
-                            onClick={() => handleHousekeeping(room, 'Clean')}
-                            className="w-full text-center text-[10px] font-black uppercase tracking-widest py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all active:scale-95 shadow-sm flex items-center justify-center gap-1.5"
-                          >
-                            <Sparkles size={12} /> Finish Cleaning (Clean)
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="space-y-1.5 pt-1">
-                          <Link to="/checkin" className="block text-center text-[10px] font-black uppercase tracking-widest py-2 bg-black text-white rounded-xl hover:bg-gray-800 transition-all active:scale-95 shadow-sm">
-                            + Check In
-                          </Link>
-                          <div className="grid grid-cols-2 gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handleHousekeeping(room, 'Dirty')}
-                              className="text-[9px] font-bold py-1.5 text-amber-800 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"
-                              title="Mark room as Dirty if inspection finds it needs cleaning"
-                            >
-                              🧹 Mark Dirty
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => openMaintenance(room, 'start')}
-                              className="text-[9px] font-bold py-1.5 text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg hover:bg-yellow-100 transition-colors flex items-center justify-center gap-1"
-                            >
-                              <Wrench size={10} /> Maintenance
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                      <Link to="/checkin" className="block mt-1 text-center text-[10px] font-black uppercase tracking-widest py-2 bg-green-500 text-white rounded-xl hover:bg-green-600 transition-all active:scale-95">
+                        + Check In
+                      </Link>
+                      <button onClick={() => openMaintenance(room, 'start')} className="w-full flex items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-widest py-1.5 text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-xl hover:bg-yellow-100 transition-all">
+                        <Wrench size={11} /> Maintenance
+                      </button>
+                    </>
                   ) : (
                     <>
                       <p className="text-xs font-black text-yellow-700 text-center">Under Maintenance</p>
@@ -362,7 +195,7 @@ const RoomsView = () => {
                       {room.maintenanceSince && (
                         <p className="text-[10px] font-bold text-gray-400 text-center">Since {format(new Date(room.maintenanceSince), 'dd MMM, hh:mm a')}</p>
                       )}
-                      <button onClick={() => openMaintenance(room, 'end')} className="w-full text-[10px] font-black uppercase tracking-widest py-2 bg-yellow-500 text-white rounded-xl hover:bg-yellow-600 transition-all active:scale-95 shadow-xs">
+                      <button onClick={() => openMaintenance(room, 'end')} className="w-full text-[10px] font-black uppercase tracking-widest py-2 bg-yellow-500 text-white rounded-xl hover:bg-yellow-600 transition-all active:scale-95">
                         ✓ Mark Repaired
                       </button>
                     </>

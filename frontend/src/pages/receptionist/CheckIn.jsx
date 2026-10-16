@@ -245,32 +245,6 @@ const CheckIn = () => {
     (room) => room._id === stayInfo.room
   );
 
-  const [cleaningRoomId, setCleaningRoomId] = useState(null);
-
-  const handleQuickCleanRoom = async (roomId) => {
-    if (!roomId) return;
-    setCleaningRoomId(roomId);
-    try {
-      const token = localStorage.getItem('token');
-      await axios.patch(
-        `${API}/api/rooms/${roomId}/housekeeping`,
-        { housekeepingStatus: 'Clean' },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setRooms((prev) =>
-        prev.map((r) =>
-          r._id === roomId ? { ...r, housekeepingStatus: 'Clean' } : r
-        )
-      );
-      toast({ message: 'Room marked Cleaned & Ready!', type: 'success' });
-    } catch (err) {
-      console.error('Failed to update housekeeping:', err);
-      toast({ message: 'Failed to update room cleanliness', type: 'error' });
-    } finally {
-      setCleaningRoomId(null);
-    }
-  };
-
   const availableFloors = useMemo(() => {
     const floorMap = {};
     const allowOccupied = Boolean(stayInfo.isBackdated && stayInfo.isAlreadyCheckedOut);
@@ -1892,20 +1866,6 @@ const CheckIn = () => {
                           <div className={`text-[10px] sm:text-[11px] font-bold mt-1 px-1.5 py-0.5 rounded-md inline-block truncate max-w-full ${active ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'}`}>
                             {room.floor ? `Fl.${room.floor}` : ''} {room.roomType ? `• ${room.roomType.replace('Standard ', '')}` : ''}
                           </div>
-                          {room.housekeepingStatus === 'Dirty' && (
-                            <div className="mt-1">
-                              <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider inline-flex items-center gap-0.5 ${active ? 'bg-amber-400 text-black' : 'bg-amber-100 text-amber-800 border border-amber-300'}`}>
-                                🧹 Dirty
-                              </span>
-                            </div>
-                          )}
-                          {room.housekeepingStatus === 'Cleaning' && (
-                            <div className="mt-1">
-                              <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider inline-flex items-center gap-0.5 ${active ? 'bg-blue-400 text-black' : 'bg-blue-100 text-blue-800 border border-blue-300'}`}>
-                                ⏳ Cleaning
-                              </span>
-                            </div>
-                          )}
                           {room.price24h > 0 && (
                             <div className={`text-xs sm:text-sm font-black font-mono mt-1 ${active ? 'text-amber-300' : 'text-emerald-700'}`}>
                               ₹{room.price24h}
@@ -1960,45 +1920,6 @@ const CheckIn = () => {
                     </div>
                   )}
                 </div>
-
-                {/* HOUSEKEEPING WARNING & 1-CLICK CLEAN BUTTON */}
-                {selectedRoomDetails?.housekeepingStatus === 'Dirty' && (
-                  <div className="p-3 rounded-xl bg-amber-500/15 border border-amber-500/35 text-amber-200 text-xs flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle size={16} className="text-amber-400 shrink-0" />
-                      <div>
-                        <p className="font-black text-amber-300 text-xs leading-tight">Room is Dirty</p>
-                        <p className="text-[10px] text-amber-300/80 mt-0.5">Mark cleaned before allotting?</p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleQuickCleanRoom(selectedRoomDetails._id)}
-                      disabled={cleaningRoomId === selectedRoomDetails._id}
-                      className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black text-[11px] rounded-lg transition-all shadow-sm flex items-center gap-1 shrink-0"
-                    >
-                      <Sparkles size={12} />
-                      <span>{cleaningRoomId === selectedRoomDetails._id ? 'Updating...' : 'Mark Cleaned'}</span>
-                    </button>
-                  </div>
-                )}
-                {selectedRoomDetails?.housekeepingStatus === 'Cleaning' && (
-                  <div className="p-2.5 rounded-xl bg-blue-500/15 border border-blue-500/35 text-blue-200 text-xs flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <Sparkles size={14} className="text-blue-300 shrink-0 animate-spin" />
-                      <span className="font-bold text-xs text-blue-200">Cleaning in progress</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleQuickCleanRoom(selectedRoomDetails._id)}
-                      disabled={cleaningRoomId === selectedRoomDetails._id}
-                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black text-[11px] rounded-lg transition-all shadow-sm flex items-center gap-1 shrink-0"
-                    >
-                      <CheckCircle2 size={12} />
-                      <span>Done (Clean)</span>
-                    </button>
-                  </div>
-                )}
 
                 {stayInfo.isBackdated && (
                   <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-bold space-y-1">
