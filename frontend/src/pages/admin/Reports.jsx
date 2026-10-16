@@ -50,6 +50,29 @@ const Reports = () => {
   }, []);
 
   const [paymentMethodFilter, setPaymentMethodFilter] = useState('all');
+  const [staffFilter, setStaffFilter] = useState('all');
+
+  // Extract list of all staff / receptionists who handled stays or payments
+  const staffList = useMemo(() => {
+    const map = new Map();
+    payments.forEach(p => {
+      const creator = p.createdBy;
+      if (creator && typeof creator === 'object' && creator._id) {
+        if (!map.has(creator._id)) {
+          map.set(creator._id, { id: creator._id, name: creator.name || 'Staff', role: creator.role || 'Receptionist' });
+        }
+      }
+    });
+    stays.forEach(s => {
+      const creator = s.createdBy;
+      if (creator && typeof creator === 'object' && creator._id) {
+        if (!map.has(creator._id)) {
+          map.set(creator._id, { id: creator._id, name: creator.name || 'Staff', role: creator.role || 'Receptionist' });
+        }
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [payments, stays]);
 
   // Filter Stays
   const filteredStays = useMemo(() => {
@@ -80,10 +103,16 @@ const Reports = () => {
            if (!isWithinInterval(date, { start, end })) return false;
         }
       }
+
+      // 4. Staff Filter
+      if (staffFilter !== 'all') {
+        const creatorId = stay.createdBy?._id || (typeof stay.createdBy === 'string' ? stay.createdBy : null);
+        if (creatorId !== staffFilter) return false;
+      }
       
       return true;
     }).sort((a, b) => new Date(b.checkInDate) - new Date(a.checkInDate));
-  }, [stays, hostelFilter, searchQuery, dateFilter, customStart, customEnd]);
+  }, [stays, hostelFilter, searchQuery, dateFilter, customStart, customEnd, staffFilter]);
 
   // Filter Payments
   const filteredPayments = useMemo(() => {
@@ -119,10 +148,16 @@ const Reports = () => {
            if (!isWithinInterval(date, { start, end })) return false;
         }
       }
+
+      // 5. Staff / Receptionist Filter
+      if (staffFilter !== 'all') {
+        const creatorId = payment.createdBy?._id || (typeof payment.createdBy === 'string' ? payment.createdBy : null);
+        if (creatorId !== staffFilter) return false;
+      }
       
       return true;
     }).sort((a, b) => new Date(b.paymentDate) - new Date(a.paymentDate));
-  }, [payments, hostelFilter, searchQuery, paymentMethodFilter, dateFilter, customStart, customEnd]);
+  }, [payments, hostelFilter, searchQuery, paymentMethodFilter, dateFilter, customStart, customEnd, staffFilter]);
 
   // Calculate Financial Stats
   const stats = useMemo(() => {
@@ -302,6 +337,19 @@ const Reports = () => {
           </select>
         )}
 
+        <select
+          value={staffFilter}
+          onChange={e => setStaffFilter(e.target.value)}
+          className="w-full md:w-48 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-black outline-none appearance-none"
+        >
+          <option value="all">All Staff / Receptionists</option>
+          {staffList.map(s => (
+            <option key={s.id} value={s.id}>
+              {s.name} ({s.role})
+            </option>
+          ))}
+        </select>
+
         {globalProperty === 'all' && (
           <select value={hostelFilter} onChange={e => setHostelFilter(e.target.value)} className="w-full md:w-48 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-black outline-none appearance-none">
             <option value="all">All Properties</option>
@@ -389,7 +437,14 @@ const Reports = () => {
                       <tr key={stay._id} className="hover:bg-gray-50/80 transition-colors">
                         <td className="px-6 py-4">
                           <p className="font-bold text-gray-900">{format(new Date(stay.checkInDate), 'dd MMM yyyy')}</p>
-                          <p className="text-xs font-bold text-indigo-600 mt-0.5">Room {stay.room?.roomNumber}</p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-xs font-bold text-indigo-600">Room {stay.room?.roomNumber}</span>
+                            {stay.createdBy?.name && (
+                              <span className="text-[10px] text-gray-400 font-medium truncate max-w-[120px]">
+                                • {stay.createdBy.name}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4">
                           <p className="font-bold text-gray-900">{stay.guest?.fullName}</p>

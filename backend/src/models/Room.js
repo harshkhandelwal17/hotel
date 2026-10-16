@@ -50,6 +50,16 @@ const roomSchema = new mongoose.Schema({
     enum: ['Active', 'Maintenance', 'Inactive'],
     default: 'Active'
   },
+  housekeepingStatus: {
+    type: String,
+    enum: ['Clean', 'Dirty', 'Cleaning'],
+    default: 'Clean'
+  },
+  lastCleanedAt: Date,
+  lastCleanedBy: {
+    type: mongoose.Schema.ObjectId,
+    ref: 'User'
+  },
   // Current maintenance details (only meaningful while status === 'Maintenance')
   maintenanceReason: String,
   maintenanceSince: Date,

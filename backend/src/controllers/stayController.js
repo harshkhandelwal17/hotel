@@ -146,6 +146,7 @@ exports.getStays = async (req, res, next) => {
       .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth')
       .populate('room', 'roomNumber price24h extraPerPerson24h')
       .populate('hostel', 'name address contactNumber')
+      .populate('createdBy', 'name role')
       .sort('-expectedCheckOutDate')
       .lean();
 
@@ -375,6 +376,11 @@ exports.checkout = async (req, res, next) => {
     if (!flipped) {
       throw new Error('Stay is already checked out');
     }
+
+    // Automatically mark the room as Dirty for housekeeping
+    await Room.findByIdAndUpdate(stay.room, {
+      $set: { housekeepingStatus: 'Dirty' }
+    });
 
     if (checkoutPayment > 0) {
       await Payment.create({
