@@ -2,8 +2,9 @@ import { useState, useEffect, useCallback, useContext } from 'react';
 import { useOutletContext, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { format, isPast } from 'date-fns';
-import { Users, BedDouble, CalendarCheck, Clock, CreditCard, ChevronRight, AlertTriangle, PlusCircle, RefreshCw, Download, Phone } from 'lucide-react';
+import { Users, BedDouble, CalendarCheck, Clock, CreditCard, ChevronRight, AlertTriangle, PlusCircle, RefreshCw, Download, Phone, ShieldCheck } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
+import PoliceReportModal from '../admin/PoliceReportModal';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
 
@@ -28,6 +29,7 @@ const ReceptionistDashboard = () => {
   const [recentStays, setRecentStays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showPoliceModal, setShowPoliceModal] = useState(false);
   const [now, setNow] = useState(new Date());
   const { globalProperty } = useOutletContext() || { globalProperty: 'all' };
 
@@ -92,7 +94,16 @@ const ReceptionistDashboard = () => {
           <h1 className="text-3xl font-black text-gray-900 tracking-tight">Good {now.getHours() < 12 ? 'Morning' : now.getHours() < 17 ? 'Afternoon' : 'Evening'} 👋</h1>
           <p className="text-gray-500 mt-1 font-medium text-sm">{format(now, 'hh:mm a')} • {stats?.occupiedRooms || 0} rooms occupied</p>
         </div>
-        <div className="flex gap-3 flex-wrap">
+        <div className="flex gap-2.5 sm:gap-3 flex-wrap items-center">
+          <button 
+            type="button"
+            onClick={() => setShowPoliceModal(true)} 
+            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black uppercase tracking-wider text-xs shadow-md transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+            title="Generate Official Police Verification Report"
+          >
+            <ShieldCheck size={16} />
+            <span>Police Report</span>
+          </button>
           <button onClick={() => fetchDashboardData(true)} className={`p-2.5 text-gray-500 hover:text-black bg-white border border-gray-200 rounded-xl transition-all ${refreshing ? 'animate-spin' : 'hover:border-gray-400'}`}>
             <RefreshCw size={18} />
           </button>
@@ -261,6 +272,12 @@ const ReceptionistDashboard = () => {
           )}
         </div>
       </div>
+      {/* Official Police Verification Report Modal */}
+      <PoliceReportModal
+        isOpen={showPoliceModal}
+        onClose={() => setShowPoliceModal(false)}
+        defaultHostel={globalProperty}
+      />
     </div>
   );
 };

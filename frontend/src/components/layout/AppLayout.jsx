@@ -5,6 +5,7 @@ import { AuthContext } from '../../context/AuthContext';
 import { Home, Users, Bed, LogOut, Bell, PlusCircle, Building, CreditCard, BarChart3, Hexagon, ShieldCheck, Menu, X, ShieldAlert, LayoutGrid, Volume2, VolumeX, Phone, BellRing } from 'lucide-react';
 import GlobalSearch from '../common/GlobalSearch';
 import soundAlert from '../../utils/soundAlert';
+import PoliceReportModal from '../../pages/admin/PoliceReportModal';
 
 const AppLayout = ({ children }) => {
   const { user, logout } = useContext(AuthContext);
@@ -13,6 +14,7 @@ const AppLayout = ({ children }) => {
   const [globalProperty, setGlobalProperty] = useState(localStorage.getItem('adminGlobalProperty') || 'all');
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showPoliceModal, setShowPoliceModal] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -239,7 +241,20 @@ const AppLayout = ({ children }) => {
             </div>
             
             {/* Profile & Actions */}
-            <div className="flex items-center gap-2 md:gap-4">
+            <div className="flex items-center gap-2 md:gap-3">
+              {/* Official Police Verification Report Button for Staff / Receptionists / Admin */}
+              {user && user.role !== 'superadmin' && (
+                <button
+                  type="button"
+                  onClick={() => setShowPoliceModal(true)}
+                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-sm transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                  title="Generate Official Police Verification Report"
+                >
+                  <ShieldCheck size={14} />
+                  <span className="hidden sm:inline">Police Report</span>
+                </button>
+              )}
+
               {user?.role === 'admin' && (
                 <select 
                   value={globalProperty} 
@@ -476,6 +491,13 @@ const AppLayout = ({ children }) => {
           </div>
         </nav>
       )}
+
+      {/* Official Police Verification Report Modal */}
+      <PoliceReportModal
+        isOpen={showPoliceModal}
+        onClose={() => setShowPoliceModal(false)}
+        defaultHostel={globalProperty}
+      />
       
     </div>
   );

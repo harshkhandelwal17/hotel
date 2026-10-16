@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import axios from 'axios';
 import { createPortal } from 'react-dom';
 import { format } from 'date-fns';
 import { 
@@ -20,6 +21,32 @@ import {
 
 export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels = [], defaultHostel = 'all' }) {
   if (!isOpen) return null;
+
+  // Internal data fetch fallback if not provided via props
+  const [internalStays, setInternalStays] = useState([]);
+  const [internalHostels, setInternalHostels] = useState([]);
+  const [loadingInternal, setLoadingInternal] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && (!stays || stays.length === 0)) {
+      setLoadingInternal(true);
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      Promise.all([
+        axios.get(`${API}/api/stays`),
+        axios.get(`${API}/api/hostels`)
+      ]).then(([sRes, hRes]) => {
+        setInternalStays(sRes.data?.data || []);
+        setInternalHostels(hRes.data?.data || []);
+      }).catch(err => {
+        console.error('Failed to load stays for police report:', err);
+      }).finally(() => {
+        setLoadingInternal(false);
+      });
+    }
+  }, [isOpen, stays]);
+
+  const effectiveStays = stays && stays.length > 0 ? stays : internalStays;
+  const effectiveHostels = hostels && hostels.length > 0 ? hostels : internalHostels;
 
   // Filter States
   const [datePreset, setDatePreset] = useState('today'); // today, yesterday, last24h, last7days, thisMonth, custom, all
@@ -85,7 +112,7 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
 
   // Filter Stays based on main criteria
   const matchingStays = useMemo(() => {
-    return stays.filter(stay => {
+    return effectiveStays.filter(stay => {
       // 1. Property
       if (selectedHostel !== 'all') {
         const stayHostelId = stay.hostel?._id || stay.hostel;
@@ -115,7 +142,7 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
 
       return true;
     }).sort((a, b) => new Date(b.checkInDate) - new Date(a.checkInDate));
-  }, [stays, selectedHostel, statusFilter, start, end, filterBasis]);
+  }, [effectiveStays, selectedHostel, statusFilter, start, end, filterBasis]);
 
   // Build Flatted Police Report Rows (Primary + Co-Guests)
   const policeRows = useMemo(() => {
@@ -255,7 +282,7 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
     const past3DaysStart = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
     const past7DaysStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    stays.forEach(stay => {
+    effectiveStays.forEach(stay => {
       if (selectedHostel !== 'all') {
         const stayHostelId = stay.hostel?._id || stay.hostel;
         if (stayHostelId && stayHostelId.toString() !== selectedHostel.toString()) {
@@ -342,7 +369,7 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
     }
 
     return list.slice(0, 30);
-  }, [stays, allCurrentRows, selectedHostel, addDateFilter, addSearchQuery]);
+  }, [effectiveStays, allCurrentRows, selectedHostel, addDateFilter, addSearchQuery]);
 
   const handleAddGuestToReport = (guest) => {
     setManuallyAddedRows(prev => [...prev, guest]);
@@ -423,8 +450,8 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
       return;
     }
 
-    const currentHotel = hostels.find(h => h._id === selectedHostel);
-    const hotelHeading = currentHotel ? currentHotel.name : (hostels.length > 0 ? hostels[0].name : 'HOTEL / GUEST HOUSE');
+    const currentHotel = effectiveHostels.find(h => h._id === selectedHostel);
+    const hotelHeading = currentHotel ? currentHotel.name : (effectiveHostels.length > 0 ? effectiveHostels[0].name : 'HOTEL / GUEST HOUSE');
     const hotelAddr = currentHotel?.address || '';
     const hotelPhone = currentHotel?.contactNumber || '';
 
@@ -636,7 +663,7 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
                   className="w-full px-2.5 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 outline-none focus:border-black cursor-pointer"
                 >
                   <option value="all">All Properties</option>
-                  {hostels.map(h => (
+                  {effectiveHostels.map(h => (
                     <option key={h._id} value={h._id}>{h.name}</option>
                   ))}
                 </select>
