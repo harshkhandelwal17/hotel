@@ -151,6 +151,21 @@ const AppLayout = ({ children }) => {
     window.dispatchEvent(new Event('propertyChanged')); // simple way to notify
   };
 
+  // 🔒 Plan Expiration Detection
+  const isHostelExpired = (h) => {
+    if (!h) return false;
+    if (h.isActive === false) return true;
+    if (h.planStatus === 'expired') return true;
+    if (h.planEndDate && new Date(h.planEndDate) < new Date()) return true;
+    return false;
+  };
+
+  const activeHostel = user?.role === 'receptionist'
+    ? user?.assignedHostel
+    : (globalProperty !== 'all' ? hostels.find(h => h._id === globalProperty) : null);
+
+  const isCurrentPropertyExpired = isHostelExpired(activeHostel);
+
   const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
   const adminMenuRef = useRef(null);
 
@@ -338,11 +353,14 @@ const AppLayout = ({ children }) => {
                   title="Filter by Property"
                 >
                   <option value="all">🏢 All Properties</option>
-                  {hostels.map(h => (
-                    <option key={h._id} value={h._id} disabled={h.isActive === false}>
-                      {h.name} {h.isActive === false ? '🔒' : ''}
-                    </option>
-                  ))}
+                  {hostels.map(h => {
+                    const isExp = isHostelExpired(h);
+                    return (
+                      <option key={h._id} value={h._id}>
+                        {h.name} {isExp ? '🔒 (Expired)' : ''}
+                      </option>
+                    );
+                  })}
                 </select>
               )}
               <div className="relative">
@@ -458,7 +476,43 @@ const AppLayout = ({ children }) => {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-screen-2xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-24 md:pb-8 animate-in fade-in duration-500">
-        {children || <Outlet context={{ globalProperty }} />}
+        {isCurrentPropertyExpired && (
+          <div className="bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white rounded-2xl p-4 sm:p-5 shadow-lg mb-6 border-2 border-red-300 animate-in fade-in">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="w-11 h-11 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center shrink-0">
+                  <ShieldAlert className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest bg-black/40 px-2 py-0.5 rounded text-red-200">
+                      Account Locked
+                    </span>
+                    <h3 className="text-base font-black tracking-tight">Subscription Plan Expired</h3>
+                  </div>
+                  <p className="text-xs text-red-100 font-semibold mt-1">
+                    The subscription plan for <strong className="text-white underline">{activeHostel?.name || 'this property'}</strong> has expired. Guest check-in, checkout, and room operations are suspended.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+                {user?.role === 'admin' ? (
+                  <Link
+                    to="/admin/hostels"
+                    className="flex-1 sm:flex-none text-center px-4 py-2 bg-white text-red-700 hover:bg-red-50 font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95"
+                  >
+                    View Plan Details
+                  </Link>
+                ) : (
+                  <div className="text-xs font-bold bg-white/10 px-3 py-1.5 rounded-xl border border-white/20 text-white">
+                    Please contact Admin / SuperAdmin to renew
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        {children || <Outlet context={{ globalProperty, isCurrentPropertyExpired, activeHostel }} />}
       </main>
 
       {/* Mobile Navigation Overlay */}
@@ -489,12 +543,15 @@ const AppLayout = ({ children }) => {
                   onChange={e => { handlePropertyChange(e.target.value); setIsMobileMenuOpen(false); }}
                   className="w-full bg-gray-50 border border-gray-200 text-gray-700 text-sm rounded-xl focus:ring-black focus:border-black block p-3 font-semibold shadow-sm outline-none mb-4"
                 >
-                  <option value="all">🏢 All Active Properties</option>
-                  {hostels.map(h => (
-                    <option key={h._id} value={h._id} disabled={h.isActive === false}>
-                      {h.name} {h.isActive === false ? '🔒 (Locked / Expired)' : ''}
-                    </option>
-                  ))}
+                  <option value="all">🏢 All Properties</option>
+                  {hostels.map(h => {
+                    const isExp = isHostelExpired(h);
+                    return (
+                      <option key={h._id} value={h._id}>
+                        {h.name} {isExp ? '🔒 (Expired)' : ''}
+                      </option>
+                    );
+                  })}
                 </select>
               )}
             </div>

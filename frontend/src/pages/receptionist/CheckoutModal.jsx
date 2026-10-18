@@ -18,6 +18,12 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
   const totalNewCharges = chargesList.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
   const finalBalance = Math.max(0, baseBalance + totalNewCharges);
 
+  const isHostelExpired = stay?.hostel && (
+    stay.hostel.isActive === false || 
+    stay.hostel.planStatus === 'expired' || 
+    (stay.hostel.planEndDate && new Date(stay.hostel.planEndDate) < new Date())
+  );
+
   const handleAddCharge = () => setChargesList([...chargesList, { reason: '', amount: '' }]);
   const handleUpdateCharge = (idx, field, value) => {
     const updated = [...chargesList];
@@ -100,6 +106,12 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
         <form onSubmit={handleCheckout} className="flex flex-col flex-1 min-h-0">
           <div className="p-4 sm:p-6 space-y-5 sm:space-y-6 overflow-y-auto flex-1 min-h-0">
             {error && <div className="p-3 bg-red-50 border border-red-100 text-red-600 rounded-xl font-medium text-sm flex items-center gap-2"><AlertCircle size={16}/> {error}</div>}
+            {isHostelExpired && (
+              <div className="p-3.5 bg-red-50 border-2 border-red-300 text-red-900 rounded-xl font-bold text-xs flex items-center gap-2">
+                <AlertCircle size={18} className="text-red-600 shrink-0" />
+                <span>Subscription plan has expired for this property. Checkout is locked. Please contact Super Admin to renew.</span>
+              </div>
+            )}
             
             {/* Guest Identity Card */}
             <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 relative overflow-hidden">
@@ -231,9 +243,10 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
           
           <div className="px-4 sm:px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col-reverse sm:flex-row justify-end gap-3 rounded-b-3xl flex-shrink-0">
             <button type="button" onClick={onClose} className="w-full sm:w-auto px-5 py-3 sm:py-2.5 text-sm font-bold text-gray-600 bg-white sm:bg-transparent border sm:border-0 border-gray-200 rounded-xl hover:text-gray-900 hover:bg-gray-100 transition-colors">Cancel</button>
-            <button type="submit" disabled={loading || (finalBalance > 0 && Number(checkoutPayment) < finalBalance)} 
-              className="w-full sm:w-auto justify-center px-8 py-3.5 sm:py-2.5 bg-red-600 text-white text-sm font-black uppercase tracking-wide rounded-xl hover:bg-red-700 transition-colors shadow-md disabled:opacity-50 flex items-center gap-2 active:scale-95">
-              {loading ? 'Processing...' : 'Confirm Checkout'} <ChevronRight size={16}/>
+            <button type="submit" disabled={loading || isHostelExpired || (finalBalance > 0 && Number(checkoutPayment) < finalBalance)} 
+              className="w-full sm:w-auto justify-center px-8 py-3.5 sm:py-2.5 bg-red-600 text-white text-sm font-black uppercase tracking-wide rounded-xl hover:bg-red-700 transition-colors shadow-md disabled:opacity-50 flex items-center gap-2 active:scale-95"
+              title={isHostelExpired ? 'Subscription plan expired' : ''}>
+              {loading ? 'Processing...' : isHostelExpired ? '🔒 Plan Expired' : 'Confirm Checkout'} <ChevronRight size={16}/>
             </button>
           </div>
         </form>

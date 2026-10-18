@@ -10,8 +10,10 @@ exports.createGuest = async (req, res, next) => {
       if (!req.body.hostel) {
         return res.status(400).json({ success: false, message: 'Hostel is required' });
       }
-      await assertHostelAccess(req.user, req.body.hostel);
+      await assertHostelAccess(req.user, req.body.hostel, true);
       hostel = req.body.hostel;
+    } else {
+      await assertHostelAccess(req.user, hostel, true);
     }
 
     // Strip immutable fields

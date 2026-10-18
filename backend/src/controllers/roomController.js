@@ -14,8 +14,10 @@ exports.createRoom = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Not authorized to add room to this hostel' });
     }
 
-    if (targetHostel.isActive === false && req.user.role !== 'superadmin') {
-      return res.status(403).json({ success: false, message: 'This property is currently locked or inactive. Please contact Super Admin to activate.' });
+    if (req.user.role !== 'superadmin') {
+      if (targetHostel.isActive === false || targetHostel.planStatus === 'expired' || (targetHostel.planEndDate && new Date(targetHostel.planEndDate) < new Date())) {
+        return res.status(403).json({ success: false, message: 'Subscription plan has expired for this property. Please contact Super Admin to renew.' });
+      }
     }
 
     // 🔒 Enforce subscription plan room limit!

@@ -204,6 +204,8 @@ exports.getStay = async (req, res, next) => {
 exports.addCharge = async (req, res, next) => {
   try {
     const stay = await loadAuthorizedStay(req);
+    // 🔒 Enforce active subscription plan!
+    await assertHostelAccess(req.user, stay.hostel, true);
     if (!OPEN_STATUSES.includes(stay.status)) throw new Error('Charges can only be added to a guest who is still staying');
 
     const items = req.body.charges && Array.isArray(req.body.charges) ? req.body.charges : [req.body];
@@ -262,6 +264,8 @@ exports.removeCharge = async (req, res, next) => {
 exports.addPayment = async (req, res, next) => {
   try {
     const stay = await loadAuthorizedStay(req);
+    // 🔒 Enforce active subscription plan!
+    await assertHostelAccess(req.user, stay.hostel, true);
     if (stay.status === 'Cancelled') throw new Error('Stay is cancelled');
 
     const amount = Number(req.body.amount);
@@ -307,6 +311,8 @@ exports.addPayment = async (req, res, next) => {
 exports.checkout = async (req, res, next) => {
   try {
     const stay = await loadAuthorizedStay(req);
+    // 🔒 Enforce active subscription plan for checkout!
+    await assertHostelAccess(req.user, stay.hostel, true);
     if (stay.status === 'Checked Out') throw new Error('Stay is already checked out');
 
     const additionalCharges = Number(req.body.additionalCharges) || 0;

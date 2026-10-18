@@ -112,7 +112,7 @@ const CheckIn = () => {
   const navigate = useNavigate();
 
   const { user } = useContext(AuthContext) || {};
-  const { globalProperty } =
+  const { globalProperty, isCurrentPropertyExpired, activeHostel } =
     useOutletContext() || { globalProperty: 'all' };
 
   // =========================================================
@@ -1021,6 +1021,14 @@ const CheckIn = () => {
   // =========================================================
 
   const handleSubmit = async () => {
+    if (isCurrentPropertyExpired) {
+      toast({
+        message: 'Subscription plan has expired for this property. Check-in cannot be completed until renewed.',
+        type: 'error'
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -3147,14 +3155,18 @@ const CheckIn = () => {
             <button
               onClick={handleSubmit}
               disabled={
+                isCurrentPropertyExpired ||
                 !isStep2Valid ||
                 loading ||
                 uploadingImage
               }
               className="flex-1 py-3.5 sm:py-4 px-3 bg-black text-white rounded-2xl font-black uppercase tracking-wider text-xs sm:text-sm flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-800 transition-all shadow-xl active:scale-[0.98] min-w-0"
+              title={isCurrentPropertyExpired ? 'Subscription plan has expired for this property' : ''}
             >
               <span className="truncate">
-                {loading
+                {isCurrentPropertyExpired
+                  ? '🔒 Plan Expired'
+                  : loading
                   ? 'Finalizing...'
                   : 'Complete Check-In'}
               </span>
