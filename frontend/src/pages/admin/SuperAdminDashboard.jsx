@@ -396,14 +396,17 @@ const SuperAdminDashboard = () => {
 
   const filteredHostels = hostels.filter(h => 
     h.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (h.contactNumber && h.contactNumber.includes(searchQuery)) ||
     (h.owner?.name && h.owner.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (h.owner?.email && h.owner.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (h.owner?.phone && h.owner.phone.includes(searchQuery)) ||
     (h.address && h.address.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const filteredAllUsers = users.filter(u => 
     u.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
     u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (u.phone && u.phone.includes(searchQuery)) ||
     u.role.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -615,10 +618,21 @@ const SuperAdminDashboard = () => {
                       {/* Contact Info */}
                       <td className="px-6 py-4">
                         <div className="space-y-1">
-                          <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
-                            <Phone size={13} className="text-gray-400" />
-                            <span>{o.phone || 'No Phone Added'}</span>
-                          </div>
+                          {o.phone ? (
+                            <a 
+                              href={`tel:${o.phone}`}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-xs border border-emerald-200 transition-colors"
+                              title="Click to call"
+                            >
+                              <Phone size={13} className="text-emerald-600" />
+                              <span>{o.phone}</span>
+                            </a>
+                          ) : (
+                            <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 italic">
+                              <Phone size={13} className="text-gray-300" />
+                              <span>No phone added</span>
+                            </div>
+                          )}
                           <div className="text-[10px] font-bold text-gray-400">
                             Joined {new Date(o.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                           </div>
@@ -823,14 +837,23 @@ const SuperAdminDashboard = () => {
 
                       {/* Owner */}
                       <td className="px-6 py-4">
-                        <div className="space-y-0.5">
+                        <div className="space-y-1">
                           <div className="font-bold text-gray-900 text-xs flex items-center gap-1">
                             <Briefcase size={12} className="text-gray-400" />
                             <span>{h.owner?.name || 'Unassigned'}</span>
                           </div>
                           <div className="text-[11px] text-gray-500">{h.owner?.email || 'N/A'}</div>
-                          {h.owner?.phone && (
-                            <div className="text-[10px] font-bold text-gray-400">📞 {h.owner.phone}</div>
+                          {h.owner?.phone ? (
+                            <a 
+                              href={`tel:${h.owner.phone}`}
+                              className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline"
+                              title="Click to call owner"
+                            >
+                              <Phone size={10} className="text-emerald-600" />
+                              <span>{h.owner.phone}</span>
+                            </a>
+                          ) : (
+                            <div className="text-[10px] font-medium text-gray-400 italic">No owner phone</div>
                           )}
                         </div>
                       </td>
@@ -993,6 +1016,7 @@ const SuperAdminDashboard = () => {
               <thead className="bg-white border-b border-gray-100">
                 <tr>
                   <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">User Details</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Phone / Mobile</th>
                   <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Role & Assignment</th>
                   <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
                   <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
@@ -1009,9 +1033,22 @@ const SuperAdminDashboard = () => {
                         <div>
                           <p className="font-bold text-gray-900">{u.name}</p>
                           <p className="text-xs text-gray-500">{u.email}</p>
-                          {u.phone && <p className="text-[10px] font-bold text-gray-400">📞 {u.phone}</p>}
                         </div>
                       </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      {u.phone ? (
+                        <a 
+                          href={`tel:${u.phone}`}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-xs border border-emerald-200 transition-colors"
+                          title="Click to call"
+                        >
+                          <Phone size={12} className="text-emerald-600" />
+                          <span>{u.phone}</span>
+                        </a>
+                      ) : (
+                        <span className="text-xs text-gray-400 font-medium italic">No phone added</span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-lg ${
@@ -1071,6 +1108,17 @@ const SuperAdminDashboard = () => {
                     </td>
                   </tr>
                 ))}
+
+                {filteredAllUsers.length === 0 && (
+                  <tr>
+                    <td colSpan="5" className="text-center py-12">
+                      <div className="flex flex-col items-center justify-center">
+                        <Users size={36} className="text-gray-300 mb-2" />
+                        <p className="text-sm font-bold text-gray-700">No users found.</p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

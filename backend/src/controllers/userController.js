@@ -20,7 +20,7 @@ exports.getUsers = async (req, res, next) => {
 
 exports.createUser = async (req, res, next) => {
   try {
-    const { name, email, password, assignedHostel } = req.body;
+    const { name, email, password, assignedHostel, phone } = req.body;
 
     // Check if admin owns this hostel
     const hostel = await Hostel.findOne({ _id: assignedHostel, owner: userId(req.user) });
@@ -37,6 +37,7 @@ exports.createUser = async (req, res, next) => {
     const user = await User.create({
       name,
       email,
+      phone: phone || '',
       password,
       role: 'receptionist',
       assignedHostel

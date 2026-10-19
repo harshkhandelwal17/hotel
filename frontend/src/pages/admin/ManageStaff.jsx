@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Users, Plus, Trash2, Building, ShieldCheck } from 'lucide-react';
+import { Users, Plus, Trash2, Building, ShieldCheck, Phone } from 'lucide-react';
 
 const ManageStaff = () => {
   const [staff, setStaff] = useState([]);
@@ -11,6 +11,7 @@ const ManageStaff = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phone: '',
     password: '',
     assignedHostel: ''
   });
@@ -47,7 +48,7 @@ const ManageStaff = () => {
     try {
       await axios.post((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/users', formData);
       setIsModalOpen(false);
-      setFormData({ name: '', email: '', password: '', assignedHostel: hostels[0]?._id || '' });
+      setFormData({ name: '', email: '', phone: '', password: '', assignedHostel: hostels[0]?._id || '' });
       fetchData();
     } catch (err) {
       setError(err.response?.data?.message || 'Error creating user');
@@ -108,6 +109,14 @@ const ManageStaff = () => {
                     <div className="ml-4">
                       <div className="text-sm font-bold text-gray-900">{user.name}</div>
                       <div className="text-sm text-gray-500">{user.email}</div>
+                      {user.phone ? (
+                        <div className="text-xs text-gray-500 flex items-center gap-1 mt-0.5 font-medium">
+                          <Phone size={11} className="text-emerald-600" />
+                          <span>{user.phone}</span>
+                        </div>
+                      ) : (
+                        <div className="text-[11px] text-gray-400 italic mt-0.5">No phone added</div>
+                      )}
                     </div>
                   </div>
                 </td>
@@ -162,6 +171,12 @@ const ManageStaff = () => {
                   <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Email / Username</label>
                   <input type="email" required className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-black outline-none font-medium" 
                     value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="rahul@hotelpro.com" />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Phone / Mobile Number</label>
+                  <input type="tel" className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-black outline-none font-medium" 
+                    value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="e.g. 9876543210" />
                 </div>
 
                 <div>
