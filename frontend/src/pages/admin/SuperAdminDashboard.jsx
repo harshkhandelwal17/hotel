@@ -100,6 +100,15 @@ const SuperAdminDashboard = () => {
   });
   const [savingEditProperty, setSavingEditProperty] = useState(false);
 
+  // 👤 Edit User / Phone Details Modal State
+  const [selectedEditUser, setSelectedEditUser] = useState(null);
+  const [editUserForm, setEditUserForm] = useState({
+    name: '',
+    email: '',
+    phone: ''
+  });
+  const [savingUser, setSavingUser] = useState(false);
+
   // --- 2. DATA FETCHING EFFECT ---
   useEffect(() => {
     if (user?.role !== 'superadmin') {
@@ -373,6 +382,41 @@ const SuperAdminDashboard = () => {
     }
   };
 
+  const openEditUserModal = (u, fallbackPhone = '') => {
+    setSelectedEditUser(u);
+    setEditUserForm({
+      name: u.name || '',
+      email: u.email || '',
+      phone: u.phone || fallbackPhone || ''
+    });
+  };
+
+  const handleSaveEditUser = async (e) => {
+    e.preventDefault();
+    if (!selectedEditUser) return;
+    try {
+      setSavingUser(true);
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      const res = await axios.put(`${API}/api/superadmin/users/${selectedEditUser._id}`, editUserForm);
+      setUsers(users.map(u => u._id === selectedEditUser._id ? { ...u, ...res.data.data } : u));
+      setHostels(hostels.map(h => {
+        if ((h.owner?._id || h.owner) === selectedEditUser._id) {
+          return {
+            ...h,
+            owner: typeof h.owner === 'object' ? { ...h.owner, phone: editUserForm.phone, name: editUserForm.name } : h.owner
+          };
+        }
+        return h;
+      }));
+      alert(`✅ User details & phone number updated successfully!`);
+      setSelectedEditUser(null);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update user details');
+    } finally {
+      setSavingUser(false);
+    }
+  };
+
   // Helper to open Add Property modal pre-configured for a specific owner
   const openAddPropertyForOwner = (ownerId) => {
     const owner = users.find(u => u._id === ownerId);
@@ -599,6 +643,8 @@ const SuperAdminDashboard = () => {
                   const ownerProps = hostels.filter(h => (h.owner?._id || h.owner) === o._id);
                   const activeProps = ownerProps.filter(h => h.isActive !== false);
                   const lockedProps = ownerProps.filter(h => h.isActive === false);
+                  const propContact = ownerProps.find(p => p.contactNumber && p.contactNumber !== 'N/A' && p.contactNumber.trim() !== '')?.contactNumber;
+                  const displayPhone = o.phone || propContact || '';
 
                   return (
                     <tr key={o._id} className="hover:bg-gray-50/80 transition-colors">
@@ -618,19 +664,33 @@ const SuperAdminDashboard = () => {
                       {/* Contact Info */}
                       <td className="px-6 py-4">
                         <div className="space-y-1">
-                          {o.phone ? (
-                            <a 
-                              href={`tel:${o.phone}`}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-xs border border-emerald-200 transition-colors"
-                              title="Click to call"
-                            >
-                              <Phone size={13} className="text-emerald-600" />
-                              <span>{o.phone}</span>
-                            </a>
+                          {displayPhone ? (
+                            <div className="flex items-center gap-1.5">
+                              <a 
+                                href={`tel:${displayPhone}`}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-xs border border-emerald-200 transition-colors"
+                                title="Click to call"
+                              >
+                                <Phone size={13} className="text-emerald-600" />
+                                <span>{displayPhone}</span>
+                              </a>
+                              <button
+                                onClick={() => openEditUserModal(o, displayPhone)}
+                                className="p-1 hover:bg-gray-100 rounded-md text-gray-400 hover:text-gray-700 transition-colors"
+                                title="Edit Phone Number"
+                              >
+                                <Pencil size={12} />
+                              </button>
+                            </div>
                           ) : (
-                            <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 italic">
-                              <Phone size={13} className="text-gray-300" />
-                              <span>No phone added</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-400 font-medium italic">No phone added</span>
+                              <button
+                                onClick={() => openEditUserModal(o)}
+                                className="px-2 py-0.5 text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
+                              >
+                                + Add Phone
+                              </button>
                             </div>
                           )}
                           <div className="text-[10px] font-bold text-gray-400">
@@ -842,19 +902,21 @@ const SuperAdminDashboard = () => {
                             <Briefcase size={12} className="text-gray-400" />
                             <span>{h.owner?.name || 'Unassigned'}</span>
                           </div>
-                          <div className="text-[11px] text-gray-500">{h.owner?.email || 'N/A'}</div>
-                          {h.owner?.phone ? (
-                            <a 
-                              href={`tel:${h.owner.phone}`}
-                              className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline"
-                              title="Click to call owner"
-                            >
-                              <Phone size={10} className="text-emerald-600" />
-                              <span>{h.owner.phone}</span>
-                            </a>
-                          ) : (
-                            <div className="text-[10px] font-medium text-gray-400 italic">No owner phone</div>
-                          )}
+                          {(() => {
+                            const ownerPhone = h.owner?.phone || (h.contactNumber && h.contactNumber !== 'N/A' && h.contactNumber.trim() !== '' ? h.contactNumber : '');
+                            return ownerPhone ? (
+                              <a 
+                                href={`tel:${ownerPhone}`}
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline"
+                                title="Click to call owner"
+                              >
+                                <Phone size={10} className="text-emerald-600" />
+                                <span>{ownerPhone}</span>
+                              </a>
+                            ) : (
+                              <div className="text-[10px] font-medium text-gray-400 italic">No owner phone</div>
+                            );
+                          })()}
                         </div>
                       </td>
 
@@ -1023,33 +1085,56 @@ const SuperAdminDashboard = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 bg-white">
-                {filteredAllUsers.map(u => (
-                  <tr key={u._id} className={`hover:bg-gray-50/80 transition-colors ${u.isActive === false ? 'opacity-60' : ''}`}>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-2xl bg-gray-900 text-white flex items-center justify-center font-bold text-base">
-                          {u.name.charAt(0).toUpperCase()}
+                {filteredAllUsers.map(u => {
+                  const userHostel = hostels.find(h => h._id === (u.assignedHostel?._id || u.assignedHostel));
+                  const ownerHostel = hostels.find(h => (h.owner?._id || h.owner) === u._id && h.contactNumber && h.contactNumber !== 'N/A' && h.contactNumber.trim() !== '');
+                  const fallbackContact = u.assignedHostel?.contactNumber || userHostel?.contactNumber || ownerHostel?.contactNumber || '';
+                  const userPhone = u.phone || (fallbackContact && fallbackContact !== 'N/A' ? fallbackContact : '') || '';
+
+                  return (
+                    <tr key={u._id} className={`hover:bg-gray-50/80 transition-colors ${u.isActive === false ? 'opacity-60' : ''}`}>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-2xl bg-gray-900 text-white flex items-center justify-center font-bold text-base">
+                            {u.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-bold text-gray-900">{u.name}</p>
+                            <p className="text-xs text-gray-500">{u.email}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-bold text-gray-900">{u.name}</p>
-                          <p className="text-xs text-gray-500">{u.email}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      {u.phone ? (
-                        <a 
-                          href={`tel:${u.phone}`}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-xs border border-emerald-200 transition-colors"
-                          title="Click to call"
-                        >
-                          <Phone size={12} className="text-emerald-600" />
-                          <span>{u.phone}</span>
-                        </a>
-                      ) : (
-                        <span className="text-xs text-gray-400 font-medium italic">No phone added</span>
-                      )}
-                    </td>
+                      </td>
+                      <td className="px-6 py-4">
+                        {userPhone ? (
+                          <div className="flex items-center gap-1.5">
+                            <a 
+                              href={`tel:${userPhone}`}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-xs border border-emerald-200 transition-colors"
+                              title="Click to call"
+                            >
+                              <Phone size={12} className="text-emerald-600" />
+                              <span>{userPhone}</span>
+                            </a>
+                            <button
+                              onClick={() => openEditUserModal(u, userPhone)}
+                              className="p-1 hover:bg-gray-100 rounded-md text-gray-400 hover:text-gray-700 transition-colors"
+                              title="Edit User / Phone"
+                            >
+                              <Pencil size={11} />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-400 font-medium italic">No phone added</span>
+                            <button
+                              onClick={() => openEditUserModal(u)}
+                              className="px-2 py-0.5 text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
+                            >
+                              + Add
+                            </button>
+                          </div>
+                        )}
+                      </td>
                     <td className="px-6 py-4">
                       <span className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-lg ${
                         u.role === 'superadmin' ? 'bg-red-100 text-red-700' :
@@ -1107,7 +1192,8 @@ const SuperAdminDashboard = () => {
                       )}
                     </td>
                   </tr>
-                ))}
+                );
+              })}
 
                 {filteredAllUsers.length === 0 && (
                   <tr>
@@ -1689,6 +1775,90 @@ const SuperAdminDashboard = () => {
                   className="px-6 py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50"
                 >
                   {savingEditProperty ? 'Saving...' : 'Save Details'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* 👤 MODAL 5: EDIT USER & PHONE DETAILS */}
+      {/* ============================================================== */}
+      {selectedEditUser && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setSelectedEditUser(null)}>
+          <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="p-6 bg-gradient-to-r from-gray-950 to-gray-900 text-white flex justify-between items-start">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-500/20 px-2.5 py-0.5 rounded-full">
+                  User Profile
+                </span>
+                <h3 className="text-xl font-black text-white mt-1.5">Edit User & Phone</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Update mobile number, name, and email.</p>
+              </div>
+              <button onClick={() => setSelectedEditUser(null)} className="p-2 text-gray-400 hover:text-white rounded-full hover:bg-gray-800 transition-colors">
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditUser} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                  Full Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                  value={editUserForm.name}
+                  onChange={e => setEditUserForm({ ...editUserForm, name: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  required
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                  value={editUserForm.email}
+                  onChange={e => setEditUserForm({ ...editUserForm, email: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                  <span>Phone / Mobile Number</span>
+                  <span className="text-[10px] text-emerald-600 font-bold">Direct Click-to-Call</span>
+                </label>
+                <div className="relative">
+                  <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="tel"
+                    placeholder="e.g. 9876543210"
+                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                    value={editUserForm.phone}
+                    onChange={e => setEditUserForm({ ...editUserForm, phone: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 flex gap-3 justify-end border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setSelectedEditUser(null)}
+                  className="px-4 py-2.5 border border-gray-200 text-gray-700 font-bold rounded-xl text-xs hover:bg-gray-100 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingUser}
+                  className="px-6 py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50"
+                >
+                  {savingUser ? 'Saving...' : 'Update Phone & Details'}
                 </button>
               </div>
             </form>

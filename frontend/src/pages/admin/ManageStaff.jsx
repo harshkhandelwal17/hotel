@@ -109,14 +109,17 @@ const ManageStaff = () => {
                     <div className="ml-4">
                       <div className="text-sm font-bold text-gray-900">{user.name}</div>
                       <div className="text-sm text-gray-500">{user.email}</div>
-                      {user.phone ? (
-                        <div className="text-xs text-gray-500 flex items-center gap-1 mt-0.5 font-medium">
-                          <Phone size={11} className="text-emerald-600" />
-                          <span>{user.phone}</span>
-                        </div>
-                      ) : (
-                        <div className="text-[11px] text-gray-400 italic mt-0.5">No phone added</div>
-                      )}
+                      {(() => {
+                        const phone = user.phone || (user.assignedHostel?.contactNumber && user.assignedHostel.contactNumber !== 'N/A' ? user.assignedHostel.contactNumber : '');
+                        return phone ? (
+                          <div className="text-xs text-gray-500 flex items-center gap-1 mt-0.5 font-medium">
+                            <Phone size={11} className="text-emerald-600" />
+                            <span>{phone}</span>
+                          </div>
+                        ) : (
+                          <div className="text-[11px] text-gray-400 italic mt-0.5">No phone added</div>
+                        );
+                      })()}
                     </div>
                   </div>
                 </td>

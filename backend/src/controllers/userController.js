@@ -10,7 +10,7 @@ exports.getUsers = async (req, res, next) => {
     const users = await User.find({
       role: 'receptionist',
       assignedHostel: { $in: hostelIds }
-    }).populate('assignedHostel', 'name');
+    }).populate('assignedHostel', 'name contactNumber');
 
     res.status(200).json({ success: true, count: users.length, data: users });
   } catch (error) {

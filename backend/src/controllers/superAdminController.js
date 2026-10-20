@@ -43,9 +43,32 @@ exports.getSystemStats = async (req, res, next) => {
 exports.getAllUsers = async (req, res, next) => {
   try {
     const users = await User.find()
-      .populate('assignedHostel', 'name')
+      .populate('assignedHostel', 'name contactNumber')
       .select('+password') 
       .sort('-createdAt');
+
+    // Auto-backfill phone from linked properties if user phone is blank
+    for (const u of users) {
+      if (!u.phone || u.phone.trim() === '') {
+        if (u.role === 'admin') {
+          const hostel = await Hostel.findOne({ 
+            owner: u._id, 
+            contactNumber: { $exists: true, $nin: ['', 'N/A', null] } 
+          }).select('contactNumber');
+          if (hostel && hostel.contactNumber) {
+            u.phone = hostel.contactNumber;
+            await User.updateOne({ _id: u._id }, { $set: { phone: hostel.contactNumber } });
+          }
+        } else if (u.role === 'receptionist' && u.assignedHostel) {
+          const hostelId = u.assignedHostel._id || u.assignedHostel;
+          const hostel = await Hostel.findById(hostelId).select('contactNumber');
+          if (hostel && hostel.contactNumber && hostel.contactNumber !== 'N/A') {
+            u.phone = hostel.contactNumber;
+            await User.updateOne({ _id: u._id }, { $set: { phone: hostel.contactNumber } });
+          }
+        }
+      }
+    }
       
     res.status(200).json({ success: true, data: users });
   } catch (error) {
@@ -173,6 +196,33 @@ exports.deleteUser = async (req, res, next) => {
 
     await User.findByIdAndDelete(req.params.id);
     res.status(200).json({ success: true, message: 'User deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.updateUser = async (req, res, next) => {
+  try {
+    const { name, email, phone, role, assignedHostel } = req.body;
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (name) user.name = name;
+    if (email) user.email = email;
+    if (phone !== undefined) user.phone = phone.trim();
+    if (role) user.role = role;
+    if (assignedHostel !== undefined) user.assignedHostel = assignedHostel || null;
+
+    await user.save({ validateBeforeSave: false });
+    await user.populate('assignedHostel', 'name contactNumber');
+
+    res.status(200).json({
+      success: true,
+      message: 'User details updated successfully',
+      data: user
+    });
   } catch (error) {
     next(error);
   }

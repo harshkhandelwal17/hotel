@@ -1,4 +1,5 @@
 const Hostel = require('../models/Hostel');
+const User = require('../models/User');
 
 exports.createHostel = async (req, res, next) => {
   try {
@@ -16,6 +17,15 @@ exports.createHostel = async (req, res, next) => {
       payload.address = 'N/A';
     }
     const hostel = await Hostel.create(payload);
+
+    // If owner has no phone, sync property contactNumber to owner
+    if (payload.contactNumber && payload.contactNumber !== 'N/A' && payload.owner) {
+      await User.updateOne(
+        { _id: payload.owner, $or: [{ phone: { $exists: false } }, { phone: '' }, { phone: null }] },
+        { $set: { phone: payload.contactNumber } }
+      );
+    }
+
     res.status(201).json({ success: true, data: hostel });
   } catch (error) {
     next(error);
@@ -92,6 +102,14 @@ exports.updateHostel = async (req, res, next) => {
     if (!hostel) {
       return res.status(404).json({ success: false, message: 'Hostel not found or not owned by you' });
     }
+
+    if (updateData.contactNumber && updateData.contactNumber !== 'N/A' && hostel.owner) {
+      await User.updateOne(
+        { _id: hostel.owner, $or: [{ phone: { $exists: false } }, { phone: '' }, { phone: null }] },
+        { $set: { phone: updateData.contactNumber } }
+      );
+    }
+
     res.status(200).json({ success: true, data: hostel });
   } catch (error) {
     next(error);

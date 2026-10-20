@@ -3,6 +3,7 @@ const {
   getSystemStats, 
   getAllUsers, 
   createUser, 
+  updateUser,
   deleteUser, 
   impersonateUser, 
   toggleUserStatus, 
@@ -23,6 +24,7 @@ router.use(authorize('superadmin'));
 router.get('/stats', getSystemStats);
 router.get('/users', getAllUsers);
 router.post('/users', createUser);
+router.put('/users/:id', updateUser);
 router.delete('/users/:id', deleteUser);
 router.get('/hostels', getAllHostels);
 router.post('/impersonate', impersonateUser);
