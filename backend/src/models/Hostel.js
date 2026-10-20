@@ -47,6 +47,16 @@ const hostelSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  upiId: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  upiPayeeName: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   owner: {
     type: mongoose.Schema.ObjectId,
     ref: 'User'

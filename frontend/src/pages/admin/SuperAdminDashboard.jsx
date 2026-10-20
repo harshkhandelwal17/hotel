@@ -25,7 +25,8 @@ import {
   Calendar,
   Layers,
   ArrowRight,
-  Pencil
+  Pencil,
+  QrCode
 } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -65,6 +66,8 @@ const SuperAdminDashboard = () => {
     contactNumber: '',
     email: '',
     owner: '',
+    upiId: '',
+    upiPayeeName: '',
     plan: 'starter',
     planStatus: 'active',
     planStartDate: new Date().toISOString().split('T')[0],
@@ -96,7 +99,9 @@ const SuperAdminDashboard = () => {
     address: '',
     contactNumber: '',
     email: '',
-    owner: ''
+    owner: '',
+    upiId: '',
+    upiPayeeName: ''
   });
   const [savingEditProperty, setSavingEditProperty] = useState(false);
 
@@ -200,6 +205,8 @@ const SuperAdminDashboard = () => {
         contactNumber: '',
         email: '',
         owner: '',
+        upiId: '',
+        upiPayeeName: '',
         plan: 'starter',
         planStatus: 'active',
         planStartDate: new Date().toISOString().split('T')[0],
@@ -361,7 +368,9 @@ const SuperAdminDashboard = () => {
       address: h.address || '',
       contactNumber: h.contactNumber || '',
       email: h.email || '',
-      owner: h.owner?._id || h.owner || ''
+      owner: h.owner?._id || h.owner || '',
+      upiId: h.upiId || '',
+      upiPayeeName: h.upiPayeeName || ''
     });
   };
 
@@ -890,7 +899,15 @@ const SuperAdminDashboard = () => {
                               )}
                             </div>
                             <p className="text-[11px] font-medium text-gray-500">{h.address || 'No Address'}</p>
-                            <p className="text-[10px] font-bold text-gray-400">📞 {h.contactNumber || 'No Phone'}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[10px] font-bold text-gray-400">📞 {h.contactNumber || 'No Phone'}</span>
+                              {h.upiId && (
+                                <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.2 rounded border border-purple-200 flex items-center gap-1">
+                                  <QrCode size={10} className="text-purple-600" />
+                                  <span>{h.upiId}</span>
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </td>
@@ -1413,6 +1430,44 @@ const SuperAdminDashboard = () => {
                 />
               </div>
 
+              {/* ⚡ Dynamic UPI Payment QR Setup */}
+              <div className="p-3.5 bg-purple-50/70 border border-purple-100 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-purple-900 flex items-center gap-1.5">
+                    <QrCode size={13} className="text-purple-600" /> Dynamic UPI Payment QR
+                  </span>
+                  <span className="text-[10px] font-bold bg-purple-200/60 text-purple-800 px-2 py-0.5 rounded-full">
+                    Exact Amount Lock
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-700 uppercase mb-1">
+                      Hotel UPI ID (VPA)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. hotelroyal@icici"
+                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl font-bold text-xs outline-none focus:ring-2 focus:ring-purple-600"
+                      value={newPropertyForm.upiId}
+                      onChange={e => setNewPropertyForm({ ...newPropertyForm, upiId: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-700 uppercase mb-1">
+                      Payee Business Name
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Hotel Royal Taj"
+                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl font-medium text-xs outline-none focus:ring-2 focus:ring-purple-600"
+                      value={newPropertyForm.upiPayeeName}
+                      onChange={e => setNewPropertyForm({ ...newPropertyForm, upiPayeeName: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Initial Plan Allocation Box */}
               <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
                 <span className="text-[11px] font-black uppercase tracking-wider text-slate-700 block">
@@ -1759,6 +1814,44 @@ const SuperAdminDashboard = () => {
                   value={editPropertyForm.address}
                   onChange={e => setEditPropertyForm({ ...editPropertyForm, address: e.target.value })}
                 />
+              </div>
+
+              {/* ⚡ Dynamic UPI Payment QR Setup */}
+              <div className="p-3.5 bg-purple-50/70 border border-purple-100 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-purple-900 flex items-center gap-1.5">
+                    <QrCode size={13} className="text-purple-600" /> Dynamic UPI Payment QR
+                  </span>
+                  <span className="text-[10px] font-bold bg-purple-200/60 text-purple-800 px-2 py-0.5 rounded-full">
+                    Exact Amount Lock
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-700 uppercase mb-1">
+                      Hotel UPI ID (VPA)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. hotelroyal@icici"
+                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl font-bold text-xs outline-none focus:ring-2 focus:ring-purple-600"
+                      value={editPropertyForm.upiId}
+                      onChange={e => setEditPropertyForm({ ...editPropertyForm, upiId: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-700 uppercase mb-1">
+                      Payee Business Name
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Hotel Royal Taj"
+                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl font-medium text-xs outline-none focus:ring-2 focus:ring-purple-600"
+                      value={editPropertyForm.upiPayeeName}
+                      onChange={e => setEditPropertyForm({ ...editPropertyForm, upiPayeeName: e.target.value })}
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="pt-3 flex gap-3 justify-end border-t border-gray-100">

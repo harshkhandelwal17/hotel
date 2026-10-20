@@ -38,6 +38,7 @@ import { compressImage } from '../../utils/imageCompression';
 import { extractAddressFromBackId } from '../../utils/idOcr';
 import GuestRegistrationCardModal from '../../components/reception/GuestRegistrationCardModal';
 import { getFullImageUrl } from '../../utils/imageUrl';
+import DynamicUpiQr from '../../components/DynamicUpiQr';
 
 const API =
   import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
@@ -2124,6 +2125,17 @@ const CheckIn = () => {
                     </button>
                   ))}
                 </div>
+
+                {stayInfo.paymentMethod === 'UPI' && Number(stayInfo.paidAmount) > 0 && (
+                  <div className="pt-2">
+                    <DynamicUpiQr 
+                      amount={Number(stayInfo.paidAmount)}
+                      roomNumber={selectedRoomDetails?.roomNumber}
+                      guestName={primaryGuest?.fullName}
+                      hostel={selectedRoomDetails?.hostel || user?.assignedHostel}
+                    />
+                  </div>
+                )}
 
                 {/* BROKER / COMMISSION (OPTIONAL) */}
                 <div className="pt-2">

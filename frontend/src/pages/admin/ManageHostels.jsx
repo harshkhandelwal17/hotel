@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
-import { Building, Plus, X, MapPin, Phone, Mail, CheckCircle, ShieldCheck, Sparkles, Calendar, HelpCircle } from 'lucide-react';
+import { Building, Plus, X, MapPin, Phone, Mail, CheckCircle, ShieldCheck, Sparkles, Calendar, HelpCircle, QrCode } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 
 const ManageProperties = () => {
@@ -13,7 +13,7 @@ const ManageProperties = () => {
   const [editingId, setEditingId] = useState(null);
   const [formError, setFormError] = useState('');
   const [formData, setFormData] = useState({
-    name: '', address: '', contactNumber: '', email: ''
+    name: '', address: '', contactNumber: '', email: '', upiId: '', upiPayeeName: ''
   });
 
   useEffect(() => { fetchProperties(); }, []);
@@ -29,12 +29,19 @@ const ManageProperties = () => {
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingId(null);
-    setFormData({ name: '', address: '', contactNumber: '', email: '' });
+    setFormData({ name: '', address: '', contactNumber: '', email: '', upiId: '', upiPayeeName: '' });
   };
 
   const handleEdit = (prop) => {
     setEditingId(prop._id);
-    setFormData({ name: prop.name || '', address: prop.address || '', contactNumber: prop.contactNumber || '', email: prop.email || '' });
+    setFormData({ 
+      name: prop.name || '', 
+      address: prop.address || '', 
+      contactNumber: prop.contactNumber || '', 
+      email: prop.email || '',
+      upiId: prop.upiId || '',
+      upiPayeeName: prop.upiPayeeName || ''
+    });
     setIsModalOpen(true);
   };
 
@@ -176,6 +183,18 @@ const ManageProperties = () => {
                       <span className="text-gray-600">{property.email}</span>
                     </div>
                   )}
+                  <div className="flex items-center gap-2.5 text-sm pt-1 border-t border-gray-100">
+                    <QrCode size={14} className="text-purple-600 flex-shrink-0" />
+                    {property.upiId ? (
+                      <span className="text-xs font-mono font-bold text-purple-900 bg-purple-50 px-2 py-0.5 rounded border border-purple-200 truncate">
+                        UPI: {property.upiId}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-amber-600 font-medium italic">
+                        UPI QR not set (Click Edit to configure)
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -240,6 +259,32 @@ const ManageProperties = () => {
                     <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Email</label>
                     <input type="email" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none font-medium text-sm"
                       placeholder="info@hotel.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                  </div>
+                </div>
+
+                {/* ⚡ DYNAMIC UPI PAYMENT QR SETTINGS */}
+                <div className="p-3.5 bg-purple-50/70 rounded-2xl border border-purple-100 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black uppercase tracking-wider text-purple-900 flex items-center gap-1.5">
+                      <QrCode size={14} className="text-purple-600" /> Dynamic UPI Payment QR
+                    </span>
+                    <span className="text-[10px] font-black bg-purple-200/60 text-purple-800 px-2 py-0.5 rounded-full">
+                      Exact Amount Lock
+                    </span>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">
+                      Hotel UPI ID (VPA)
+                    </label>
+                    <input type="text" className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-600 outline-none font-bold text-sm text-gray-900 placeholder:text-gray-400 placeholder:font-normal"
+                      placeholder="e.g. hotelroyal@okaxis or 9876543210@paytm" value={formData.upiId} onChange={e => setFormData({...formData, upiId: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">
+                      Payee Business Name <span className="text-gray-400 font-normal lowercase">(shown on guest's GPay/PhonePe screen)</span>
+                    </label>
+                    <input type="text" className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-600 outline-none font-medium text-sm text-gray-900 placeholder:text-gray-400 placeholder:font-normal"
+                      placeholder="e.g. Hotel Royal Taj" value={formData.upiPayeeName} onChange={e => setFormData({...formData, upiPayeeName: e.target.value})} />
                   </div>
                 </div>
               </div>

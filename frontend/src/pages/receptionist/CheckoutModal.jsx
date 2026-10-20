@@ -3,6 +3,7 @@ import axios from 'axios';
 import { format } from 'date-fns';
 import { X, User, Home, Calendar, CreditCard, AlertCircle, CheckCircle2, Plus, Printer, ChevronRight } from 'lucide-react';
 import { printInvoice } from '../../utils/invoice';
+import DynamicUpiQr from '../../components/DynamicUpiQr';
 
 const CheckoutModal = ({ stay, onClose, onSuccess }) => {
   const [chargesList, setChargesList] = useState([]);
@@ -237,6 +238,17 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
                     </button>
                   ))}
                 </div>
+
+                {paymentMethod === 'UPI' && Number(checkoutPayment) > 0 && (
+                  <div className="pt-2">
+                    <DynamicUpiQr 
+                      amount={Number(checkoutPayment)}
+                      roomNumber={stay.room?.roomNumber}
+                      guestName={stay.guest?.fullName}
+                      hostel={stay.hostel}
+                    />
+                  </div>
+                )}
               </div>
             )}
           </div>

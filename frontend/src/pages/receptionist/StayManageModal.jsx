@@ -3,6 +3,7 @@ import axios from 'axios';
 import { format, addDays, addHours } from 'date-fns';
 import { X, Receipt, Plus, Wallet, ArrowRightLeft, CalendarPlus, Printer, Trash2, LogOut, AlertCircle, CheckCircle2, Phone } from 'lucide-react';
 import { printInvoice } from '../../utils/invoice';
+import DynamicUpiQr from '../../components/DynamicUpiQr';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
 
@@ -284,6 +285,16 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                     className={`flex-1 py-2 text-sm font-bold rounded-lg border ${payForm.paymentMethod === m ? 'bg-black text-white border-black' : 'bg-white text-gray-600 border-gray-200'}`}>{m}</button>
                 ))}
               </div>
+              {payForm.paymentMethod === 'UPI' && Number(payForm.amount) > 0 && (
+                <div className="pt-1">
+                  <DynamicUpiQr 
+                    amount={Number(payForm.amount)}
+                    roomNumber={stay.room?.roomNumber}
+                    guestName={stay.guest?.fullName}
+                    hostel={stay.hostel}
+                  />
+                </div>
+              )}
               <div><label className={labelCls}>Note (optional)</label>
                 <input className={inputCls} value={payForm.notes} onChange={e => setPayForm({ ...payForm, notes: e.target.value })} /></div>
               <button disabled={busy || balance <= 0} className={btnCls}>{balance <= 0 ? 'Nothing due' : busy ? 'Saving...' : 'Record Payment'}</button>

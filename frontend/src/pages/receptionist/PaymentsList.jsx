@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { format } from 'date-fns';
 import { CreditCard, Plus, Search, ArrowUpRight } from 'lucide-react';
+import DynamicUpiQr from '../../components/DynamicUpiQr';
 
 const PaymentsList = () => {
   const [stays, setStays] = useState([]);
@@ -153,6 +154,18 @@ const PaymentsList = () => {
                   </button>
                 ))}
               </div>
+
+              {payMethod === 'UPI' && Number(payAmount) > 0 && (
+                <div className="pt-1">
+                  <DynamicUpiQr 
+                    amount={Number(payAmount)}
+                    roomNumber={selectedStay.room?.roomNumber}
+                    guestName={selectedStay.guest?.fullName}
+                    hostel={selectedStay.hostel}
+                  />
+                </div>
+              )}
+
               <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3 pt-3 mt-auto shrink-0">
                 <button type="button" onClick={() => setSelectedStay(null)} className="w-full sm:flex-1 py-2.5 border border-gray-200 text-gray-700 font-bold rounded-xl text-sm hover:bg-gray-50 transition-colors">Cancel</button>
                 <button type="submit" disabled={payLoading} className="w-full sm:flex-1 py-2.5 bg-green-600 text-white font-bold rounded-xl text-sm hover:bg-green-700 shadow-md disabled:opacity-50 active:scale-95 transition-all">
