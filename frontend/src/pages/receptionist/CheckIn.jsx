@@ -2131,8 +2131,8 @@ const CheckIn = () => {
                     <DynamicUpiQr 
                       amount={Number(stayInfo.paidAmount)}
                       roomNumber={selectedRoomDetails?.roomNumber}
-                      guestName={primaryGuest?.fullName}
-                      hostel={selectedRoomDetails?.hostel || user?.assignedHostel}
+                      guestName={guests[0]?.fullName}
+                      hostel={selectedRoomDetails?.hostel || activeHostel || user?.assignedHostel}
                     />
                   </div>
                 )}
