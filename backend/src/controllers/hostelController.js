@@ -16,6 +16,12 @@ exports.createHostel = async (req, res, next) => {
     if (!payload.address || payload.address.trim() === '') {
       payload.address = 'N/A';
     }
+    if (typeof payload.upiId === 'string') {
+      payload.upiId = payload.upiId.trim();
+    }
+    if (typeof payload.upiPayeeName === 'string') {
+      payload.upiPayeeName = payload.upiPayeeName.trim();
+    }
     const hostel = await Hostel.create(payload);
 
     // If owner has no phone, sync property contactNumber to owner
@@ -93,6 +99,17 @@ exports.updateHostel = async (req, res, next) => {
 
     if (updateData.email === '' || updateData.email === null) {
       delete updateData.email;
+    }
+
+    if (!updateData.owner) {
+      delete updateData.owner;
+    }
+
+    if (typeof updateData.upiId === 'string') {
+      updateData.upiId = updateData.upiId.trim();
+    }
+    if (typeof updateData.upiPayeeName === 'string') {
+      updateData.upiPayeeName = updateData.upiPayeeName.trim();
     }
 
     const hostel = await Hostel.findOneAndUpdate(query, updateData, {

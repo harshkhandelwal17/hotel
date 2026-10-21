@@ -379,9 +379,13 @@ const SuperAdminDashboard = () => {
     if (!selectedEditHostel) return;
     try {
       setSavingEditProperty(true);
-      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
-      await axios.put(`${API}/api/hostels/${selectedEditHostel._id}`, editPropertyForm);
+      const payload = { ...editPropertyForm };
+      if (!payload.owner) delete payload.owner;
+      const res = await axios.put(`${API}/api/hostels/${selectedEditHostel._id}`, payload);
       alert(`✅ Property details updated successfully for "${editPropertyForm.name}"`);
+      if (res.data?.data) {
+        setHostels(prev => prev.map(h => h._id === selectedEditHostel._id ? { ...h, ...res.data.data } : h));
+      }
       setSelectedEditHostel(null);
       fetchData();
     } catch (err) {
