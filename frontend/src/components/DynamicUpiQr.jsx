@@ -218,3 +218,4 @@ const DynamicUpiQr = ({
 };
 
 export default DynamicUpiQr;
+
