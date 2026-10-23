@@ -573,9 +573,10 @@ exports.updateStay = async (req, res, next) => {
       totalAmount,
       occupants,
       commissionTo,
-      commissionAmount,
       notes,
-      guestData
+      guestData,
+      payments: editedPayments,
+      newPayment
     } = req.body;
 
     // 1. Update Stay Fields
@@ -641,6 +642,45 @@ exports.updateStay = async (req, res, next) => {
       }
     }
 
+    // 3. Update Payments & Mode (Cash, UPI, Card)
+    if (Array.isArray(editedPayments)) {
+      for (const p of editedPayments) {
+        if (!p._id) continue;
+        const existing = await Payment.findOne({ _id: p._id, stay: stay._id });
+        if (existing) {
+          if (p.amount !== undefined) {
+            const amt = Number(p.amount);
+            if (Number.isFinite(amt) && amt >= 0) existing.amount = amt;
+          }
+          if (p.paymentMethod) {
+            existing.paymentMethod = p.paymentMethod;
+          }
+          if (p.notes !== undefined) existing.notes = p.notes;
+          await existing.save();
+        }
+      }
+    }
+
+    if (newPayment && Number(newPayment.amount) > 0) {
+      await Payment.create({
+        stay: stay._id,
+        guest: stay.guest,
+        hostel: stay.hostel,
+        amount: Number(newPayment.amount),
+        paymentMethod: newPayment.paymentMethod || 'Cash',
+        notes: newPayment.notes || 'Recorded via Edit',
+        createdBy: req.user._id
+      });
+    }
+
+    // Recalculate and sync stay.paidAmount from actual payments
+    const payTotal = await Payment.aggregate([
+      { $match: { stay: stay._id } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    stay.paidAmount = payTotal.length > 0 ? payTotal[0].total : 0;
+    await stay.save();
+
     // Return fresh populated stay
     const updatedStay = await Stay.findById(stay._id)
       .populate('guest', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth')
@@ -650,7 +690,7 @@ exports.updateStay = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      message: 'Stay and Guest details updated successfully',
+      message: 'Stay, Guest, and Payment details updated successfully',
       data: updatedStay
     });
   } catch (error) {

@@ -91,3 +91,83 @@ exports.getPayments = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.updatePayment = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { amount, paymentMethod, notes, paymentDate } = req.body;
+
+    const payment = await Payment.findById(id);
+    if (!payment) return res.status(404).json({ success: false, message: 'Payment not found' });
+
+    if (!(await userCanAccessHostel(req.user, payment.hostel))) {
+      return res.status(403).json({ success: false, message: 'Not authorized for this payment' });
+    }
+
+    if (amount !== undefined) {
+      const amt = Number(amount);
+      if (!Number.isFinite(amt) || amt < 0) {
+        return res.status(400).json({ success: false, message: 'Please enter a valid amount' });
+      }
+      payment.amount = amt;
+    }
+
+    if (paymentMethod) {
+      payment.paymentMethod = paymentMethod;
+    }
+
+    if (notes !== undefined) payment.notes = notes;
+    if (paymentDate) {
+      const pd = new Date(paymentDate);
+      if (!isNaN(pd.getTime())) payment.paymentDate = pd;
+    }
+
+    await payment.save();
+
+    // Sync stay.paidAmount
+    const stay = await Stay.findById(payment.stay);
+    if (stay) {
+      const payTotal = await Payment.aggregate([
+        { $match: { stay: stay._id } },
+        { $group: { _id: null, total: { $sum: '$amount' } } }
+      ]);
+      stay.paidAmount = payTotal.length > 0 ? payTotal[0].total : 0;
+      await stay.save();
+    }
+
+    res.status(200).json({ success: true, message: 'Payment updated successfully', data: payment });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deletePayment = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const payment = await Payment.findById(id);
+    if (!payment) return res.status(404).json({ success: false, message: 'Payment not found' });
+
+    if (!(await userCanAccessHostel(req.user, payment.hostel))) {
+      return res.status(403).json({ success: false, message: 'Not authorized to delete this payment' });
+    }
+
+    const stayId = payment.stay;
+    await Payment.findByIdAndDelete(id);
+
+    // Sync stay.paidAmount
+    const stay = await Stay.findById(stayId);
+    if (stay) {
+      const payTotal = await Payment.aggregate([
+        { $match: { stay: stay._id } },
+        { $group: { _id: null, total: { $sum: '$amount' } } }
+      ]);
+      stay.paidAmount = payTotal.length > 0 ? payTotal[0].total : 0;
+      await stay.save();
+    }
+
+    res.status(200).json({ success: true, message: 'Payment deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+

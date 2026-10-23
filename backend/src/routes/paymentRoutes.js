@@ -1,5 +1,5 @@
 const express = require('express');
-const { getPayments, createPayment } = require('../controllers/paymentController');
+const { getPayments, createPayment, updatePayment, deletePayment } = require('../controllers/paymentController');
 const { protect } = require('../middlewares/auth');
 
 const router = express.Router();
@@ -10,4 +10,9 @@ router.route('/')
   .get(getPayments)
   .post(createPayment);
 
+router.route('/:id')
+  .put(updatePayment)
+  .delete(deletePayment);
+
 module.exports = router;
+

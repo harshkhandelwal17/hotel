@@ -69,6 +69,9 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
   });
   const [uploadingFront, setUploadingFront] = useState(false);
   const [uploadingBack, setUploadingBack] = useState(false);
+  const [editPayments, setEditPayments] = useState([]);
+  const [newPaymentForm, setNewPaymentForm] = useState({ amount: '', paymentMethod: 'Cash', notes: '' });
+  const [showAddPaymentRow, setShowAddPaymentRow] = useState(false);
 
   const reload = useCallback(async () => {
     const res = await axios.get(`${API}/api/stays/${initialStay._id}`);
@@ -122,6 +125,20 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
     }
   }, [stay]);
 
+  useEffect(() => {
+    if (payments) {
+      setEditPayments(
+        payments.map(p => ({
+          _id: p._id,
+          amount: p.amount ?? '',
+          paymentMethod: p.paymentMethod || 'Cash',
+          notes: p.notes || '',
+          paymentDate: p.paymentDate
+        }))
+      );
+    }
+  }, [payments]);
+
   const handleUploadImage = async (file, side) => {
     if (!file) return;
     try {
@@ -148,6 +165,17 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
     }
   };
 
+  const handleDeletePayment = async (paymentId, index) => {
+    if (!paymentId) {
+      setEditPayments(prev => prev.filter((_, i) => i !== index));
+      return;
+    }
+    if (!window.confirm('Are you sure you want to delete this payment record? This will adjust the stay balance.')) return;
+    await run(async () => {
+      await axios.delete(`${API}/api/payments/${paymentId}`);
+    }, 'Payment deleted successfully');
+  };
+
   const handleSaveEdit = async (e) => {
     e.preventDefault();
     await run(async () => {
@@ -167,10 +195,23 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
           idProofImage: editForm.idProofImage,
           idProofImageBack: editForm.idProofImageBack,
           address: editForm.address
-        }
+        },
+        payments: editPayments.map(p => ({
+          _id: p._id,
+          amount: Number(p.amount) || 0,
+          paymentMethod: p.paymentMethod || 'Cash',
+          notes: p.notes
+        })),
+        newPayment: Number(newPaymentForm.amount) > 0 ? {
+          amount: Number(newPaymentForm.amount),
+          paymentMethod: newPaymentForm.paymentMethod || 'Cash',
+          notes: newPaymentForm.notes || 'Recorded via Edit'
+        } : undefined
       };
       await axios.put(`${API}/api/stays/${stay._id}`, payload);
-    }, '✅ Entry details updated successfully!');
+      setNewPaymentForm({ amount: '', paymentMethod: 'Cash', notes: '' });
+      setShowAddPaymentRow(false);
+    }, '✅ Entry & Payment details updated successfully!');
   };
 
   const balance = stay.totalAmount - stay.paidAmount;
@@ -298,11 +339,31 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
 
               {payments.length > 0 && (
                 <div>
-                  <p className={labelCls}>Payment History</p>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <p className={labelCls}>Payment History</p>
+                    <button
+                      type="button"
+                      onClick={() => setTab('edit')}
+                      className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                    >
+                      <Edit3 size={11} /> Edit Payment Mode / Amount
+                    </button>
+                  </div>
                   <div className="space-y-1.5">
                     {payments.map(p => (
-                      <div key={p._id} className="flex justify-between text-xs font-semibold text-gray-600 bg-gray-50 rounded-lg px-3 py-2">
-                        <span>{format(new Date(p.paymentDate), 'dd MMM, hh:mm a')} &bull; {p.paymentMethod}</span>
+                      <div key={p._id} className="flex justify-between items-center text-xs font-semibold text-gray-600 bg-gray-50 rounded-lg px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                            p.paymentMethod === 'Cash' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
+                            p.paymentMethod === 'UPI' ? 'bg-purple-100 text-purple-800 border border-purple-200' :
+                            p.paymentMethod === 'Card' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
+                            'bg-gray-200 text-gray-800 border border-gray-300'
+                          }`}>
+                            {p.paymentMethod}
+                          </span>
+                          <span>{format(new Date(p.paymentDate), 'dd MMM, hh:mm a')}</span>
+                          {p.notes && <span className="text-gray-400 font-normal italic">({p.notes})</span>}
+                        </div>
                         <span className="text-green-600 font-black">₹{p.amount}</span>
                       </div>
                     ))}
@@ -663,6 +724,216 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                     />
                   </div>
                 </div>
+              </div>
+
+              {/* 3. PAYMENTS & PAYMENT MODE */}
+              <div className="bg-gray-50/80 p-3.5 rounded-2xl border border-gray-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-gray-700">
+                    3. Payment Amount & Mode (Cash / UPI / Card)
+                  </h4>
+                  <span className="text-xs font-bold text-gray-600">
+                    Total Paid: <span className="text-green-600 font-black">₹{editPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0) + (Number(newPaymentForm.amount) || 0)}</span>
+                  </span>
+                </div>
+
+                {editPayments.length > 0 ? (
+                  <div className="space-y-3">
+                    {editPayments.map((p, idx) => (
+                      <div key={p._id || idx} className="p-3 bg-white border border-gray-200 rounded-xl space-y-2.5 shadow-2xs">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-gray-600">
+                            Payment #{idx + 1} {p.paymentDate ? `• ${format(new Date(p.paymentDate), 'dd MMM, hh:mm a')}` : ''}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleDeletePayment(p._id, idx)}
+                            className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1 text-[11px] font-bold"
+                            title="Delete Payment"
+                          >
+                            <Trash2 size={13} /> Remove
+                          </button>
+                        </div>
+
+                        <div>
+                          <label className={labelCls}>Payment Mode</label>
+                          <div className="grid grid-cols-4 gap-1.5 mt-1">
+                            {['Cash', 'UPI', 'Card', 'Bank Transfer'].map(method => (
+                              <button
+                                type="button"
+                                key={method}
+                                onClick={() => {
+                                  const arr = [...editPayments];
+                                  arr[idx] = { ...arr[idx], paymentMethod: method };
+                                  setEditPayments(arr);
+                                }}
+                                className={`py-2 text-xs font-black rounded-lg border transition-all ${
+                                  p.paymentMethod === method
+                                    ? method === 'Cash'
+                                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                                      : method === 'UPI'
+                                      ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                                      : method === 'Card'
+                                      ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                                      : 'bg-black text-white border-black shadow-xs'
+                                    : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                                }`}
+                              >
+                                {method === 'Bank Transfer' ? 'Bank' : method}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div>
+                            <label className={labelCls}>Amount Paid (₹)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              className={inputCls}
+                              value={p.amount}
+                              onChange={e => {
+                                const arr = [...editPayments];
+                                arr[idx] = { ...arr[idx], amount: e.target.value };
+                                setEditPayments(arr);
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <label className={labelCls}>Note / Remarks (Optional)</label>
+                            <input
+                              className={inputCls}
+                              placeholder="e.g. Advance paid"
+                              value={p.notes || ''}
+                              onChange={e => {
+                                const arr = [...editPayments];
+                                arr[idx] = { ...arr[idx], notes: e.target.value };
+                                setEditPayments(arr);
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-3 bg-white border border-dashed border-gray-300 rounded-xl space-y-2.5">
+                    <p className="text-xs font-bold text-gray-500">No advance payment recorded yet.</p>
+                    
+                    <div>
+                      <label className={labelCls}>Select Payment Mode</label>
+                      <div className="grid grid-cols-4 gap-1.5 mt-1">
+                        {['Cash', 'UPI', 'Card', 'Bank Transfer'].map(method => (
+                          <button
+                            type="button"
+                            key={method}
+                            onClick={() => setNewPaymentForm({ ...newPaymentForm, paymentMethod: method })}
+                            className={`py-2 text-xs font-black rounded-lg border transition-all ${
+                              newPaymentForm.paymentMethod === method
+                                ? method === 'Cash'
+                                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                                  : method === 'UPI'
+                                  ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                                  : method === 'Card'
+                                  ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                                  : 'bg-black text-white border-black shadow-xs'
+                                : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                            }`}
+                          >
+                            {method === 'Bank Transfer' ? 'Bank' : method}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className={labelCls}>Paid Amount (₹)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        className={inputCls}
+                        value={newPaymentForm.amount}
+                        onChange={e => setNewPaymentForm({ ...newPaymentForm, amount: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Add Additional Payment Entry */}
+                {editPayments.length > 0 && (
+                  <div>
+                    {!showAddPaymentRow ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowAddPaymentRow(true)}
+                        className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-indigo-50 transition-colors"
+                      >
+                        <Plus size={14} /> + Add Another Payment Entry
+                      </button>
+                    ) : (
+                      <div className="p-3 bg-indigo-50/50 border border-indigo-200 rounded-xl space-y-2.5">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs font-black text-indigo-950">+ New Payment Entry</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowAddPaymentRow(false);
+                              setNewPaymentForm({ amount: '', paymentMethod: 'Cash', notes: '' });
+                            }}
+                            className="text-gray-400 hover:text-gray-600"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+
+                        <div>
+                          <label className={labelCls}>Payment Mode</label>
+                          <div className="grid grid-cols-4 gap-1.5">
+                            {['Cash', 'UPI', 'Card', 'Bank Transfer'].map(m => (
+                              <button
+                                type="button"
+                                key={m}
+                                onClick={() => setNewPaymentForm({ ...newPaymentForm, paymentMethod: m })}
+                                className={`py-1.5 text-xs font-black rounded-lg border transition-all ${
+                                  newPaymentForm.paymentMethod === m
+                                    ? 'bg-black text-white border-black'
+                                    : 'bg-white text-gray-700 border-gray-200'
+                                }`}
+                              >
+                                {m === 'Bank Transfer' ? 'Bank' : m}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div>
+                            <label className={labelCls}>Amount (₹)</label>
+                            <input
+                              type="number"
+                              min="1"
+                              placeholder="Amount (₹)"
+                              className={inputCls}
+                              value={newPaymentForm.amount}
+                              onChange={e => setNewPaymentForm({ ...newPaymentForm, amount: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <label className={labelCls}>Note</label>
+                            <input
+                              placeholder="Note (optional)"
+                              className={inputCls}
+                              value={newPaymentForm.notes}
+                              onChange={e => setNewPaymentForm({ ...newPaymentForm, notes: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <button 
