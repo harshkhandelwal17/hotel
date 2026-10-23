@@ -1,7 +1,7 @@
 const express = require('express');
 const {
   getStays, getStay, createStay, checkout, extendStay, shiftRoom,
-  addCharge, removeCharge, addPayment, deleteStay
+  addCharge, removeCharge, addPayment, deleteStay, updateStay
 } = require('../controllers/stayController');
 const { protect, authorize } = require('../middlewares/auth');
 
@@ -14,6 +14,7 @@ router.route('/')
   .post(createStay);
 
 router.get('/:id', getStay);
+router.put('/:id', updateStay);
 router.post('/:id/checkout', checkout);
 router.post('/:id/extend', extendStay);
 router.post('/:id/shift', shiftRoom);

@@ -1,11 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { format, addDays, addHours } from 'date-fns';
-import { X, Receipt, Plus, Wallet, ArrowRightLeft, CalendarPlus, Printer, Trash2, LogOut, AlertCircle, CheckCircle2, Phone } from 'lucide-react';
+import { X, Receipt, Plus, Wallet, ArrowRightLeft, CalendarPlus, Printer, Trash2, LogOut, AlertCircle, CheckCircle2, Phone, Edit3, Image as ImageIcon, Eye } from 'lucide-react';
 import { printInvoice } from '../../utils/invoice';
 import DynamicUpiQr from '../../components/DynamicUpiQr';
+import { compressImage } from '../../utils/imageCompression';
+import { getFullImageUrl } from '../../utils/imageUrl';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+
+const toDateTimeLocal = (d) => {
+  if (!d) return '';
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
 
 const TABS = [
   { key: 'bill', label: 'Bill', icon: Receipt },
@@ -13,6 +23,7 @@ const TABS = [
   { key: 'pay', label: 'Payment', icon: Wallet },
   { key: 'room', label: 'Change Room', icon: ArrowRightLeft },
   { key: 'extend', label: 'Extend', icon: CalendarPlus },
+  { key: 'edit', label: 'Edit Details', icon: Edit3 },
 ];
 
 const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) => {
@@ -38,6 +49,26 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
     extensionPayment: '',
     paymentMethod: 'Cash'
   });
+
+  // edit form (fixes mistakes in guest, timings, rent)
+  const [editForm, setEditForm] = useState({
+    fullName: '',
+    mobileNumber: '',
+    idProofType: 'Aadhaar',
+    idProofNumber: '',
+    idProofImage: '',
+    idProofImageBack: '',
+    address: '',
+    checkInDate: '',
+    expectedCheckOutDate: '',
+    actualCheckOutDate: '',
+    totalAmount: '',
+    occupants: 1,
+    commissionTo: '',
+    commissionAmount: ''
+  });
+  const [uploadingFront, setUploadingFront] = useState(false);
+  const [uploadingBack, setUploadingBack] = useState(false);
 
   const reload = useCallback(async () => {
     const res = await axios.get(`${API}/api/stays/${initialStay._id}`);
@@ -68,6 +99,78 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
       setError(err.response?.data?.message || err.message || 'Something went wrong');
       return false;
     } finally { setBusy(false); }
+  };
+
+  useEffect(() => {
+    if (stay) {
+      setEditForm({
+        fullName: stay.guest?.fullName || '',
+        mobileNumber: stay.guest?.mobileNumber || '',
+        idProofType: stay.guest?.idProofType || 'Aadhaar',
+        idProofNumber: stay.guest?.idProofNumber || '',
+        idProofImage: stay.guest?.idProofImage || '',
+        idProofImageBack: stay.guest?.idProofImageBack || '',
+        address: stay.guest?.address || '',
+        checkInDate: toDateTimeLocal(stay.checkInDate),
+        expectedCheckOutDate: toDateTimeLocal(stay.expectedCheckOutDate),
+        actualCheckOutDate: toDateTimeLocal(stay.actualCheckOutDate),
+        totalAmount: stay.totalAmount ?? '',
+        occupants: stay.occupants || 1,
+        commissionTo: stay.commissionTo || '',
+        commissionAmount: stay.commissionAmount || ''
+      });
+    }
+  }, [stay]);
+
+  const handleUploadImage = async (file, side) => {
+    if (!file) return;
+    try {
+      if (side === 'front') setUploadingFront(true);
+      else setUploadingBack(true);
+
+      const compressed = await compressImage(file);
+      const fd = new FormData();
+      fd.append('image', compressed);
+      const res = await axios.post(`${API}/api/upload`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      const resolved = getFullImageUrl(res.data.url);
+      setEditForm(prev => ({
+        ...prev,
+        [side === 'front' ? 'idProofImage' : 'idProofImageBack']: resolved
+      }));
+      flash(`✅ ${side === 'front' ? 'Front' : 'Back'} photo uploaded! Click Save to apply.`);
+    } catch (err) {
+      setError(`Failed to upload ${side} image: ` + (err.response?.data?.message || err.message));
+    } finally {
+      if (side === 'front') setUploadingFront(false);
+      else setUploadingBack(false);
+    }
+  };
+
+  const handleSaveEdit = async (e) => {
+    e.preventDefault();
+    await run(async () => {
+      const payload = {
+        checkInDate: editForm.checkInDate ? new Date(editForm.checkInDate).toISOString() : undefined,
+        expectedCheckOutDate: editForm.expectedCheckOutDate ? new Date(editForm.expectedCheckOutDate).toISOString() : undefined,
+        actualCheckOutDate: editForm.actualCheckOutDate ? new Date(editForm.actualCheckOutDate).toISOString() : undefined,
+        totalAmount: Number(editForm.totalAmount) || 0,
+        occupants: Number(editForm.occupants) || 1,
+        commissionTo: editForm.commissionTo,
+        commissionAmount: Number(editForm.commissionAmount) || 0,
+        guestData: {
+          fullName: editForm.fullName,
+          mobileNumber: editForm.mobileNumber,
+          idProofType: editForm.idProofType,
+          idProofNumber: editForm.idProofNumber,
+          idProofImage: editForm.idProofImage,
+          idProofImageBack: editForm.idProofImageBack,
+          address: editForm.address
+        }
+      };
+      await axios.put(`${API}/api/stays/${stay._id}`, payload);
+    }, '✅ Entry details updated successfully!');
   };
 
   const balance = stay.totalAmount - stay.paidAmount;
@@ -157,7 +260,7 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
         <div className="flex overflow-x-auto border-b border-gray-100 px-2">
           {TABS.map(t => {
             const Icon = t.icon;
-            const disabled = !isOpen && t.key !== 'bill' && t.key !== 'pay';
+            const disabled = !isOpen && t.key !== 'bill' && t.key !== 'pay' && t.key !== 'edit';
             return (
               <button key={t.key} disabled={disabled} onClick={() => { setTab(t.key); setError(''); }}
                 className={`flex items-center gap-1.5 px-3 py-3 text-xs font-bold whitespace-nowrap border-b-2 transition-colors disabled:opacity-30 ${tab === t.key ? 'border-black text-black' : 'border-transparent text-gray-400 hover:text-gray-700'}`}>
@@ -356,6 +459,219 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                     onChange={e => setExtendForm({ ...extendForm, extensionPayment: e.target.value })} /></div>
               </div>
               <button disabled={busy} className={btnCls}>{busy ? 'Extending...' : 'Extend Stay'}</button>
+            </form>
+          )}
+
+          {/* ---------------- EDIT DETAILS ---------------- */}
+          {tab === 'edit' && (
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-3 text-xs text-amber-950 font-bold flex items-center gap-2">
+                <Edit3 size={16} className="text-amber-700 shrink-0" />
+                <span>Galti se galat naam, phone, Aadhaar, timing ya amount enter ho gaya ho to yahan theek karein:</span>
+              </div>
+
+              {/* 1. GUEST DETAILS */}
+              <div className="bg-gray-50/80 p-3.5 rounded-2xl border border-gray-200 space-y-3">
+                <h4 className="text-xs font-black uppercase tracking-wider text-gray-700">1. Guest Information</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelCls}>Guest Full Name *</label>
+                    <input 
+                      required 
+                      className={inputCls} 
+                      value={editForm.fullName} 
+                      onChange={e => setEditForm({ ...editForm, fullName: e.target.value })} 
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Mobile Number</label>
+                    <input 
+                      type="tel"
+                      className={inputCls} 
+                      value={editForm.mobileNumber} 
+                      onChange={e => setEditForm({ ...editForm, mobileNumber: e.target.value })} 
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelCls}>ID Proof Type</label>
+                    <select 
+                      className={inputCls} 
+                      value={editForm.idProofType} 
+                      onChange={e => setEditForm({ ...editForm, idProofType: e.target.value })}
+                    >
+                      {['Aadhaar', 'Passport', 'Driving License', 'Voter ID', 'Other'].map(t => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={labelCls}>ID Proof / Aadhaar Number</label>
+                    <input 
+                      className={inputCls} 
+                      placeholder="e.g. 1234 5678 9012"
+                      value={editForm.idProofNumber} 
+                      onChange={e => setEditForm({ ...editForm, idProofNumber: e.target.value })} 
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className={labelCls}>Address</label>
+                  <input 
+                    className={inputCls} 
+                    placeholder="Residential address"
+                    value={editForm.address} 
+                    onChange={e => setEditForm({ ...editForm, address: e.target.value })} 
+                  />
+                </div>
+
+                {/* ID Images Upload / Preview */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  {/* Front Image */}
+                  <div>
+                    <label className={labelCls}>ID Front Photo</label>
+                    <div className="flex items-center gap-2 mt-1">
+                      {editForm.idProofImage ? (
+                        <a href={getFullImageUrl(editForm.idProofImage)} target="_blank" rel="noreferrer" className="relative group shrink-0">
+                          <img src={getFullImageUrl(editForm.idProofImage)} alt="ID Front" className="w-14 h-10 object-cover rounded-lg border border-gray-300 shadow-xs" />
+                          <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Eye size={14} className="text-white" />
+                          </div>
+                        </a>
+                      ) : (
+                        <div className="w-14 h-10 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center shrink-0">
+                          <ImageIcon size={16} className="text-gray-400" />
+                        </div>
+                      )}
+                      <label className="flex-1 cursor-pointer">
+                        <span className="block w-full text-center py-2 px-3 bg-white hover:bg-gray-100 border border-gray-300 rounded-xl text-xs font-bold text-gray-700 shadow-2xs transition-colors">
+                          {uploadingFront ? 'Uploading...' : editForm.idProofImage ? 'Change Front' : '+ Upload Front'}
+                        </span>
+                        <input type="file" accept="image/*" className="hidden" onChange={e => handleUploadImage(e.target.files[0], 'front')} />
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Back Image */}
+                  <div>
+                    <label className={labelCls}>ID Back Photo</label>
+                    <div className="flex items-center gap-2 mt-1">
+                      {editForm.idProofImageBack ? (
+                        <a href={getFullImageUrl(editForm.idProofImageBack)} target="_blank" rel="noreferrer" className="relative group shrink-0">
+                          <img src={getFullImageUrl(editForm.idProofImageBack)} alt="ID Back" className="w-14 h-10 object-cover rounded-lg border border-gray-300 shadow-xs" />
+                          <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Eye size={14} className="text-white" />
+                          </div>
+                        </a>
+                      ) : (
+                        <div className="w-14 h-10 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center shrink-0">
+                          <ImageIcon size={16} className="text-gray-400" />
+                        </div>
+                      )}
+                      <label className="flex-1 cursor-pointer">
+                        <span className="block w-full text-center py-2 px-3 bg-white hover:bg-gray-100 border border-gray-300 rounded-xl text-xs font-bold text-gray-700 shadow-2xs transition-colors">
+                          {uploadingBack ? 'Uploading...' : editForm.idProofImageBack ? 'Change Back' : '+ Upload Back'}
+                        </span>
+                        <input type="file" accept="image/*" className="hidden" onChange={e => handleUploadImage(e.target.files[0], 'back')} />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. TIMINGS & RENT */}
+              <div className="bg-gray-50/80 p-3.5 rounded-2xl border border-gray-200 space-y-3">
+                <h4 className="text-xs font-black uppercase tracking-wider text-gray-700">2. Stay Dates & Rent</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelCls}>Check-In Date & Time</label>
+                    <input 
+                      type="datetime-local" 
+                      className={inputCls} 
+                      value={editForm.checkInDate} 
+                      onChange={e => setEditForm({ ...editForm, checkInDate: e.target.value })} 
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Expected Check-Out Date & Time</label>
+                    <input 
+                      type="datetime-local" 
+                      className={inputCls} 
+                      value={editForm.expectedCheckOutDate} 
+                      onChange={e => setEditForm({ ...editForm, expectedCheckOutDate: e.target.value })} 
+                    />
+                  </div>
+                </div>
+
+                {stay.status === 'Checked Out' && (
+                  <div>
+                    <label className={labelCls}>Actual Check-Out Date & Time</label>
+                    <input 
+                      type="datetime-local" 
+                      className={inputCls} 
+                      value={editForm.actualCheckOutDate} 
+                      onChange={e => setEditForm({ ...editForm, actualCheckOutDate: e.target.value })} 
+                    />
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelCls}>Total Agreed Rent (₹)</label>
+                    <input 
+                      type="number" 
+                      min="0" 
+                      className={inputCls} 
+                      value={editForm.totalAmount} 
+                      onChange={e => setEditForm({ ...editForm, totalAmount: e.target.value })} 
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Occupants / Guests</label>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      className={inputCls} 
+                      value={editForm.occupants} 
+                      onChange={e => setEditForm({ ...editForm, occupants: e.target.value })} 
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelCls}>Broker / Commission To (Opt)</label>
+                    <input 
+                      className={inputCls} 
+                      placeholder="Broker Name" 
+                      value={editForm.commissionTo} 
+                      onChange={e => setEditForm({ ...editForm, commissionTo: e.target.value })} 
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Broker Amount (₹)</label>
+                    <input 
+                      type="number" 
+                      min="0" 
+                      className={inputCls} 
+                      placeholder="0" 
+                      value={editForm.commissionAmount} 
+                      onChange={e => setEditForm({ ...editForm, commissionAmount: e.target.value })} 
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={busy} 
+                className="w-full py-3 bg-black text-white font-black text-sm rounded-xl hover:bg-gray-800 transition-all shadow-md active:scale-95 disabled:opacity-50"
+              >
+                {busy ? 'Saving Changes...' : 'Save & Update Details ✓'}
+              </button>
             </form>
           )}
         </div>

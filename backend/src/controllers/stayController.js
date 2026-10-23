@@ -201,10 +201,10 @@ exports.getStay = async (req, res, next) => {
   try {
     const authorized = await loadAuthorizedStay(req);
     const stay = await Stay.findById(authorized._id)
-      .populate('guest', 'fullName mobileNumber idProofType idProofNumber')
-      .populate('coGuests', 'fullName mobileNumber')
+      .populate('guest', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth')
+      .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth')
       .populate('room', 'roomNumber price24h extraPerPerson24h')
-      .populate('hostel', 'name address');
+      .populate('hostel', 'name address upiId upiPayeeName');
     const payments = await Payment.find({ stay: stay._id }).sort('paymentDate');
     res.status(200).json({ success: true, data: { stay, payments } });
   } catch (error) {
@@ -555,6 +555,104 @@ exports.deleteStay = async (req, res, next) => {
     await Payment.deleteMany({ stay: stay._id });
     await stay.deleteOne();
     res.status(200).json({ success: true, message: 'Stay deleted successfully' });
+  } catch (error) {
+    sendError(res, next, error);
+  }
+};
+
+// PUT /api/stays/:id - Edit Stay & Guest details
+exports.updateStay = async (req, res, next) => {
+  try {
+    const stay = await loadAuthorizedStay(req);
+    await assertHostelAccess(req.user, stay.hostel, true);
+
+    const {
+      checkInDate,
+      expectedCheckOutDate,
+      actualCheckOutDate,
+      totalAmount,
+      occupants,
+      commissionTo,
+      commissionAmount,
+      notes,
+      guestData
+    } = req.body;
+
+    // 1. Update Stay Fields
+    if (checkInDate) {
+      const parsedIn = new Date(checkInDate);
+      if (!isNaN(parsedIn.getTime())) {
+        stay.checkInDate = parsedIn;
+      }
+    }
+
+    if (expectedCheckOutDate) {
+      const parsedOut = new Date(expectedCheckOutDate);
+      if (!isNaN(parsedOut.getTime()) && parsedOut > stay.checkInDate) {
+        stay.expectedCheckOutDate = parsedOut;
+      }
+    }
+
+    if (actualCheckOutDate !== undefined) {
+      if (actualCheckOutDate) {
+        const parsedActual = new Date(actualCheckOutDate);
+        if (!isNaN(parsedActual.getTime())) {
+          stay.actualCheckOutDate = parsedActual;
+        }
+      } else {
+        stay.actualCheckOutDate = undefined;
+      }
+    }
+
+    if (totalAmount !== undefined && totalAmount !== '') {
+      const amt = Number(totalAmount);
+      if (Number.isFinite(amt) && amt >= 0) {
+        stay.totalAmount = amt;
+      }
+    }
+
+    if (occupants !== undefined) {
+      const occ = Number(occupants);
+      if (Number.isFinite(occ) && occ >= 1) {
+        stay.occupants = occ;
+      }
+    }
+
+    if (commissionTo !== undefined) stay.commissionTo = commissionTo;
+    if (commissionAmount !== undefined) stay.commissionAmount = Number(commissionAmount) || 0;
+    if (notes !== undefined) stay.notes = notes;
+
+    await stay.save();
+
+    // 2. Update Associated Guest if guestData provided
+    if (guestData && typeof guestData === 'object' && stay.guest) {
+      const allowedGuestFields = [
+        'fullName', 'mobileNumber', 'idProofType', 'idProofNumber',
+        'idProofImage', 'idProofImageBack', 'address', 'gender', 'dateOfBirth'
+      ];
+      const guestUpdate = {};
+      for (const field of allowedGuestFields) {
+        if (guestData[field] !== undefined) {
+          guestUpdate[field] = guestData[field];
+        }
+      }
+      if (Object.keys(guestUpdate).length > 0) {
+        await Guest.findByIdAndUpdate(stay.guest, { $set: guestUpdate });
+      }
+    }
+
+    // Return fresh populated stay
+    const updatedStay = await Stay.findById(stay._id)
+      .populate('guest', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth')
+      .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth')
+      .populate('room', 'roomNumber price24h extraPerPerson24h')
+      .populate('hostel', 'name address upiId upiPayeeName');
+
+    res.status(200).json({
+      success: true,
+      message: 'Stay and Guest details updated successfully',
+      data: updatedStay
+    });
   } catch (error) {
     sendError(res, next, error);
   }
