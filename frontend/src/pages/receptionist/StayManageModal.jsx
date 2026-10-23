@@ -272,39 +272,51 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
   const btnCls = 'w-full py-3 bg-black text-white font-bold rounded-xl disabled:opacity-50 active:scale-95 transition-all';
 
   return (
-    <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[95vh] sm:max-h-[90vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-2 sm:p-4 md:p-6 overflow-y-auto" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl sm:max-w-3xl flex flex-col my-auto max-h-[92vh] sm:max-h-[88vh] overflow-hidden border border-gray-100" onClick={e => e.stopPropagation()}>
         {/* Header */}
-        <div className="px-4 sm:px-5 py-3.5 sm:py-4 border-b border-gray-100 flex justify-between items-start shrink-0">
+        <div className="px-5 py-3.5 sm:py-4 border-b border-gray-100 flex justify-between items-center shrink-0 bg-white">
           <div>
-            <h2 className="text-xl font-black text-gray-900">{stay.guest?.fullName}</h2>
-            <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 font-semibold mt-0.5">
-              <span>Room <span className="text-indigo-600 font-black">{stay.room?.roomNumber}</span> &bull; {stay.guest?.mobileNumber}</span>
-              {stay.guest?.mobileNumber && (
-                <a
-                  href={`tel:${stay.guest.mobileNumber}`}
-                  className="inline-flex items-center gap-1 text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-md font-bold text-xs active:scale-95 transition-all"
-                  title={`Call ${stay.guest?.fullName}`}
-                >
-                  <Phone size={11} className="stroke-[2.5]" /> Call
-                </a>
-              )}
+            <div className="flex items-center gap-2.5">
+              <h2 className="text-xl font-black text-gray-900">{stay.guest?.fullName || 'Guest Details'}</h2>
+              <span className="px-2.5 py-0.5 bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-black rounded-lg">
+                Room {stay.room?.roomNumber}
+              </span>
             </div>
-            <p className="text-xs text-gray-400 mt-0.5">
-              {format(new Date(stay.checkInDate), 'dd MMM, hh:mm a')} &rarr; {format(new Date(stay.expectedCheckOutDate), 'dd MMM, hh:mm a')}
-            </p>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 font-semibold mt-1">
+              {stay.guest?.mobileNumber && (
+                <>
+                  <span>{stay.guest.mobileNumber}</span>
+                  <a
+                    href={`tel:${stay.guest.mobileNumber}`}
+                    className="inline-flex items-center gap-1 text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-md font-bold text-[11px] active:scale-95 transition-all"
+                    title={`Call ${stay.guest?.fullName}`}
+                  >
+                    <Phone size={11} className="stroke-[2.5]" /> Call
+                  </a>
+                  <span>&bull;</span>
+                </>
+              )}
+              <span>{format(new Date(stay.checkInDate), 'dd MMM, hh:mm a')} &rarr; {format(new Date(stay.expectedCheckOutDate), 'dd MMM, hh:mm a')}</span>
+            </div>
           </div>
-          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full"><X size={20} /></button>
+          <button 
+            type="button" 
+            onClick={onClose} 
+            className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <X size={20} />
+          </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex overflow-x-auto border-b border-gray-100 px-2">
+        <div className="flex overflow-x-auto border-b border-gray-200 px-3 bg-gray-50/60 no-scrollbar">
           {TABS.map(t => {
             const Icon = t.icon;
             const disabled = !isOpen && t.key !== 'bill' && t.key !== 'pay' && t.key !== 'edit';
             return (
               <button key={t.key} disabled={disabled} onClick={() => { setTab(t.key); setError(''); }}
-                className={`flex items-center gap-1.5 px-3 py-3 text-xs font-bold whitespace-nowrap border-b-2 transition-colors disabled:opacity-30 ${tab === t.key ? 'border-black text-black' : 'border-transparent text-gray-400 hover:text-gray-700'}`}>
+                className={`flex items-center gap-1.5 px-3.5 py-3 text-xs font-bold whitespace-nowrap border-b-2 transition-all disabled:opacity-30 ${tab === t.key ? 'border-black text-black bg-white shadow-2xs rounded-t-lg' : 'border-transparent text-gray-500 hover:text-gray-900'}`}>
                 <Icon size={14} /> {t.label}
               </button>
             );
@@ -948,16 +960,38 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
         </div>
 
         {/* Footer actions */}
-        <div className="px-4 sm:px-5 py-3.5 sm:py-4 bg-gray-50 border-t border-gray-200 flex gap-2.5 sm:gap-3 shrink-0">
-          <button onClick={() => printInvoice(stay, payments)}
-            className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 sm:py-3 bg-white border border-gray-200 rounded-xl text-xs sm:text-sm font-bold text-gray-700 hover:bg-gray-100">
-            <Printer size={16} /> Bill
-          </button>
-          {isOpen && (
-            <button onClick={() => onCheckout(stay)}
-              className="flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 bg-red-600 text-white rounded-xl text-xs sm:text-sm font-black uppercase tracking-wide hover:bg-red-700 active:scale-95 shadow-md">
-              <LogOut size={16} /> Checkout
-            </button>
+        <div className="px-4 sm:px-5 py-3.5 sm:py-4 bg-gray-50 border-t border-gray-200 flex gap-2.5 sm:gap-3 shrink-0 items-center justify-between">
+          {tab === 'edit' ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setTab('bill')}
+                className="px-4 py-2.5 bg-white border border-gray-300 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-100 active:scale-95 transition-all"
+              >
+                Back to Bill
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={handleSaveEdit}
+                className="flex-1 py-2.5 sm:py-3 bg-black text-white rounded-xl text-xs sm:text-sm font-black uppercase tracking-wide hover:bg-gray-800 active:scale-95 shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {busy ? 'Saving Changes...' : 'Save & Update Details ✓'}
+              </button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => printInvoice(stay, payments)}
+                className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 sm:py-3 bg-white border border-gray-200 rounded-xl text-xs sm:text-sm font-bold text-gray-700 hover:bg-gray-100">
+                <Printer size={16} /> Bill
+              </button>
+              {isOpen && (
+                <button onClick={() => onCheckout(stay)}
+                  className="flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 bg-red-600 text-white rounded-xl text-xs sm:text-sm font-black uppercase tracking-wide hover:bg-red-700 active:scale-95 shadow-md">
+                  <LogOut size={16} /> Checkout
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
