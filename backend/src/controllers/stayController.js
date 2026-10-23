@@ -573,6 +573,7 @@ exports.updateStay = async (req, res, next) => {
       totalAmount,
       occupants,
       commissionTo,
+      commissionAmount,
       notes,
       guestData,
       payments: editedPayments,
