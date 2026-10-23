@@ -15,6 +15,17 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
   const [completedStay, setCompletedStay] = useState(null);
   const [payments, setPayments] = useState([]);
 
+  const toDateTimeLocal = (d) => {
+    if (!d) return '';
+    const date = new Date(d);
+    if (isNaN(date.getTime())) return '';
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  };
+
+  const [actualCheckOutDate, setActualCheckOutDate] = useState(() => toDateTimeLocal(new Date()));
+  const [isEditingCheckoutTime, setIsEditingCheckoutTime] = useState(false);
+
   const baseBalance = stay.totalAmount - stay.paidAmount;
   const totalNewCharges = chargesList.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
   const finalBalance = Math.max(0, baseBalance + totalNewCharges);
@@ -42,6 +53,7 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
         chargesList,
         checkoutPayment: Number(checkoutPayment),
         paymentMethod,
+        actualCheckOutDate: isEditingCheckoutTime && actualCheckOutDate ? new Date(actualCheckOutDate).toISOString() : new Date().toISOString()
       });
       setCompletedStay(res.data.data);
       setPayments(res.data.payments || []);
@@ -151,9 +163,27 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
                 <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Expected Out</p>
                 <p className="font-bold text-gray-900 text-xs">{format(new Date(stay.expectedCheckOutDate), 'dd MMM, hh:mm a')}</p>
               </div>
-              <div className="bg-orange-50 p-3 rounded-xl border border-orange-100 shadow-sm border-2">
-                <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest mb-1">Actual Out (Now)</p>
-                <p className="font-black text-orange-900 text-sm">{format(new Date(), 'dd MMM, hh:mm a')}</p>
+              <div className="bg-orange-50 p-3 rounded-xl border border-orange-200 shadow-sm border-2">
+                <div className="flex justify-between items-center mb-1">
+                  <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest">Actual Out</p>
+                  <button 
+                    type="button" 
+                    onClick={() => setIsEditingCheckoutTime(!isEditingCheckoutTime)} 
+                    className="text-[10px] font-black text-orange-700 underline hover:text-black cursor-pointer"
+                  >
+                    {isEditingCheckoutTime ? 'Use Current' : 'Edit Time'}
+                  </button>
+                </div>
+                {!isEditingCheckoutTime ? (
+                  <p className="font-black text-orange-900 text-sm">{format(new Date(), 'dd MMM, hh:mm a')}</p>
+                ) : (
+                  <input
+                    type="datetime-local"
+                    value={actualCheckOutDate}
+                    onChange={e => setActualCheckOutDate(e.target.value)}
+                    className="w-full bg-white border border-orange-300 rounded-lg p-1.5 text-xs font-black text-gray-900 outline-none mt-1"
+                  />
+                )}
               </div>
             </div>
 

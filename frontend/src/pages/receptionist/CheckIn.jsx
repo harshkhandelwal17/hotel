@@ -123,8 +123,9 @@ const CheckIn = () => {
   const [stayInfo, setStayInfo] = useState(() => {
     const defaultStay = {
       room: '',
-      durationDays: 0,
+      durationDays: 1,
       durationHours: 0,
+      isMorningCheckout: false,
       occupants: 1,
       totalAmount: '',
       paidAmount: '',
@@ -137,11 +138,15 @@ const CheckIn = () => {
       actualCheckOutDate: ''
     };
     const saved = loadState('checkin_stayInfo', defaultStay);
-    // If the saved state only has the old unedited default, reset durationDays to 0 and paidAmount to empty
-    if (saved && !saved.room && !saved.totalAmount) {
+    if (saved) {
+      const days = Number(saved.durationDays) || 0;
+      const hours = Number(saved.durationHours) || 0;
+      const finalDays = (days === 0 && hours === 0) ? 1 : days;
       return { 
         ...saved, 
-        durationDays: saved.durationDays === 1 ? 0 : saved.durationDays,
+        durationDays: finalDays,
+        durationHours: hours,
+        isMorningCheckout: saved.isMorningCheckout || false,
         paidAmount: saved.paidAmount === 0 || saved.paidAmount === '0' ? '' : saved.paidAmount,
         isBackdated: saved.isBackdated || false,
         checkInDate: saved.checkInDate || '',
@@ -149,7 +154,7 @@ const CheckIn = () => {
         actualCheckOutDate: saved.actualCheckOutDate || ''
       };
     }
-    return saved;
+    return defaultStay;
   });
 
   // =========================================================
@@ -289,8 +294,12 @@ const CheckIn = () => {
       return format(expectedOutPreview, 'dd MMM, hh:mm a');
     }
 
-    expectedOutPreview.setDate(expectedOutPreview.getDate() + (Number(stayInfo.durationDays) || 0));
-    expectedOutPreview.setHours(expectedOutPreview.getHours() + (Number(stayInfo.durationHours) || 0));
+    const days = Number(stayInfo.durationDays) || 0;
+    const hours = Number(stayInfo.durationHours) || 0;
+    const effDays = (days === 0 && hours === 0) ? 1 : days;
+
+    expectedOutPreview.setDate(expectedOutPreview.getDate() + effDays);
+    expectedOutPreview.setHours(expectedOutPreview.getHours() + hours);
     return format(expectedOutPreview, 'dd MMM, hh:mm a');
   }, [stayInfo.isMorningCheckout, stayInfo.durationDays, stayInfo.durationHours, stayInfo.isBackdated, stayInfo.checkInDate]);
 
@@ -1135,28 +1144,21 @@ const CheckIn = () => {
 
       const expectedOut = new Date(checkInDate.getTime());
 
+      const days = Number(stayInfo.durationDays) || 0;
+      const hours = Number(stayInfo.durationHours) || 0;
+      const effDays = (days === 0 && hours === 0) ? 1 : days;
+
       if (stayInfo.isMorningCheckout) {
-        const days = Math.max(1, Number(stayInfo.durationDays) || 1);
+        const morningDays = Math.max(1, effDays);
         if (checkInDate.getHours() < 6) {
           expectedOut.setHours(10, 0, 0, 0); // 10:00 AM sharp today
         } else {
-          expectedOut.setDate(checkInDate.getDate() + days);
+          expectedOut.setDate(checkInDate.getDate() + morningDays);
           expectedOut.setHours(10, 0, 0, 0); // 10:00 AM sharp on checkout day
         }
       } else {
-        expectedOut.setDate(
-          expectedOut.getDate() +
-            (Number(
-              stayInfo.durationDays
-            ) || 0)
-        );
-
-        expectedOut.setHours(
-          expectedOut.getHours() +
-            (Number(
-              stayInfo.durationHours
-            ) || 0)
-        );
+        expectedOut.setDate(expectedOut.getDate() + effDays);
+        expectedOut.setHours(expectedOut.getHours() + hours);
       }
 
       // =====================================================
@@ -1168,6 +1170,10 @@ const CheckIn = () => {
         ? (stayInfo.actualCheckOutDate ? new Date(stayInfo.actualCheckOutDate).toISOString() : expectedOut.toISOString())
         : undefined;
 
+      const durLabel = stayInfo.isMorningCheckout 
+        ? `${Math.max(1, effDays)}d (10 AM)`
+        : (effDays > 0 && hours > 0) ? `${effDays}d ${hours}h` : effDays > 0 ? `${effDays}d (24h)` : `${hours}h`;
+
       const stayPayload = {
         guest: pGuestId,
 
@@ -1177,11 +1183,7 @@ const CheckIn = () => {
 
         hostel: hostelId,
 
-        durationOption: `${
-          stayInfo.durationDays || 0
-        }d ${
-          stayInfo.durationHours || 0
-        }h`,
+        durationOption: durLabel,
 
         occupants:
           stayInfo.occupants,
@@ -1606,7 +1608,7 @@ const CheckIn = () => {
                       <div className="flex items-center gap-2">
                         <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
                         <span className="text-xs font-black text-emerald-950">
-                          Check-In: <span className="font-bold text-emerald-800">Instant Walk-In (Right Now)</span>
+                          Check-In: <span className="font-bold text-emerald-800">Right Now ({format(new Date(), 'hh:mm a')})</span>
                         </span>
                       </div>
                       <button
@@ -1622,7 +1624,7 @@ const CheckIn = () => {
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-emerald-100/80 border border-emerald-300 text-emerald-900 rounded-lg text-xs font-black transition-all shadow-xs active:scale-95"
                       >
                         <CalendarClock size={13} className="text-emerald-700" />
-                        <span>Register / Backdated Entry?</span>
+                        <span>Change Date & Time / Backdated?</span>
                       </button>
                     </div>
                   ) : (
@@ -1631,7 +1633,7 @@ const CheckIn = () => {
                         <div className="flex items-center gap-2">
                           <CalendarClock size={16} className="text-amber-700" />
                           <h4 className="text-xs sm:text-sm font-black text-amber-950 uppercase tracking-tight">
-                            Register / Backdated Check-In (Pichli Entry)
+                            Custom / Backdated Check-In (Pichli Entry)
                           </h4>
                         </div>
                         <button
@@ -1647,13 +1649,34 @@ const CheckIn = () => {
                           }}
                           className="text-[11px] font-bold text-gray-600 hover:text-black bg-white hover:bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-200 transition-colors shadow-2xs"
                         >
-                          ✕ Reset to Instant Walk-In
+                          ✕ Reset to Right Now
                         </button>
                       </div>
 
                       {/* QUICK PRESET CHIPS */}
                       <div className="flex flex-wrap items-center gap-1.5">
                         <span className="text-[10px] font-black text-amber-800 uppercase tracking-wider mr-1">Quick:</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const d = new Date();
+                            setStayInfo(p => ({ ...p, checkInDate: toDateTimeLocal(d) }));
+                          }}
+                          className="px-2.5 py-1 bg-white hover:bg-amber-100 border border-amber-200 text-amber-900 rounded-lg text-xs font-bold transition-all shadow-2xs active:scale-95"
+                        >
+                          Right Now
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const d = new Date();
+                            d.setHours(10, 0, 0, 0);
+                            setStayInfo(p => ({ ...p, checkInDate: toDateTimeLocal(d) }));
+                          }}
+                          className="px-2.5 py-1 bg-white hover:bg-amber-100 border border-amber-200 text-amber-900 rounded-lg text-xs font-bold transition-all shadow-2xs active:scale-95"
+                        >
+                          Today 10 AM
+                        </button>
                         <button
                           type="button"
                           onClick={() => {
@@ -1731,7 +1754,14 @@ const CheckIn = () => {
                             <input
                               type="checkbox"
                               checked={Boolean(stayInfo.isAlreadyCheckedOut)}
-                              onChange={(e) => setStayInfo(p => ({ ...p, isAlreadyCheckedOut: e.target.checked }))}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                setStayInfo(p => ({ 
+                                  ...p, 
+                                  isAlreadyCheckedOut: checked,
+                                  actualCheckOutDate: checked && !p.actualCheckOutDate ? toDateTimeLocal(new Date()) : p.actualCheckOutDate
+                                }));
+                              }}
                               className="w-4 h-4 text-amber-600 rounded focus:ring-0"
                             />
                             <div className="min-w-0">
@@ -1745,6 +1775,20 @@ const CheckIn = () => {
                           </label>
                         </div>
                       </div>
+
+                      {stayInfo.isAlreadyCheckedOut && (
+                        <div className="pt-1 bg-white/70 p-3 rounded-xl border border-amber-200">
+                          <label className="block text-[10px] font-black text-amber-900 uppercase tracking-widest mb-1">
+                            Actual Check-Out Date & Time
+                          </label>
+                          <input
+                            type="datetime-local"
+                            value={stayInfo.actualCheckOutDate || ''}
+                            onChange={(e) => setStayInfo(p => ({ ...p, actualCheckOutDate: e.target.value }))}
+                            className="w-full px-3 py-2 bg-white border border-amber-300 rounded-xl text-sm font-black text-gray-900 outline-none focus:border-amber-600 shadow-2xs"
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1783,6 +1827,9 @@ const CheckIn = () => {
                           if (exactMatch) {
                             setStayInfo((p) => {
                               const updated = { ...p, room: exactMatch._id };
+                              if (!Number(updated.durationDays) && !Number(updated.durationHours)) {
+                                updated.durationDays = 1;
+                              }
                               if ((!p.totalAmount || p.totalAmount === '0' || p.totalAmount === 0) && exactMatch.price24h > 0) {
                                 updated.totalAmount = exactMatch.price24h;
                               }
@@ -1851,6 +1898,9 @@ const CheckIn = () => {
                           onClick={() =>
                             setStayInfo((prev) => {
                               const updated = { ...prev, room: room._id };
+                              if (!Number(updated.durationDays) && !Number(updated.durationHours)) {
+                                updated.durationDays = 1;
+                              }
                               if ((!prev.totalAmount || prev.totalAmount === '0' || prev.totalAmount === 0) && room.price24h > 0) {
                                 updated.totalAmount = room.price24h;
                               }

@@ -58,8 +58,19 @@ exports.createStay = async (req, res, next) => {
       }
     }
 
+    const parsedCheckIn = new Date(checkInDate);
+    if (isNaN(parsedCheckIn.getTime())) {
+      throw new Error('Invalid check-in date');
+    }
+
+    let parsedExpectedOut = new Date(expectedCheckOutDate);
+    if (isNaN(parsedExpectedOut.getTime()) || parsedExpectedOut <= parsedCheckIn) {
+      // Auto-fallback: ensure expected checkout is at least 24 hours after check-in
+      parsedExpectedOut = new Date(parsedCheckIn.getTime() + 24 * 60 * 60 * 1000);
+    }
+
     const overlapping = await Stay.findOne(
-      roomOverlapFilter(room, checkInDate, expectedCheckOutDate)
+      roomOverlapFilter(room, parsedCheckIn, parsedExpectedOut)
     );
     if (overlapping) {
       throw new Error('The selected room is already booked for the requested dates.');
@@ -91,8 +102,8 @@ exports.createStay = async (req, res, next) => {
       coGuests: coGuestIds,
       hostel,
       room,
-      checkInDate: new Date(checkInDate),
-      expectedCheckOutDate: new Date(expectedCheckOutDate),
+      checkInDate: parsedCheckIn,
+      expectedCheckOutDate: parsedExpectedOut,
       actualCheckOutDate: parsedActualOut,
       status: isPastCheckout ? 'Checked Out' : 'Active',
       durationOption: durationOption || '24h',
@@ -363,13 +374,16 @@ exports.checkout = async (req, res, next) => {
       throw new Error(`Full payment required to checkout. Balance due: ₹${Math.max(0, balanceDue)}`);
     }
 
+    const actualOut = req.body.actualCheckOutDate ? new Date(req.body.actualCheckOutDate) : new Date();
+    const resolvedActualOut = isNaN(actualOut.getTime()) ? new Date() : actualOut;
+
     // Atomic status flip — prevents double checkout
     const flipped = await Stay.findOneAndUpdate(
       { _id: stay._id, status: { $ne: 'Checked Out' } },
       {
         $set: {
           status: 'Checked Out',
-          actualCheckOutDate: new Date(),
+          actualCheckOutDate: resolvedActualOut,
           charges: stay.charges,
           additionalCharges: stay.additionalCharges,
           totalAmount: stay.totalAmount,
