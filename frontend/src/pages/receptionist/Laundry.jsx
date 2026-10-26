@@ -846,11 +846,11 @@ _Account reconciled with ${hotelName} Reception. Thank you!_`;
     const msg = `🚨 *URGENT - ${hotelName.toUpperCase()} LINEN SHORTAGE ALERT*
 👤 *Vendor:* ${vendorName}
 
-Hotel me *${item.itemName}* ka clean stock critically low hai:
-• Store me bache hue: *${item.cleanInStore} pcs*
+Hotel me *${item.itemName}* ka stock critically low hai:
+• Hotel me bache hue: *${item.availableInHotel} pcs*
 • Dhobi ke paas dhulne gaye: *${item.withDhobi} pcs*
 
-⚠️ Kripya is item ke clean kapde aaj shaam tak hotel bhej dein taaki rooms me shortage na ho. Dhanyawad!`;
+⚠️ Kripya is item ke clean kapde jaldi hotel bhej dein taaki rooms me shortage na ho. Dhanyawad!`;
 
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
     window.open(url, '_blank');
@@ -999,7 +999,7 @@ Hotel me *${item.itemName}* ka clean stock critically low hai:
             </span>
           ) : (
             <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-100 text-emerald-800">
-              {linenRotation?.totals?.totalCleanPieces || 0} Clean Ready
+              {linenRotation?.totals?.totalAvailablePieces || 0} In Hotel
             </span>
           )}
         </button>
@@ -1521,34 +1521,26 @@ Hotel me *${item.itemName}* ka clean stock critically low hai:
             </button>
           </div>
 
-          {/* Quick Metrics Bar */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          {/* Quick Metrics Bar (Clean & Simple: In Hotel vs With Dhobi) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-2xl">
-              <p className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">🧼 Clean in Store (Ready)</p>
+              <p className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">🏨 Available in Hotel (होटल में उपलब्ध)</p>
               <p className="text-2xl font-black text-emerald-900 mt-1">
-                {linenRotation?.totals?.totalCleanPieces || 0} <span className="text-xs font-bold text-emerald-700">pcs</span>
+                {linenRotation?.totals?.totalAvailablePieces || 0} <span className="text-xs font-bold text-emerald-700">pcs</span>
               </p>
-              <p className="text-[11px] font-medium text-emerald-700 mt-0.5">Ready for fresh check-in</p>
-            </div>
-
-            <div className="p-4 bg-blue-50/70 border border-blue-200 rounded-2xl">
-              <p className="text-[10px] font-bold text-blue-800 uppercase tracking-wider">🛏️ In Rooms (In Use)</p>
-              <p className="text-2xl font-black text-blue-900 mt-1">
-                {linenRotation?.totals?.totalInRoomsPieces || 0} <span className="text-xs font-bold text-blue-700">pcs</span>
-              </p>
-              <p className="text-[11px] font-medium text-blue-700 mt-0.5">Across {linenRotation?.activeRoomsInUse || 0} occupied rooms</p>
+              <p className="text-[11px] font-medium text-emerald-700 mt-0.5">Hotel stock ready for use</p>
             </div>
 
             <div className="p-4 bg-orange-50/70 border border-orange-200 rounded-2xl">
-              <p className="text-[10px] font-bold text-orange-800 uppercase tracking-wider">🧺 With Dhobi (Washing)</p>
+              <p className="text-[10px] font-bold text-orange-800 uppercase tracking-wider">🧺 With Dhobi (धोबी के पास)</p>
               <p className="text-2xl font-black text-orange-900 mt-1">
                 {linenRotation?.totals?.totalWithDhobiPieces || 0} <span className="text-xs font-bold text-orange-700">pcs</span>
               </p>
-              <p className="text-[11px] font-medium text-orange-700 mt-0.5">Currently at laundry</p>
+              <p className="text-[11px] font-medium text-orange-700 mt-0.5">Currently sent for washing</p>
             </div>
 
             <div className="p-4 bg-gray-50 border border-gray-200 rounded-2xl">
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">📦 Total Owned Stock</p>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">📦 Total Owned Stock (कुल कपड़े)</p>
               <p className="text-2xl font-black text-gray-900 mt-1">
                 {linenRotation?.totals?.totalLinenPieces || 0} <span className="text-xs font-bold text-gray-400">pcs</span>
               </p>
@@ -1570,22 +1562,17 @@ Hotel me *${item.itemName}* ka clean stock critically low hai:
                       ? 'bg-red-100 text-red-700 border border-red-200 animate-pulse'
                       : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                   }`}>
-                    {item.isLow ? `⚠️ Low Clean Stock (${item.cleanInStore} left)` : `🟢 Safe (${item.cleanInStore} ready)`}
+                    {item.isLow ? `⚠️ Low in Hotel (${item.availableInHotel} left)` : `🟢 ${item.availableInHotel} In Hotel`}
                   </span>
                 </div>
 
-                {/* Segmented Stock Bar */}
+                {/* 2-Color Clean Bar: In Hotel vs With Dhobi */}
                 <div className="space-y-1">
                   <div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden flex">
                     <div
-                      style={{ width: `${item.totalStock > 0 ? (item.cleanInStore / item.totalStock) * 100 : 0}%` }}
+                      style={{ width: `${item.totalStock > 0 ? (item.availableInHotel / item.totalStock) * 100 : 0}%` }}
                       className="bg-emerald-500 transition-all"
-                      title={`Clean in store: ${item.cleanInStore}`}
-                    />
-                    <div
-                      style={{ width: `${item.totalStock > 0 ? (item.inRooms / item.totalStock) * 100 : 0}%` }}
-                      className="bg-blue-500 transition-all"
-                      title={`In rooms: ${item.inRooms}`}
+                      title={`In Hotel: ${item.availableInHotel}`}
                     />
                     <div
                       style={{ width: `${item.totalStock > 0 ? (item.withDhobi / item.totalStock) * 100 : 0}%` }}
@@ -1594,9 +1581,8 @@ Hotel me *${item.itemName}* ka clean stock critically low hai:
                     />
                   </div>
                   <div className="flex justify-between items-center text-[10px] font-black text-gray-500 pt-1">
-                    <span className="text-emerald-700">🧼 Clean: {item.cleanInStore}</span>
-                    <span className="text-blue-700">🛏️ Rooms: {item.inRooms}</span>
-                    <span className="text-orange-700">🧺 Dhobi: {item.withDhobi}</span>
+                    <span className="text-emerald-700">🏨 In Hotel: {item.availableInHotel} pcs</span>
+                    <span className="text-orange-700">🧺 With Dhobi: {item.withDhobi} pcs</span>
                   </div>
                 </div>
 
@@ -1604,7 +1590,7 @@ Hotel me *${item.itemName}* ka clean stock critically low hai:
                 {item.isLow && (
                   <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-2">
                     <p className="text-[11px] font-bold text-red-600">
-                      Only {item.cleanInStore} pcs clean in store!
+                      Only {item.availableInHotel} pcs left in hotel! Dhobi has {item.withDhobi} pcs.
                     </p>
                     <button
                       type="button"

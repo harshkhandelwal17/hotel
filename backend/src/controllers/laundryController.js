@@ -175,65 +175,49 @@ exports.getLaundryOrders = async (req, res, next) => {
       };
     }
 
-    // Calculate Linen Stock in Rotation (Clean in Store, In Rooms, With Dhobi)
+    // Calculate Linen Stock in Circulation (Total Stock = In Hotel + With Dhobi)
     const DEFAULT_PRESET_INVENTORY = {
       'Bedsheet (Double)': 50,
       'Bedsheet (Single)': 30,
-      'Pillow Cover': 100,
-      'Bath Towel': 60,
+      'Pillow Cover': 40,
+      'Bath Towel': 30,
       'Hand Towel': 40,
-      'Blanket': 25,
-      'Duvet Cover': 25
+      'Blanket / Duvet': 25,
+      'Staff Uniform': 15,
+      'Curtains': 20
     };
 
-    const LINEN_ROOM_MULTIPLIERS = {
-      'Bedsheet (Double)': 1,
-      'Bedsheet (Single)': 0.5,
-      'Pillow Cover': 2,
-      'Bath Towel': 2,
-      'Hand Towel': 1,
-      'Blanket': 1,
-      'Duvet Cover': 1
-    };
-
-    let activeStaysCount = 0;
-    try {
-      const stayQuery = { status: { $in: ['Active', 'Checkout Due', 'Overdue'] } };
-      if (filter.hostel) stayQuery.hostel = filter.hostel;
-      activeStaysCount = await Stay.countDocuments(stayQuery);
-    } catch (_) {}
+    // Use items from configured linenItems or defaults
+    const itemsToTrack = (linenItems && linenItems.length > 0)
+      ? linenItems.map(it => it.itemName)
+      : Object.keys(DEFAULT_PRESET_INVENTORY);
 
     let totalLinenPieces = 0;
-    let totalInRoomsPieces = 0;
     let totalWithDhobiPieces = 0;
-    let totalCleanPieces = 0;
+    let totalAvailablePieces = 0;
     let lowStockAlertCount = 0;
 
-    const linenRotation = Object.keys(DEFAULT_PRESET_INVENTORY).map(itemName => {
+    const linenRotation = itemsToTrack.map(itemName => {
       const totalStock = (savedInventory && savedInventory[itemName] !== undefined)
         ? Math.max(0, Number(savedInventory[itemName]))
-        : DEFAULT_PRESET_INVENTORY[itemName];
+        : (DEFAULT_PRESET_INVENTORY[itemName] || 25);
 
       const withDhobi = withDhobiCounts[itemName] || 0;
-      const multiplier = LINEN_ROOM_MULTIPLIERS[itemName] || 1;
-      const inRooms = Math.min(Math.max(0, totalStock - withDhobi), Math.round(activeStaysCount * multiplier));
-      const cleanInStore = Math.max(0, totalStock - (withDhobi + inRooms));
-      const healthPercent = totalStock > 0 ? Math.round((cleanInStore / totalStock) * 100) : 100;
-      const isLow = cleanInStore <= 5 || healthPercent <= 20;
+      const availableInHotel = Math.max(0, totalStock - withDhobi);
+      const healthPercent = totalStock > 0 ? Math.round((availableInHotel / totalStock) * 100) : 100;
+      const isLow = withDhobi > 0 && (availableInHotel <= 5 || healthPercent <= 20);
 
       if (isLow) lowStockAlertCount += 1;
 
       totalLinenPieces += totalStock;
-      totalInRoomsPieces += inRooms;
       totalWithDhobiPieces += withDhobi;
-      totalCleanPieces += cleanInStore;
+      totalAvailablePieces += availableInHotel;
 
       return {
         itemName,
         totalStock,
         withDhobi,
-        inRooms,
-        cleanInStore,
+        availableInHotel,
         healthPercent,
         isLow
       };
@@ -254,12 +238,10 @@ exports.getLaundryOrders = async (req, res, next) => {
       linenRotation: {
         items: linenRotation,
         savedInventory,
-        activeRoomsInUse: activeStaysCount,
         totals: {
           totalLinenPieces,
-          totalInRoomsPieces,
           totalWithDhobiPieces,
-          totalCleanPieces,
+          totalAvailablePieces,
           lowStockAlertCount
         }
       },
