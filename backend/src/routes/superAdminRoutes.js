@@ -11,6 +11,7 @@ const {
   getAllHostels, 
   toggleHostelAiOcr, 
   toggleHostelWhatsAppSync, 
+  toggleHostelLaundry,
   toggleHostelStatus, 
   updateHostelPlan 
 } = require('../controllers/superAdminController');
@@ -33,6 +34,7 @@ router.put('/users/:id/reset-password', resetUserPassword);
 router.put('/hostels/:id/toggle-status', toggleHostelStatus);
 router.put('/hostels/:id/toggle-ai-ocr', toggleHostelAiOcr);
 router.put('/hostels/:id/toggle-whatsapp-sync', toggleHostelWhatsAppSync);
+router.put('/hostels/:id/toggle-laundry', toggleHostelLaundry);
 router.put('/hostels/:id/plan', updateHostelPlan);
 
 module.exports = router;

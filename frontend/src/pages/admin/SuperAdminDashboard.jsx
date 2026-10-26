@@ -26,7 +26,8 @@ import {
   Layers,
   ArrowRight,
   Pencil,
-  QrCode
+  QrCode,
+  Shirt
 } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -325,6 +326,16 @@ const SuperAdminDashboard = () => {
       setHostels(hostels.map(h => h._id === hostelId ? { ...h, whatsappSyncEnabled: res.data.data.whatsappSyncEnabled } : h));
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to toggle WhatsApp Sync status');
+    }
+  };
+
+  const handleToggleLaundry = async (hostelId) => {
+    try {
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      const res = await axios.put(`${API}/api/superadmin/hostels/${hostelId}/toggle-laundry`);
+      setHostels(hostels.map(h => h._id === hostelId ? { ...h, laundryEnabled: res.data.data.laundryEnabled } : h));
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to toggle Laundry Management status');
     }
   };
 
@@ -1024,6 +1035,18 @@ const SuperAdminDashboard = () => {
                           >
                             <MessageSquare size={11} className={h.whatsappSyncEnabled ? 'text-emerald-500 fill-emerald-500' : 'text-gray-400'} />
                             {h.whatsappSyncEnabled ? 'WA On' : 'WA Off'}
+                          </button>
+                          <button
+                            onClick={() => handleToggleLaundry(h._id)}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase transition-all shadow-sm active:scale-95 ${
+                              h.laundryEnabled
+                                ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                                : 'bg-gray-100 text-gray-400 border border-gray-200'
+                            }`}
+                            title="Toggle Laundry Management module"
+                          >
+                            <Shirt size={11} className={h.laundryEnabled ? 'text-indigo-600' : 'text-gray-400'} />
+                            {h.laundryEnabled ? 'Laundry On' : 'Laundry Off'}
                           </button>
                         </div>
                       </td>

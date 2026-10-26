@@ -34,6 +34,10 @@ const hostelSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  laundryEnabled: {
+    type: Boolean,
+    default: false
+  },
   whatsappSyncEnabled: {
     type: Boolean,
     default: false

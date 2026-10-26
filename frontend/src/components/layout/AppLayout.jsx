@@ -1,8 +1,7 @@
 import React, { useContext, useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { AuthContext } from '../../context/AuthContext';
-import { Home, Users, Bed, LogOut, Bell, PlusCircle, Building, CreditCard, BarChart3, Hexagon, ShieldCheck, Menu, X, ShieldAlert, LayoutGrid, Volume2, VolumeX, Phone, BellRing, ChevronDown } from 'lucide-react';
+import { Home, Users, Bed, LogOut, Bell, PlusCircle, Building, CreditCard, BarChart3, Hexagon, ShieldCheck, Menu, X, ShieldAlert, LayoutGrid, Volume2, VolumeX, Phone, BellRing, ChevronDown, Shirt } from 'lucide-react';
 import GlobalSearch from '../common/GlobalSearch';
 import soundAlert from '../../utils/soundAlert';
 import PoliceReportModal from '../../pages/admin/PoliceReportModal';
@@ -206,6 +205,14 @@ const AppLayout = ({ children }) => {
       { name: 'History', path: '/guests', icon: Users },
       { name: 'Payments', path: '/payments', icon: CreditCard },
     ];
+
+    const isLaundryEnabledForUser = user?.role === 'superadmin' ||
+      (user?.role === 'receptionist' ? Boolean(activeHostel?.laundryEnabled) :
+        (globalProperty !== 'all' ? Boolean(activeHostel?.laundryEnabled) : hostels.some(h => h.laundryEnabled)));
+
+    if (isLaundryEnabledForUser) {
+      navItems.push({ name: 'Laundry', path: '/laundry', icon: Shirt });
+    }
     
     if (user?.role === 'admin') {
       navItems.push({ name: 'Financials', path: '/admin/reports', icon: BarChart3 });
@@ -215,7 +222,7 @@ const AppLayout = ({ children }) => {
     }
   }
 
-  const primaryNavItems = user?.role === 'superadmin' ? navItems : navItems.slice(0, 5);
+  const primaryNavItems = user?.role === 'superadmin' ? navItems : navItems.filter(item => ['Dashboard', 'Stays', 'Rooms', 'History', 'Payments', 'Laundry'].includes(item.name));
 
   const handleReturnToSuperAdmin = () => {
     const saToken = localStorage.getItem('superAdminToken');

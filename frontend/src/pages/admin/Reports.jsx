@@ -1,19 +1,20 @@
 import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth, parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
-import { Search, Download, TrendingUp, PieChart, Users, Receipt, ArrowRight, ShieldCheck, Trash } from 'lucide-react';
+import { Search, Download, TrendingUp, PieChart, Users, Receipt, ArrowRight, ShieldCheck, Trash, Shirt } from 'lucide-react';
 import { useOutletContext } from 'react-router-dom';
 import PoliceReportModal from './PoliceReportModal';
 
 const Reports = () => {
   const [stays, setStays] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [laundryOrders, setLaundryOrders] = useState([]);
   const [hostels, setHostels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showPoliceModal, setShowPoliceModal] = useState(false);
   
   // Tabs
-  const [activeTab, setActiveTab] = useState('bookings'); // bookings, transactions
+  const [activeTab, setActiveTab] = useState('bookings'); // bookings, transactions, laundry
 
   // Filters
   const [dateFilter, setDateFilter] = useState('all');
@@ -30,14 +31,16 @@ const Reports = () => {
   async function fetchData() {
     try {
       setLoading(true);
-      const [staysRes, hostelsRes, paymentsRes] = await Promise.all([
+      const [staysRes, hostelsRes, paymentsRes, laundryRes] = await Promise.all([
         axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/stays'),
         axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/hostels'),
-        axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/payments')
+        axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/payments'),
+        axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/laundry').catch(() => ({ data: { data: [] } }))
       ]);
       setStays(staysRes.data.data);
       setHostels(hostelsRes.data.data);
       setPayments(paymentsRes.data.data);
+      setLaundryOrders(laundryRes?.data?.data || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -159,17 +162,67 @@ const Reports = () => {
     }).sort((a, b) => new Date(b.paymentDate) - new Date(a.paymentDate));
   }, [payments, hostelFilter, searchQuery, paymentMethodFilter, dateFilter, customStart, customEnd, staffFilter]);
 
+  // Filter Laundry Orders
+  const filteredLaundryOrders = useMemo(() => {
+    return laundryOrders.filter(order => {
+      // 1. Property Filter
+      if (hostelFilter !== 'all' && order.hostel?._id !== hostelFilter && order.hostel !== hostelFilter) {
+        return false;
+      }
+      
+      // 2. Search Filter
+      const searchStr = searchQuery.toLowerCase();
+      if (searchStr && 
+          !order.orderNumber?.toLowerCase().includes(searchStr) && 
+          !order.vendorName?.toLowerCase().includes(searchStr) &&
+          !order.vendorPhone?.toLowerCase().includes(searchStr)) {
+        return false;
+      }
+
+      // 3. Date Filter (Based on sentDate or createdAt)
+      if (dateFilter !== 'all') {
+        const date = new Date(order.sentDate || order.createdAt);
+        if (dateFilter === 'today' && !isToday(date)) return false;
+        if (dateFilter === 'yesterday' && !isYesterday(date)) return false;
+        if (dateFilter === 'week' && !isThisWeek(date)) return false;
+        if (dateFilter === 'month' && !isThisMonth(date)) return false;
+        if (dateFilter === 'custom' && customStart && customEnd) {
+           const start = startOfDay(parseISO(customStart));
+           const end = endOfDay(parseISO(customEnd));
+           if (!isWithinInterval(date, { start, end })) return false;
+        }
+      }
+
+      return true;
+    }).sort((a, b) => new Date(b.sentDate || b.createdAt) - new Date(a.sentDate || a.createdAt));
+  }, [laundryOrders, hostelFilter, searchQuery, dateFilter, customStart, customEnd]);
+
   // Calculate Financial Stats
   const stats = useMemo(() => {
     let grossBooking = 0;
     let totalCommission = 0;
-    let netProfit = 0;
     
     filteredStays.forEach(stay => {
       grossBooking += (stay.totalAmount || 0);
       totalCommission += (stay.commissionAmount || 0);
-      netProfit += ((stay.totalAmount || 0) - (stay.commissionAmount || 0));
     });
+
+    let totalLaundryBilled = 0;
+    let totalLaundryExpense = 0;
+    let pendingLaundryDue = 0;
+    let totalPiecesSent = 0;
+    let totalPiecesMissing = 0;
+
+    filteredLaundryOrders.forEach(order => {
+      totalLaundryBilled += (order.totalAmount || 0);
+      totalLaundryExpense += (order.paidAmount || 0);
+      pendingLaundryDue += Math.max(0, (order.totalAmount || 0) - (order.paidAmount || 0));
+      totalPiecesSent += (order.totalPiecesSent || 0);
+      totalPiecesMissing += (order.totalPiecesMissing || 0);
+    });
+
+    // Net Profit = Gross Bookings - Broker Commissions - Laundry Expenses
+    const netProfit = grossBooking - totalCommission - totalLaundryExpense;
 
     let totalCollected = 0;
     let cashTotal = 0;
@@ -183,22 +236,42 @@ const Reports = () => {
       else if (p.paymentMethod === 'Card') cardTotal += p.amount;
     });
     
-    return { grossBooking, totalCommission, netProfit, totalCollected, cashTotal, upiTotal, cardTotal };
-  }, [filteredStays, filteredPayments]);
+    return {
+      grossBooking,
+      totalCommission,
+      totalLaundryExpense,
+      totalLaundryBilled,
+      pendingLaundryDue,
+      totalPiecesSent,
+      totalPiecesMissing,
+      netProfit,
+      totalCollected,
+      cashTotal,
+      upiTotal,
+      cardTotal
+    };
+  }, [filteredStays, filteredPayments, filteredLaundryOrders]);
 
   const downloadCSV = () => {
     let csvContent = "";
     if (activeTab === 'bookings') {
-      const headers = ['Check-In Date', 'Guest Name', 'Room No', 'Booking Amount', 'Broker Name', 'Commission Paid', 'Net Profit', 'Total Collected', 'Status'];
+      const headers = ['Check-In Date', 'Guest Name', 'Room No', 'Booking Amount', 'Broker Name', 'Commission Paid', 'Laundry Cost Deducted', 'Net Profit', 'Total Collected', 'Status'];
       const csvData = filteredStays.map(stay => {
         const net = (stay.totalAmount || 0) - (stay.commissionAmount || 0);
-        return `"${format(new Date(stay.checkInDate), 'dd MMM yyyy')}","${stay.guest?.fullName || 'N/A'}","${stay.room?.roomNumber || 'N/A'}",${stay.totalAmount || 0},"${stay.commissionTo || ''}",${stay.commissionAmount || 0},${net},${stay.paidAmount || 0},"${stay.status}"`;
+        return `"${format(new Date(stay.checkInDate), 'dd MMM yyyy')}","${stay.guest?.fullName || 'N/A'}","${stay.room?.roomNumber || 'N/A'}",${stay.totalAmount || 0},"${stay.commissionTo || ''}",${stay.commissionAmount || 0},0,${net},${stay.paidAmount || 0},"${stay.status}"`;
       });
       csvContent = [headers.join(','), ...csvData].join('\n');
-    } else {
+    } else if (activeTab === 'transactions') {
       const headers = ['Date', 'Guest Name', 'Room No', 'Amount', 'Method', 'Note', 'Collected By'];
       const csvData = filteredPayments.map(p => {
         return `"${format(new Date(p.paymentDate), 'dd MMM yyyy hh:mm a')}","${p.guest?.fullName || 'N/A'}","${p.stay?.room?.roomNumber || 'N/A'}",${p.amount},"${p.paymentMethod}","${p.note || ''}","${p.createdBy?.name || 'Unknown'}"`;
+      });
+      csvContent = [headers.join(','), ...csvData].join('\n');
+    } else if (activeTab === 'laundry') {
+      const headers = ['Order Number', 'Date Sent', 'Vendor Name', 'Vendor Phone', 'Pieces Sent', 'Pieces Received', 'Pieces Missing', 'Total Bill', 'Paid (Expense)', 'Due Amount', 'Payment Status', 'Status'];
+      const csvData = filteredLaundryOrders.map(o => {
+        const due = Math.max(0, (o.totalAmount || 0) - (o.paidAmount || 0));
+        return `"${o.orderNumber || ''}","${format(new Date(o.sentDate || o.createdAt), 'dd MMM yyyy')}","${o.vendorName || ''}","${o.vendorPhone || ''}",${o.totalPiecesSent || 0},${o.totalPiecesReceived || 0},${o.totalPiecesMissing || 0},${o.totalAmount || 0},${o.paidAmount || 0},${due},"${o.paymentStatus || ''}","${o.status || ''}"`;
       });
       csvContent = [headers.join(','), ...csvData].join('\n');
     }
@@ -261,11 +334,14 @@ const Reports = () => {
         <button onClick={() => setActiveTab('transactions')} className={`flex-1 sm:flex-none px-4 sm:px-5 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all text-center ${activeTab === 'transactions' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}>
           Cash Flow / Payments
         </button>
+        <button onClick={() => setActiveTab('laundry')} className={`flex-1 sm:flex-none px-4 sm:px-5 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all text-center flex items-center justify-center gap-1.5 ${activeTab === 'laundry' ? 'bg-white shadow-sm text-indigo-700' : 'text-gray-500 hover:text-gray-900'}`}>
+          <Shirt size={15} /> Laundry Expenses
+        </button>
       </div>
 
       {/* Stats Cards */}
       {activeTab === 'bookings' ? (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm hover:border-black transition-colors">
             <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Gross Bookings</p>
             <div className="flex items-center gap-3 mt-2">
@@ -282,12 +358,53 @@ const Reports = () => {
             </div>
           </div>
 
+          <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm hover:border-black transition-colors">
+            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Laundry Expenses (Paid)</p>
+            <div className="flex items-center gap-3 mt-2">
+              <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-lg"><Shirt size={20} /></div>
+              <div>
+                <h2 className="text-2xl font-black text-indigo-700">-₹{stats.totalLaundryExpense.toLocaleString()}</h2>
+                {stats.pendingLaundryDue > 0 && (
+                  <p className="text-[10px] text-amber-600 font-bold mt-0.5">Due: ₹{stats.pendingLaundryDue.toLocaleString()}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
           <div className="bg-gray-900 p-5 rounded-2xl border border-black shadow-lg transform hover:scale-[1.02] transition-transform">
             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Final Net Profit</p>
             <div className="flex items-center gap-3 mt-2">
               <div className="p-2.5 bg-white/10 text-green-400 rounded-lg"><PieChart size={20} /></div>
-              <h2 className="text-2xl font-black text-white">₹{stats.netProfit.toLocaleString()}</h2>
+              <div>
+                <h2 className="text-2xl font-black text-white">₹{stats.netProfit.toLocaleString()}</h2>
+                <p className="text-[9px] text-gray-400 font-medium">After Commission & Laundry</p>
+              </div>
             </div>
+          </div>
+        </div>
+      ) : activeTab === 'laundry' ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm hover:border-black transition-colors">
+            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Total Laundry Billed</p>
+            <div className="mt-2 text-2xl font-black text-gray-900">₹{stats.totalLaundryBilled.toLocaleString()}</div>
+            <p className="text-[10px] text-gray-400 mt-1">From all dispatched batches</p>
+          </div>
+          <div className="bg-indigo-50 p-5 rounded-2xl border border-indigo-200 shadow-sm transition-colors">
+            <p className="text-[10px] font-black text-indigo-700 uppercase tracking-widest">Paid Out (Net Expense)</p>
+            <div className="mt-2 text-2xl font-black text-indigo-800">₹{stats.totalLaundryExpense.toLocaleString()}</div>
+            <p className="text-[10px] text-indigo-600 mt-1">Deducted from hotel profit</p>
+          </div>
+          <div className="bg-amber-50 p-5 rounded-2xl border border-amber-200 shadow-sm transition-colors">
+            <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Pending Vendor Bills (Due)</p>
+            <div className="mt-2 text-2xl font-black text-amber-800">₹{stats.pendingLaundryDue.toLocaleString()}</div>
+            <p className="text-[10px] text-amber-600 mt-1">Unpaid to dhobi/vendor</p>
+          </div>
+          <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm hover:border-black transition-colors">
+            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Total Linen Sent / Missing</p>
+            <div className="mt-2 text-2xl font-black text-gray-900">
+              {stats.totalPiecesSent} <span className="text-sm font-bold text-red-500">({stats.totalPiecesMissing} missing)</span>
+            </div>
+            <p className="text-[10px] text-gray-400 mt-1">Pieces sent to laundry</p>
           </div>
         </div>
       ) : (
@@ -315,7 +432,7 @@ const Reports = () => {
       <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col md:flex-row gap-3">
         <div className="relative flex-1 min-w-[200px]">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400"><Search size={16} /></div>
-          <input type="text" placeholder="Search Guest, Room..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+          <input type="text" placeholder={activeTab === 'laundry' ? "Search Vendor, Order #..." : "Search Guest, Room..."} value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-black outline-none transition-all" />
         </div>
         
@@ -480,7 +597,7 @@ const Reports = () => {
                 )}
               </tbody>
             </table>
-          ) : (
+          ) : activeTab === 'transactions' ? (
             <table className="w-full text-left text-sm whitespace-nowrap">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
@@ -531,6 +648,87 @@ const Reports = () => {
                       </td>
                     </tr>
                   ))
+                )}
+              </tbody>
+            </table>
+          ) : (
+            <table className="w-full text-left text-sm whitespace-nowrap">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest">Order & Date</th>
+                  <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest">Vendor / Dhobi</th>
+                  <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest text-center">Linen Pieces</th>
+                  <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest text-right">Bill Amount</th>
+                  <th className="px-6 py-4 font-black text-xs text-indigo-700 uppercase tracking-widest text-right">Paid (Expense)</th>
+                  <th className="px-6 py-4 font-black text-xs text-amber-600 uppercase tracking-widest text-right">Due</th>
+                  <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest">Payment</th>
+                  <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredLaundryOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" className="px-6 py-12 text-center text-gray-500 font-medium">
+                      No laundry orders found for the selected filters.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredLaundryOrders.map(order => {
+                    const due = Math.max(0, (order.totalAmount || 0) - (order.paidAmount || 0));
+                    return (
+                      <tr key={order._id} className="hover:bg-gray-50/80 transition-colors">
+                        <td className="px-6 py-4">
+                          <p className="font-mono font-bold text-gray-900">{order.orderNumber}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">{format(new Date(order.sentDate || order.createdAt), 'dd MMM yyyy')}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="font-bold text-gray-900">{order.vendorName}</p>
+                          {order.vendorPhone && <p className="text-xs text-gray-500 mt-0.5">{order.vendorPhone}</p>}
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="font-bold text-gray-900">{order.totalPiecesSent || 0} sent</span>
+                          {order.status === 'Received' && (
+                            <span className="text-xs text-emerald-700 block mt-0.5 font-medium">{order.totalPiecesReceived || 0} recvd</span>
+                          )}
+                          {(order.totalPiecesMissing || 0) > 0 && (
+                            <span className="text-xs text-rose-600 block mt-0.5 font-bold">⚠️ {order.totalPiecesMissing} missing</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <p className="font-black text-gray-900">₹{order.totalAmount || 0}</p>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <p className="font-black text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg inline-block">₹{order.paidAmount || 0}</p>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          {due > 0 ? (
+                            <span className="font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded inline-block">₹{due}</span>
+                          ) : (
+                            <span className="text-xs font-bold text-emerald-600">Cleared</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg border ${
+                            order.paymentStatus === 'Paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                            order.paymentStatus === 'Partial' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                            'bg-rose-50 text-rose-700 border-rose-200'
+                          }`}>
+                            {order.paymentStatus}
+                          </span>
+                          {order.paymentMethod && <span className="block text-[10px] text-gray-400 mt-0.5">{order.paymentMethod}</span>}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg ${
+                            order.status === 'Received' ? 'bg-emerald-100 text-emerald-800' :
+                            order.status === 'Cancelled' ? 'bg-gray-100 text-gray-600' :
+                            'bg-blue-100 text-blue-800'
+                          }`}>
+                            {order.status === 'Sent' ? 'With Dhobi' : order.status}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>

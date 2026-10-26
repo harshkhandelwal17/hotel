@@ -267,6 +267,24 @@ exports.toggleHostelWhatsAppSync = async (req, res, next) => {
   }
 };
 
+exports.toggleHostelLaundry = async (req, res, next) => {
+  try {
+    const hostel = await Hostel.findById(req.params.id);
+    if (!hostel) return res.status(404).json({ success: false, message: 'Property not found' });
+
+    hostel.laundryEnabled = !hostel.laundryEnabled;
+    await hostel.save();
+
+    res.status(200).json({ 
+      success: true, 
+      message: `Laundry Management ${hostel.laundryEnabled ? 'enabled' : 'disabled'} for ${hostel.name}`,
+      data: hostel 
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.toggleHostelStatus = async (req, res, next) => {
   try {
     const hostel = await Hostel.findById(req.params.id);

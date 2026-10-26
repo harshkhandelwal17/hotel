@@ -22,6 +22,7 @@ const Reports = lazy(() => import('./pages/admin/Reports'));
 const ManageStaff = lazy(() => import('./pages/admin/ManageStaff'));
 const PaymentsList = lazy(() => import('./pages/receptionist/PaymentsList'));
 const GuestDirectory = lazy(() => import('./pages/receptionist/GuestDirectory'));
+const Laundry = lazy(() => import('./pages/receptionist/Laundry'));
 const SuperAdminDashboard = lazy(() => import('./pages/admin/SuperAdminDashboard'));
 
 import { ToastProvider } from './components/ui/Toast';
@@ -58,6 +59,7 @@ function App() {
               <Route path="/checkouts" element={<CheckoutList />} />
               <Route path="/rooms" element={<RoomsView />} />
               <Route path="/payments" element={<PaymentsList />} />
+              <Route path="/laundry" element={<Laundry />} />
               <Route path="/guests/:id" element={<GuestProfile />} />
               <Route path="/guests" element={<GuestDirectory />} />
             </Route>

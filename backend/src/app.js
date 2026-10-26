@@ -37,6 +37,7 @@ const uploadRoutes = require('./routes/uploadRoutes');
 const superAdminRoutes = require('./routes/superAdminRoutes');
 const ocrRoutes = require('./routes/ocrRoutes');
 const whatsappRoutes = require('./routes/whatsappRoutes');
+const laundryRoutes = require('./routes/laundryRoutes');
 const path = require('path');
 
 app.use('/api/auth', authRoutes);
@@ -51,6 +52,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/superadmin', superAdminRoutes);
 app.use('/api/ocr', ocrRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
+app.use('/api/laundry', laundryRoutes);
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Error Handling Middleware
