@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth, parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { Search, Download, TrendingUp, PieChart, Users, Receipt, ArrowRight, ShieldCheck, Trash, Shirt } from 'lucide-react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, Link } from 'react-router-dom';
 import PoliceReportModal from './PoliceReportModal';
 
 const Reports = () => {
@@ -327,16 +327,23 @@ const Reports = () => {
         </div>
       </div>
 
-      <div className="flex gap-2 p-1 bg-gray-100 rounded-xl w-full sm:w-fit">
-        <button onClick={() => setActiveTab('bookings')} className={`flex-1 sm:flex-none px-4 sm:px-5 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all text-center ${activeTab === 'bookings' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}>
-          Booking Ledger
-        </button>
-        <button onClick={() => setActiveTab('transactions')} className={`flex-1 sm:flex-none px-4 sm:px-5 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all text-center ${activeTab === 'transactions' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}>
-          Cash Flow / Payments
-        </button>
-        <button onClick={() => setActiveTab('laundry')} className={`flex-1 sm:flex-none px-4 sm:px-5 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all text-center flex items-center justify-center gap-1.5 ${activeTab === 'laundry' ? 'bg-white shadow-sm text-indigo-700' : 'text-gray-500 hover:text-gray-900'}`}>
-          <Shirt size={15} /> Laundry Expenses
-        </button>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+        <div className="flex gap-2 p-1 bg-gray-100 rounded-xl w-full sm:w-fit">
+          <button onClick={() => setActiveTab('bookings')} className={`flex-1 sm:flex-none px-4 sm:px-5 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all text-center ${activeTab === 'bookings' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}>
+            Booking Ledger
+          </button>
+          <button onClick={() => setActiveTab('transactions')} className={`flex-1 sm:flex-none px-4 sm:px-5 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all text-center ${activeTab === 'transactions' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}>
+            Cash Flow / Payments
+          </button>
+          <button onClick={() => setActiveTab('laundry')} className={`flex-1 sm:flex-none px-4 sm:px-5 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all text-center flex items-center justify-center gap-1.5 ${activeTab === 'laundry' ? 'bg-white shadow-sm text-indigo-700' : 'text-gray-500 hover:text-gray-900'}`}>
+            <Shirt size={15} /> Laundry Expenses
+          </button>
+        </div>
+        {activeTab === 'laundry' && (
+          <Link to="/laundry" className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 px-3 py-2 rounded-xl transition-colors">
+            Open Laundry Module <ArrowRight size={14} />
+          </Link>
+        )}
       </div>
 
       {/* Stats Cards */}

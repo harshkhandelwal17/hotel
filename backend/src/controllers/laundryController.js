@@ -93,6 +93,9 @@ exports.getLaundryOrders = async (req, res, next) => {
 // @access  Private
 exports.getLaundryOrder = async (req, res, next) => {
   try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid laundry order ID' });
+    }
     const order = await LaundryOrder.findById(req.params.id)
       .populate('hostel', 'name address laundryEnabled upiId upiPayeeName')
       .populate('dispatchedBy', 'name role')
@@ -117,10 +120,11 @@ exports.getLaundryOrder = async (req, res, next) => {
 // @access  Private (Staff, Admin, Superadmin)
 exports.createLaundryOrder = async (req, res, next) => {
   try {
-    let hostelId = req.body.hostel || req.user.assignedHostel;
+    let rawHostel = (req.body.hostel && req.body.hostel !== 'all') ? req.body.hostel : req.user.assignedHostel;
+    let hostelId = (rawHostel && typeof rawHostel === 'object' && rawHostel._id) ? rawHostel._id : rawHostel;
 
-    if (!hostelId && (req.user.role === 'admin' || req.user.role === 'superadmin')) {
-      return res.status(400).json({ success: false, message: 'Please select a hotel / property for this laundry dispatch' });
+    if (!hostelId || hostelId === 'all' || !mongoose.isValidObjectId(hostelId)) {
+      return res.status(400).json({ success: false, message: 'Please select a valid hotel / property for this laundry dispatch' });
     }
 
     const hostel = await Hostel.findById(hostelId);
@@ -219,6 +223,9 @@ exports.createLaundryOrder = async (req, res, next) => {
 // @access  Private
 exports.receiveLaundryOrder = async (req, res, next) => {
   try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid laundry order ID' });
+    }
     const order = await LaundryOrder.findById(req.params.id);
     if (!order) {
       return res.status(404).json({ success: false, message: 'Laundry order not found' });
@@ -301,6 +308,9 @@ exports.receiveLaundryOrder = async (req, res, next) => {
 // @access  Private
 exports.recordLaundryPayment = async (req, res, next) => {
   try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid laundry order ID' });
+    }
     const order = await LaundryOrder.findById(req.params.id);
     if (!order) {
       return res.status(404).json({ success: false, message: 'Laundry order not found' });
@@ -348,6 +358,9 @@ exports.recordLaundryPayment = async (req, res, next) => {
 // @access  Private
 exports.updateLaundryOrder = async (req, res, next) => {
   try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid laundry order ID' });
+    }
     const order = await LaundryOrder.findById(req.params.id);
     if (!order) {
       return res.status(404).json({ success: false, message: 'Laundry order not found' });
@@ -438,6 +451,9 @@ exports.updateLaundryOrder = async (req, res, next) => {
 // @access  Private
 exports.deleteLaundryOrder = async (req, res, next) => {
   try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid laundry order ID' });
+    }
     const order = await LaundryOrder.findById(req.params.id);
     if (!order) {
       return res.status(404).json({ success: false, message: 'Laundry order not found' });
@@ -454,3 +470,4 @@ exports.deleteLaundryOrder = async (req, res, next) => {
     next(error);
   }
 };
+

@@ -27,3 +27,4 @@ router.put('/:id/receive', receiveLaundryOrder);
 router.post('/:id/pay', recordLaundryPayment);
 
 module.exports = router;
+

@@ -965,7 +965,7 @@ const Laundry = () => {
             <form onSubmit={handleSubmitDispatch} className="p-5 overflow-y-auto space-y-4 text-xs font-semibold">
               {/* Property & Dates */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {user?.role === 'admin' && hostels.length > 1 && (
+                {(user?.role === 'admin' || user?.role === 'superadmin') && hostels.length > 1 && (
                   <div>
                     <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Hotel Property *</label>
                     <select
@@ -1208,9 +1208,10 @@ const Laundry = () => {
                           max={it.sentCount}
                           value={it.receivedCount}
                           onChange={e => {
+                            const val = e.target.value;
                             const arr = [...receiveForm.items];
-                            const rec = Math.max(0, parseInt(e.target.value) || 0);
-                            const missing = Math.max(0, it.sentCount - rec);
+                            const rec = val === '' ? '' : Math.max(0, parseInt(val) || 0);
+                            const missing = val === '' ? 0 : Math.max(0, it.sentCount - (Number(rec) || 0));
                             arr[idx] = { ...arr[idx], receivedCount: rec, damagedOrMissingCount: missing };
                             setReceiveForm({ ...receiveForm, items: arr });
                           }}
@@ -1223,8 +1224,9 @@ const Laundry = () => {
                           min="0"
                           value={it.damagedOrMissingCount}
                           onChange={e => {
+                            const val = e.target.value;
                             const arr = [...receiveForm.items];
-                            arr[idx].damagedOrMissingCount = Math.max(0, parseInt(e.target.value) || 0);
+                            arr[idx].damagedOrMissingCount = val === '' ? '' : Math.max(0, parseInt(val) || 0);
                             setReceiveForm({ ...receiveForm, items: arr });
                           }}
                           className="w-full px-1.5 py-1 bg-red-50 border border-red-200 text-red-700 rounded text-center font-bold text-xs"
@@ -1364,3 +1366,4 @@ const Laundry = () => {
 };
 
 export default Laundry;
+

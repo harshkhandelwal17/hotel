@@ -137,3 +137,4 @@ laundryOrderSchema.pre('save', function (next) {
 });
 
 module.exports = mongoose.model('LaundryOrder', laundryOrderSchema);
+
