@@ -402,6 +402,31 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
           {/* ---------------- ADD CHARGE ---------------- */}
           {tab === 'charge' && (
             <div className="space-y-4">
+              {/* Quick Preset Add-on Chips */}
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Quick Add-on Presets</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { name: '🧺 Guest Laundry', rate: 100 },
+                    { name: '💧 Water Bottle', rate: 20 },
+                    { name: '☕ Tea / Coffee', rate: 30 },
+                    { name: '🍽️ Room Service Food', rate: 150 },
+                    { name: '🚗 Taxi / Cab Fare', rate: 200 },
+                    { name: '🧼 Extra Linen / Towel', rate: 50 },
+                  ].map(preset => (
+                    <button
+                      type="button"
+                      key={preset.name}
+                      onClick={() => setPendingCharges([...pendingCharges, { description: preset.name, rate: preset.rate }])}
+                      className="px-2.5 py-1.5 bg-gray-100 hover:bg-black hover:text-white rounded-lg text-xs font-bold text-gray-700 transition-all active:scale-95 flex items-center gap-1 shadow-2xs"
+                    >
+                      <span>{preset.name}</span>
+                      <span className="opacity-60 text-[10px]">₹{preset.rate}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="space-y-3 mt-2">
                 <div className="flex justify-between items-center">
                   <p className={labelCls}>Items to Add</p>

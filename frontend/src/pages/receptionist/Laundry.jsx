@@ -25,7 +25,12 @@ import {
   Building,
   MessageSquare,
   Settings2,
-  Sparkles
+  Sparkles,
+  BookOpen,
+  Layers,
+  Boxes,
+  CheckCheck,
+  Send
 } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 import DynamicUpiQr from '../../components/DynamicUpiQr';
@@ -117,6 +122,28 @@ const Laundry = () => {
   const [isRatesModalOpen, setIsRatesModalOpen] = useState(false);
   const [ratesForm, setRatesForm] = useState({});
 
+  // Active Main Tab: 'batches' | 'khata' | 'rotation'
+  const [mainTab, setMainTab] = useState('batches');
+
+  // Vendor Ledgers (Khata) & Linen Stock in Rotation state
+  const [vendorLedgers, setVendorLedgers] = useState([]);
+  const [linenRotation, setLinenRotation] = useState(null);
+
+  // Lump-Sum Payment Modal State (Vendor Khata)
+  const [isLumpSumModalOpen, setIsLumpSumModalOpen] = useState(false);
+  const [lumpSumForm, setLumpSumForm] = useState({
+    vendorName: '',
+    vendorPhone: '',
+    amount: '',
+    paymentMethod: 'Cash',
+    notes: '',
+    balanceDue: 0
+  });
+
+  // Total Hotel Linen Inventory Modal State
+  const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
+  const [inventoryForm, setInventoryForm] = useState({});
+
   const flash = (msg, isErr = false) => {
     if (isErr) {
       setError(msg);
@@ -156,6 +183,8 @@ const Laundry = () => {
       if (res.data.recentVendors) setRecentVendors(res.data.recentVendors);
       if (res.data.defaultVendor) setDefaultVendor(res.data.defaultVendor);
       if (res.data.defaultRates) setDefaultRates(res.data.defaultRates);
+      if (res.data.vendorLedgers) setVendorLedgers(res.data.vendorLedgers);
+      if (res.data.linenRotation) setLinenRotation(res.data.linenRotation);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load laundry records');
     } finally {
@@ -645,6 +674,132 @@ _Please deliver clean & ironed as agreed. Thank you!_`;
     }
   };
 
+  // Open Lump-Sum Payment Modal for Dhobi Khata
+  const openLumpSumModal = (ledger) => {
+    setLumpSumForm({
+      vendorName: ledger.vendorName,
+      vendorPhone: ledger.vendorPhone || '',
+      amount: ledger.totalDue > 0 ? ledger.totalDue : '',
+      paymentMethod: 'Cash',
+      notes: `Lump-sum settlement for ${ledger.unpaidBatchesCount || 0} batches`,
+      balanceDue: ledger.totalDue || 0
+    });
+    setIsLumpSumModalOpen(true);
+  };
+
+  // Submit Lump-Sum Payment (FIFO across unpaid batches)
+  const handleSettleLumpSum = async (e) => {
+    e.preventDefault();
+    if (!Number(lumpSumForm.amount) || Number(lumpSumForm.amount) <= 0) {
+      return flash('Please enter a valid payment amount', true);
+    }
+    try {
+      setSubmitting(true);
+      const targetHostel = user?.role === 'receptionist'
+        ? (user?.assignedHostel?._id || user?.assignedHostel)
+        : (selectedHostel !== 'all' ? selectedHostel : hostels[0]?._id);
+
+      const res = await axios.post(`${API}/api/laundry/vendor-payment`, {
+        hostel: targetHostel,
+        vendorName: lumpSumForm.vendorName,
+        amount: Number(lumpSumForm.amount),
+        paymentMethod: lumpSumForm.paymentMethod,
+        notes: lumpSumForm.notes
+      });
+
+      flash(`✅ ${res.data.message}`);
+      setIsLumpSumModalOpen(false);
+      fetchOrders();
+    } catch (err) {
+      flash(err.response?.data?.message || 'Failed to record vendor payment', true);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // 📲 Send Dhobi Khata Statement on WhatsApp
+  const shareVendorStatementWhatsApp = (ledger) => {
+    const rawPhone = (ledger.vendorPhone || '').replace(/[^0-9]/g, '');
+    if (!rawPhone) {
+      return flash('No phone number saved for this vendor. Please edit vendor phone first.', true);
+    }
+    const phone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
+    const hotelName = activeHostel?.name || currentPropertyDoc?.name || 'Hotel';
+    const todayStr = format(new Date(), 'dd MMM yyyy');
+
+    const msg = `🧺 *${hotelName.toUpperCase()} - DHOBI KHATA STATEMENT*
+👤 *Vendor / Dhobi:* ${ledger.vendorName}
+📅 *Date:* ${todayStr}
+--------------------------------
+🔢 *Total Batches Washed:* ${ledger.totalBatches}
+👕 *Total Clothes Processed:* ${ledger.totalPieces} pcs
+💰 *Total Billed:* ₹${ledger.totalBilled.toLocaleString('en-IN')}
+💵 *Total Paid Received:* ₹${ledger.totalPaid.toLocaleString('en-IN')}
+${ledger.totalDue > 0 ? `⚠️ *Outstanding Balance Due:* *₹${ledger.totalDue.toLocaleString('en-IN')}*` : `✅ *All Bills Cleared (Nil Balance)*`}
+--------------------------------
+${ledger.lastPaymentDate ? `🕒 *Last Payment:* ${format(new Date(ledger.lastPaymentDate), 'dd MMM yyyy')}\n` : ''}
+_Account reconciled with ${hotelName} Reception. Thank you!_`;
+
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+    window.open(url, '_blank');
+  };
+
+  // Open Inventory Modal
+  const openInventoryModal = () => {
+    const current = {};
+    (linenRotation?.items || []).forEach(it => {
+      current[it.itemName] = it.totalStock;
+    });
+    setInventoryForm(current);
+    setIsInventoryModalOpen(true);
+  };
+
+  // Submit Updated Linen Inventory
+  const handleSaveInventory = async (e) => {
+    e.preventDefault();
+    try {
+      setSubmitting(true);
+      const targetHostel = user?.role === 'receptionist'
+        ? (user?.assignedHostel?._id || user?.assignedHostel)
+        : (selectedHostel !== 'all' ? selectedHostel : hostels[0]?._id);
+
+      await axios.put(`${API}/api/laundry/settings`, {
+        hostel: targetHostel,
+        linenInventory: inventoryForm
+      });
+      flash('✅ Total hotel linen inventory updated successfully!');
+      setIsInventoryModalOpen(false);
+      fetchOrders();
+    } catch (err) {
+      flash(err.response?.data?.message || 'Failed to update linen inventory', true);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // 🚨 Expedite Low Stock Linen with Dhobi on WhatsApp
+  const shareExpediteWhatsApp = (item) => {
+    const rawPhone = (defaultVendor?.vendorPhone || (recentVendors[0]?.vendorPhone) || '').replace(/[^0-9]/g, '');
+    if (!rawPhone) {
+      return flash('Please set a phone number for the vendor first', true);
+    }
+    const phone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
+    const hotelName = activeHostel?.name || currentPropertyDoc?.name || 'Hotel';
+    const vendorName = defaultVendor?.vendorName || recentVendors[0]?.vendorName || 'Dhobi';
+
+    const msg = `🚨 *URGENT - ${hotelName.toUpperCase()} LINEN SHORTAGE ALERT*
+👤 *Vendor:* ${vendorName}
+
+Hotel me *${item.itemName}* ka clean stock critically low hai:
+• Store me bache hue: *${item.cleanInStore} pcs*
+• Dhobi ke paas dhulne gaye: *${item.withDhobi} pcs*
+
+⚠️ Kripya is item ke clean kapde aaj shaam tak hotel bhej dein taaki rooms me shortage na ho. Dhanyawad!`;
+
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+    window.open(url, '_blank');
+  };
+
   // If feature is disabled by Super Admin
   if (!isLaundryEnabled) {
     return (
@@ -735,6 +890,65 @@ _Please deliver clean & ironed as agreed. Thank you!_`;
         </div>
       </div>
 
+      {/* 3 Main Navigation Tabs */}
+      <div className="flex overflow-x-auto gap-2 bg-gray-100/80 p-1.5 rounded-2xl border border-gray-200/60 shadow-xs">
+        <button
+          type="button"
+          onClick={() => setMainTab('batches')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+            mainTab === 'batches'
+              ? 'bg-black text-white shadow-md'
+              : 'text-gray-600 hover:text-black hover:bg-white/60'
+          }`}
+        >
+          <Shirt size={15} />
+          <span>🧺 Laundry Batches</span>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] ${mainTab === 'batches' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-700'}`}>
+            {filteredOrders.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMainTab('khata')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+            mainTab === 'khata'
+              ? 'bg-black text-white shadow-md'
+              : 'text-gray-600 hover:text-black hover:bg-white/60'
+          }`}
+        >
+          <BookOpen size={15} />
+          <span>📒 Dhobi Khata (Ledger)</span>
+          {stats.pendingBills > 0 && (
+            <span className="px-2 py-0.5 rounded-full text-[10px] bg-red-500 text-white font-bold animate-pulse">
+              ₹{stats.pendingBills.toLocaleString('en-IN')} Due
+            </span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMainTab('rotation')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+            mainTab === 'rotation'
+              ? 'bg-black text-white shadow-md'
+              : 'text-gray-600 hover:text-black hover:bg-white/60'
+          }`}
+        >
+          <Layers size={15} />
+          <span>📊 Linen in Rotation</span>
+          {linenRotation?.totals?.lowStockAlertCount > 0 ? (
+            <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500 text-white font-bold animate-pulse">
+              ⚠️ {linenRotation.totals.lowStockAlertCount} Low
+            </span>
+          ) : (
+            <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-100 text-emerald-800">
+              {linenRotation?.totals?.totalCleanPieces || 0} Clean Ready
+            </span>
+          )}
+        </button>
+      </div>
+
       {/* KPI Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* 1. Clothes at Laundry */}
@@ -798,8 +1012,13 @@ _Please deliver clean & ironed as agreed. Thank you!_`;
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-xs space-y-3">
+      {/* ─────────────────────────────────────────────────────────────
+          TAB 1: LAUNDRY BATCHES & CHALLANS
+         ───────────────────────────────────────────────────────────── */}
+      {mainTab === 'batches' && (
+        <div className="space-y-4">
+          {/* Filter Bar */}
+          <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-xs space-y-3">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           {/* Search */}
           <div className="relative flex-1">
@@ -1084,7 +1303,269 @@ _Please deliver clean & ironed as agreed. Thank you!_`;
             </table>
           </div>
         )}
+        </div>
       </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          TAB 2: DHOBI KHATA / VENDOR LEDGER (लंप-सम पेमेंट)
+         ───────────────────────────────────────────────────────────── */}
+      {mainTab === 'khata' && (
+        <div className="space-y-6">
+          {/* Khata Summary Banner */}
+          <div className="bg-gradient-to-r from-gray-900 to-black text-white p-6 rounded-3xl shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <BookOpen size={18} className="text-amber-400" />
+                <h3 className="text-lg font-black tracking-tight">Dhobi Khata & Vendor Ledger</h3>
+              </div>
+              <p className="text-xs text-gray-400 font-semibold max-w-lg">
+                Track pending balances per vendor. Settle monthly or weekly accounts with 1-click lump-sum payments, and send reconciled statements on WhatsApp.
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="px-4 py-2.5 bg-white/10 backdrop-blur-md rounded-2xl border border-white/10 text-center">
+                <p className="text-[10px] uppercase font-bold text-gray-400">Total Khata Balance Due</p>
+                <p className="text-xl font-black text-red-400">₹{stats.pendingBills.toLocaleString('en-IN')}</p>
+              </div>
+              <div className="px-4 py-2.5 bg-white/10 backdrop-blur-md rounded-2xl border border-white/10 text-center">
+                <p className="text-[10px] uppercase font-bold text-gray-400">Total Paid (Lifetime)</p>
+                <p className="text-xl font-black text-emerald-400">
+                  ₹{(orders.reduce((s, o) => s + (Number(o.paidAmount) || 0), 0)).toLocaleString('en-IN')}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Vendor Cards Grid */}
+          {vendorLedgers.length === 0 ? (
+            <div className="bg-white p-12 rounded-3xl border border-gray-100 text-center space-y-2">
+              <BookOpen size={36} className="mx-auto text-gray-300" />
+              <p className="font-black text-gray-700">No vendor ledger records found</p>
+              <p className="text-xs text-gray-400">Send clothes to a laundry vendor to automatically initiate their khata ledger.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {vendorLedgers.map((ledger, idx) => {
+                const isAllCleared = ledger.totalDue <= 0;
+                return (
+                  <div
+                    key={idx}
+                    className="bg-white rounded-3xl border border-gray-100 shadow-xs p-5 flex flex-col justify-between space-y-4 hover:shadow-md transition-shadow"
+                  >
+                    <div>
+                      {/* Vendor Header */}
+                      <div className="flex items-start justify-between gap-2 border-b border-gray-100 pb-3">
+                        <div>
+                          <h4 className="text-base font-black text-gray-900">{ledger.vendorName}</h4>
+                          {ledger.vendorPhone ? (
+                            <a
+                              href={`tel:${ledger.vendorPhone}`}
+                              className="text-xs font-bold text-gray-500 hover:text-black flex items-center gap-1 mt-0.5"
+                            >
+                              <Phone size={11} /> {ledger.vendorPhone}
+                            </a>
+                          ) : (
+                            <span className="text-[10px] text-gray-400 font-bold">No phone number</span>
+                          )}
+                        </div>
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                          isAllCleared ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-700 animate-pulse'
+                        }`}>
+                          {isAllCleared ? 'All Cleared' : `₹${ledger.totalDue.toLocaleString('en-IN')} Due`}
+                        </span>
+                      </div>
+
+                      {/* Vendor Stats Grid */}
+                      <div className="grid grid-cols-2 gap-2.5 pt-3 text-xs">
+                        <div className="p-2.5 bg-gray-50 rounded-xl">
+                          <p className="text-[10px] font-bold text-gray-400 uppercase">Batches (Pcs)</p>
+                          <p className="text-sm font-black text-gray-900 mt-0.5">{ledger.totalBatches} ({ledger.totalPieces} pcs)</p>
+                        </div>
+                        <div className="p-2.5 bg-gray-50 rounded-xl">
+                          <p className="text-[10px] font-bold text-gray-400 uppercase">Total Billed</p>
+                          <p className="text-sm font-black text-gray-900 mt-0.5">₹{ledger.totalBilled.toLocaleString('en-IN')}</p>
+                        </div>
+                        <div className="p-2.5 bg-emerald-50/60 rounded-xl">
+                          <p className="text-[10px] font-bold text-emerald-700 uppercase">Paid So Far</p>
+                          <p className="text-sm font-black text-emerald-800 mt-0.5">₹{ledger.totalPaid.toLocaleString('en-IN')}</p>
+                        </div>
+                        <div className={`p-2.5 rounded-xl ${ledger.totalDue > 0 ? 'bg-red-50/80 border border-red-200' : 'bg-gray-50'}`}>
+                          <p className={`text-[10px] font-bold uppercase ${ledger.totalDue > 0 ? 'text-red-700' : 'text-gray-400'}`}>
+                            Balance Due
+                          </p>
+                          <p className={`text-sm font-black mt-0.5 ${ledger.totalDue > 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                            ₹{ledger.totalDue.toLocaleString('en-IN')}
+                          </p>
+                        </div>
+                      </div>
+
+                      {ledger.unpaidBatchesCount > 0 && (
+                        <p className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg mt-3 flex items-center gap-1.5">
+                          <Clock size={12} />
+                          <span>{ledger.unpaidBatchesCount} batches have pending balance</span>
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="pt-2 border-t border-gray-100 flex flex-col gap-2">
+                      {ledger.totalDue > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => openLumpSumModal(ledger)}
+                          className="w-full py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-xs transition-all active:scale-95 flex items-center justify-center gap-2"
+                        >
+                          <CreditCard size={14} />
+                          <span>Settle / Pay Lump-sum (₹{ledger.totalDue.toLocaleString('en-IN')})</span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => shareVendorStatementWhatsApp(ledger)}
+                        className="w-full py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                      >
+                        <MessageSquare size={14} className="text-emerald-600" />
+                        <span>Send WhatsApp Statement</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          TAB 3: LINEN STOCK IN ROTATION (सर्कुलेशन व स्टॉक)
+         ───────────────────────────────────────────────────────────── */}
+      {mainTab === 'rotation' && (
+        <div className="space-y-6">
+          {/* Header & Controls */}
+          <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Layers size={18} className="text-indigo-600" />
+                <h3 className="text-lg font-black tracking-tight text-gray-900">Linen Stock in Circulation</h3>
+              </div>
+              <p className="text-xs text-gray-500 font-semibold">
+                Live distribution of hotel linen: Clean in Almirah (Ready), In Active Rooms (In Use), and Sent to Dhobi (Washing).
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={openInventoryModal}
+              className="px-4 py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 flex items-center gap-2 shrink-0"
+            >
+              <Boxes size={15} />
+              <span>Update Total Stock</span>
+            </button>
+          </div>
+
+          {/* Quick Metrics Bar */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-2xl">
+              <p className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">🧼 Clean in Store (Ready)</p>
+              <p className="text-2xl font-black text-emerald-900 mt-1">
+                {linenRotation?.totals?.totalCleanPieces || 0} <span className="text-xs font-bold text-emerald-700">pcs</span>
+              </p>
+              <p className="text-[11px] font-medium text-emerald-700 mt-0.5">Ready for fresh check-in</p>
+            </div>
+
+            <div className="p-4 bg-blue-50/70 border border-blue-200 rounded-2xl">
+              <p className="text-[10px] font-bold text-blue-800 uppercase tracking-wider">🛏️ In Rooms (In Use)</p>
+              <p className="text-2xl font-black text-blue-900 mt-1">
+                {linenRotation?.totals?.totalInRoomsPieces || 0} <span className="text-xs font-bold text-blue-700">pcs</span>
+              </p>
+              <p className="text-[11px] font-medium text-blue-700 mt-0.5">Across {linenRotation?.activeRoomsInUse || 0} occupied rooms</p>
+            </div>
+
+            <div className="p-4 bg-orange-50/70 border border-orange-200 rounded-2xl">
+              <p className="text-[10px] font-bold text-orange-800 uppercase tracking-wider">🧺 With Dhobi (Washing)</p>
+              <p className="text-2xl font-black text-orange-900 mt-1">
+                {linenRotation?.totals?.totalWithDhobiPieces || 0} <span className="text-xs font-bold text-orange-700">pcs</span>
+              </p>
+              <p className="text-[11px] font-medium text-orange-700 mt-0.5">Currently at laundry</p>
+            </div>
+
+            <div className="p-4 bg-gray-50 border border-gray-200 rounded-2xl">
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">📦 Total Owned Stock</p>
+              <p className="text-2xl font-black text-gray-900 mt-1">
+                {linenRotation?.totals?.totalLinenPieces || 0} <span className="text-xs font-bold text-gray-400">pcs</span>
+              </p>
+              <p className="text-[11px] font-medium text-gray-500 mt-0.5">Hotel inventory asset</p>
+            </div>
+          </div>
+
+          {/* Items Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {(linenRotation?.items || []).map((item, idx) => (
+              <div key={idx} className="bg-white p-5 rounded-3xl border border-gray-100 shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-black text-gray-900">{item.itemName}</h4>
+                    <p className="text-[11px] text-gray-400 font-bold">Total Property Stock: {item.totalStock} pcs</p>
+                  </div>
+                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                    item.isLow
+                      ? 'bg-red-100 text-red-700 border border-red-200 animate-pulse'
+                      : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                  }`}>
+                    {item.isLow ? `⚠️ Low Clean Stock (${item.cleanInStore} left)` : `🟢 Safe (${item.cleanInStore} ready)`}
+                  </span>
+                </div>
+
+                {/* Segmented Stock Bar */}
+                <div className="space-y-1">
+                  <div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden flex">
+                    <div
+                      style={{ width: `${item.totalStock > 0 ? (item.cleanInStore / item.totalStock) * 100 : 0}%` }}
+                      className="bg-emerald-500 transition-all"
+                      title={`Clean in store: ${item.cleanInStore}`}
+                    />
+                    <div
+                      style={{ width: `${item.totalStock > 0 ? (item.inRooms / item.totalStock) * 100 : 0}%` }}
+                      className="bg-blue-500 transition-all"
+                      title={`In rooms: ${item.inRooms}`}
+                    />
+                    <div
+                      style={{ width: `${item.totalStock > 0 ? (item.withDhobi / item.totalStock) * 100 : 0}%` }}
+                      className="bg-orange-500 transition-all"
+                      title={`With Dhobi: ${item.withDhobi}`}
+                    />
+                  </div>
+                  <div className="flex justify-between items-center text-[10px] font-black text-gray-500 pt-1">
+                    <span className="text-emerald-700">🧼 Clean: {item.cleanInStore}</span>
+                    <span className="text-blue-700">🛏️ Rooms: {item.inRooms}</span>
+                    <span className="text-orange-700">🧺 Dhobi: {item.withDhobi}</span>
+                  </div>
+                </div>
+
+                {/* Low Stock Warning & WhatsApp Quick Expedite */}
+                {item.isLow && (
+                  <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-2">
+                    <p className="text-[11px] font-bold text-red-600">
+                      Only {item.cleanInStore} pcs clean in store!
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => shareExpediteWhatsApp(item)}
+                      className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold rounded-lg transition-all active:scale-95 flex items-center gap-1 shadow-xs"
+                      title="Alert Dhobi on WhatsApp to expedite this item"
+                    >
+                      <Send size={11} />
+                      <span>WhatsApp Dhobi</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ─────────────────────────────────────────────────────────────
           MODAL 1: SEND CLOTHES TO LAUNDRY (DISPATCH)
@@ -1675,6 +2156,167 @@ _Please deliver clean & ironed as agreed. Thank you!_`;
                   className="w-full py-3 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50"
                 >
                   {submitting ? 'Saving Rates...' : 'Save Standard Rates ✓'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          MODAL 5: SETTLE DHOBI KHATA / LUMP-SUM PAYMENT
+         ───────────────────────────────────────────────────────────── */}
+      {isLumpSumModalOpen && (
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3" onClick={() => setIsLumpSumModalOpen(false)}>
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-black text-white rounded-xl">
+                  <CreditCard size={18} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-gray-900">Settle Dhobi Khata</h3>
+                  <p className="text-[11px] font-bold text-gray-400">{lumpSumForm.vendorName}</p>
+                </div>
+              </div>
+              <button onClick={() => setIsLumpSumModalOpen(false)} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full">
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSettleLumpSum} className="p-5 space-y-4 text-xs font-semibold">
+              <div className="p-3 bg-red-50 border border-red-200 rounded-2xl flex justify-between items-center">
+                <span className="text-red-700 font-bold">Total Khata Balance Due:</span>
+                <span className="text-red-600 font-black text-lg">₹{lumpSumForm.balanceDue.toLocaleString('en-IN')}</span>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Paying Amount (₹)</label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={lumpSumForm.amount}
+                    onChange={e => setLumpSumForm({ ...lumpSumForm, amount: e.target.value })}
+                    className="flex-1 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-black text-gray-900 text-sm outline-none focus:ring-2 focus:ring-black"
+                  />
+                  {lumpSumForm.balanceDue > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setLumpSumForm({ ...lumpSumForm, amount: lumpSumForm.balanceDue })}
+                      className="px-3 bg-gray-100 hover:bg-gray-200 rounded-xl text-xs font-black text-gray-700"
+                    >
+                      Full Due
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Payment Method</label>
+                <div className="flex gap-2">
+                  {['Cash', 'UPI', 'Bank Transfer'].map(m => (
+                    <button
+                      type="button"
+                      key={m}
+                      onClick={() => setLumpSumForm({ ...lumpSumForm, paymentMethod: m })}
+                      className={`flex-1 py-2 text-xs font-black rounded-xl border transition-all ${
+                        lumpSumForm.paymentMethod === m
+                          ? 'bg-black text-white border-black shadow-xs'
+                          : 'bg-gray-50 text-gray-700 border-gray-200'
+                      }`}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {lumpSumForm.paymentMethod === 'UPI' && Number(lumpSumForm.amount) > 0 && currentPropertyDoc && (
+                <div className="pt-1">
+                  <DynamicUpiQr
+                    amount={Number(lumpSumForm.amount)}
+                    guestName={`Laundry - ${lumpSumForm.vendorName}`}
+                    roomNumber="KHATA-SETTLEMENT"
+                    hostel={currentPropertyDoc}
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Remarks / Reference (optional)</label>
+                <input
+                  placeholder="e.g. Cleared via GPay / Cheque #1042"
+                  value={lumpSumForm.notes}
+                  onChange={e => setLumpSumForm({ ...lumpSumForm, notes: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-800 outline-none"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full py-3 bg-black hover:bg-gray-800 text-white font-black text-sm uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50"
+              >
+                {submitting ? 'Settling...' : 'Confirm Lump-Sum Settlement ✓'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          MODAL 6: UPDATE TOTAL HOTEL LINEN INVENTORY
+         ───────────────────────────────────────────────────────────── */}
+      {isInventoryModalOpen && (
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 overflow-y-auto" onClick={() => setIsInventoryModalOpen(false)}>
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg my-auto overflow-hidden flex flex-col max-h-[92vh]" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-black text-white rounded-xl">
+                  <Boxes size={18} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-gray-900">Total Linen Inventory</h3>
+                  <p className="text-[11px] font-bold text-gray-400">Total count of linen pieces owned by this property</p>
+                </div>
+              </div>
+              <button onClick={() => setIsInventoryModalOpen(false)} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full">
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveInventory} className="p-5 space-y-4 text-xs font-semibold overflow-y-auto">
+              <p className="text-gray-500 text-xs">
+                Set total inventory count for each linen type. The system uses these totals to calculate live clean stock availability in the store.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-72 overflow-y-auto pr-1">
+                {(linenRotation?.items || []).map(it => (
+                  <div key={it.itemName} className="p-2.5 bg-gray-50 rounded-xl border border-gray-200 flex items-center justify-between">
+                    <span className="font-bold text-gray-800 text-xs">{it.itemName}</span>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        min="0"
+                        value={inventoryForm[it.itemName] ?? it.totalStock}
+                        onChange={e => setInventoryForm({ ...inventoryForm, [it.itemName]: Number(e.target.value) || 0 })}
+                        className="w-20 px-2 py-1 bg-white border border-gray-300 rounded-lg text-center font-black text-xs text-gray-900 outline-none focus:ring-1 focus:ring-black"
+                      />
+                      <span className="text-[10px] text-gray-400 font-bold">pcs</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full py-3 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {submitting ? 'Saving Inventory...' : 'Save Linen Inventory ✓'}
                 </button>
               </div>
             </form>

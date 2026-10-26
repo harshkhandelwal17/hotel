@@ -7,7 +7,8 @@ const {
   recordLaundryPayment,
   updateLaundryOrder,
   deleteLaundryOrder,
-  updateLaundrySettings
+  updateLaundrySettings,
+  settleVendorLumpSum
 } = require('../controllers/laundryController');
 const { protect } = require('../middlewares/auth');
 
@@ -20,6 +21,7 @@ router.route('/')
   .post(createLaundryOrder);
 
 router.put('/settings', updateLaundrySettings);
+router.post('/vendor-payment', settleVendorLumpSum);
 
 router.route('/:id')
   .get(getLaundryOrder)

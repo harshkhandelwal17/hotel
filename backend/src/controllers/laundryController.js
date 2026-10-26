@@ -1,5 +1,6 @@
 const LaundryOrder = require('../models/LaundryOrder');
 const Hostel = require('../models/Hostel');
+const Stay = require('../models/Stay');
 const { getHostelFilter, userCanAccessHostel, assertHostelAccess } = require('../utils/hostelAccess');
 const mongoose = require('mongoose');
 
@@ -56,13 +57,58 @@ exports.getLaundryOrders = async (req, res, next) => {
     let totalPaidOverall = 0;
 
     const vendorMap = new Map();
+    const vendorLedgersMap = new Map();
+    const withDhobiCounts = {};
     const ratesMap = {};
 
     orders.forEach(o => {
+      const vName = (o.vendorName || 'General Dhobi').trim();
+      const vKey = vName.toLowerCase();
+
+      // Vendor Ledger Entry
+      if (!vendorLedgersMap.has(vKey)) {
+        vendorLedgersMap.set(vKey, {
+          vendorName: vName,
+          vendorPhone: o.vendorPhone || '',
+          totalBatches: 0,
+          totalPieces: 0,
+          totalBilled: 0,
+          totalPaid: 0,
+          totalDue: 0,
+          unpaidBatchesCount: 0,
+          lastBatchDate: o.sentDate,
+          lastPaymentDate: o.paymentDate || null
+        });
+      }
+      const ledger = vendorLedgersMap.get(vKey);
+      ledger.totalBatches += 1;
+      ledger.totalPieces += (Number(o.totalPiecesSent) || 0);
+
+      const billed = Number(o.totalAmount) || 0;
+      const paid = Number(o.paidAmount) || 0;
+      const due = Math.max(0, billed - paid);
+
+      ledger.totalBilled += billed;
+      ledger.totalPaid += paid;
+      ledger.totalDue += due;
+      if (due > 0) ledger.unpaidBatchesCount += 1;
+      if (!ledger.vendorPhone && o.vendorPhone) ledger.vendorPhone = o.vendorPhone;
+      if (o.paymentDate && (!ledger.lastPaymentDate || new Date(o.paymentDate) > new Date(ledger.lastPaymentDate))) {
+        ledger.lastPaymentDate = o.paymentDate;
+      }
+
       if (o.status === 'Sent') {
         clothesAtLaundry += (o.totalPiecesSent || 0) - (o.totalPiecesReceived || 0);
+        // Track dirty pieces with dhobi per item
+        if (Array.isArray(o.items)) {
+          o.items.forEach(it => {
+            const name = it.itemName;
+            const pendingPieces = Math.max(0, (Number(it.sentCount) || 0) - (Number(it.receivedCount) || 0));
+            withDhobiCounts[name] = (withDhobiCounts[name] || 0) + pendingPieces;
+          });
+        }
       }
-      const paid = Number(o.paidAmount) || 0;
+
       totalPaidOverall += paid;
 
       const dateToCheck = o.paymentDate || o.sentDate;
@@ -70,15 +116,15 @@ exports.getLaundryOrders = async (req, res, next) => {
         monthlyExpense += paid;
       }
 
-      const due = Math.max(0, (o.totalAmount || 0) - paid);
       totalPendingBills += due;
 
-      if (o.vendorName && !vendorMap.has(o.vendorName.trim().toLowerCase())) {
-        vendorMap.set(o.vendorName.trim().toLowerCase(), {
-          vendorName: o.vendorName.trim(),
+      if (o.vendorName && !vendorMap.has(vKey)) {
+        vendorMap.set(vKey, {
+          vendorName: vName,
           vendorPhone: o.vendorPhone || ''
         });
       }
+
       if (Array.isArray(o.items)) {
         o.items.forEach(it => {
           if (it.itemName && it.ratePerPiece > 0 && !ratesMap[it.itemName]) {
@@ -88,8 +134,11 @@ exports.getLaundryOrders = async (req, res, next) => {
       }
     });
 
+    const vendorLedgers = Array.from(vendorLedgersMap.values()).sort((a, b) => b.totalDue - a.totalDue);
+
     let defaultVendor = null;
     let defaultRates = ratesMap;
+    let savedInventory = {};
 
     if (filter.hostel && mongoose.isValidObjectId(filter.hostel)) {
       const hDoc = await Hostel.findById(filter.hostel).select('laundrySettings');
@@ -106,6 +155,11 @@ exports.getLaundryOrders = async (req, res, next) => {
             : hDoc.laundrySettings.defaultRates;
           defaultRates = { ...ratesMap, ...customRates };
         }
+        if (hDoc.laundrySettings.linenInventory) {
+          savedInventory = hDoc.laundrySettings.linenInventory instanceof Map
+            ? Object.fromEntries(hDoc.laundrySettings.linenInventory)
+            : hDoc.laundrySettings.linenInventory;
+        }
       }
     }
 
@@ -116,6 +170,70 @@ exports.getLaundryOrders = async (req, res, next) => {
         vendorPhone: orders[0].vendorPhone || ''
       };
     }
+
+    // Calculate Linen Stock in Rotation (Clean in Store, In Rooms, With Dhobi)
+    const DEFAULT_PRESET_INVENTORY = {
+      'Bedsheet (Double)': 50,
+      'Bedsheet (Single)': 30,
+      'Pillow Cover': 100,
+      'Bath Towel': 60,
+      'Hand Towel': 40,
+      'Blanket': 25,
+      'Duvet Cover': 25
+    };
+
+    const LINEN_ROOM_MULTIPLIERS = {
+      'Bedsheet (Double)': 1,
+      'Bedsheet (Single)': 0.5,
+      'Pillow Cover': 2,
+      'Bath Towel': 2,
+      'Hand Towel': 1,
+      'Blanket': 1,
+      'Duvet Cover': 1
+    };
+
+    let activeStaysCount = 0;
+    try {
+      const stayQuery = { status: { $in: ['Active', 'Checkout Due', 'Overdue'] } };
+      if (filter.hostel) stayQuery.hostel = filter.hostel;
+      activeStaysCount = await Stay.countDocuments(stayQuery);
+    } catch (_) {}
+
+    let totalLinenPieces = 0;
+    let totalInRoomsPieces = 0;
+    let totalWithDhobiPieces = 0;
+    let totalCleanPieces = 0;
+    let lowStockAlertCount = 0;
+
+    const linenRotation = Object.keys(DEFAULT_PRESET_INVENTORY).map(itemName => {
+      const totalStock = (savedInventory && savedInventory[itemName] !== undefined)
+        ? Math.max(0, Number(savedInventory[itemName]))
+        : DEFAULT_PRESET_INVENTORY[itemName];
+
+      const withDhobi = withDhobiCounts[itemName] || 0;
+      const multiplier = LINEN_ROOM_MULTIPLIERS[itemName] || 1;
+      const inRooms = Math.min(Math.max(0, totalStock - withDhobi), Math.round(activeStaysCount * multiplier));
+      const cleanInStore = Math.max(0, totalStock - (withDhobi + inRooms));
+      const healthPercent = totalStock > 0 ? Math.round((cleanInStore / totalStock) * 100) : 100;
+      const isLow = cleanInStore <= 5 || healthPercent <= 20;
+
+      if (isLow) lowStockAlertCount += 1;
+
+      totalLinenPieces += totalStock;
+      totalInRoomsPieces += inRooms;
+      totalWithDhobiPieces += withDhobi;
+      totalCleanPieces += cleanInStore;
+
+      return {
+        itemName,
+        totalStock,
+        withDhobi,
+        inRooms,
+        cleanInStore,
+        healthPercent,
+        isLow
+      };
+    });
 
     res.status(200).json({
       success: true,
@@ -128,6 +246,19 @@ exports.getLaundryOrders = async (req, res, next) => {
         totalBatches: orders.length
       },
       recentVendors: Array.from(vendorMap.values()).slice(0, 6),
+      vendorLedgers,
+      linenRotation: {
+        items: linenRotation,
+        savedInventory,
+        activeRoomsInUse: activeStaysCount,
+        totals: {
+          totalLinenPieces,
+          totalInRoomsPieces,
+          totalWithDhobiPieces,
+          totalCleanPieces,
+          lowStockAlertCount
+        }
+      },
       defaultVendor,
       defaultRates,
       data: orders
@@ -585,12 +716,119 @@ exports.updateLaundrySettings = async (req, res, next) => {
       hostel.laundrySettings.defaultRates = currentRates;
     }
 
+    if (req.body.linenInventory && typeof req.body.linenInventory === 'object') {
+      const currentInv = hostel.laundrySettings.linenInventory || new Map();
+      Object.entries(req.body.linenInventory).forEach(([key, val]) => {
+        const num = Math.max(0, Number(val) || 0);
+        if (currentInv instanceof Map) {
+          currentInv.set(key, num);
+        } else {
+          currentInv[key] = num;
+        }
+      });
+      hostel.laundrySettings.linenInventory = currentInv;
+    }
+
     await hostel.save({ validateBeforeSave: false });
 
     res.status(200).json({
       success: true,
-      message: 'Laundry settings & standard rates saved successfully',
+      message: 'Laundry settings, rates & linen inventory saved successfully',
       data: hostel.laundrySettings
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Record lump-sum payment to a vendor, settling unpaid batches in FIFO order
+// @route   POST /api/laundry/vendor-payment
+// @access  Private
+exports.settleVendorLumpSum = async (req, res, next) => {
+  try {
+    const { hostel, vendorName, amount, paymentMethod = 'Cash', notes = '' } = req.body;
+
+    const numAmount = Number(amount);
+    if (!numAmount || numAmount <= 0) {
+      return res.status(400).json({ success: false, message: 'Please enter a valid payment amount greater than 0' });
+    }
+    if (!vendorName || !vendorName.trim()) {
+      return res.status(400).json({ success: false, message: 'Please specify the vendor name' });
+    }
+
+    const rawHostel = hostel || req.user.assignedHostel;
+    const hostelId = (rawHostel && typeof rawHostel === 'object' && rawHostel._id) ? rawHostel._id : rawHostel;
+
+    if (!hostelId || !mongoose.isValidObjectId(hostelId)) {
+      return res.status(400).json({ success: false, message: 'Please specify a valid property' });
+    }
+
+    if (!(await userCanAccessHostel(req.user, hostelId))) {
+      return res.status(403).json({ success: false, message: 'Not authorized for this property' });
+    }
+
+    const cleanVendor = vendorName.trim();
+    // Find all unpaid or partially paid orders for this vendor in this hostel (FIFO: oldest sentDate first)
+    const unpaidOrders = await LaundryOrder.find({
+      hostel: hostelId,
+      vendorName: { $regex: new RegExp(`^${cleanVendor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+      paymentStatus: { $in: ['Pending', 'Partial', 'Unpaid'] }
+    }).sort('sentDate');
+
+    let remainingToAllocate = numAmount;
+    let settledBatchesCount = 0;
+    const settledDetails = [];
+
+    for (const order of unpaidOrders) {
+      if (remainingToAllocate <= 0) break;
+
+      const orderBilled = Number(order.totalAmount) || 0;
+      const orderPaid = Number(order.paidAmount) || 0;
+      const orderDue = Math.max(0, orderBilled - orderPaid);
+
+      if (orderDue <= 0) continue;
+
+      const allocate = Math.min(remainingToAllocate, orderDue);
+      order.paidAmount = orderPaid + allocate;
+      remainingToAllocate -= allocate;
+
+      if (order.paidAmount >= orderBilled) {
+        order.paymentStatus = 'Paid';
+      } else {
+        order.paymentStatus = 'Partial';
+      }
+
+      order.paymentDate = new Date();
+      order.paymentMethod = paymentMethod;
+      if (notes) {
+        order.notes = order.notes 
+          ? `${order.notes} | Lump-sum ₹${allocate}: ${notes}` 
+          : `Lump-sum ₹${allocate}: ${notes}`;
+      }
+
+      await order.save();
+      settledBatchesCount += 1;
+      settledDetails.push({
+        orderNumber: order.orderNumber,
+        allocatedAmount: allocate,
+        newStatus: order.paymentStatus
+      });
+    }
+
+    const totalAllocated = numAmount - remainingToAllocate;
+
+    res.status(200).json({
+      success: true,
+      message: `Paid ₹${totalAllocated.toLocaleString('en-IN')} to ${cleanVendor} across ${settledBatchesCount} batch(es)!`,
+      data: {
+        vendorName: cleanVendor,
+        totalPaid: totalAllocated,
+        remainingUnallocatedAdvance: remainingToAllocate,
+        settledBatchesCount,
+        settledDetails,
+        paymentMethod,
+        paymentDate: new Date()
+      }
     });
   } catch (error) {
     next(error);
