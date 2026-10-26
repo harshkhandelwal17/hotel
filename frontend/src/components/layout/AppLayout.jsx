@@ -1,6 +1,7 @@
 import React, { useContext, useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Outlet, Link, useLocation } from 'react-router-dom';
+import { AuthContext } from '../../context/AuthContext';
 import { Home, Users, Bed, LogOut, Bell, PlusCircle, Building, CreditCard, BarChart3, Hexagon, ShieldCheck, Menu, X, ShieldAlert, LayoutGrid, Volume2, VolumeX, Phone, BellRing, ChevronDown, Shirt } from 'lucide-react';
 import GlobalSearch from '../common/GlobalSearch';
 import soundAlert from '../../utils/soundAlert';
