@@ -546,3 +546,54 @@ exports.deleteLaundryOrder = async (req, res, next) => {
   }
 };
 
+// @desc    Update default laundry vendor & standard rates for a hostel
+// @route   PUT /api/laundry/settings
+// @access  Private
+exports.updateLaundrySettings = async (req, res, next) => {
+  try {
+    const rawHostel = req.body.hostel || req.user.assignedHostel;
+    const hostelId = (rawHostel && typeof rawHostel === 'object' && rawHostel._id) ? rawHostel._id : rawHostel;
+
+    if (!hostelId || !mongoose.isValidObjectId(hostelId)) {
+      return res.status(400).json({ success: false, message: 'Please specify a valid property' });
+    }
+
+    if (!(await userCanAccessHostel(req.user, hostelId))) {
+      return res.status(403).json({ success: false, message: 'Not authorized for this property' });
+    }
+
+    const hostel = await Hostel.findById(hostelId);
+    if (!hostel) {
+      return res.status(404).json({ success: false, message: 'Property not found' });
+    }
+
+    if (!hostel.laundrySettings) hostel.laundrySettings = {};
+
+    const { defaultVendorName, defaultVendorPhone, defaultRates } = req.body;
+    if (defaultVendorName !== undefined) hostel.laundrySettings.defaultVendorName = defaultVendorName.trim();
+    if (defaultVendorPhone !== undefined) hostel.laundrySettings.defaultVendorPhone = defaultVendorPhone.trim();
+    if (defaultRates && typeof defaultRates === 'object') {
+      const currentRates = hostel.laundrySettings.defaultRates || new Map();
+      Object.entries(defaultRates).forEach(([key, val]) => {
+        const num = Math.max(0, Number(val) || 0);
+        if (currentRates instanceof Map) {
+          currentRates.set(key, num);
+        } else {
+          currentRates[key] = num;
+        }
+      });
+      hostel.laundrySettings.defaultRates = currentRates;
+    }
+
+    await hostel.save({ validateBeforeSave: false });
+
+    res.status(200).json({
+      success: true,
+      message: 'Laundry settings & standard rates saved successfully',
+      data: hostel.laundrySettings
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

@@ -6,7 +6,8 @@ const {
   receiveLaundryOrder,
   recordLaundryPayment,
   updateLaundryOrder,
-  deleteLaundryOrder
+  deleteLaundryOrder,
+  updateLaundrySettings
 } = require('../controllers/laundryController');
 const { protect } = require('../middlewares/auth');
 
@@ -17,6 +18,8 @@ router.use(protect);
 router.route('/')
   .get(getLaundryOrders)
   .post(createLaundryOrder);
+
+router.put('/settings', updateLaundrySettings);
 
 router.route('/:id')
   .get(getLaundryOrder)

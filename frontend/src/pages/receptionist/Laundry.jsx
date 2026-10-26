@@ -22,7 +22,10 @@ import {
   ShieldAlert, 
   X,
   CreditCard,
-  Building
+  Building,
+  MessageSquare,
+  Settings2,
+  Sparkles
 } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 import DynamicUpiQr from '../../components/DynamicUpiQr';
@@ -111,6 +114,8 @@ const Laundry = () => {
   const [recentVendors, setRecentVendors] = useState([]);
   const [defaultVendor, setDefaultVendor] = useState(null);
   const [defaultRates, setDefaultRates] = useState({});
+  const [isRatesModalOpen, setIsRatesModalOpen] = useState(false);
+  const [ratesForm, setRatesForm] = useState({});
 
   const flash = (msg, isErr = false) => {
     if (isErr) {
@@ -247,6 +252,20 @@ const Laundry = () => {
       totalPiecesProcessed
     };
   }, [filteredOrders]);
+
+  // Delayed / Overdue Batches Count
+  const overdueBatchesCount = useMemo(() => {
+    const todayStart = startOfDay(new Date());
+    return filteredOrders.filter(o => o.status === 'Sent' && o.expectedReturnDate && new Date(o.expectedReturnDate) < todayStart).length;
+  }, [filteredOrders]);
+
+  // Clean Linen Recovery / Loss Rate (%)
+  const recoveryRate = useMemo(() => {
+    if (stats.totalPiecesProcessed === 0) return '100';
+    const totalMissing = filteredOrders.reduce((s, o) => s + (o.totalPiecesMissing || 0), 0);
+    const rate = ((stats.totalPiecesProcessed - totalMissing) / stats.totalPiecesProcessed) * 100;
+    return Math.max(0, rate).toFixed(1);
+  }, [stats.totalPiecesProcessed, filteredOrders]);
 
   // Open Dispatch Modal
   const openDispatchModal = () => {
@@ -555,6 +574,77 @@ const Laundry = () => {
     printWindow.document.close();
   };
 
+  // 📲 WhatsApp Share Slip to Vendor
+  const shareViaWhatsApp = (order) => {
+    const rawPhone = (order.vendorPhone || '').replace(/[^0-9]/g, '');
+    if (!rawPhone) {
+      return flash('No phone number saved for this vendor', true);
+    }
+    const phone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
+    const hotelName = order.hostel?.name || activeHostel?.name || 'Hotel';
+    const dateStr = format(new Date(order.sentDate), 'dd MMM yyyy');
+
+    const itemsSummary = (order.items || [])
+      .filter(it => (Number(it.sentCount) || 0) > 0)
+      .map(it => `• ${it.itemName}: *${it.sentCount} pcs* @ ₹${it.ratePerPiece}/pc = ₹${it.totalCost}`)
+      .join('\n');
+
+    const due = Math.max(0, (order.totalAmount || 0) - (order.paidAmount || 0));
+
+    const msg = `🧺 *${hotelName.toUpperCase()} - LAUNDRY DISPATCH SLIP*
+📄 *Challan No:* ${order.orderNumber}
+📅 *Date:* ${dateStr}
+👤 *Vendor / Dhobi:* ${order.vendorName}
+
+📦 *Linen Given:*
+${itemsSummary}
+--------------------------------
+🔢 *Total Pieces:* ${order.totalPiecesSent} pcs
+💰 *Bill Amount:* ₹${order.totalAmount}
+💵 *Paid / Advance:* ₹${order.paidAmount || 0}
+⚠️ *Balance Due:* ₹${due}
+${order.expectedReturnDate ? `⏰ *Expected Delivery:* ${format(new Date(order.expectedReturnDate), 'dd MMM yyyy')}\n` : ''}
+_Please deliver clean & ironed as agreed. Thank you!_`;
+
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+    window.open(url, '_blank');
+  };
+
+  // Open Standard Rates Setup Modal
+  const openRatesModal = () => {
+    const initialRates = {};
+    PRESET_LINEN_ITEMS.forEach(it => {
+      initialRates[it.itemName] = (defaultRates && defaultRates[it.itemName] !== undefined)
+        ? defaultRates[it.itemName]
+        : it.defaultRate;
+    });
+    setRatesForm(initialRates);
+    setIsRatesModalOpen(true);
+  };
+
+  // Submit Standard Rates
+  const handleSaveRates = async (e) => {
+    e.preventDefault();
+    try {
+      setSubmitting(true);
+      const targetHostel = user?.role === 'receptionist'
+        ? (user?.assignedHostel?._id || user?.assignedHostel)
+        : (selectedHostel !== 'all' ? selectedHostel : hostels[0]?._id);
+
+      await axios.put(`${API}/api/laundry/settings`, {
+        hostel: targetHostel,
+        defaultRates: ratesForm
+      });
+      setDefaultRates(ratesForm);
+      flash('✅ Standard rates saved permanently for this hotel!');
+      setIsRatesModalOpen(false);
+    } catch (err) {
+      flash(err.response?.data?.message || 'Failed to save rates', true);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   // If feature is disabled by Super Admin
   if (!isLaundryEnabled) {
     return (
@@ -627,6 +717,16 @@ const Laundry = () => {
 
           <button
             type="button"
+            onClick={openRatesModal}
+            className="px-3 py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold text-xs rounded-xl border border-gray-200 transition-colors flex items-center gap-1.5"
+            title="Configure standard rates per linen item"
+          >
+            <Settings2 size={15} />
+            <span className="hidden sm:inline">Rates Setup</span>
+          </button>
+
+          <button
+            type="button"
             onClick={openDispatchModal}
             className="px-4 py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 flex items-center gap-2"
           >
@@ -643,9 +743,16 @@ const Laundry = () => {
             <span>With Vendor (Pending)</span>
             <span className="p-2 bg-orange-50 rounded-xl"><Shirt size={16} /></span>
           </div>
-          <p className="text-2xl sm:text-3xl font-black text-gray-900">
-            {stats.clothesAtLaundry} <span className="text-xs font-bold text-gray-400">pcs</span>
-          </p>
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <p className="text-2xl sm:text-3xl font-black text-gray-900">
+              {stats.clothesAtLaundry} <span className="text-xs font-bold text-gray-400">pcs</span>
+            </p>
+            {overdueBatchesCount > 0 && (
+              <span className="px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-black rounded-md animate-pulse border border-red-200">
+                ⚠️ {overdueBatchesCount} Overdue
+              </span>
+            )}
+          </div>
           <p className="text-[11px] font-semibold text-gray-500">Clothes currently at laundry/dhobi</p>
         </div>
 
@@ -679,9 +786,14 @@ const Laundry = () => {
             <span>Total Batches</span>
             <span className="p-2 bg-emerald-50 rounded-xl"><PackageCheck size={16} /></span>
           </div>
-          <p className="text-2xl sm:text-3xl font-black text-gray-900">
-            {stats.totalBatches} <span className="text-xs font-bold text-gray-400">batches</span>
-          </p>
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <p className="text-2xl sm:text-3xl font-black text-gray-900">
+              {stats.totalBatches} <span className="text-xs font-bold text-gray-400">batches</span>
+            </p>
+            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-black rounded-md border border-emerald-200">
+              🛡️ {recoveryRate}% Return
+            </span>
+          </div>
           <p className="text-[11px] font-semibold text-gray-500">Total {stats.totalPiecesProcessed} pieces washed</p>
         </div>
       </div>
@@ -868,14 +980,22 @@ const Laundry = () => {
 
                       {/* Status */}
                       <td className="px-4 py-3.5">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${
-                          isSent 
-                            ? 'bg-orange-50 text-orange-700 border border-orange-200' 
-                            : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        }`}>
-                          {isSent ? <Clock size={11} /> : <CheckCircle2 size={11} />}
-                          {isSent ? 'With Dhobi' : 'Received'}
-                        </span>
+                        <div className="flex flex-col gap-1 items-start">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${
+                            isSent 
+                              ? 'bg-orange-50 text-orange-700 border border-orange-200' 
+                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          }`}>
+                            {isSent ? <Clock size={11} /> : <CheckCircle2 size={11} />}
+                            {isSent ? 'With Dhobi' : 'Received'}
+                          </span>
+
+                          {isSent && order.expectedReturnDate && new Date(order.expectedReturnDate) < startOfDay(new Date()) && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black bg-red-100 text-red-700 border border-red-200 animate-pulse">
+                              <AlertCircle size={10} /> Overdue
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Bill & Paid */}
@@ -928,6 +1048,15 @@ const Laundry = () => {
                               <span>Pay</span>
                             </button>
                           )}
+
+                          <button
+                            type="button"
+                            onClick={() => shareViaWhatsApp(order)}
+                            className="p-1.5 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg transition-colors"
+                            title="Send Challan Slip on WhatsApp"
+                          >
+                            <MessageSquare size={15} />
+                          </button>
 
                           <button
                             type="button"
@@ -1312,6 +1441,64 @@ const Laundry = () => {
                 </div>
               </div>
 
+              {/* Missing / Damaged Items Alert & Deduction Helper */}
+              {(() => {
+                const totalMissing = receiveForm.items.reduce((s, it) => s + (Number(it.damagedOrMissingCount) || 0), 0);
+                if (totalMissing <= 0) return null;
+                const estimatedDeduction = receiveForm.items.reduce((s, it) => {
+                  const missing = Number(it.damagedOrMissingCount) || 0;
+                  const rate = Number(it.ratePerPiece) || 0;
+                  return s + (missing * rate);
+                }, 0);
+
+                return (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-2xl space-y-2">
+                    <div className="flex items-center justify-between text-xs font-bold text-red-700">
+                      <span className="flex items-center gap-1.5">
+                        <AlertCircle size={15} />
+                        {totalMissing} pieces missing / damaged!
+                      </span>
+                      <span>Est. Loss: ₹{estimatedDeduction}</span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const currentBill = Number(receiveForm.totalAmount) || 0;
+                          const newBill = Math.max(0, currentBill - estimatedDeduction);
+                          setReceiveForm(prev => ({ ...prev, totalAmount: newBill }));
+                          flash(`Deducted ₹${estimatedDeduction} from bill. New bill: ₹${newBill}`);
+                        }}
+                        className="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[11px] font-black rounded-lg transition-all active:scale-95 shadow-xs"
+                      >
+                        ✂️ Deduct ₹{estimatedDeduction} from Bill
+                      </button>
+
+                      {selectedOrder.vendorPhone && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const rawPhone = (selectedOrder.vendorPhone || '').replace(/[^0-9]/g, '');
+                            const phone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
+                            const missingList = receiveForm.items
+                              .filter(it => (Number(it.damagedOrMissingCount) || 0) > 0)
+                              .map(it => `• ${it.itemName}: *${it.damagedOrMissingCount} missing*`)
+                              .join('\n');
+                            const msg = `⚠️ *${selectedOrder.hostel?.name || 'Hotel'} - MISSING LINEN ALERT*\n\n📄 Challan: *${selectedOrder.orderNumber}*\n👤 Dhobi / Vendor: *${selectedOrder.vendorName}*\n\nClean laundry check karte waqt ye items missing / damaged mile hain:\n${missingList}\n\nKripya turant check karke bache hue kapde bhej dein. Dhanyawad!`;
+                            window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+                          }}
+                          className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black rounded-lg transition-all active:scale-95 flex items-center gap-1 shadow-xs"
+                        >
+                          <MessageSquare size={13} />
+                          <span>Alert Dhobi on WhatsApp</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Bill & Payment */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -1432,6 +1619,64 @@ const Laundry = () => {
               >
                 {submitting ? 'Recording...' : 'Record Payment ✓'}
               </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          MODAL 4: STANDARD RATES SETUP (स्टैंडर्ड रेट्स सेटिंग)
+         ───────────────────────────────────────────────────────────── */}
+      {isRatesModalOpen && (
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 overflow-y-auto" onClick={() => setIsRatesModalOpen(false)}>
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg my-auto overflow-hidden flex flex-col max-h-[92vh]" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-black text-white rounded-xl">
+                  <Settings2 size={18} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-gray-900">Standard Linen Rates</h3>
+                  <p className="text-[11px] font-bold text-gray-400">Fixed rate per piece for quick 1-click dispatch</p>
+                </div>
+              </div>
+              <button onClick={() => setIsRatesModalOpen(false)} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full">
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveRates} className="p-5 space-y-4 text-xs font-semibold overflow-y-auto">
+              <p className="text-gray-500 text-xs">
+                Set standard washing/ironing rates per item. Whenever you send clothes, these rates will auto-fill automatically.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-72 overflow-y-auto pr-1">
+                {PRESET_LINEN_ITEMS.map(it => (
+                  <div key={it.itemName} className="p-2.5 bg-gray-50 rounded-xl border border-gray-200 flex items-center justify-between">
+                    <span className="font-bold text-gray-800 text-xs">{it.itemName}</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-gray-400 font-bold">₹</span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={ratesForm[it.itemName] ?? it.defaultRate}
+                        onChange={e => setRatesForm({ ...ratesForm, [it.itemName]: Number(e.target.value) || 0 })}
+                        className="w-16 px-2 py-1 bg-white border border-gray-300 rounded-lg text-center font-black text-xs text-gray-900 outline-none focus:ring-1 focus:ring-black"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full py-3 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {submitting ? 'Saving Rates...' : 'Save Standard Rates ✓'}
+                </button>
+              </div>
             </form>
           </div>
         </div>
