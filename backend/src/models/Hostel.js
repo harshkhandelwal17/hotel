@@ -42,7 +42,11 @@ const hostelSchema = new mongoose.Schema({
     defaultVendorName: { type: String, default: '' },
     defaultVendorPhone: { type: String, default: '' },
     defaultRates: { type: Map, of: Number, default: {} },
-    linenInventory: { type: Map, of: Number, default: {} }
+    linenInventory: { type: Map, of: Number, default: {} },
+    linenItems: [{
+      itemName: { type: String },
+      defaultRate: { type: Number, default: 0 }
+    }]
   },
   whatsappSyncEnabled: {
     type: Boolean,

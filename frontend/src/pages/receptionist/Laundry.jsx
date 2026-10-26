@@ -119,8 +119,11 @@ const Laundry = () => {
   const [recentVendors, setRecentVendors] = useState([]);
   const [defaultVendor, setDefaultVendor] = useState(null);
   const [defaultRates, setDefaultRates] = useState({});
+  const [linenItems, setLinenItems] = useState(PRESET_LINEN_ITEMS);
   const [isRatesModalOpen, setIsRatesModalOpen] = useState(false);
   const [ratesForm, setRatesForm] = useState({});
+  const [ratesFormItems, setRatesFormItems] = useState([]);
+  const [newItemInput, setNewItemInput] = useState({ itemName: '', defaultRate: '' });
 
   // Active Main Tab: 'batches' | 'khata' | 'rotation'
   const [mainTab, setMainTab] = useState('batches');
@@ -185,6 +188,9 @@ const Laundry = () => {
       if (res.data.defaultRates) setDefaultRates(res.data.defaultRates);
       if (res.data.vendorLedgers) setVendorLedgers(res.data.vendorLedgers);
       if (res.data.linenRotation) setLinenRotation(res.data.linenRotation);
+      if (res.data.linenItems && Array.isArray(res.data.linenItems) && res.data.linenItems.length > 0) {
+        setLinenItems(res.data.linenItems);
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load laundry records');
     } finally {
@@ -312,7 +318,7 @@ const Laundry = () => {
       vendorPhone: autoVendorPhone,
       sentDate: format(new Date(), 'yyyy-MM-dd'),
       expectedReturnDate: '',
-      items: PRESET_LINEN_ITEMS.map(it => {
+      items: (linenItems && linenItems.length > 0 ? linenItems : PRESET_LINEN_ITEMS).map(it => {
         // Auto-fill remembered pricing for this hotel
         const savedRate = (defaultRates && defaultRates[it.itemName] !== undefined)
           ? defaultRates[it.itemName]
@@ -639,36 +645,86 @@ _Please deliver clean & ironed as agreed. Thank you!_`;
     window.open(url, '_blank');
   };
 
-  // Open Standard Rates Setup Modal
+  // Open Standard Rates & Linen Items Management Modal
   const openRatesModal = () => {
-    const initialRates = {};
-    PRESET_LINEN_ITEMS.forEach(it => {
-      initialRates[it.itemName] = (defaultRates && defaultRates[it.itemName] !== undefined)
+    const list = (linenItems && linenItems.length > 0 ? linenItems : PRESET_LINEN_ITEMS).map(it => ({
+      itemName: it.itemName,
+      defaultRate: (defaultRates && defaultRates[it.itemName] !== undefined)
         ? defaultRates[it.itemName]
-        : it.defaultRate;
-    });
-    setRatesForm(initialRates);
+        : (it.defaultRate || 0)
+    }));
+    setRatesFormItems(list);
+    setNewItemInput({ itemName: '', defaultRate: '' });
     setIsRatesModalOpen(true);
   };
 
-  // Submit Standard Rates
+  // Add Item to Rates Form
+  const handleAddRatesItem = () => {
+    if (!newItemInput.itemName || !newItemInput.itemName.trim()) {
+      return flash('Please enter an item name (e.g. Pool Towel, Apron)', true);
+    }
+    const cleanName = newItemInput.itemName.trim();
+    if (ratesFormItems.some(it => it.itemName.toLowerCase() === cleanName.toLowerCase())) {
+      return flash('An item with this name already exists', true);
+    }
+    const rate = Math.max(0, Number(newItemInput.defaultRate) || 0);
+    setRatesFormItems([...ratesFormItems, { itemName: cleanName, defaultRate: rate }]);
+    setNewItemInput({ itemName: '', defaultRate: '' });
+  };
+
+  // Remove Item from Rates Form
+  const handleRemoveRatesItem = (index) => {
+    if (ratesFormItems.length <= 1) {
+      return flash('You must keep at least one linen item in the list', true);
+    }
+    setRatesFormItems(ratesFormItems.filter((_, i) => i !== index));
+  };
+
+  // Update Item in Rates Form
+  const handleUpdateRatesItem = (index, field, value) => {
+    const updated = [...ratesFormItems];
+    updated[index] = { ...updated[index], [field]: value };
+    setRatesFormItems(updated);
+  };
+
+  // Submit Standard Rates & Linen Items
   const handleSaveRates = async (e) => {
     e.preventDefault();
     try {
+      const validItems = ratesFormItems
+        .filter(it => it && it.itemName && it.itemName.trim())
+        .map(it => ({
+          itemName: it.itemName.trim(),
+          defaultRate: Math.max(0, Number(it.defaultRate) || 0)
+        }));
+
+      if (validItems.length === 0) {
+        return flash('Please keep at least one linen item in the list', true);
+      }
+
       setSubmitting(true);
       const targetHostel = user?.role === 'receptionist'
         ? (user?.assignedHostel?._id || user?.assignedHostel)
         : (selectedHostel !== 'all' ? selectedHostel : hostels[0]?._id);
 
+      const ratesMapObj = {};
+      validItems.forEach(it => {
+        ratesMapObj[it.itemName] = it.defaultRate;
+      });
+
       await axios.put(`${API}/api/laundry/settings`, {
         hostel: targetHostel,
-        defaultRates: ratesForm
+        linenItems: validItems,
+        defaultRates: ratesMapObj
       });
-      setDefaultRates(ratesForm);
-      flash('✅ Standard rates saved permanently for this hotel!');
+
+      setLinenItems(validItems);
+      setDefaultRates(ratesMapObj);
+      flash('✅ Linen items and standard rates saved permanently!');
       setIsRatesModalOpen(false);
+      fetchOrders();
     } catch (err) {
-      flash(err.response?.data?.message || 'Failed to save rates', true);
+      flash(err.response?.data?.message || 'Failed to save items and rates', true);
     } finally {
       setSubmitting(false);
     }
@@ -1710,7 +1766,7 @@ Hotel me *${item.itemName}* ka clean stock critically low hai:
                   {dispatchForm.items.map((it, idx) => (
                     <div key={idx} className="flex items-center gap-2 p-2 bg-white rounded-xl border border-gray-200 shadow-2xs">
                       <div className="flex-1 min-w-0">
-                        {PRESET_LINEN_ITEMS.some(p => p.itemName === it.itemName) ? (
+                        {linenItems.some(p => p.itemName === it.itemName) ? (
                           <p className="font-bold text-gray-800 truncate">{it.itemName}</p>
                         ) : (
                           <input
@@ -2106,19 +2162,19 @@ Hotel me *${item.itemName}* ka clean stock critically low hai:
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          MODAL 4: STANDARD RATES SETUP (स्टैंडर्ड रेट्स सेटिंग)
+          MODAL 4: STANDARD RATES & LINEN ITEMS MANAGER
          ───────────────────────────────────────────────────────────── */}
       {isRatesModalOpen && (
         <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 overflow-y-auto" onClick={() => setIsRatesModalOpen(false)}>
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg my-auto overflow-hidden flex flex-col max-h-[92vh]" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl my-auto overflow-hidden flex flex-col max-h-[92vh]" onClick={e => e.stopPropagation()}>
             <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-black text-white rounded-xl">
                   <Settings2 size={18} />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-gray-900">Standard Linen Rates</h3>
-                  <p className="text-[11px] font-bold text-gray-400">Fixed rate per piece for quick 1-click dispatch</p>
+                  <h3 className="text-base font-black text-gray-900">Manage Linen Items & Standard Rates</h3>
+                  <p className="text-[11px] font-bold text-gray-400">Add new items, rename, delete items & set standard washing price</p>
                 </div>
               </div>
               <button onClick={() => setIsRatesModalOpen(false)} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full">
@@ -2127,26 +2183,98 @@ Hotel me *${item.itemName}* ka clean stock critically low hai:
             </div>
 
             <form onSubmit={handleSaveRates} className="p-5 space-y-4 text-xs font-semibold overflow-y-auto">
-              <p className="text-gray-500 text-xs">
-                Set standard washing/ironing rates per item. Whenever you send clothes, these rates will auto-fill automatically.
-              </p>
+              <div className="flex items-center justify-between text-xs text-gray-500">
+                <span>Manage the laundry items tracked for this property. You can rename items, edit rates, or remove unused ones.</span>
+                <span className="font-bold text-gray-900 bg-gray-100 px-2 py-0.5 rounded-full text-[10px] shrink-0">
+                  {ratesFormItems.length} items
+                </span>
+              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-72 overflow-y-auto pr-1">
-                {PRESET_LINEN_ITEMS.map(it => (
-                  <div key={it.itemName} className="p-2.5 bg-gray-50 rounded-xl border border-gray-200 flex items-center justify-between">
-                    <span className="font-bold text-gray-800 text-xs">{it.itemName}</span>
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs text-gray-400 font-bold">₹</span>
+              {/* Items List */}
+              <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                {ratesFormItems.map((it, idx) => (
+                  <div key={idx} className="p-2 bg-gray-50 rounded-2xl border border-gray-200 flex items-center gap-2">
+                    {/* Item Name Input (Editable!) */}
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        required
+                        value={it.itemName}
+                        placeholder="Item name e.g. Pool Towel"
+                        onChange={e => handleUpdateRatesItem(idx, 'itemName', e.target.value)}
+                        className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-xl font-bold text-xs text-gray-900 outline-none focus:ring-2 focus:ring-black"
+                        title="Click to rename this item"
+                      />
+                    </div>
+
+                    {/* Rate Input */}
+                    <div className="relative w-24 shrink-0">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">₹</span>
                       <input
                         type="number"
                         min="0"
-                        value={ratesForm[it.itemName] ?? it.defaultRate}
-                        onChange={e => setRatesForm({ ...ratesForm, [it.itemName]: Number(e.target.value) || 0 })}
-                        className="w-16 px-2 py-1 bg-white border border-gray-300 rounded-lg text-center font-black text-xs text-gray-900 outline-none focus:ring-1 focus:ring-black"
+                        value={it.defaultRate}
+                        placeholder="Rate"
+                        onChange={e => handleUpdateRatesItem(idx, 'defaultRate', e.target.value)}
+                        className="w-full pl-6 pr-2 py-1.5 bg-white border border-gray-200 rounded-xl text-center font-black text-xs text-gray-900 outline-none focus:ring-2 focus:ring-black"
+                        title="Standard rate per piece"
                       />
                     </div>
+
+                    {/* Delete Item Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveRatesItem(idx)}
+                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors shrink-0"
+                      title="Delete this item"
+                    >
+                      <Trash2 size={15} />
+                    </button>
                   </div>
                 ))}
+
+                {ratesFormItems.length === 0 && (
+                  <div className="p-6 text-center text-gray-400 font-bold border-2 border-dashed border-gray-200 rounded-2xl">
+                    No linen items configured. Add your first item below!
+                  </div>
+                )}
+              </div>
+
+              {/* Add New Linen Item Form */}
+              <div className="p-3 bg-indigo-50/70 border border-indigo-200 rounded-2xl space-y-2">
+                <p className="text-[10px] font-black uppercase tracking-wider text-indigo-900 flex items-center gap-1.5">
+                  <Plus size={13} />
+                  <span>+ Add New Linen Item</span>
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="New item name (e.g. Pool Towel, Kitchen Apron, Duvet)"
+                    value={newItemInput.itemName}
+                    onChange={e => setNewItemInput({ ...newItemInput, itemName: e.target.value })}
+                    className="flex-1 px-3 py-2 bg-white border border-indigo-200 rounded-xl text-xs font-bold text-gray-900 outline-none focus:ring-2 focus:ring-indigo-600"
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddRatesItem(); } }}
+                  />
+                  <div className="relative w-24 shrink-0">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">₹</span>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="Rate"
+                      value={newItemInput.defaultRate}
+                      onChange={e => setNewItemInput({ ...newItemInput, defaultRate: e.target.value })}
+                      className="w-full pl-6 pr-2 py-2 bg-white border border-indigo-200 rounded-xl text-center font-black text-xs text-gray-900 outline-none focus:ring-2 focus:ring-indigo-600"
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddRatesItem(); } }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddRatesItem}
+                    className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs rounded-xl shadow-xs transition-all active:scale-95 shrink-0"
+                  >
+                    + Add
+                  </button>
+                </div>
               </div>
 
               <div className="pt-2">
@@ -2155,7 +2283,7 @@ Hotel me *${item.itemName}* ka clean stock critically low hai:
                   disabled={submitting}
                   className="w-full py-3 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50"
                 >
-                  {submitting ? 'Saving Rates...' : 'Save Standard Rates ✓'}
+                  {submitting ? 'Saving Items & Rates...' : 'Save Linen Items & Rates ✓'}
                 </button>
               </div>
             </form>

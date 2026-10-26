@@ -139,6 +139,7 @@ exports.getLaundryOrders = async (req, res, next) => {
     let defaultVendor = null;
     let defaultRates = ratesMap;
     let savedInventory = {};
+    let linenItems = null;
 
     if (filter.hostel && mongoose.isValidObjectId(filter.hostel)) {
       const hDoc = await Hostel.findById(filter.hostel).select('laundrySettings');
@@ -159,6 +160,9 @@ exports.getLaundryOrders = async (req, res, next) => {
           savedInventory = hDoc.laundrySettings.linenInventory instanceof Map
             ? Object.fromEntries(hDoc.laundrySettings.linenInventory)
             : hDoc.laundrySettings.linenInventory;
+        }
+        if (hDoc.laundrySettings.linenItems && Array.isArray(hDoc.laundrySettings.linenItems) && hDoc.laundrySettings.linenItems.length > 0) {
+          linenItems = hDoc.laundrySettings.linenItems;
         }
       }
     }
@@ -261,6 +265,7 @@ exports.getLaundryOrders = async (req, res, next) => {
       },
       defaultVendor,
       defaultRates,
+      linenItems,
       data: orders
     });
   } catch (error) {
@@ -714,6 +719,23 @@ exports.updateLaundrySettings = async (req, res, next) => {
         }
       });
       hostel.laundrySettings.defaultRates = currentRates;
+    }
+
+    if (req.body.linenItems && Array.isArray(req.body.linenItems)) {
+      const validItems = req.body.linenItems
+        .filter(it => it && it.itemName && it.itemName.trim())
+        .map(it => ({
+          itemName: it.itemName.trim(),
+          defaultRate: Math.max(0, Number(it.defaultRate) || 0)
+        }));
+      hostel.laundrySettings.linenItems = validItems;
+
+      // Sync to defaultRates Map
+      const ratesMap = new Map();
+      validItems.forEach(it => {
+        ratesMap.set(it.itemName, it.defaultRate);
+      });
+      hostel.laundrySettings.defaultRates = ratesMap;
     }
 
     if (req.body.linenInventory && typeof req.body.linenInventory === 'object') {
