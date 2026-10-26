@@ -46,7 +46,7 @@ exports.getLaundryOrders = async (req, res, next) => {
       .sort('-sentDate')
       .limit(1000);
 
-    // Compute live summary stats for the active filter
+    // Compute live summary stats for the active filter & extract recent vendors/rates
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
@@ -54,6 +54,9 @@ exports.getLaundryOrders = async (req, res, next) => {
     let monthlyExpense = 0;
     let totalPendingBills = 0;
     let totalPaidOverall = 0;
+
+    const vendorMap = new Map();
+    const ratesMap = {};
 
     orders.forEach(o => {
       if (o.status === 'Sent') {
@@ -69,7 +72,50 @@ exports.getLaundryOrders = async (req, res, next) => {
 
       const due = Math.max(0, (o.totalAmount || 0) - paid);
       totalPendingBills += due;
+
+      if (o.vendorName && !vendorMap.has(o.vendorName.trim().toLowerCase())) {
+        vendorMap.set(o.vendorName.trim().toLowerCase(), {
+          vendorName: o.vendorName.trim(),
+          vendorPhone: o.vendorPhone || ''
+        });
+      }
+      if (Array.isArray(o.items)) {
+        o.items.forEach(it => {
+          if (it.itemName && it.ratePerPiece > 0 && !ratesMap[it.itemName]) {
+            ratesMap[it.itemName] = it.ratePerPiece;
+          }
+        });
+      }
     });
+
+    let defaultVendor = null;
+    let defaultRates = ratesMap;
+
+    if (filter.hostel && mongoose.isValidObjectId(filter.hostel)) {
+      const hDoc = await Hostel.findById(filter.hostel).select('laundrySettings');
+      if (hDoc && hDoc.laundrySettings) {
+        if (hDoc.laundrySettings.defaultVendorName) {
+          defaultVendor = {
+            vendorName: hDoc.laundrySettings.defaultVendorName,
+            vendorPhone: hDoc.laundrySettings.defaultVendorPhone || ''
+          };
+        }
+        if (hDoc.laundrySettings.defaultRates) {
+          const customRates = hDoc.laundrySettings.defaultRates instanceof Map
+            ? Object.fromEntries(hDoc.laundrySettings.defaultRates)
+            : hDoc.laundrySettings.defaultRates;
+          defaultRates = { ...ratesMap, ...customRates };
+        }
+      }
+    }
+
+    // Fallback to most recent vendor if no default saved
+    if (!defaultVendor && orders.length > 0 && orders[0].vendorName) {
+      defaultVendor = {
+        vendorName: orders[0].vendorName,
+        vendorPhone: orders[0].vendorPhone || ''
+      };
+    }
 
     res.status(200).json({
       success: true,
@@ -81,6 +127,9 @@ exports.getLaundryOrders = async (req, res, next) => {
         totalPaidOverall,
         totalBatches: orders.length
       },
+      recentVendors: Array.from(vendorMap.values()).slice(0, 6),
+      defaultVendor,
+      defaultRates,
       data: orders
     });
   } catch (error) {
@@ -184,8 +233,14 @@ exports.createLaundryOrder = async (req, res, next) => {
       payStatus = 'Partial';
     }
 
+    const d = new Date();
+    const dateStr = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+    const rand = Math.floor(1000 + Math.random() * 9000);
+    const orderNumber = `LD-${dateStr}-${rand}`;
+
     const order = await LaundryOrder.create({
       hostel: hostelId,
+      orderNumber,
       vendorName: vendorName.trim(),
       vendorPhone: (vendorPhone || '').trim(),
       sentDate: sentDate ? new Date(sentDate) : new Date(),
@@ -203,6 +258,26 @@ exports.createLaundryOrder = async (req, res, next) => {
       notes: (notes || '').trim(),
       dispatchedBy: req.user._id
     });
+
+    // Auto-remember vendor & rates for next dispatches
+    if (hostel) {
+      if (!hostel.laundrySettings) hostel.laundrySettings = {};
+      hostel.laundrySettings.defaultVendorName = vendorName.trim();
+      if (vendorPhone) hostel.laundrySettings.defaultVendorPhone = vendorPhone.trim();
+
+      const newRates = hostel.laundrySettings.defaultRates || new Map();
+      sanitizedItems.forEach(it => {
+        if (it.itemName && it.ratePerPiece > 0) {
+          if (newRates instanceof Map) {
+            newRates.set(it.itemName, it.ratePerPiece);
+          } else {
+            newRates[it.itemName] = it.ratePerPiece;
+          }
+        }
+      });
+      hostel.laundrySettings.defaultRates = newRates;
+      await hostel.save({ validateBeforeSave: false }).catch(() => {});
+    }
 
     const populated = await LaundryOrder.findById(order._id)
       .populate('hostel', 'name address laundryEnabled upiId upiPayeeName')

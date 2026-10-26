@@ -107,6 +107,11 @@ const Laundry = () => {
     notes: ''
   });
 
+  // Saved Vendor & Preset Rates Recall
+  const [recentVendors, setRecentVendors] = useState([]);
+  const [defaultVendor, setDefaultVendor] = useState(null);
+  const [defaultRates, setDefaultRates] = useState({});
+
   const flash = (msg, isErr = false) => {
     if (isErr) {
       setError(msg);
@@ -143,6 +148,9 @@ const Laundry = () => {
       }
       const res = await axios.get(`${API}/api/laundry${query}`);
       setOrders(res.data.data || []);
+      if (res.data.recentVendors) setRecentVendors(res.data.recentVendors);
+      if (res.data.defaultVendor) setDefaultVendor(res.data.defaultVendor);
+      if (res.data.defaultRates) setDefaultRates(res.data.defaultRates);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load laundry records');
     } finally {
@@ -246,18 +254,28 @@ const Laundry = () => {
       ? (user?.assignedHostel?._id || user?.assignedHostel)
       : (selectedHostel !== 'all' ? selectedHostel : hostels[0]?._id || '');
 
+    // Auto-fill regular vendor from default or recent history
+    const autoVendorName = defaultVendor?.vendorName || (recentVendors.length > 0 ? recentVendors[0].vendorName : '');
+    const autoVendorPhone = defaultVendor?.vendorPhone || (recentVendors.length > 0 ? recentVendors[0].vendorPhone || '' : '');
+
     setDispatchForm({
       hostel: defaultHostelId,
-      vendorName: '',
-      vendorPhone: '',
+      vendorName: autoVendorName,
+      vendorPhone: autoVendorPhone,
       sentDate: format(new Date(), 'yyyy-MM-dd'),
       expectedReturnDate: '',
-      items: PRESET_LINEN_ITEMS.map(it => ({
-        itemName: it.itemName,
-        sentCount: '',
-        ratePerPiece: it.defaultRate,
-        totalCost: 0
-      })),
+      items: PRESET_LINEN_ITEMS.map(it => {
+        // Auto-fill remembered pricing for this hotel
+        const savedRate = (defaultRates && defaultRates[it.itemName] !== undefined)
+          ? defaultRates[it.itemName]
+          : it.defaultRate;
+        return {
+          itemName: it.itemName,
+          sentCount: '',
+          ratePerPiece: savedRate,
+          totalCost: 0
+        };
+      }),
       totalAmount: '',
       paidAmount: '',
       paymentMethod: 'Cash',
@@ -1001,6 +1019,42 @@ const Laundry = () => {
                 </div>
               </div>
 
+              {/* Quick Vendor Selection (1-Click Fill) */}
+              {recentVendors.length > 0 && (
+                <div className="bg-indigo-50/70 p-2.5 rounded-2xl border border-indigo-100">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-indigo-900 flex items-center gap-1">
+                      ⚡ Regular Dhobi / Vendors (1-Click Fill)
+                    </span>
+                    <span className="text-[10px] text-indigo-600 font-semibold">Click to select</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {recentVendors.map((v, i) => {
+                      const isSelected = dispatchForm.vendorName?.trim().toLowerCase() === v.vendorName?.trim().toLowerCase();
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setDispatchForm(prev => ({
+                            ...prev,
+                            vendorName: v.vendorName,
+                            vendorPhone: v.vendorPhone || prev.vendorPhone
+                          }))}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all flex items-center gap-1.5 ${
+                            isSelected
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                              : 'bg-white hover:bg-indigo-50 text-gray-800 border-indigo-200 shadow-2xs'
+                          }`}
+                        >
+                          <span>👤 {v.vendorName}</span>
+                          {v.vendorPhone && <span className="opacity-75 text-[10px]">({v.vendorPhone})</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Vendor Info */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -1029,7 +1083,10 @@ const Laundry = () => {
               {/* Items Counter Grid */}
               <div className="bg-gray-50/80 p-3.5 rounded-2xl border border-gray-200 space-y-2.5">
                 <div className="flex justify-between items-center">
-                  <h4 className="text-[11px] font-black uppercase tracking-wider text-gray-700">Linen & Clothes Pieces Count (पीस संख्या)</h4>
+                  <div>
+                    <h4 className="text-[11px] font-black uppercase tracking-wider text-gray-700">Linen Pieces Count (पीस संख्या)</h4>
+                    <p className="text-[9px] text-gray-400 font-semibold">Standard hotel rates loaded automatically. Enter piece counts below.</p>
+                  </div>
                   <button
                     type="button"
                     onClick={addCustomItem}
@@ -1071,15 +1128,33 @@ const Laundry = () => {
                         </div>
                       </div>
 
-                      <div className="w-20">
+                      <div className="flex flex-col items-end gap-1 shrink-0">
                         <input
                           type="number"
                           min="0"
                           placeholder="0 pcs"
                           value={it.sentCount}
                           onChange={e => handleItemCountChange(idx, e.target.value)}
-                          className="w-full px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-center font-black text-gray-900 focus:ring-1 focus:ring-black outline-none"
+                          className="w-20 px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-center font-black text-gray-900 focus:ring-1 focus:ring-black outline-none"
                         />
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleItemCountChange(idx, (Number(it.sentCount) || 0) + 5)}
+                            className="px-1.5 py-0.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-[9px] font-black transition-colors"
+                            title="Add 5"
+                          >
+                            +5
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleItemCountChange(idx, (Number(it.sentCount) || 0) + 10)}
+                            className="px-1.5 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded text-[9px] font-black transition-colors"
+                            title="Add 10"
+                          >
+                            +10
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}

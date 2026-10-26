@@ -126,14 +126,13 @@ const laundryOrderSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Auto-generate orderNumber before saving if not present
-laundryOrderSchema.pre('save', function (next) {
+laundryOrderSchema.pre('save', function () {
   if (!this.orderNumber) {
     const d = new Date();
     const dateStr = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
     const rand = Math.floor(1000 + Math.random() * 9000);
     this.orderNumber = `LD-${dateStr}-${rand}`;
   }
-  next();
 });
 
 module.exports = mongoose.model('LaundryOrder', laundryOrderSchema);

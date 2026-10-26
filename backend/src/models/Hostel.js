@@ -38,6 +38,11 @@ const hostelSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  laundrySettings: {
+    defaultVendorName: { type: String, default: '' },
+    defaultVendorPhone: { type: String, default: '' },
+    defaultRates: { type: Map, of: Number, default: {} }
+  },
   whatsappSyncEnabled: {
     type: Boolean,
     default: false
