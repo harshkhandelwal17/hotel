@@ -62,7 +62,7 @@ exports.getRooms = async (req, res, next) => {
     const { getHostelFilter } = require('../utils/hostelAccess');
     const filter = await getHostelFilter(req.user, req.query.hostel);
 
-    const rooms = await Room.find(filter).populate('hostel', 'name address contactNumber email aiOcrEnabled whatsappSyncEnabled');
+    const rooms = await Room.find(filter).populate('hostel', 'name address contactNumber email upiId upiPayeeName gstEnabled gstin taxInclusive gstRate hsnSacCode state stateCode invoicePrefix autoApplyGstOnCheckin aiOcrEnabled whatsappSyncEnabled');
 
     // Only load open stays for the same hostel scope (not globally)
     const stayFilter = {
@@ -127,7 +127,7 @@ const BLOCKING_STATUSES = ['Upcoming', 'Active', 'Checkout Due', 'Overdue'];
 exports.getRoom = async (req, res, next) => {
   try {
     const authorized = await loadAuthorizedRoom(req);
-    const room = await Room.findById(authorized._id).populate('hostel', 'name');
+    const room = await Room.findById(authorized._id).populate('hostel', 'name address contactNumber email upiId upiPayeeName gstEnabled gstin taxInclusive gstRate hsnSacCode state stateCode invoicePrefix autoApplyGstOnCheckin');
     const beds = await Bed.find({ room: room._id });
     res.status(200).json({ success: true, data: { ...room.toObject(), beds } });
   } catch (error) {

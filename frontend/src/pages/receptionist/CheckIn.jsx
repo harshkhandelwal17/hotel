@@ -256,6 +256,8 @@ const CheckIn = () => {
     (room) => room._id === stayInfo.room
   );
 
+  const currentHostel = activeHostel || (typeof selectedRoomDetails?.hostel === 'object' ? selectedRoomDetails.hostel : null);
+
   const availableFloors = useMemo(() => {
     const floorMap = {};
     const allowOccupied = Boolean(stayInfo.isBackdated && stayInfo.isAlreadyCheckedOut);
@@ -386,9 +388,14 @@ const CheckIn = () => {
     const currentHostel = activeHostel || (typeof selectedRoomDetails?.hostel === 'object' ? selectedRoomDetails.hostel : null);
     if (currentHostel) {
       setStayInfo(prev => {
-        // If receptionist hasn't manually overridden it, automatically apply hotel's saved setting
+        // If receptionist hasn't manually overridden it, apply property's default setting
         if (!prev.gstTypeManuallyChanged) {
-          const defaultMode = currentHostel.gstEnabled 
+          const isGstEnabled = Boolean(currentHostel.gstEnabled);
+          const isAutoApply = currentHostel.autoApplyGstOnCheckin !== undefined 
+            ? Boolean(currentHostel.autoApplyGstOnCheckin) 
+            : false;
+
+          const defaultMode = (isGstEnabled && isAutoApply)
             ? (currentHostel.taxInclusive ? 'inclusive' : 'exclusive')
             : 'none';
           const rate = Number(currentHostel.gstRate) || 12;
@@ -2141,7 +2148,7 @@ const CheckIn = () => {
                   )}
 
                   {/* GST Billing Mode (Auto-applied from Property Settings) */}
-                  {activeHostel?.gstEnabled && (
+                  {Boolean(currentHostel?.gstEnabled) && (
                     <div className="pt-2 border-t border-gray-800/60">
                       {stayInfo.gstType !== 'none' ? (
                         <div className="p-2.5 bg-emerald-950/40 border border-emerald-800/50 rounded-xl space-y-1.5">
@@ -2150,8 +2157,8 @@ const CheckIn = () => {
                               <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
                               <span className="text-xs font-black text-emerald-300">
                                 {stayInfo.gstType === 'inclusive' 
-                                  ? `${stayInfo.gstRate || 12}% GST Included (Default)` 
-                                  : `+ ${stayInfo.gstRate || 12}% GST Extra (Default)`}
+                                  ? `${stayInfo.gstRate || 12}% GST Included (${currentHostel?.autoApplyGstOnCheckin ? 'Default' : 'Applied'})` 
+                                  : `+ ${stayInfo.gstRate || 12}% GST Extra (${currentHostel?.autoApplyGstOnCheckin ? 'Default' : 'Applied'})`}
                               </span>
                             </div>
                             <button
@@ -2183,14 +2190,16 @@ const CheckIn = () => {
                         <div className="p-2 bg-gray-900 border border-gray-800 rounded-xl flex items-center justify-between text-xs">
                           <div>
                             <span className="font-bold text-gray-300">Non-GST Bill (Flat Tariff)</span>
-                            <p className="text-[10px] text-gray-500">GST removed for this guest</p>
+                            <p className="text-[10px] text-gray-500">
+                              {currentHostel?.autoApplyGstOnCheckin ? 'GST removed for this guest' : 'GST is OFF by default'}
+                            </p>
                           </div>
                           <button
                             type="button"
                             onClick={toggleGst}
                             className="text-[11px] font-bold text-blue-400 hover:text-blue-300 underline cursor-pointer"
                           >
-                            + Apply Hotel GST ({activeHostel?.gstRate || 12}%)
+                            + Apply Hotel GST ({currentHostel?.gstRate || 12}%)
                           </button>
                         </div>
                       )}

@@ -90,6 +90,7 @@ const ManageProperties = () => {
       }
       closeModal();
       fetchProperties();
+      window.dispatchEvent(new Event('propertyChanged'));
     } catch (err) {
       setFormError(err.response?.data?.message || 'Failed to save property');
     } finally {

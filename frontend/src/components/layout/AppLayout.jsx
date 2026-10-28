@@ -17,25 +17,30 @@ const AppLayout = ({ children }) => {
   const [showPoliceModal, setShowPoliceModal] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  useEffect(() => {
-    if (user?.role === 'admin') {
-      axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/hostels')
-        .then(res => {
-          const fetchedHostels = res.data.data;
-          setHostels(fetchedHostels);
-          
-          // Reset globalProperty if it doesn't belong to this admin
-          if (globalProperty !== 'all') {
-            const isValid = fetchedHostels.some(h => h._id === globalProperty);
-            if (!isValid) {
-              setGlobalProperty('all');
-              localStorage.setItem('adminGlobalProperty', 'all');
-              window.dispatchEvent(new Event('propertyChanged'));
-            }
+  const fetchHostels = () => {
+    if (!user) return;
+    axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/hostels')
+      .then(res => {
+        const fetchedHostels = res.data.data || [];
+        setHostels(fetchedHostels);
+        
+        // Reset globalProperty if it doesn't belong to this admin
+        if (globalProperty !== 'all') {
+          const isValid = fetchedHostels.some(h => h._id === globalProperty);
+          if (!isValid) {
+            setGlobalProperty('all');
+            localStorage.setItem('adminGlobalProperty', 'all');
+            window.dispatchEvent(new Event('propertyChanged'));
           }
-        })
-        .catch(console.error);
-    }
+        }
+      })
+      .catch(console.error);
+  };
+
+  useEffect(() => {
+    fetchHostels();
+    window.addEventListener('propertyChanged', fetchHostels);
+    return () => window.removeEventListener('propertyChanged', fetchHostels);
   }, [user]);
 
   const [isAlertMuted, setIsAlertMuted] = useState(soundAlert.getMuteState());
@@ -160,9 +165,10 @@ const AppLayout = ({ children }) => {
     return false;
   };
 
+  const assignedHostelId = typeof user?.assignedHostel === 'object' ? user?.assignedHostel?._id : user?.assignedHostel;
   const activeHostel = user?.role === 'receptionist'
-    ? user?.assignedHostel
-    : (globalProperty !== 'all' ? hostels.find(h => h._id === globalProperty) : null);
+    ? (hostels.find(h => h._id === assignedHostelId) || user?.assignedHostel || hostels[0])
+    : (globalProperty !== 'all' ? (hostels.find(h => h._id === globalProperty) || hostels[0]) : (hostels[0] || null));
 
   const isCurrentPropertyExpired = isHostelExpired(activeHostel);
 
