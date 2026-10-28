@@ -1260,103 +1260,107 @@ const SuperAdminDashboard = () => {
       {/* 👤 MODAL 1: CREATE NEW HOTEL OWNER (ADMIN) */}
       {/* ============================================================== */}
       {isCreateOwnerOpen && createPortal(
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 animate-in fade-in duration-200 overflow-y-auto" onClick={() => setIsCreateOwnerOpen(false)}>
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-lg w-full my-0 sm:my-auto overflow-hidden shadow-2xl border border-gray-100 max-h-[92dvh] sm:max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-            <div className="p-6 bg-gradient-to-r from-gray-950 to-gray-900 text-white flex justify-between items-start">
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-purple-400 bg-purple-500/20 px-2.5 py-0.5 rounded-full">
-                  Step 1 · Client Onboarding
-                </span>
-                <h3 className="text-xl font-black text-white mt-1.5">Create New Hotel Owner (Admin)</h3>
-                <p className="text-xs text-gray-400 mt-0.5">This creates the master login for the hotel owner.</p>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] overflow-y-auto animate-in fade-in duration-200" onClick={() => setIsCreateOwnerOpen(false)}>
+          <div className="min-h-full flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6 text-center sm:text-left">
+            <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-lg w-full my-0 sm:my-8 overflow-hidden shadow-2xl border border-gray-100 max-h-[92dvh] sm:max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-200 text-left" onClick={e => e.stopPropagation()}>
+              <div className="p-6 bg-gradient-to-r from-gray-950 to-gray-900 text-white flex justify-between items-start shrink-0">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-purple-400 bg-purple-500/20 px-2.5 py-0.5 rounded-full">
+                    Step 1 · Client Onboarding
+                  </span>
+                  <h3 className="text-xl font-black text-white mt-1.5">Create New Hotel Owner (Admin)</h3>
+                  <p className="text-xs text-gray-400 mt-0.5">This creates the master login for the hotel owner.</p>
+                </div>
+                <button onClick={() => setIsCreateOwnerOpen(false)} className="p-2 text-gray-400 hover:text-white rounded-full hover:bg-gray-800 transition-colors">
+                  ✕
+                </button>
               </div>
-              <button onClick={() => setIsCreateOwnerOpen(false)} className="p-2 text-gray-400 hover:text-white rounded-full hover:bg-gray-800 transition-colors">
-                ✕
-              </button>
+
+              <form onSubmit={handleCreateOwner} className="flex flex-col flex-1 min-h-0">
+                <div className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                      Owner Full Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Rajesh Sharma"
+                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                      value={newOwnerForm.name}
+                      onChange={e => setNewOwnerForm({ ...newOwnerForm, name: e.target.value })}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                      Email Address (Login ID) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="e.g. rajesh@hotelroyal.com"
+                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                      value={newOwnerForm.email}
+                      onChange={e => setNewOwnerForm({ ...newOwnerForm, email: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                        Phone / WhatsApp Number
+                      </label>
+                      <input
+                        type="tel"
+                        placeholder="9876543210"
+                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                        value={newOwnerForm.phone}
+                        onChange={e => setNewOwnerForm({ ...newOwnerForm, phone: e.target.value })}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                        Initial Password <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="password123"
+                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                        value={newOwnerForm.password}
+                        onChange={e => setNewOwnerForm({ ...newOwnerForm, password: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-purple-50 rounded-2xl border border-purple-100 flex items-start gap-2.5 text-xs text-purple-900">
+                    <Briefcase size={16} className="text-purple-600 shrink-0 mt-0.5" />
+                    <p>
+                      <strong>Role: Admin (Hotel Owner)</strong>. Once created, you can attach their first property or multiple properties immediately.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-4 px-6 pb-[max(1rem,env(safe-area-inset-bottom))] bg-gray-50 border-t border-gray-100 flex gap-3 justify-end shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateOwnerOpen(false)}
+                    className="px-4 py-2.5 border border-gray-200 text-gray-700 font-bold rounded-xl text-xs hover:bg-gray-100 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={creatingOwner}
+                    className="px-6 py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50"
+                  >
+                    {creatingOwner ? 'Creating Owner...' : 'Create Hotel Owner'}
+                  </button>
+                </div>
+              </form>
             </div>
-
-            <form onSubmit={handleCreateOwner} className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                  Owner Full Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Rajesh Sharma"
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
-                  value={newOwnerForm.name}
-                  onChange={e => setNewOwnerForm({ ...newOwnerForm, name: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                  Email Address (Login ID) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="email"
-                  required
-                  placeholder="e.g. rajesh@hotelroyal.com"
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
-                  value={newOwnerForm.email}
-                  onChange={e => setNewOwnerForm({ ...newOwnerForm, email: e.target.value })}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                    Phone / WhatsApp Number
-                  </label>
-                  <input
-                    type="tel"
-                    placeholder="9876543210"
-                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
-                    value={newOwnerForm.phone}
-                    onChange={e => setNewOwnerForm({ ...newOwnerForm, phone: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                    Initial Password <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="password123"
-                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
-                    value={newOwnerForm.password}
-                    onChange={e => setNewOwnerForm({ ...newOwnerForm, password: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="p-3 bg-purple-50 rounded-2xl border border-purple-100 flex items-start gap-2.5 text-xs text-purple-900">
-                <Briefcase size={16} className="text-purple-600 shrink-0 mt-0.5" />
-                <p>
-                  <strong>Role: Admin (Hotel Owner)</strong>. Once created, you can attach their first property or multiple properties immediately.
-                </p>
-              </div>
-
-              <div className="pt-3 flex gap-3 justify-end border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setIsCreateOwnerOpen(false)}
-                  className="px-4 py-2.5 border border-gray-200 text-gray-700 font-bold rounded-xl text-xs hover:bg-gray-100 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={creatingOwner}
-                  className="px-6 py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50"
-                >
-                  {creatingOwner ? 'Creating Owner...' : 'Create Hotel Owner'}
-                </button>
-              </div>
-            </form>
           </div>
         </div>,
         document.body
@@ -1366,24 +1370,26 @@ const SuperAdminDashboard = () => {
       {/* 🏨 MODAL 2: REGISTER NEW PROPERTY & ASSIGN TO OWNER */}
       {/* ============================================================== */}
       {isAddPropertyOpen && createPortal(
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 animate-in fade-in duration-200 overflow-y-auto" onClick={() => setIsAddPropertyOpen(false)}>
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-xl w-full my-0 sm:my-auto max-h-[92dvh] sm:max-h-[88vh] overflow-y-auto shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-            <div className="p-6 bg-gradient-to-r from-gray-950 to-gray-900 text-white flex justify-between items-start sticky top-0 z-10">
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 bg-blue-500/20 px-2.5 py-0.5 rounded-full">
-                  Step 2 · Property Provisioning
-                </span>
-                <h3 className="text-xl font-black text-white mt-1.5">Register New Hotel Property</h3>
-                <p className="text-xs text-gray-400 mt-0.5">Attach to a Hotel Owner and configure their subscription plan.</p>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] overflow-y-auto animate-in fade-in duration-200" onClick={() => setIsAddPropertyOpen(false)}>
+          <div className="min-h-full flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6 text-center sm:text-left">
+            <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-xl sm:max-w-2xl w-full my-0 sm:my-8 overflow-hidden shadow-2xl border border-gray-100 max-h-[92dvh] sm:max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-200 text-left" onClick={e => e.stopPropagation()}>
+              <div className="p-6 bg-gradient-to-r from-gray-950 to-gray-900 text-white flex justify-between items-start shrink-0">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 bg-blue-500/20 px-2.5 py-0.5 rounded-full">
+                    Step 2 · Property Provisioning
+                  </span>
+                  <h3 className="text-xl font-black text-white mt-1.5">Register New Hotel Property</h3>
+                  <p className="text-xs text-gray-400 mt-0.5">Attach to a Hotel Owner and configure their subscription plan.</p>
+                </div>
+                <button onClick={() => setIsAddPropertyOpen(false)} className="p-2 text-gray-400 hover:text-white rounded-full hover:bg-gray-800 transition-colors">
+                  ✕
+                </button>
               </div>
-              <button onClick={() => setIsAddPropertyOpen(false)} className="p-2 text-gray-400 hover:text-white rounded-full hover:bg-gray-800 transition-colors">
-                ✕
-              </button>
-            </div>
 
-            <form onSubmit={handleCreateProperty} className="p-6 space-y-4">
-              {/* Hotel Owner Selection Dropdown */}
-              <div>
+              <form onSubmit={handleCreateProperty} className="flex flex-col flex-1 min-h-0">
+                <div className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
+                  {/* Hotel Owner Selection Dropdown */}
+                  <div>
                 <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
                   Select Hotel Owner (Admin) <span className="text-red-500">*</span>
                 </label>
@@ -1590,25 +1596,26 @@ const SuperAdminDashboard = () => {
                     />
                   </div>
                 </div>
-              </div>
+                </div>
 
-              <div className="pt-3 flex gap-3 justify-end border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setIsAddPropertyOpen(false)}
-                  className="px-4 py-2.5 border border-gray-200 text-gray-700 font-bold rounded-xl text-xs hover:bg-gray-100 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={addingProperty}
-                  className="px-6 py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50"
-                >
-                  {addingProperty ? 'Registering...' : 'Register & Link to Owner'}
-                </button>
-              </div>
-            </form>
+                <div className="p-4 px-6 pb-[max(1rem,env(safe-area-inset-bottom))] bg-gray-50 border-t border-gray-100 flex gap-3 justify-end shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddPropertyOpen(false)}
+                    className="px-4 py-2.5 border border-gray-200 text-gray-700 font-bold rounded-xl text-xs hover:bg-gray-100 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={addingProperty}
+                    className="px-6 py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50"
+                  >
+                    {addingProperty ? 'Registering...' : 'Register & Link to Owner'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>,
         document.body
@@ -1618,23 +1625,25 @@ const SuperAdminDashboard = () => {
       {/* 🎟️ MODAL 3: EDIT SUBSCRIPTION PLAN */}
       {/* ============================================================== */}
       {selectedPlanHostel && createPortal(
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 animate-in fade-in duration-200 overflow-y-auto" onClick={() => setSelectedPlanHostel(null)}>
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-lg w-full my-0 sm:my-auto overflow-hidden shadow-2xl border border-gray-100 max-h-[92dvh] sm:max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-            <div className="p-6 bg-gray-950 text-white flex justify-between items-start">
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full">
-                  Subscription & Billing
-                </span>
-                <h3 className="text-lg font-black text-white mt-1.5">{selectedPlanHostel.name}</h3>
-                <p className="text-xs text-gray-400">Owner: {selectedPlanHostel.owner?.name || 'Unknown'} ({selectedPlanHostel.owner?.email})</p>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] overflow-y-auto animate-in fade-in duration-200" onClick={() => setSelectedPlanHostel(null)}>
+          <div className="min-h-full flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6 text-center sm:text-left">
+            <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-lg w-full my-0 sm:my-8 overflow-hidden shadow-2xl border border-gray-100 max-h-[92dvh] sm:max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-200 text-left" onClick={e => e.stopPropagation()}>
+              <div className="p-6 bg-gray-950 text-white flex justify-between items-start shrink-0">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full">
+                    Subscription & Billing
+                  </span>
+                  <h3 className="text-lg font-black text-white mt-1.5">{selectedPlanHostel.name}</h3>
+                  <p className="text-xs text-gray-400">Owner: {selectedPlanHostel.owner?.name || 'Unknown'} ({selectedPlanHostel.owner?.email})</p>
+                </div>
+                <button onClick={() => setSelectedPlanHostel(null)} className="p-2 text-gray-400 hover:text-white rounded-full hover:bg-gray-800 transition-colors">
+                  ✕
+                </button>
               </div>
-              <button onClick={() => setSelectedPlanHostel(null)} className="p-2 text-gray-400 hover:text-white rounded-full hover:bg-gray-800 transition-colors">
-                ✕
-              </button>
-            </div>
 
-            <form onSubmit={handleSavePlan} className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <form onSubmit={handleSavePlan} className="flex flex-col flex-1 min-h-0">
+                <div className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
+                  <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">Plan Type</label>
                   <select
@@ -1738,23 +1747,26 @@ const SuperAdminDashboard = () => {
                 />
               </div>
 
-              <div className="pt-3 flex gap-3 justify-end border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setSelectedPlanHostel(null)}
-                  className="px-4 py-2.5 border border-gray-200 text-gray-700 font-bold rounded-xl text-xs hover:bg-gray-100 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingPlan}
-                  className="px-5 py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50"
-                >
-                  {savingPlan ? 'Saving...' : 'Save Plan Changes'}
-                </button>
-              </div>
-            </form>
+                </div>
+
+                <div className="p-4 px-6 pb-[max(1rem,env(safe-area-inset-bottom))] bg-gray-50 border-t border-gray-100 flex gap-3 justify-end shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPlanHostel(null)}
+                    className="px-4 py-2.5 border border-gray-200 text-gray-700 font-bold rounded-xl text-xs hover:bg-gray-100 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingPlan}
+                    className="px-5 py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50"
+                  >
+                    {savingPlan ? 'Saving...' : 'Save Plan Changes'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>,
         document.body
@@ -1762,23 +1774,25 @@ const SuperAdminDashboard = () => {
 
       {/* ✏️ EDIT PROPERTY DETAILS MODAL */}
       {selectedEditHostel && createPortal(
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 animate-in fade-in duration-200 overflow-y-auto" onClick={() => setSelectedEditHostel(null)}>
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-lg w-full my-0 sm:my-auto overflow-hidden shadow-2xl border border-gray-100 max-h-[92dvh] sm:max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-            <div className="p-6 bg-gradient-to-r from-gray-950 to-gray-900 text-white flex justify-between items-start">
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 bg-blue-500/20 px-2.5 py-0.5 rounded-full">
-                  Property Configuration
-                </span>
-                <h3 className="text-xl font-black text-white mt-1.5">Edit Property Details</h3>
-                <p className="text-xs text-gray-400 mt-0.5">Modify property name, address, contact, or reassign owner.</p>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] overflow-y-auto animate-in fade-in duration-200" onClick={() => setSelectedEditHostel(null)}>
+          <div className="min-h-full flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6 text-center sm:text-left">
+            <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-lg w-full my-0 sm:my-8 overflow-hidden shadow-2xl border border-gray-100 max-h-[92dvh] sm:max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-200 text-left" onClick={e => e.stopPropagation()}>
+              <div className="p-6 bg-gradient-to-r from-gray-950 to-gray-900 text-white flex justify-between items-start shrink-0">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 bg-blue-500/20 px-2.5 py-0.5 rounded-full">
+                    Property Configuration
+                  </span>
+                  <h3 className="text-xl font-black text-white mt-1.5">Edit Property Details</h3>
+                  <p className="text-xs text-gray-400 mt-0.5">Modify property name, address, contact, or reassign owner.</p>
+                </div>
+                <button onClick={() => setSelectedEditHostel(null)} className="p-2 text-gray-400 hover:text-white rounded-full hover:bg-gray-800 transition-colors">
+                  ✕
+                </button>
               </div>
-              <button onClick={() => setSelectedEditHostel(null)} className="p-2 text-gray-400 hover:text-white rounded-full hover:bg-gray-800 transition-colors">
-                ✕
-              </button>
-            </div>
 
-            <form onSubmit={handleSaveEditProperty} className="p-6 space-y-4">
-              <div>
+              <form onSubmit={handleSaveEditProperty} className="flex flex-col flex-1 min-h-0">
+                <div className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
+                  <div>
                 <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
                   Property Name <span className="text-red-500">*</span>
                 </label>
@@ -1885,23 +1899,26 @@ const SuperAdminDashboard = () => {
                 </div>
               </div>
 
-              <div className="pt-3 flex gap-3 justify-end border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setSelectedEditHostel(null)}
-                  className="px-4 py-2.5 border border-gray-200 text-gray-700 font-bold rounded-xl text-xs hover:bg-gray-100 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingEditProperty}
-                  className="px-6 py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50"
-                >
-                  {savingEditProperty ? 'Saving...' : 'Save Details'}
-                </button>
-              </div>
-            </form>
+                </div>
+
+                <div className="p-4 px-6 pb-[max(1rem,env(safe-area-inset-bottom))] bg-gray-50 border-t border-gray-100 flex gap-3 justify-end shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEditHostel(null)}
+                    className="px-4 py-2.5 border border-gray-200 text-gray-700 font-bold rounded-xl text-xs hover:bg-gray-100 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingEditProperty}
+                    className="px-6 py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50"
+                  >
+                    {savingEditProperty ? 'Saving...' : 'Save Details'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>,
         document.body

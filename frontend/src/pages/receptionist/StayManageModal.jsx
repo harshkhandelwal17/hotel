@@ -281,8 +281,9 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
   const btnCls = 'w-full py-3 bg-black text-white font-bold rounded-xl disabled:opacity-50 active:scale-95 transition-all';
 
   return createPortal(
-    <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 md:p-6 overflow-y-auto" onClick={onClose}>
-      <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-2xl sm:max-w-3xl flex flex-col my-0 sm:my-auto max-h-[92dvh] sm:max-h-[88vh] overflow-hidden border border-gray-100" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] overflow-y-auto" onClick={onClose}>
+      <div className="min-h-full flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6 text-center sm:text-left">
+        <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-2xl sm:max-w-3xl lg:max-w-4xl flex flex-col my-0 sm:my-8 max-h-[92dvh] sm:max-h-[88vh] overflow-hidden border border-gray-100 text-left" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="px-5 py-3.5 sm:py-4 border-b border-gray-100 flex justify-between items-center shrink-0 bg-white">
           <div>
@@ -465,12 +466,9 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
 
               {pendingCharges.length > 0 && (
                 <div className="pt-2">
-                  <p className="text-sm font-black text-gray-900 text-right mb-3">
+                  <p className="text-sm font-black text-gray-900 text-right">
                     Total: ₹{pendingCharges.reduce((sum, item) => sum + (Number(item.rate) || 0), 0)}
                   </p>
-                  <button disabled={busy} onClick={submitPendingCharges} className={btnCls}>
-                    {busy ? 'Adding...' : `Add ${pendingCharges.length} Item(s) to Bill`}
-                  </button>
                 </div>
               )}
             </div>
@@ -478,7 +476,7 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
 
           {/* ---------------- PAYMENT ---------------- */}
           {tab === 'pay' && (
-            <form onSubmit={addPayment} className="space-y-4">
+            <form id="manage-stay-pay-form" onSubmit={addPayment} className="space-y-4">
               <div className="p-3 bg-gray-50 rounded-xl flex justify-between text-sm font-bold">
                 <span className="text-gray-500">Balance Due</span><span className="text-red-600">₹{Math.max(0, balance)}</span>
               </div>
@@ -507,13 +505,12 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
               )}
               <div><label className={labelCls}>Note (optional)</label>
                 <input className={inputCls} value={payForm.notes} onChange={e => setPayForm({ ...payForm, notes: e.target.value })} /></div>
-              <button disabled={busy || balance <= 0} className={btnCls}>{balance <= 0 ? 'Nothing due' : busy ? 'Saving...' : 'Record Payment'}</button>
             </form>
           )}
 
           {/* ---------------- CHANGE ROOM ---------------- */}
           {tab === 'room' && (
-            <form onSubmit={shiftRoom} className="space-y-4">
+            <form id="manage-stay-shift-form" onSubmit={shiftRoom} className="space-y-4">
               <div className="p-3 bg-gray-50 rounded-xl text-sm font-bold">
                 Current room: <span className="text-indigo-600">{stay.room?.roomNumber}</span>
               </div>
@@ -531,13 +528,12 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                 <input className={inputCls} placeholder="AC not working, wants bigger room..." value={shiftForm.reason}
                   onChange={e => setShiftForm({ ...shiftForm, reason: e.target.value })} /></div>
               <p className="text-[11px] text-gray-400 font-semibold">Old room becomes vacant automatically. The change is saved in the stay history.</p>
-              <button disabled={busy} className={btnCls}>{busy ? 'Moving...' : 'Change Room'}</button>
             </form>
           )}
 
           {/* ---------------- EXTEND ---------------- */}
           {tab === 'extend' && (
-            <form onSubmit={extend} className="space-y-4">
+            <form id="manage-stay-extend-form" onSubmit={extend} className="space-y-4">
               <div className="p-3 bg-gray-50 rounded-xl text-sm font-bold flex justify-between items-center">
                 <span className="text-gray-500">Current checkout:</span>
                 <span className="text-gray-900">{format(new Date(stay.expectedCheckOutDate), 'dd MMM, hh:mm a')}</span>
@@ -565,13 +561,12 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                   <input type="number" min="0" className={inputCls} placeholder="0" value={extendForm.extensionPayment}
                     onChange={e => setExtendForm({ ...extendForm, extensionPayment: e.target.value })} /></div>
               </div>
-              <button disabled={busy} className={btnCls}>{busy ? 'Extending...' : 'Extend Stay'}</button>
             </form>
           )}
 
           {/* ---------------- EDIT DETAILS ---------------- */}
           {tab === 'edit' && (
-            <form onSubmit={handleSaveEdit} className="space-y-4">
+            <form id="manage-stay-edit-form" onSubmit={handleSaveEdit} className="space-y-4">
               <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-3 text-xs text-amber-950 font-bold flex items-center gap-2">
                 <Edit3 size={16} className="text-amber-700 shrink-0" />
                 <span>Galti se galat naam, phone, Aadhaar, timing ya amount enter ho gaya ho to yahan theek karein:</span>
@@ -982,20 +977,34 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                 )}
               </div>
 
-              <button 
-                type="submit" 
-                disabled={busy} 
-                className="w-full py-3 bg-black text-white font-black text-sm rounded-xl hover:bg-gray-800 transition-all shadow-md active:scale-95 disabled:opacity-50"
-              >
-                {busy ? 'Saving Changes...' : 'Save & Update Details ✓'}
-              </button>
             </form>
           )}
         </div>
 
-        {/* Footer actions */}
-        <div className="px-4 sm:px-5 py-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] sm:py-4 bg-gray-50 border-t border-gray-200 flex gap-2.5 sm:gap-3 shrink-0 items-center justify-between">
-          {tab === 'edit' ? (
+        {/* Footer actions - Contextual per Active Tab */}
+        <div className="px-4 sm:px-6 py-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] sm:py-4 bg-gray-50 border-t border-gray-100 flex gap-2.5 sm:gap-3 shrink-0 items-center justify-between">
+          {tab === 'bill' && (
+            <>
+              <button 
+                type="button"
+                onClick={() => printInvoice(stay, payments)}
+                className="flex items-center justify-center gap-1.5 sm:gap-2 px-4 py-2.5 sm:py-3 bg-white border border-gray-200 rounded-xl text-xs sm:text-sm font-bold text-gray-700 hover:bg-gray-100 active:scale-95 transition-all shadow-xs"
+              >
+                <Printer size={16} /> Print Bill
+              </button>
+              {isOpen && (
+                <button 
+                  type="button"
+                  onClick={() => onCheckout(stay)}
+                  className="flex-1 sm:flex-initial sm:min-w-44 flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 px-6 bg-red-600 text-white rounded-xl text-xs sm:text-sm font-black uppercase tracking-wide hover:bg-red-700 active:scale-95 shadow-md transition-all ml-auto"
+                >
+                  <LogOut size={16} /> Checkout Guest
+                </button>
+              )}
+            </>
+          )}
+
+          {tab === 'charge' && (
             <>
               <button
                 type="button"
@@ -1006,32 +1015,100 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
               </button>
               <button
                 type="button"
+                disabled={busy || pendingCharges.length === 0}
+                onClick={submitPendingCharges}
+                className="flex-1 sm:flex-initial sm:min-w-48 py-2.5 sm:py-3 px-6 bg-black text-white rounded-xl text-xs sm:text-sm font-black uppercase tracking-wide hover:bg-gray-800 active:scale-95 shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2 ml-auto"
+              >
+                {busy ? 'Adding...' : `Add ₹${pendingCharges.reduce((s, it) => s + (Number(it.rate) || 0), 0)} to Bill ✓`}
+              </button>
+            </>
+          )}
+
+          {tab === 'pay' && (
+            <>
+              <button
+                type="button"
+                onClick={() => setTab('bill')}
+                className="px-4 py-2.5 bg-white border border-gray-300 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-100 active:scale-95 transition-all"
+              >
+                Back to Bill
+              </button>
+              <button
+                type="submit"
+                form="manage-stay-pay-form"
+                disabled={busy || balance <= 0 || !payForm.amount}
+                className="flex-1 sm:flex-initial sm:min-w-48 py-2.5 sm:py-3 px-6 bg-emerald-600 text-white rounded-xl text-xs sm:text-sm font-black uppercase tracking-wide hover:bg-emerald-700 active:scale-95 shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2 ml-auto"
+              >
+                {busy ? 'Recording...' : balance <= 0 ? 'Nothing Due' : `Record Payment (₹${payForm.amount || 0}) ✓`}
+              </button>
+            </>
+          )}
+
+          {tab === 'room' && (
+            <>
+              <button
+                type="button"
+                onClick={() => setTab('bill')}
+                className="px-4 py-2.5 bg-white border border-gray-300 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-100 active:scale-95 transition-all"
+              >
+                Back to Bill
+              </button>
+              <button
+                type="submit"
+                form="manage-stay-shift-form"
+                disabled={busy || !shiftForm.newRoomId}
+                className="flex-1 sm:flex-initial sm:min-w-48 py-2.5 sm:py-3 px-6 bg-indigo-600 text-white rounded-xl text-xs sm:text-sm font-black uppercase tracking-wide hover:bg-indigo-700 active:scale-95 shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2 ml-auto"
+              >
+                {busy ? 'Moving Room...' : 'Confirm Room Change ✓'}
+              </button>
+            </>
+          )}
+
+          {tab === 'extend' && (
+            <>
+              <button
+                type="button"
+                onClick={() => setTab('bill')}
+                className="px-4 py-2.5 bg-white border border-gray-300 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-100 active:scale-95 transition-all"
+              >
+                Back to Bill
+              </button>
+              <button
+                type="submit"
+                form="manage-stay-extend-form"
                 disabled={busy}
-                onClick={handleSaveEdit}
-                className="flex-1 py-2.5 sm:py-3 bg-black text-white rounded-xl text-xs sm:text-sm font-black uppercase tracking-wide hover:bg-gray-800 active:scale-95 shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 sm:flex-initial sm:min-w-48 py-2.5 sm:py-3 px-6 bg-blue-600 text-white rounded-xl text-xs sm:text-sm font-black uppercase tracking-wide hover:bg-blue-700 active:scale-95 shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2 ml-auto"
+              >
+                {busy ? 'Extending...' : 'Confirm Extend Stay ✓'}
+              </button>
+            </>
+          )}
+
+          {tab === 'edit' && (
+            <>
+              <button
+                type="button"
+                onClick={() => setTab('bill')}
+                className="px-4 py-2.5 bg-white border border-gray-300 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-100 active:scale-95 transition-all"
+              >
+                Back to Bill
+              </button>
+              <button
+                type="submit"
+                form="manage-stay-edit-form"
+                disabled={busy}
+                className="flex-1 sm:flex-initial sm:min-w-52 py-2.5 sm:py-3 px-6 bg-black text-white rounded-xl text-xs sm:text-sm font-black uppercase tracking-wide hover:bg-gray-800 active:scale-95 shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2 ml-auto"
               >
                 {busy ? 'Saving Changes...' : 'Save & Update Details ✓'}
               </button>
             </>
-          ) : (
-            <>
-              <button onClick={() => printInvoice(stay, payments)}
-                className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 sm:py-3 bg-white border border-gray-200 rounded-xl text-xs sm:text-sm font-bold text-gray-700 hover:bg-gray-100">
-                <Printer size={16} /> Bill
-              </button>
-              {isOpen && (
-                <button onClick={() => onCheckout(stay)}
-                  className="flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 bg-red-600 text-white rounded-xl text-xs sm:text-sm font-black uppercase tracking-wide hover:bg-red-700 active:scale-95 shadow-md">
-                  <LogOut size={16} /> Checkout
-                </button>
-              )}
-            </>
           )}
         </div>
       </div>
-    </div>,
-    document.body
-  );
+    </div>
+  </div>,
+  document.body
+);
 };
 
 export default StayManageModal;

@@ -1647,8 +1647,9 @@ Hotel me *${item.itemName}* ka stock critically low hai:
           MODAL 1: SEND CLOTHES TO LAUNDRY (DISPATCH)
          ───────────────────────────────────────────────────────────── */}
       {isDispatchModalOpen && createPortal(
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={() => setIsDispatchModalOpen(false)}>
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-2xl my-0 sm:my-auto overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88vh]" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] overflow-y-auto" onClick={() => setIsDispatchModalOpen(false)}>
+          <div className="min-h-full flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6 text-center sm:text-left">
+            <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-2xl sm:max-w-3xl lg:max-w-4xl my-0 sm:my-8 overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88vh] text-left border border-gray-100" onClick={e => e.stopPropagation()}>
             {/* Header - Sticky */}
             <div className="px-4 py-3.5 sm:px-5 sm:py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/70 shrink-0">
               <div className="flex items-center gap-2">
@@ -1783,7 +1784,7 @@ Hotel me *${item.itemName}* ka stock critically low hai:
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   {dispatchForm.items.map((it, idx) => (
                     <div key={idx} className="flex items-center gap-2 p-2 bg-white rounded-xl border border-gray-200 shadow-2xs">
                       <div className="flex-1 min-w-0">
@@ -1931,6 +1932,7 @@ Hotel me *${item.itemName}* ka stock critically low hai:
                 </button>
               </div>
             </form>
+            </div>
           </div>
         </div>,
         document.body
@@ -1940,8 +1942,9 @@ Hotel me *${item.itemName}* ka stock critically low hai:
           MODAL 2: RECEIVE LAUNDRY (कपड़े वापस लेना)
          ───────────────────────────────────────────────────────────── */}
       {isReceiveModalOpen && selectedOrder && createPortal(
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={() => setIsReceiveModalOpen(false)}>
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-xl my-0 sm:my-auto overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88vh]" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] overflow-y-auto" onClick={() => setIsReceiveModalOpen(false)}>
+          <div className="min-h-full flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6 text-center sm:text-left">
+            <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-2xl sm:max-w-3xl my-0 sm:my-8 overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88vh] text-left border border-gray-100" onClick={e => e.stopPropagation()}>
             {/* Header - Sticky */}
             <div className="px-4 py-3.5 sm:px-5 sm:py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/70 shrink-0">
               <div>
@@ -1966,12 +1969,12 @@ Hotel me *${item.itemName}* ka stock critically low hai:
                   />
                 </div>
 
-                {/* Items Verification - Mobile-first card list */}
+                {/* Items Verification - Clean responsive grid */}
                 <div>
                   <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
                     Verify Pieces Returned per Item (कपड़े चेक करें)
                   </label>
-                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  <div className="space-y-2 sm:grid sm:grid-cols-2 sm:gap-2.5 sm:space-y-0">
                     {receiveForm.items.map((it, idx) => (
                       <div key={idx} className="p-3 bg-gray-50 rounded-2xl border border-gray-200 space-y-2">
                         <div className="flex justify-between items-center">
@@ -2123,6 +2126,7 @@ Hotel me *${item.itemName}* ka stock critically low hai:
                 </button>
               </div>
             </form>
+            </div>
           </div>
         </div>,
         document.body
@@ -2132,8 +2136,9 @@ Hotel me *${item.itemName}* ka stock critically low hai:
           MODAL 3: RECORD PAYMENT
          ───────────────────────────────────────────────────────────── */}
       {isPayModalOpen && selectedOrder && createPortal(
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={() => setIsPayModalOpen(false)}>
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-md my-0 sm:my-auto overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88vh]" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] overflow-y-auto" onClick={() => setIsPayModalOpen(false)}>
+          <div className="min-h-full flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6 text-center sm:text-left">
+            <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-md sm:max-w-lg my-0 sm:my-8 overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88vh] text-left border border-gray-100" onClick={e => e.stopPropagation()}>
             <div className="px-4 py-3.5 sm:px-5 sm:py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/70 shrink-0">
               <div>
                 <h3 className="text-sm sm:text-base font-black text-gray-900">Pay Laundry Vendor</h3>
@@ -2224,6 +2229,7 @@ Hotel me *${item.itemName}* ka stock critically low hai:
                 </button>
               </div>
             </form>
+            </div>
           </div>
         </div>,
         document.body
@@ -2233,8 +2239,9 @@ Hotel me *${item.itemName}* ka stock critically low hai:
           MODAL 4: STANDARD RATES & LINEN ITEMS MANAGER
          ───────────────────────────────────────────────────────────── */}
       {isRatesModalOpen && createPortal(
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={() => setIsRatesModalOpen(false)}>
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-xl my-0 sm:my-auto overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88vh]" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] overflow-y-auto" onClick={() => setIsRatesModalOpen(false)}>
+          <div className="min-h-full flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6 text-center sm:text-left">
+            <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-xl sm:max-w-2xl my-0 sm:my-8 overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88vh] text-left border border-gray-100" onClick={e => e.stopPropagation()}>
             <div className="px-4 py-3.5 sm:px-5 sm:py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/70 shrink-0">
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-black text-white rounded-xl">
@@ -2365,6 +2372,7 @@ Hotel me *${item.itemName}* ka stock critically low hai:
                 </button>
               </div>
             </form>
+            </div>
           </div>
         </div>,
         document.body
@@ -2374,8 +2382,9 @@ Hotel me *${item.itemName}* ka stock critically low hai:
           MODAL 5: SETTLE DHOBI KHATA / LUMP-SUM PAYMENT
          ───────────────────────────────────────────────────────────── */}
       {isLumpSumModalOpen && createPortal(
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={() => setIsLumpSumModalOpen(false)}>
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-md my-0 sm:my-auto overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88vh]" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] overflow-y-auto" onClick={() => setIsLumpSumModalOpen(false)}>
+          <div className="min-h-full flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6 text-center sm:text-left">
+            <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-md sm:max-w-lg my-0 sm:my-8 overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88vh] text-left border border-gray-100" onClick={e => e.stopPropagation()}>
             <div className="px-4 py-3.5 sm:px-5 sm:py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/70 shrink-0">
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-black text-white rounded-xl">
@@ -2481,6 +2490,7 @@ Hotel me *${item.itemName}* ka stock critically low hai:
                 </button>
               </div>
             </form>
+            </div>
           </div>
         </div>,
         document.body
@@ -2490,8 +2500,9 @@ Hotel me *${item.itemName}* ka stock critically low hai:
           MODAL 6: UPDATE TOTAL HOTEL LINEN INVENTORY
          ───────────────────────────────────────────────────────────── */}
       {isInventoryModalOpen && createPortal(
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={() => setIsInventoryModalOpen(false)}>
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-lg my-0 sm:my-auto overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88vh]" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] overflow-y-auto" onClick={() => setIsInventoryModalOpen(false)}>
+          <div className="min-h-full flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6 text-center sm:text-left">
+            <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-xl sm:max-w-2xl my-0 sm:my-8 overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88vh] text-left border border-gray-100" onClick={e => e.stopPropagation()}>
             <div className="px-4 py-3.5 sm:px-5 sm:py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/70 shrink-0">
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-black text-white rounded-xl">
@@ -2550,6 +2561,7 @@ Hotel me *${item.itemName}* ka stock critically low hai:
                 </button>
               </div>
             </form>
+            </div>
           </div>
         </div>,
         document.body

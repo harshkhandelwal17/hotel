@@ -109,11 +109,12 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
   }
 
   return createPortal(
-    <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={onClose}>
-      <div
-        className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-lg my-0 sm:my-auto overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300 flex flex-col max-h-[92dvh] sm:max-h-[88vh]"
-        onClick={e => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] overflow-y-auto" onClick={onClose}>
+      <div className="min-h-full flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6 text-center sm:text-left">
+        <div
+          className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-xl sm:max-w-2xl my-0 sm:my-8 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300 flex flex-col max-h-[92dvh] sm:max-h-[88vh] text-left border border-gray-100"
+          onClick={e => e.stopPropagation()}
+        >
         {/* Header */}
         <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-100 flex justify-between items-start flex-shrink-0">
           <div>
@@ -302,9 +303,10 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
           </div>
         </form>
       </div>
-    </div>,
-    document.body
-  );
+    </div>
+  </div>,
+  document.body
+);
 };
 
 export default CheckoutModal;
