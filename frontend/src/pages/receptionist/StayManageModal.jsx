@@ -8,6 +8,7 @@ import InvoiceModal from '../../components/InvoiceModal';
 import DynamicUpiQr from '../../components/DynamicUpiQr';
 import { compressImage } from '../../utils/imageCompression';
 import { getFullImageUrl } from '../../utils/imageUrl';
+import { apiCache } from '../../utils/apiCache';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
 
@@ -106,6 +107,7 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
     try {
       await fn();
       await reload();
+      apiCache.invalidate();
       onChanged && onChanged();
       flash(okMsg);
       return true;

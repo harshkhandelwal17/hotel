@@ -4,6 +4,7 @@ import axios from 'axios';
 import { format } from 'date-fns';
 import { CreditCard, Plus, Search, ArrowUpRight } from 'lucide-react';
 import DynamicUpiQr from '../../components/DynamicUpiQr';
+import { apiCache } from '../../utils/apiCache';
 
 const PaymentsList = () => {
   const [stays, setStays] = useState([]);
@@ -26,16 +27,30 @@ const PaymentsList = () => {
     };
   }, [selectedStay]);
 
-  useEffect(() => { fetchData(); }, []);
-
-  const fetchData = async () => {
+  const fetchData = async (forceSpinner = false) => {
+    const cached = apiCache.get('stays_active_all');
+    if (cached && !forceSpinner) {
+      setStays(cached.filter(s => s.totalAmount - s.paidAmount > 0));
+      setLoading(false); // Instant render in 0ms!
+    } else if (!cached) {
+      setLoading(true);
+    }
     try {
       const res = await axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/stays?status=Active');
-      const staysWithBalance = res.data.data.filter(s => s.totalAmount - s.paidAmount > 0);
+      const allStays = res.data.data || [];
+      apiCache.set('stays_active_all', allStays);
+      const staysWithBalance = allStays.filter(s => s.totalAmount - s.paidAmount > 0);
       setStays(staysWithBalance);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   };
+
+  useEffect(() => { 
+    fetchData();
+    const handleUpdate = () => fetchData(false);
+    window.addEventListener('hotelDataInvalidated', handleUpdate);
+    return () => window.removeEventListener('hotelDataInvalidated', handleUpdate);
+  }, []);
 
   const handlePayment = async (e) => {
     e.preventDefault();
@@ -50,7 +65,8 @@ const PaymentsList = () => {
       });
       setSelectedStay(null);
       setPayAmount('');
-      fetchData();
+      apiCache.invalidate();
+      fetchData(true);
     } catch (err) {
       setPayError(err.response?.data?.message || 'Payment failed');
     } finally { setPayLoading(false); }

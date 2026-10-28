@@ -157,8 +157,8 @@ exports.getStays = async (req, res, next) => {
     }
 
     const stays = await Stay.find(filter)
-      .populate('guest', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth companyName gstin')
-      .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth companyName gstin')
+      .populate('guest', 'fullName mobileNumber idProofType idProofNumber address gender dateOfBirth companyName gstin')
+      .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber address gender dateOfBirth companyName gstin')
       .populate('room', 'roomNumber price24h extraPerPerson24h')
       .populate('hostel', 'name address contactNumber email upiId upiPayeeName gstEnabled gstin taxInclusive gstRate hsnSacCode state stateCode invoicePrefix billTerms autoApplyGstOnCheckin')
       .populate('createdBy', 'name role')

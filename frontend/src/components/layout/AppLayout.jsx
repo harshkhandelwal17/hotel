@@ -6,6 +6,7 @@ import { Home, Users, Bed, LogOut, Bell, PlusCircle, Building, CreditCard, BarCh
 import GlobalSearch from '../common/GlobalSearch';
 import soundAlert from '../../utils/soundAlert';
 import PoliceReportModal from '../../pages/admin/PoliceReportModal';
+import { apiCache } from '../../utils/apiCache';
 
 const AppLayout = ({ children }) => {
   const { user, logout } = useContext(AuthContext);
@@ -54,6 +55,9 @@ const AppLayout = ({ children }) => {
         let propQuery = globalProperty !== 'all' ? `&hostel=${globalProperty}` : '';
         const res = await axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + `/api/stays?status=Active${propQuery}`);
         const stays = res.data.data;
+        if (Array.isArray(stays)) {
+          apiCache.set(`stays_active_${globalProperty}`, stays);
+        }
         const now = new Date();
         const upcoming = [];
 

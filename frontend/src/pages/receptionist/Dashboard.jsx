@@ -5,6 +5,7 @@ import { format, isPast } from 'date-fns';
 import { Users, BedDouble, CalendarCheck, Clock, CreditCard, ChevronRight, AlertTriangle, PlusCircle, RefreshCw, Download, Phone, ShieldCheck } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 import PoliceReportModal from '../admin/PoliceReportModal';
+import { apiCache } from '../../utils/apiCache';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
 
@@ -41,6 +42,16 @@ const ReceptionistDashboard = () => {
 
   const fetchDashboardData = useCallback(async (showRefreshing = false) => {
     if (showRefreshing) setRefreshing(true);
+    const cacheKey = `dashboard_${globalProperty}`;
+    const cached = apiCache.get(cacheKey);
+    if (cached && !showRefreshing) {
+      setStats(cached.stats);
+      setRecentStays(cached.stays);
+      setLoading(false); // Instant render in 0ms!
+    } else if (!cached) {
+      setLoading(true);
+    }
+
     try {
       const propQuery = globalProperty !== 'all' ? `?hostel=${globalProperty}` : '';
       const ampQuery = globalProperty !== 'all' ? `&hostel=${globalProperty}` : '';
@@ -48,8 +59,12 @@ const ReceptionistDashboard = () => {
         axios.get(`${API}/api/reports/dashboard${propQuery}`),
         axios.get(`${API}/api/stays?status=Active${ampQuery}`)
       ]);
-      setStats(statsRes.data.data);
-      setRecentStays(staysRes.data.data); // already sorted by checkout time (earliest first)
+      const newStats = statsRes.data.data;
+      const newStays = staysRes.data.data || [];
+      apiCache.set(cacheKey, { stats: newStats, stays: newStays });
+      apiCache.set(`stays_active_${globalProperty}`, newStays);
+      setStats(newStats);
+      setRecentStays(newStays);
     } catch (error) {
       console.error(error);
     } finally {
@@ -60,9 +75,13 @@ const ReceptionistDashboard = () => {
 
   useEffect(() => { fetchDashboardData(); }, [fetchDashboardData]);
   useEffect(() => {
-    const h = () => fetchDashboardData();
+    const h = () => fetchDashboardData(false);
     window.addEventListener('propertyChanged', h);
-    return () => window.removeEventListener('propertyChanged', h);
+    window.addEventListener('hotelDataInvalidated', h);
+    return () => {
+      window.removeEventListener('propertyChanged', h);
+      window.removeEventListener('hotelDataInvalidated', h);
+    };
   }, [fetchDashboardData]);
 
   const overdueStays = recentStays.filter(s => isPast(new Date(s.expectedCheckOutDate)));

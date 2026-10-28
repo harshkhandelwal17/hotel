@@ -6,6 +6,7 @@ import CheckoutModal from './CheckoutModal';
 import StayManageModal from './StayManageModal';
 import { Users, Clock, Download, AlertTriangle, Search, ChevronRight, Phone, ShieldCheck } from 'lucide-react';
 import PoliceReportModal from '../admin/PoliceReportModal';
+import { apiCache } from '../../utils/apiCache';
 
 const CheckoutList = () => {
   const [stays, setStays] = useState([]);
@@ -20,21 +21,43 @@ const CheckoutList = () => {
 
   useEffect(() => { fetchStays(); }, [globalProperty]);
   useEffect(() => {
-    const handlePropChange = () => fetchStays();
-    window.addEventListener('propertyChanged', handlePropChange);
-    return () => window.removeEventListener('propertyChanged', handlePropChange);
+    const handleUpdate = () => fetchStays(false);
+    window.addEventListener('propertyChanged', handleUpdate);
+    window.addEventListener('hotelDataInvalidated', handleUpdate);
+    return () => {
+      window.removeEventListener('propertyChanged', handleUpdate);
+      window.removeEventListener('hotelDataInvalidated', handleUpdate);
+    };
   }, [globalProperty]);
 
-  async function fetchStays() {
+  async function fetchStays(forceSpinner = false) {
+    const cacheKey = `stays_active_${globalProperty}`;
+    const cached = apiCache.get(cacheKey);
+    if (cached && !forceSpinner) {
+      setStays(cached);
+      setLoading(false); // Instant render in 0ms!
+
+      const wanted = searchParams.get('stay');
+      if (wanted) {
+        const found = cached.find(s => s._id === wanted);
+        if (found) setManagedStay(found);
+        setSearchParams({}, { replace: true });
+      }
+    } else if (!cached) {
+      setLoading(true);
+    }
+
     try {
       const propQuery = globalProperty !== 'all' ? `&hostel=${globalProperty}` : '';
       const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/stays?status=Active${propQuery}`);
-      setStays(res.data.data);
+      const newStays = res.data.data || [];
+      apiCache.set(cacheKey, newStays);
+      setStays(newStays);
 
       // Deep link from Dashboard / Rooms: /checkouts?stay=<id>
       const wanted = searchParams.get('stay');
       if (wanted) {
-        const found = res.data.data.find(s => s._id === wanted);
+        const found = newStays.find(s => s._id === wanted);
         if (found) setManagedStay(found);
         setSearchParams({}, { replace: true });
       }

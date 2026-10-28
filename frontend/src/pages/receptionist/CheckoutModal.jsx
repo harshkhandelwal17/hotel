@@ -6,6 +6,7 @@ import { X, User, Home, Calendar, CreditCard, AlertCircle, CheckCircle2, Plus, P
 import { printInvoice, getInvoiceWhatsAppUrl } from '../../utils/invoice';
 import InvoiceModal from '../../components/InvoiceModal';
 import DynamicUpiQr from '../../components/DynamicUpiQr';
+import { apiCache } from '../../utils/apiCache';
 
 const CheckoutModal = ({ stay, onClose, onSuccess }) => {
   const [chargesList, setChargesList] = useState([]);
@@ -68,6 +69,7 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
       setCompletedStay(res.data.data);
       setPayments(res.data.payments || []);
       setCheckoutComplete(true);
+      apiCache.invalidate();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to checkout. Please try again.');
     } finally {

@@ -4,6 +4,7 @@ import { useOutletContext, Link } from 'react-router-dom';
 import axios from 'axios';
 import { Users, Clock, CheckCircle2, Wrench, BedDouble, RefreshCw, Search } from 'lucide-react';
 import { format, isPast } from 'date-fns';
+import { apiCache } from '../../utils/apiCache';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
 
@@ -46,27 +47,52 @@ const RoomsView = () => {
         await axios.post(`${API}/api/rooms/${room._id}/maintenance/resolve`, { note: mText });
       }
       setMDialog(null);
-      fetchData();
+      apiCache.invalidate('rooms');
+      fetchData(true);
     } catch (err) {
       setMError(err.response?.data?.message || 'Something went wrong');
     } finally { setMBusy(false); }
   };
 
-  useEffect(() => { fetchData(); }, [globalProperty]);
+  const fetchData = async (forceSpinner = false) => {
+    const cacheKey = `rooms_view_${globalProperty}`;
+    const cached = apiCache.get(cacheKey);
+    if (cached && !forceSpinner) {
+      setRooms(cached.rooms);
+      setActiveStays(cached.stays);
+      setLoading(false); // Instant render in 0ms!
+    } else {
+      setLoading(true);
+    }
 
-  const fetchData = async () => {
-    setLoading(true);
     try {
       const prop = globalProperty !== 'all' ? `?hostel=${globalProperty}` : '';
       const [roomsRes, staysRes] = await Promise.all([
         axios.get(`${API}/api/rooms${prop}`),
         axios.get(`${API}/api/stays?status=Active${globalProperty !== 'all' ? `&hostel=${globalProperty}` : ''}`),
       ]);
-      setRooms(roomsRes.data.data);
-      setActiveStays(staysRes.data.data);
+      const newRooms = roomsRes.data.data || [];
+      const newStays = staysRes.data.data || [];
+      apiCache.set(cacheKey, { rooms: newRooms, stays: newStays });
+      apiCache.set(`rooms_${globalProperty}`, newRooms);
+      apiCache.set(`stays_active_${globalProperty}`, newStays);
+      setRooms(newRooms);
+      setActiveStays(newStays);
     } catch (error) { console.error(error); }
     finally { setLoading(false); }
   };
+
+  useEffect(() => { 
+    fetchData();
+    const handleInvalidation = (e) => {
+      const prefix = e?.detail?.prefix || '';
+      if (!prefix || prefix.includes('rooms') || prefix.includes('stays')) {
+        fetchData(false);
+      }
+    };
+    window.addEventListener('hotelDataInvalidated', handleInvalidation);
+    return () => window.removeEventListener('hotelDataInvalidated', handleInvalidation);
+  }, [globalProperty]);
 
   const getRoomStatus = (room) => {
     const stay = activeStays.find(s => s.room?._id === room._id);

@@ -38,6 +38,7 @@ import { format, isPast } from 'date-fns';
 import { useToast } from '../../components/ui/Toast';
 import { compressImage } from '../../utils/imageCompression';
 import { extractAddressFromBackId } from '../../utils/idOcr';
+import { apiCache } from '../../utils/apiCache';
 import GuestRegistrationCardModal from '../../components/reception/GuestRegistrationCardModal';
 import { getFullImageUrl } from '../../utils/imageUrl';
 import DynamicUpiQr from '../../components/DynamicUpiQr';
@@ -215,8 +216,15 @@ const CheckIn = () => {
   // =========================================================
 
   useEffect(() => {
-    const fetchRooms = async () => {
-      setLoadingRooms(true);
+    const fetchRooms = async (forceSpinner = false) => {
+      const cacheKey = `rooms_${globalProperty}`;
+      const cached = apiCache.get(cacheKey);
+      if (cached && !forceSpinner) {
+        setRooms(cached.filter((room) => room.status === 'Active'));
+        setLoadingRooms(false); // Instant render in 0ms!
+      } else if (!cached) {
+        setLoadingRooms(true);
+      }
 
       try {
         const propQuery =
@@ -228,8 +236,10 @@ const CheckIn = () => {
           `${API}/api/rooms${propQuery}`
         );
 
+        const allRooms = res.data.data || [];
+        apiCache.set(cacheKey, allRooms);
         setRooms(
-          res.data.data.filter(
+          allRooms.filter(
             (room) => room.status === 'Active'
           )
         );
@@ -246,6 +256,14 @@ const CheckIn = () => {
     };
 
     fetchRooms();
+    const handleInvalidation = (e) => {
+      const prefix = e?.detail?.prefix || '';
+      if (!prefix || prefix.includes('rooms')) {
+        fetchRooms(false);
+      }
+    };
+    window.addEventListener('hotelDataInvalidated', handleInvalidation);
+    return () => window.removeEventListener('hotelDataInvalidated', handleInvalidation);
   }, [globalProperty, toast]);
 
   // =========================================================
@@ -1286,6 +1304,9 @@ const CheckIn = () => {
       // =====================================================
       // 7. SUCCESS & GUEST REGISTRATION CARD (GRC)
       // =====================================================
+
+      // Invalidate caches across the app so RoomsView, Dashboard, and CheckoutList show new stay immediately
+      apiCache.invalidate();
 
       const createdStay = stayRes.data?.data || stayPayload;
       setCreatedStayData(createdStay);
