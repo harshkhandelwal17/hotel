@@ -1596,9 +1596,10 @@ const SuperAdminDashboard = () => {
                     />
                   </div>
                 </div>
-                </div>
+              </div>
+            </div>
 
-                <div className="p-4 px-6 pb-[max(1rem,env(safe-area-inset-bottom))] bg-gray-50 border-t border-gray-100 flex gap-3 justify-end shrink-0">
+            <div className="p-4 px-6 pb-[max(1rem,env(safe-area-inset-bottom))] bg-gray-50 border-t border-gray-100 flex gap-3 justify-end shrink-0">
                   <button
                     type="button"
                     onClick={() => setIsAddPropertyOpen(false)}
@@ -1928,82 +1929,86 @@ const SuperAdminDashboard = () => {
       {/* 👤 MODAL 5: EDIT USER & PHONE DETAILS */}
       {/* ============================================================== */}
       {selectedEditUser && createPortal(
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 animate-in fade-in duration-200 overflow-y-auto" onClick={() => setSelectedEditUser(null)}>
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-md w-full my-0 sm:my-auto overflow-hidden shadow-2xl border border-gray-100 max-h-[92dvh] sm:max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-            <div className="p-6 bg-gradient-to-r from-gray-950 to-gray-900 text-white flex justify-between items-start">
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-500/20 px-2.5 py-0.5 rounded-full">
-                  User Profile
-                </span>
-                <h3 className="text-xl font-black text-white mt-1.5">Edit User & Phone</h3>
-                <p className="text-xs text-gray-400 mt-0.5">Update mobile number, name, and email.</p>
-              </div>
-              <button onClick={() => setSelectedEditUser(null)} className="p-2 text-gray-400 hover:text-white rounded-full hover:bg-gray-800 transition-colors">
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveEditUser} className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                  Full Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
-                  value={editUserForm.name}
-                  onChange={e => setEditUserForm({ ...editUserForm, name: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  required
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
-                  value={editUserForm.email}
-                  onChange={e => setEditUserForm({ ...editUserForm, email: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                  <span>Phone / Mobile Number</span>
-                  <span className="text-[10px] text-emerald-600 font-bold">Direct Click-to-Call</span>
-                </label>
-                <div className="relative">
-                  <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="tel"
-                    placeholder="e.g. 9876543210"
-                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
-                    value={editUserForm.phone}
-                    onChange={e => setEditUserForm({ ...editUserForm, phone: e.target.value })}
-                  />
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] overflow-y-auto animate-in fade-in duration-200" onClick={() => setSelectedEditUser(null)}>
+          <div className="min-h-full flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6 text-center sm:text-left">
+            <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-md w-full my-0 sm:my-8 overflow-hidden shadow-2xl border border-gray-100 max-h-[92dvh] sm:max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-200 text-left" onClick={e => e.stopPropagation()}>
+              <div className="p-6 bg-gradient-to-r from-gray-950 to-gray-900 text-white flex justify-between items-start shrink-0">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-500/20 px-2.5 py-0.5 rounded-full">
+                    User Profile
+                  </span>
+                  <h3 className="text-xl font-black text-white mt-1.5">Edit User & Phone</h3>
+                  <p className="text-xs text-gray-400 mt-0.5">Update mobile number, name, and email.</p>
                 </div>
+                <button onClick={() => setSelectedEditUser(null)} className="p-2 text-gray-400 hover:text-white rounded-full hover:bg-gray-800 transition-colors">
+                  ✕
+                </button>
               </div>
 
-              <div className="pt-3 flex gap-3 justify-end border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setSelectedEditUser(null)}
-                  className="px-4 py-2.5 border border-gray-200 text-gray-700 font-bold rounded-xl text-xs hover:bg-gray-100 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingUser}
-                  className="px-6 py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50"
-                >
-                  {savingUser ? 'Saving...' : 'Update Phone & Details'}
-                </button>
-              </div>
-            </form>
+              <form onSubmit={handleSaveEditUser} className="flex flex-col flex-1 min-h-0">
+                <div className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                      Full Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                      value={editUserForm.name}
+                      onChange={e => setEditUserForm({ ...editUserForm, name: e.target.value })}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                      value={editUserForm.email}
+                      onChange={e => setEditUserForm({ ...editUserForm, email: e.target.value })}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                      <span>Phone / Mobile Number</span>
+                      <span className="text-[10px] text-emerald-600 font-bold">Direct Click-to-Call</span>
+                    </label>
+                    <div className="relative">
+                      <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="tel"
+                        placeholder="e.g. 9876543210"
+                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                        value={editUserForm.phone}
+                        onChange={e => setEditUserForm({ ...editUserForm, phone: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 px-6 pb-[max(1rem,env(safe-area-inset-bottom))] bg-gray-50 border-t border-gray-100 flex gap-3 justify-end shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEditUser(null)}
+                    className="px-4 py-2.5 border border-gray-200 text-gray-700 font-bold rounded-xl text-xs hover:bg-gray-100 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingUser}
+                    className="px-6 py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50"
+                  >
+                    {savingUser ? 'Saving...' : 'Update Phone & Details'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>,
         document.body
