@@ -999,7 +999,11 @@ Hotel me *${item.itemName}* ka stock critically low hai:
             </span>
           ) : (
             <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-100 text-emerald-800">
-              {linenRotation?.totals?.totalAvailablePieces || 0} In Hotel
+              {linenRotation?.totals?.totalAvailablePieces !== undefined
+                ? linenRotation.totals.totalAvailablePieces
+                : (linenRotation?.totals?.totalCleanPieces !== undefined
+                    ? linenRotation.totals.totalCleanPieces
+                    : Math.max(0, (linenRotation?.totals?.totalLinenPieces || 0) - (linenRotation?.totals?.totalWithDhobiPieces || 0)))} In Hotel
             </span>
           )}
         </button>
@@ -1497,133 +1501,149 @@ Hotel me *${item.itemName}* ka stock critically low hai:
       {/* ─────────────────────────────────────────────────────────────
           TAB 3: LINEN STOCK IN ROTATION (सर्कुलेशन व स्टॉक)
          ───────────────────────────────────────────────────────────── */}
-      {mainTab === 'rotation' && (
-        <div className="space-y-6">
-          {/* Header & Controls */}
-          <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <Layers size={18} className="text-indigo-600" />
-                <h3 className="text-lg font-black tracking-tight text-gray-900">Linen Stock in Circulation</h3>
-              </div>
-              <p className="text-xs text-gray-500 font-semibold">
-                Live distribution of hotel linen: Clean in Almirah (Ready), In Active Rooms (In Use), and Sent to Dhobi (Washing).
-              </p>
-            </div>
+      {mainTab === 'rotation' && (() => {
+        const totalAvail = linenRotation?.totals?.totalAvailablePieces !== undefined
+          ? linenRotation.totals.totalAvailablePieces
+          : (linenRotation?.totals?.totalCleanPieces !== undefined
+              ? linenRotation.totals.totalCleanPieces
+              : Math.max(0, (linenRotation?.totals?.totalLinenPieces || 0) - (linenRotation?.totals?.totalWithDhobiPieces || 0)));
 
-            <button
-              type="button"
-              onClick={openInventoryModal}
-              className="px-4 py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 flex items-center gap-2 shrink-0"
-            >
-              <Boxes size={15} />
-              <span>Update Total Stock</span>
-            </button>
-          </div>
-
-          {/* Quick Metrics Bar (Clean & Simple: In Hotel vs With Dhobi) */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-            <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-2xl">
-              <p className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">🏨 Available in Hotel (होटल में उपलब्ध)</p>
-              <p className="text-2xl font-black text-emerald-900 mt-1">
-                {linenRotation?.totals?.totalAvailablePieces || 0} <span className="text-xs font-bold text-emerald-700">pcs</span>
-              </p>
-              <p className="text-[11px] font-medium text-emerald-700 mt-0.5">Hotel stock ready for use</p>
-            </div>
-
-            <div className="p-4 bg-orange-50/70 border border-orange-200 rounded-2xl">
-              <p className="text-[10px] font-bold text-orange-800 uppercase tracking-wider">🧺 With Dhobi (धोबी के पास)</p>
-              <p className="text-2xl font-black text-orange-900 mt-1">
-                {linenRotation?.totals?.totalWithDhobiPieces || 0} <span className="text-xs font-bold text-orange-700">pcs</span>
-              </p>
-              <p className="text-[11px] font-medium text-orange-700 mt-0.5">Currently sent for washing</p>
-            </div>
-
-            <div className="p-4 bg-gray-50 border border-gray-200 rounded-2xl">
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">📦 Total Owned Stock (कुल कपड़े)</p>
-              <p className="text-2xl font-black text-gray-900 mt-1">
-                {linenRotation?.totals?.totalLinenPieces || 0} <span className="text-xs font-bold text-gray-400">pcs</span>
-              </p>
-              <p className="text-[11px] font-medium text-gray-500 mt-0.5">Hotel inventory asset</p>
-            </div>
-          </div>
-
-          {/* Items Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {(linenRotation?.items || []).map((item, idx) => (
-              <div key={idx} className="bg-white p-5 rounded-3xl border border-gray-100 shadow-xs space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-sm font-black text-gray-900">{item.itemName}</h4>
-                    <p className="text-[11px] text-gray-400 font-bold">Total Property Stock: {item.totalStock} pcs</p>
-                  </div>
-                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                    item.isLow
-                      ? 'bg-red-100 text-red-700 border border-red-200 animate-pulse'
-                      : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                  }`}>
-                    {item.isLow ? `⚠️ Low in Hotel (${item.availableInHotel} left)` : `🟢 ${item.availableInHotel} In Hotel`}
-                  </span>
+        return (
+          <div className="space-y-6">
+            {/* Header & Controls */}
+            <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Layers size={18} className="text-indigo-600" />
+                  <h3 className="text-lg font-black tracking-tight text-gray-900">Linen Stock in Circulation</h3>
                 </div>
-
-                {/* 2-Color Clean Bar: In Hotel vs With Dhobi */}
-                <div className="space-y-1">
-                  <div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden flex">
-                    <div
-                      style={{ width: `${item.totalStock > 0 ? (item.availableInHotel / item.totalStock) * 100 : 0}%` }}
-                      className="bg-emerald-500 transition-all"
-                      title={`In Hotel: ${item.availableInHotel}`}
-                    />
-                    <div
-                      style={{ width: `${item.totalStock > 0 ? (item.withDhobi / item.totalStock) * 100 : 0}%` }}
-                      className="bg-orange-500 transition-all"
-                      title={`With Dhobi: ${item.withDhobi}`}
-                    />
-                  </div>
-                  <div className="flex justify-between items-center text-[10px] font-black text-gray-500 pt-1">
-                    <span className="text-emerald-700">🏨 In Hotel: {item.availableInHotel} pcs</span>
-                    <span className="text-orange-700">🧺 With Dhobi: {item.withDhobi} pcs</span>
-                  </div>
-                </div>
-
-                {/* Low Stock Warning & WhatsApp Quick Expedite */}
-                {item.isLow && (
-                  <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-2">
-                    <p className="text-[11px] font-bold text-red-600">
-                      Only {item.availableInHotel} pcs left in hotel! Dhobi has {item.withDhobi} pcs.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => shareExpediteWhatsApp(item)}
-                      className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold rounded-lg transition-all active:scale-95 flex items-center gap-1 shadow-xs"
-                      title="Alert Dhobi on WhatsApp to expedite this item"
-                    >
-                      <Send size={11} />
-                      <span>WhatsApp Dhobi</span>
-                    </button>
-                  </div>
-                )}
+                <p className="text-xs text-gray-500 font-semibold">
+                  Live distribution of hotel linen: Available in Hotel vs Sent to Dhobi (Washing).
+                </p>
               </div>
-            ))}
+
+              <button
+                type="button"
+                onClick={openInventoryModal}
+                className="px-4 py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 flex items-center gap-2 shrink-0 self-start sm:self-auto"
+              >
+                <Boxes size={15} />
+                <span>Update Total Stock</span>
+              </button>
+            </div>
+
+            {/* Quick Metrics Bar (Clean & Simple: In Hotel vs With Dhobi) */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+              <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-2xl">
+                <p className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">🏨 Available in Hotel (होटल में उपलब्ध)</p>
+                <p className="text-2xl font-black text-emerald-900 mt-1">
+                  {totalAvail} <span className="text-xs font-bold text-emerald-700">pcs</span>
+                </p>
+                <p className="text-[11px] font-medium text-emerald-700 mt-0.5">Hotel stock ready for use</p>
+              </div>
+
+              <div className="p-4 bg-orange-50/70 border border-orange-200 rounded-2xl">
+                <p className="text-[10px] font-bold text-orange-800 uppercase tracking-wider">🧺 With Dhobi (धोबी के पास)</p>
+                <p className="text-2xl font-black text-orange-900 mt-1">
+                  {linenRotation?.totals?.totalWithDhobiPieces || 0} <span className="text-xs font-bold text-orange-700">pcs</span>
+                </p>
+                <p className="text-[11px] font-medium text-orange-700 mt-0.5">Currently sent for washing</p>
+              </div>
+
+              <div className="p-4 bg-gray-50 border border-gray-200 rounded-2xl">
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">📦 Total Owned Stock (कुल कपड़े)</p>
+                <p className="text-2xl font-black text-gray-900 mt-1">
+                  {linenRotation?.totals?.totalLinenPieces || 0} <span className="text-xs font-bold text-gray-400">pcs</span>
+                </p>
+                <p className="text-[11px] font-medium text-gray-500 mt-0.5">Hotel inventory asset</p>
+              </div>
+            </div>
+
+            {/* Items Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {(linenRotation?.items || []).map((item, idx) => {
+                const itemAvailable = item.availableInHotel !== undefined
+                  ? item.availableInHotel
+                  : (item.cleanInStore !== undefined
+                      ? item.cleanInStore
+                      : Math.max(0, (item.totalStock || 0) - (item.withDhobi || 0)));
+
+                return (
+                  <div key={idx} className="bg-white p-5 rounded-3xl border border-gray-100 shadow-xs space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-sm font-black text-gray-900">{item.itemName}</h4>
+                        <p className="text-[11px] text-gray-400 font-bold">Total Property Stock: {item.totalStock} pcs</p>
+                      </div>
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                        item.isLow
+                          ? 'bg-red-100 text-red-700 border border-red-200 animate-pulse'
+                          : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                      }`}>
+                        {item.isLow ? `⚠️ Low in Hotel (${itemAvailable} left)` : `🟢 ${itemAvailable} In Hotel`}
+                      </span>
+                    </div>
+
+                    {/* 2-Color Clean Bar: In Hotel vs With Dhobi */}
+                    <div className="space-y-1">
+                      <div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden flex">
+                        <div
+                          style={{ width: `${item.totalStock > 0 ? (itemAvailable / item.totalStock) * 100 : 0}%` }}
+                          className="bg-emerald-500 transition-all"
+                          title={`In Hotel: ${itemAvailable}`}
+                        />
+                        <div
+                          style={{ width: `${item.totalStock > 0 ? (item.withDhobi / item.totalStock) * 100 : 0}%` }}
+                          className="bg-orange-500 transition-all"
+                          title={`With Dhobi: ${item.withDhobi}`}
+                        />
+                      </div>
+                      <div className="flex justify-between items-center text-[10px] font-black text-gray-500 pt-1">
+                        <span className="text-emerald-700">🏨 In Hotel: {itemAvailable} pcs</span>
+                        <span className="text-orange-700">🧺 With Dhobi: {item.withDhobi} pcs</span>
+                      </div>
+                    </div>
+
+                    {/* Low Stock Warning & WhatsApp Quick Expedite */}
+                    {item.isLow && (
+                      <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-2">
+                        <p className="text-[11px] font-bold text-red-600">
+                          Only {itemAvailable} pcs left in hotel! Dhobi has {item.withDhobi} pcs.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => shareExpediteWhatsApp({ ...item, availableInHotel: itemAvailable })}
+                          className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold rounded-lg transition-all active:scale-95 flex items-center gap-1 shadow-xs"
+                          title="Alert Dhobi on WhatsApp to expedite this item"
+                        >
+                          <Send size={11} />
+                          <span>WhatsApp Dhobi</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ─────────────────────────────────────────────────────────────
           MODAL 1: SEND CLOTHES TO LAUNDRY (DISPATCH)
          ───────────────────────────────────────────────────────────── */}
       {isDispatchModalOpen && (
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 overflow-y-auto" onClick={() => setIsDispatchModalOpen(false)}>
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl my-auto overflow-hidden flex flex-col max-h-[92vh]" onClick={e => e.stopPropagation()}>
-            {/* Header */}
-            <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={() => setIsDispatchModalOpen(false)}>
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-2xl my-0 sm:my-auto overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88vh]" onClick={e => e.stopPropagation()}>
+            {/* Header - Sticky */}
+            <div className="px-4 py-3.5 sm:px-5 sm:py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/70 shrink-0">
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-black text-white rounded-xl">
                   <Shirt size={18} />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-gray-900">Send Clothes to Laundry (कपड़े भेजें)</h3>
-                  <p className="text-[11px] font-bold text-gray-400">Record linen dispatched to vendor or dhobi</p>
+                  <h3 className="text-sm sm:text-base font-black text-gray-900">Send Clothes to Laundry (कपड़े भेजें)</h3>
+                  <p className="text-[10px] sm:text-[11px] font-bold text-gray-400">Record linen dispatched to vendor or dhobi</p>
                 </div>
               </div>
               <button onClick={() => setIsDispatchModalOpen(false)} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full">
@@ -1631,8 +1651,9 @@ Hotel me *${item.itemName}* ka stock critically low hai:
               </button>
             </div>
 
-            {/* Form Body */}
-            <form onSubmit={handleSubmitDispatch} className="p-5 overflow-y-auto space-y-4 text-xs font-semibold">
+            {/* Form Body with scrollable content */}
+            <form onSubmit={handleSubmitDispatch} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="p-4 sm:p-5 overflow-y-auto flex-1 min-h-0 space-y-4 text-xs font-semibold">
               {/* Property & Dates */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {(user?.role === 'admin' || user?.role === 'superadmin') && hostels.length > 1 && (
@@ -1876,13 +1897,25 @@ Hotel me *${item.itemName}* ka stock critically low hai:
                 />
               </div>
 
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full py-3 bg-black hover:bg-gray-800 text-white font-black text-sm uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50"
-              >
-                {submitting ? 'Dispatching...' : 'Dispatch Laundry & Save ✓'}
-              </button>
+              </div>
+
+              {/* Sticky Footer */}
+              <div className="p-3.5 sm:p-4 bg-gray-50/90 border-t border-gray-100 shrink-0 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsDispatchModalOpen(false)}
+                  className="px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex-1 py-3 bg-black hover:bg-gray-800 text-white font-black text-xs sm:text-sm uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {submitting ? 'Dispatching...' : 'Dispatch Laundry & Save ✓'}
+                </button>
+              </div>
             </form>
           </div>
         </div>
@@ -1892,167 +1925,188 @@ Hotel me *${item.itemName}* ka stock critically low hai:
           MODAL 2: RECEIVE LAUNDRY (कपड़े वापस लेना)
          ───────────────────────────────────────────────────────────── */}
       {isReceiveModalOpen && selectedOrder && (
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 overflow-y-auto" onClick={() => setIsReceiveModalOpen(false)}>
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl my-auto overflow-hidden flex flex-col max-h-[92vh]" onClick={e => e.stopPropagation()}>
-            <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={() => setIsReceiveModalOpen(false)}>
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-xl my-0 sm:my-auto overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88vh]" onClick={e => e.stopPropagation()}>
+            {/* Header - Sticky */}
+            <div className="px-4 py-3.5 sm:px-5 sm:py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/70 shrink-0">
               <div>
-                <h3 className="text-base font-black text-gray-900">Receive Clean Laundry ({selectedOrder.orderNumber})</h3>
-                <p className="text-[11px] font-bold text-gray-400">Verify clean pieces count & missing items from {selectedOrder.vendorName}</p>
+                <h3 className="text-sm sm:text-base font-black text-gray-900">Receive Clean Laundry ({selectedOrder.orderNumber})</h3>
+                <p className="text-[10px] sm:text-[11px] font-bold text-gray-400">Verify clean pieces count & missing items from {selectedOrder.vendorName}</p>
               </div>
               <button onClick={() => setIsReceiveModalOpen(false)} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full">
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleSubmitReceive} className="p-5 overflow-y-auto space-y-4 text-xs font-semibold">
-              <div>
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Received Date</label>
-                <input
-                  type="date"
-                  value={receiveForm.receivedDate}
-                  onChange={e => setReceiveForm({ ...receiveForm, receivedDate: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-800 outline-none"
-                />
-              </div>
-
-              {/* Items Verification Table */}
-              <div className="border border-gray-200 rounded-2xl overflow-hidden">
-                <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 font-black text-[10px] uppercase text-gray-500 grid grid-cols-12 gap-1 text-center">
-                  <span className="col-span-5 text-left">Item</span>
-                  <span className="col-span-2">Sent</span>
-                  <span className="col-span-3">Received</span>
-                  <span className="col-span-2">Missing</span>
+            {/* Form Body with scrollable content */}
+            <form onSubmit={handleSubmitReceive} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="p-4 sm:p-5 overflow-y-auto flex-1 min-h-0 space-y-4 text-xs font-semibold">
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Received Date</label>
+                  <input
+                    type="date"
+                    value={receiveForm.receivedDate}
+                    onChange={e => setReceiveForm({ ...receiveForm, receivedDate: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-800 outline-none"
+                  />
                 </div>
-                <div className="divide-y divide-gray-100 max-h-48 overflow-y-auto">
-                  {receiveForm.items.map((it, idx) => (
-                    <div key={idx} className="p-2.5 grid grid-cols-12 gap-1 items-center text-center">
-                      <span className="col-span-5 text-left font-bold text-gray-900 truncate">{it.itemName}</span>
-                      <span className="col-span-2 font-mono font-bold text-gray-500">{it.sentCount}</span>
-                      <div className="col-span-3">
-                        <input
-                          type="number"
-                          min="0"
-                          max={it.sentCount}
-                          value={it.receivedCount}
-                          onChange={e => {
-                            const val = e.target.value;
-                            const arr = [...receiveForm.items];
-                            const rec = val === '' ? '' : Math.max(0, parseInt(val) || 0);
-                            const missing = val === '' ? 0 : Math.max(0, it.sentCount - (Number(rec) || 0));
-                            arr[idx] = { ...arr[idx], receivedCount: rec, damagedOrMissingCount: missing };
-                            setReceiveForm({ ...receiveForm, items: arr });
-                          }}
-                          className="w-full px-2 py-1 bg-gray-50 border border-gray-200 rounded text-center font-bold text-gray-900"
-                        />
+
+                {/* Items Verification - Mobile-first card list */}
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
+                    Verify Pieces Returned per Item (कपड़े चेक करें)
+                  </label>
+                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                    {receiveForm.items.map((it, idx) => (
+                      <div key={idx} className="p-3 bg-gray-50 rounded-2xl border border-gray-200 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-gray-900 text-xs sm:text-sm">{it.itemName}</span>
+                          <span className="text-[11px] font-black text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100">
+                            Sent: {it.sentCount} pcs
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">Received Clean</label>
+                            <input
+                              type="number"
+                              min="0"
+                              max={it.sentCount}
+                              value={it.receivedCount}
+                              onChange={e => {
+                                const val = e.target.value;
+                                const arr = [...receiveForm.items];
+                                const rec = val === '' ? '' : Math.max(0, parseInt(val) || 0);
+                                const missing = val === '' ? 0 : Math.max(0, it.sentCount - (Number(rec) || 0));
+                                arr[idx] = { ...arr[idx], receivedCount: rec, damagedOrMissingCount: missing };
+                                setReceiveForm({ ...receiveForm, items: arr });
+                              }}
+                              placeholder={`${it.sentCount}`}
+                              className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded-xl text-center font-black text-xs text-gray-900 outline-none focus:ring-1 focus:ring-black"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[9px] font-bold text-red-500 uppercase tracking-wider mb-0.5">Missing / Torn</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={it.damagedOrMissingCount}
+                              onChange={e => {
+                                const val = e.target.value;
+                                const arr = [...receiveForm.items];
+                                arr[idx].damagedOrMissingCount = val === '' ? '' : Math.max(0, parseInt(val) || 0);
+                                setReceiveForm({ ...receiveForm, items: arr });
+                              }}
+                              placeholder="0"
+                              className="w-full px-2.5 py-1.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-center font-black text-xs outline-none focus:ring-1 focus:ring-red-500"
+                            />
+                          </div>
+                        </div>
                       </div>
-                      <div className="col-span-2">
-                        <input
-                          type="number"
-                          min="0"
-                          value={it.damagedOrMissingCount}
-                          onChange={e => {
-                            const val = e.target.value;
-                            const arr = [...receiveForm.items];
-                            arr[idx].damagedOrMissingCount = val === '' ? '' : Math.max(0, parseInt(val) || 0);
-                            setReceiveForm({ ...receiveForm, items: arr });
-                          }}
-                          className="w-full px-1.5 py-1 bg-red-50 border border-red-200 text-red-700 rounded text-center font-bold text-xs"
-                        />
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              {/* Missing / Damaged Items Alert & Deduction Helper */}
-              {(() => {
-                const totalMissing = receiveForm.items.reduce((s, it) => s + (Number(it.damagedOrMissingCount) || 0), 0);
-                if (totalMissing <= 0) return null;
-                const estimatedDeduction = receiveForm.items.reduce((s, it) => {
-                  const missing = Number(it.damagedOrMissingCount) || 0;
-                  const rate = Number(it.ratePerPiece) || 0;
-                  return s + (missing * rate);
-                }, 0);
+                {/* Missing / Damaged Items Alert & Deduction Helper */}
+                {(() => {
+                  const totalMissing = receiveForm.items.reduce((s, it) => s + (Number(it.damagedOrMissingCount) || 0), 0);
+                  if (totalMissing <= 0) return null;
+                  const estimatedDeduction = receiveForm.items.reduce((s, it) => {
+                    const missing = Number(it.damagedOrMissingCount) || 0;
+                    const rate = Number(it.ratePerPiece) || 0;
+                    return s + (missing * rate);
+                  }, 0);
 
-                return (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-2xl space-y-2">
-                    <div className="flex items-center justify-between text-xs font-bold text-red-700">
-                      <span className="flex items-center gap-1.5">
-                        <AlertCircle size={15} />
-                        {totalMissing} pieces missing / damaged!
-                      </span>
-                      <span>Est. Loss: ₹{estimatedDeduction}</span>
-                    </div>
+                  return (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-2xl space-y-2">
+                      <div className="flex items-center justify-between text-xs font-bold text-red-700">
+                        <span className="flex items-center gap-1.5">
+                          <AlertCircle size={15} />
+                          {totalMissing} pieces missing / damaged!
+                        </span>
+                        <span>Est. Loss: ₹{estimatedDeduction}</span>
+                      </div>
 
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const currentBill = Number(receiveForm.totalAmount) || 0;
-                          const newBill = Math.max(0, currentBill - estimatedDeduction);
-                          setReceiveForm(prev => ({ ...prev, totalAmount: newBill }));
-                          flash(`Deducted ₹${estimatedDeduction} from bill. New bill: ₹${newBill}`);
-                        }}
-                        className="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[11px] font-black rounded-lg transition-all active:scale-95 shadow-xs"
-                      >
-                        ✂️ Deduct ₹{estimatedDeduction} from Bill
-                      </button>
-
-                      {selectedOrder.vendorPhone && (
+                      <div className="flex flex-wrap gap-2 pt-1">
                         <button
                           type="button"
                           onClick={() => {
-                            const rawPhone = (selectedOrder.vendorPhone || '').replace(/[^0-9]/g, '');
-                            const phone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
-                            const missingList = receiveForm.items
-                              .filter(it => (Number(it.damagedOrMissingCount) || 0) > 0)
-                              .map(it => `• ${it.itemName}: *${it.damagedOrMissingCount} missing*`)
-                              .join('\n');
-                            const msg = `⚠️ *${selectedOrder.hostel?.name || 'Hotel'} - MISSING LINEN ALERT*\n\n📄 Challan: *${selectedOrder.orderNumber}*\n👤 Dhobi / Vendor: *${selectedOrder.vendorName}*\n\nClean laundry check karte waqt ye items missing / damaged mile hain:\n${missingList}\n\nKripya turant check karke bache hue kapde bhej dein. Dhanyawad!`;
-                            window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+                            const currentBill = Number(receiveForm.totalAmount) || 0;
+                            const newBill = Math.max(0, currentBill - estimatedDeduction);
+                            setReceiveForm(prev => ({ ...prev, totalAmount: newBill }));
+                            flash(`Deducted ₹${estimatedDeduction} from bill. New bill: ₹${newBill}`);
                           }}
-                          className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black rounded-lg transition-all active:scale-95 flex items-center gap-1 shadow-xs"
+                          className="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[11px] font-black rounded-lg transition-all active:scale-95 shadow-xs"
                         >
-                          <MessageSquare size={13} />
-                          <span>Alert Dhobi on WhatsApp</span>
+                          ✂️ Deduct ₹{estimatedDeduction} from Bill
                         </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
 
-              {/* Bill & Payment */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Final Bill Amount (₹)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={receiveForm.totalAmount}
-                    onChange={e => setReceiveForm({ ...receiveForm, totalAmount: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-800 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Total Paid (₹)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={receiveForm.paidAmount}
-                    onChange={e => setReceiveForm({ ...receiveForm, paidAmount: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-800 outline-none"
-                  />
+                        {selectedOrder.vendorPhone && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const rawPhone = (selectedOrder.vendorPhone || '').replace(/[^0-9]/g, '');
+                              const phone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
+                              const missingList = receiveForm.items
+                                .filter(it => (Number(it.damagedOrMissingCount) || 0) > 0)
+                                .map(it => `• ${it.itemName}: *${it.damagedOrMissingCount} missing*`)
+                                .join('\n');
+                              const msg = `⚠️ *${selectedOrder.hostel?.name || 'Hotel'} - MISSING LINEN ALERT*\n\n📄 Challan: *${selectedOrder.orderNumber}*\n👤 Dhobi / Vendor: *${selectedOrder.vendorName}*\n\nClean laundry check karte waqt ye items missing / damaged mile hain:\n${missingList}\n\nKripya turant check karke bache hue kapde bhej dein. Dhanyawad!`;
+                              window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+                            }}
+                            className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black rounded-lg transition-all active:scale-95 flex items-center gap-1 shadow-xs"
+                          >
+                            <MessageSquare size={13} />
+                            <span>Alert Dhobi on WhatsApp</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Bill & Payment */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Final Bill Amount (₹)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={receiveForm.totalAmount}
+                      onChange={e => setReceiveForm({ ...receiveForm, totalAmount: e.target.value })}
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-800 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Total Paid (₹)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={receiveForm.paidAmount}
+                      onChange={e => setReceiveForm({ ...receiveForm, paidAmount: e.target.value })}
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-800 outline-none"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50"
-              >
-                {submitting ? 'Saving...' : 'Confirm Received & Complete ✓'}
-              </button>
+              {/* Sticky Footer */}
+              <div className="p-3.5 sm:p-4 bg-gray-50/90 border-t border-gray-100 shrink-0 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsReceiveModalOpen(false)}
+                  className="px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs sm:text-sm uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {submitting ? 'Saving...' : 'Confirm Received & Complete ✓'}
+                </button>
+              </div>
             </form>
           </div>
         </div>
@@ -2062,86 +2116,97 @@ Hotel me *${item.itemName}* ka stock critically low hai:
           MODAL 3: RECORD PAYMENT
          ───────────────────────────────────────────────────────────── */}
       {isPayModalOpen && selectedOrder && (
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3" onClick={() => setIsPayModalOpen(false)}>
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={() => setIsPayModalOpen(false)}>
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-md my-0 sm:my-auto overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88vh]" onClick={e => e.stopPropagation()}>
+            <div className="px-4 py-3.5 sm:px-5 sm:py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/70 shrink-0">
               <div>
-                <h3 className="text-base font-black text-gray-900">Pay Laundry Vendor</h3>
-                <p className="text-[11px] font-bold text-gray-400">{selectedOrder.vendorName} • {selectedOrder.orderNumber}</p>
+                <h3 className="text-sm sm:text-base font-black text-gray-900">Pay Laundry Vendor</h3>
+                <p className="text-[10px] sm:text-[11px] font-bold text-gray-400">{selectedOrder.vendorName} • {selectedOrder.orderNumber}</p>
               </div>
               <button onClick={() => setIsPayModalOpen(false)} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full">
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleSubmitPay} className="p-5 space-y-4 text-xs font-semibold">
-              <div className="p-3 bg-gray-50 rounded-xl flex justify-between items-center font-bold">
-                <span className="text-gray-500">Balance Due:</span>
-                <span className="text-red-600 font-black text-base">
-                  ₹{Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0))}
-                </span>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Amount Paying (₹)</label>
-                <input
-                  type="number"
-                  min="1"
-                  required
-                  value={payForm.amount}
-                  onChange={e => setPayForm({ ...payForm, amount: e.target.value })}
-                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-black text-gray-900 text-sm outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Payment Method</label>
-                <div className="flex gap-2">
-                  {['Cash', 'UPI', 'Bank Transfer'].map(m => (
-                    <button
-                      type="button"
-                      key={m}
-                      onClick={() => setPayForm({ ...payForm, paymentMethod: m })}
-                      className={`flex-1 py-2 text-xs font-black rounded-xl border transition-all ${
-                        payForm.paymentMethod === m
-                          ? 'bg-black text-white border-black shadow-xs'
-                          : 'bg-gray-50 text-gray-700 border-gray-200'
-                      }`}
-                    >
-                      {m}
-                    </button>
-                  ))}
+            <form onSubmit={handleSubmitPay} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="p-4 sm:p-5 overflow-y-auto flex-1 min-h-0 space-y-4 text-xs font-semibold">
+                <div className="p-3 bg-gray-50 rounded-xl flex justify-between items-center font-bold">
+                  <span className="text-gray-500">Balance Due:</span>
+                  <span className="text-red-600 font-black text-base">
+                    ₹{Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0))}
+                  </span>
                 </div>
-              </div>
 
-              {payForm.paymentMethod === 'UPI' && Number(payForm.amount) > 0 && selectedOrder.hostel && (
-                <div className="pt-1">
-                  <DynamicUpiQr
-                    amount={Number(payForm.amount)}
-                    guestName={`Laundry - ${selectedOrder.vendorName}`}
-                    roomNumber={selectedOrder.orderNumber}
-                    hostel={selectedOrder.hostel}
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Amount Paying (₹)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={payForm.amount}
+                    onChange={e => setPayForm({ ...payForm, amount: e.target.value })}
+                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-black text-gray-900 text-sm outline-none"
                   />
                 </div>
-              )}
 
-              <div>
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Note (optional)</label>
-                <input
-                  placeholder="e.g. Paid via PhonePe"
-                  value={payForm.notes}
-                  onChange={e => setPayForm({ ...payForm, notes: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-800 outline-none"
-                />
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Payment Method</label>
+                  <div className="flex gap-2">
+                    {['Cash', 'UPI', 'Bank Transfer'].map(m => (
+                      <button
+                        type="button"
+                        key={m}
+                        onClick={() => setPayForm({ ...payForm, paymentMethod: m })}
+                        className={`flex-1 py-2 text-xs font-black rounded-xl border transition-all ${
+                          payForm.paymentMethod === m
+                            ? 'bg-black text-white border-black shadow-xs'
+                            : 'bg-gray-50 text-gray-700 border-gray-200'
+                        }`}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {payForm.paymentMethod === 'UPI' && Number(payForm.amount) > 0 && selectedOrder.hostel && (
+                  <div className="pt-1">
+                    <DynamicUpiQr
+                      amount={Number(payForm.amount)}
+                      guestName={`Laundry - ${selectedOrder.vendorName}`}
+                      roomNumber={selectedOrder.orderNumber}
+                      hostel={selectedOrder.hostel}
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Note (optional)</label>
+                  <input
+                    placeholder="e.g. Paid via PhonePe"
+                    value={payForm.notes}
+                    onChange={e => setPayForm({ ...payForm, notes: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-800 outline-none"
+                  />
+                </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full py-3 bg-black hover:bg-gray-800 text-white font-black text-sm uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50"
-              >
-                {submitting ? 'Recording...' : 'Record Payment ✓'}
-              </button>
+              <div className="p-3.5 sm:p-4 bg-gray-50/90 border-t border-gray-100 shrink-0 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsPayModalOpen(false)}
+                  className="px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex-1 py-3 bg-black hover:bg-gray-800 text-white font-black text-xs sm:text-sm uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {submitting ? 'Recording...' : 'Record Payment ✓'}
+                </button>
+              </div>
             </form>
           </div>
         </div>
@@ -2151,16 +2216,16 @@ Hotel me *${item.itemName}* ka stock critically low hai:
           MODAL 4: STANDARD RATES & LINEN ITEMS MANAGER
          ───────────────────────────────────────────────────────────── */}
       {isRatesModalOpen && (
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 overflow-y-auto" onClick={() => setIsRatesModalOpen(false)}>
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl my-auto overflow-hidden flex flex-col max-h-[92vh]" onClick={e => e.stopPropagation()}>
-            <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={() => setIsRatesModalOpen(false)}>
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-xl my-0 sm:my-auto overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88vh]" onClick={e => e.stopPropagation()}>
+            <div className="px-4 py-3.5 sm:px-5 sm:py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/70 shrink-0">
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-black text-white rounded-xl">
                   <Settings2 size={18} />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-gray-900">Manage Linen Items & Standard Rates</h3>
-                  <p className="text-[11px] font-bold text-gray-400">Add new items, rename, delete items & set standard washing price</p>
+                  <h3 className="text-sm sm:text-base font-black text-gray-900">Manage Linen Items & Standard Rates</h3>
+                  <p className="text-[10px] sm:text-[11px] font-bold text-gray-400">Add new items, rename, delete items & set standard washing price</p>
                 </div>
               </div>
               <button onClick={() => setIsRatesModalOpen(false)} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full">
@@ -2168,106 +2233,116 @@ Hotel me *${item.itemName}* ka stock critically low hai:
               </button>
             </div>
 
-            <form onSubmit={handleSaveRates} className="p-5 space-y-4 text-xs font-semibold overflow-y-auto">
-              <div className="flex items-center justify-between text-xs text-gray-500">
-                <span>Manage the laundry items tracked for this property. You can rename items, edit rates, or remove unused ones.</span>
-                <span className="font-bold text-gray-900 bg-gray-100 px-2 py-0.5 rounded-full text-[10px] shrink-0">
-                  {ratesFormItems.length} items
-                </span>
-              </div>
+            <form onSubmit={handleSaveRates} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="p-4 sm:p-5 space-y-4 text-xs font-semibold overflow-y-auto flex-1 min-h-0">
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <span>Manage the laundry items tracked for this property. You can rename items, edit rates, or remove unused ones.</span>
+                  <span className="font-bold text-gray-900 bg-gray-100 px-2 py-0.5 rounded-full text-[10px] shrink-0">
+                    {ratesFormItems.length} items
+                  </span>
+                </div>
 
-              {/* Items List */}
-              <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-                {ratesFormItems.map((it, idx) => (
-                  <div key={idx} className="p-2 bg-gray-50 rounded-2xl border border-gray-200 flex items-center gap-2">
-                    {/* Item Name Input (Editable!) */}
-                    <div className="flex-1">
-                      <input
-                        type="text"
-                        required
-                        value={it.itemName}
-                        placeholder="Item name e.g. Pool Towel"
-                        onChange={e => handleUpdateRatesItem(idx, 'itemName', e.target.value)}
-                        className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-xl font-bold text-xs text-gray-900 outline-none focus:ring-2 focus:ring-black"
-                        title="Click to rename this item"
-                      />
+                {/* Items List */}
+                <div className="space-y-2">
+                  {ratesFormItems.map((it, idx) => (
+                    <div key={idx} className="p-2 bg-gray-50 rounded-2xl border border-gray-200 flex items-center gap-2">
+                      {/* Item Name Input (Editable!) */}
+                      <div className="flex-1">
+                        <input
+                          type="text"
+                          required
+                          value={it.itemName}
+                          placeholder="Item name e.g. Pool Towel"
+                          onChange={e => handleUpdateRatesItem(idx, 'itemName', e.target.value)}
+                          className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-xl font-bold text-xs text-gray-900 outline-none focus:ring-2 focus:ring-black"
+                          title="Click to rename this item"
+                        />
+                      </div>
+
+                      {/* Rate Input */}
+                      <div className="relative w-24 shrink-0">
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">₹</span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={it.defaultRate}
+                          placeholder="Rate"
+                          onChange={e => handleUpdateRatesItem(idx, 'defaultRate', e.target.value)}
+                          className="w-full pl-6 pr-2 py-1.5 bg-white border border-gray-200 rounded-xl text-center font-black text-xs text-gray-900 outline-none focus:ring-2 focus:ring-black"
+                          title="Standard rate per piece"
+                        />
+                      </div>
+
+                      {/* Delete Item Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveRatesItem(idx)}
+                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors shrink-0"
+                        title="Delete this item"
+                      >
+                        <Trash2 size={15} />
+                      </button>
                     </div>
+                  ))}
 
-                    {/* Rate Input */}
+                  {ratesFormItems.length === 0 && (
+                    <div className="p-6 text-center text-gray-400 font-bold border-2 border-dashed border-gray-200 rounded-2xl">
+                      No linen items configured. Add your first item below!
+                    </div>
+                  )}
+                </div>
+
+                {/* Add New Linen Item Form */}
+                <div className="p-3 bg-indigo-50/70 border border-indigo-200 rounded-2xl space-y-2">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-indigo-900 flex items-center gap-1.5">
+                    <Plus size={13} />
+                    <span>+ Add New Linen Item</span>
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="New item name (e.g. Pool Towel, Kitchen Apron, Duvet)"
+                      value={newItemInput.itemName}
+                      onChange={e => setNewItemInput({ ...newItemInput, itemName: e.target.value })}
+                      className="flex-1 px-3 py-2 bg-white border border-indigo-200 rounded-xl text-xs font-bold text-gray-900 outline-none focus:ring-2 focus:ring-indigo-600"
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddRatesItem(); } }}
+                    />
                     <div className="relative w-24 shrink-0">
                       <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">₹</span>
                       <input
                         type="number"
                         min="0"
-                        value={it.defaultRate}
                         placeholder="Rate"
-                        onChange={e => handleUpdateRatesItem(idx, 'defaultRate', e.target.value)}
-                        className="w-full pl-6 pr-2 py-1.5 bg-white border border-gray-200 rounded-xl text-center font-black text-xs text-gray-900 outline-none focus:ring-2 focus:ring-black"
-                        title="Standard rate per piece"
+                        value={newItemInput.defaultRate}
+                        onChange={e => setNewItemInput({ ...newItemInput, defaultRate: e.target.value })}
+                        className="w-full pl-6 pr-2 py-2 bg-white border border-indigo-200 rounded-xl text-center font-black text-xs text-gray-900 outline-none focus:ring-2 focus:ring-indigo-600"
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddRatesItem(); } }}
                       />
                     </div>
-
-                    {/* Delete Item Button */}
                     <button
                       type="button"
-                      onClick={() => handleRemoveRatesItem(idx)}
-                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors shrink-0"
-                      title="Delete this item"
+                      onClick={handleAddRatesItem}
+                      className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs rounded-xl shadow-xs transition-all active:scale-95 shrink-0"
                     >
-                      <Trash2 size={15} />
+                      + Add
                     </button>
                   </div>
-                ))}
-
-                {ratesFormItems.length === 0 && (
-                  <div className="p-6 text-center text-gray-400 font-bold border-2 border-dashed border-gray-200 rounded-2xl">
-                    No linen items configured. Add your first item below!
-                  </div>
-                )}
-              </div>
-
-              {/* Add New Linen Item Form */}
-              <div className="p-3 bg-indigo-50/70 border border-indigo-200 rounded-2xl space-y-2">
-                <p className="text-[10px] font-black uppercase tracking-wider text-indigo-900 flex items-center gap-1.5">
-                  <Plus size={13} />
-                  <span>+ Add New Linen Item</span>
-                </p>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="New item name (e.g. Pool Towel, Kitchen Apron, Duvet)"
-                    value={newItemInput.itemName}
-                    onChange={e => setNewItemInput({ ...newItemInput, itemName: e.target.value })}
-                    className="flex-1 px-3 py-2 bg-white border border-indigo-200 rounded-xl text-xs font-bold text-gray-900 outline-none focus:ring-2 focus:ring-indigo-600"
-                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddRatesItem(); } }}
-                  />
-                  <div className="relative w-24 shrink-0">
-                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">₹</span>
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="Rate"
-                      value={newItemInput.defaultRate}
-                      onChange={e => setNewItemInput({ ...newItemInput, defaultRate: e.target.value })}
-                      className="w-full pl-6 pr-2 py-2 bg-white border border-indigo-200 rounded-xl text-center font-black text-xs text-gray-900 outline-none focus:ring-2 focus:ring-indigo-600"
-                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddRatesItem(); } }}
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleAddRatesItem}
-                    className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs rounded-xl shadow-xs transition-all active:scale-95 shrink-0"
-                  >
-                    + Add
-                  </button>
                 </div>
               </div>
 
-              <div className="pt-2">
+              {/* Sticky Footer */}
+              <div className="p-3.5 sm:p-4 bg-gray-50/90 border-t border-gray-100 shrink-0 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsRatesModalOpen(false)}
+                  className="px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full py-3 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50"
+                  className="flex-1 py-3 bg-black hover:bg-gray-800 text-white font-black text-xs sm:text-sm uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50"
                 >
                   {submitting ? 'Saving Items & Rates...' : 'Save Linen Items & Rates ✓'}
                 </button>
@@ -2281,16 +2356,16 @@ Hotel me *${item.itemName}* ka stock critically low hai:
           MODAL 5: SETTLE DHOBI KHATA / LUMP-SUM PAYMENT
          ───────────────────────────────────────────────────────────── */}
       {isLumpSumModalOpen && (
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3" onClick={() => setIsLumpSumModalOpen(false)}>
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={() => setIsLumpSumModalOpen(false)}>
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-md my-0 sm:my-auto overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88vh]" onClick={e => e.stopPropagation()}>
+            <div className="px-4 py-3.5 sm:px-5 sm:py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/70 shrink-0">
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-black text-white rounded-xl">
                   <CreditCard size={18} />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-gray-900">Settle Dhobi Khata</h3>
-                  <p className="text-[11px] font-bold text-gray-400">{lumpSumForm.vendorName}</p>
+                  <h3 className="text-sm sm:text-base font-black text-gray-900">Settle Dhobi Khata</h3>
+                  <p className="text-[10px] sm:text-[11px] font-bold text-gray-400">{lumpSumForm.vendorName}</p>
                 </div>
               </div>
               <button onClick={() => setIsLumpSumModalOpen(false)} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full">
@@ -2298,83 +2373,95 @@ Hotel me *${item.itemName}* ka stock critically low hai:
               </button>
             </div>
 
-            <form onSubmit={handleSettleLumpSum} className="p-5 space-y-4 text-xs font-semibold">
-              <div className="p-3 bg-red-50 border border-red-200 rounded-2xl flex justify-between items-center">
-                <span className="text-red-700 font-bold">Total Khata Balance Due:</span>
-                <span className="text-red-600 font-black text-lg">₹{lumpSumForm.balanceDue.toLocaleString('en-IN')}</span>
-              </div>
+            <form onSubmit={handleSettleLumpSum} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="p-4 sm:p-5 space-y-4 text-xs font-semibold overflow-y-auto flex-1 min-h-0">
+                <div className="p-3 bg-red-50 border border-red-200 rounded-2xl flex justify-between items-center">
+                  <span className="text-red-700 font-bold">Total Khata Balance Due:</span>
+                  <span className="text-red-600 font-black text-lg">₹{lumpSumForm.balanceDue.toLocaleString('en-IN')}</span>
+                </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Paying Amount (₹)</label>
-                <div className="flex gap-2">
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Paying Amount (₹)</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      min="1"
+                      required
+                      value={lumpSumForm.amount}
+                      onChange={e => setLumpSumForm({ ...lumpSumForm, amount: e.target.value })}
+                      className="flex-1 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-black text-gray-900 text-sm outline-none focus:ring-2 focus:ring-black"
+                    />
+                    {lumpSumForm.balanceDue > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setLumpSumForm({ ...lumpSumForm, amount: lumpSumForm.balanceDue })}
+                        className="px-3 bg-gray-100 hover:bg-gray-200 rounded-xl text-xs font-black text-gray-700"
+                      >
+                        Full Due
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Payment Method</label>
+                  <div className="flex gap-2">
+                    {['Cash', 'UPI', 'Bank Transfer'].map(m => (
+                      <button
+                        type="button"
+                        key={m}
+                        onClick={() => setLumpSumForm({ ...lumpSumForm, paymentMethod: m })}
+                        className={`flex-1 py-2 text-xs font-black rounded-xl border transition-all ${
+                          lumpSumForm.paymentMethod === m
+                            ? 'bg-black text-white border-black shadow-xs'
+                            : 'bg-gray-50 text-gray-700 border-gray-200'
+                        }`}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {lumpSumForm.paymentMethod === 'UPI' && Number(lumpSumForm.amount) > 0 && currentPropertyDoc && (
+                  <div className="pt-1">
+                    <DynamicUpiQr
+                      amount={Number(lumpSumForm.amount)}
+                      guestName={`Laundry - ${lumpSumForm.vendorName}`}
+                      roomNumber="KHATA-SETTLEMENT"
+                      hostel={currentPropertyDoc}
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Remarks / Reference (optional)</label>
                   <input
-                    type="number"
-                    min="1"
-                    required
-                    value={lumpSumForm.amount}
-                    onChange={e => setLumpSumForm({ ...lumpSumForm, amount: e.target.value })}
-                    className="flex-1 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-black text-gray-900 text-sm outline-none focus:ring-2 focus:ring-black"
-                  />
-                  {lumpSumForm.balanceDue > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setLumpSumForm({ ...lumpSumForm, amount: lumpSumForm.balanceDue })}
-                      className="px-3 bg-gray-100 hover:bg-gray-200 rounded-xl text-xs font-black text-gray-700"
-                    >
-                      Full Due
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Payment Method</label>
-                <div className="flex gap-2">
-                  {['Cash', 'UPI', 'Bank Transfer'].map(m => (
-                    <button
-                      type="button"
-                      key={m}
-                      onClick={() => setLumpSumForm({ ...lumpSumForm, paymentMethod: m })}
-                      className={`flex-1 py-2 text-xs font-black rounded-xl border transition-all ${
-                        lumpSumForm.paymentMethod === m
-                          ? 'bg-black text-white border-black shadow-xs'
-                          : 'bg-gray-50 text-gray-700 border-gray-200'
-                      }`}
-                    >
-                      {m}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {lumpSumForm.paymentMethod === 'UPI' && Number(lumpSumForm.amount) > 0 && currentPropertyDoc && (
-                <div className="pt-1">
-                  <DynamicUpiQr
-                    amount={Number(lumpSumForm.amount)}
-                    guestName={`Laundry - ${lumpSumForm.vendorName}`}
-                    roomNumber="KHATA-SETTLEMENT"
-                    hostel={currentPropertyDoc}
+                    placeholder="e.g. Cleared via GPay / Cheque #1042"
+                    value={lumpSumForm.notes}
+                    onChange={e => setLumpSumForm({ ...lumpSumForm, notes: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-800 outline-none"
                   />
                 </div>
-              )}
-
-              <div>
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Remarks / Reference (optional)</label>
-                <input
-                  placeholder="e.g. Cleared via GPay / Cheque #1042"
-                  value={lumpSumForm.notes}
-                  onChange={e => setLumpSumForm({ ...lumpSumForm, notes: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-800 outline-none"
-                />
               </div>
 
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full py-3 bg-black hover:bg-gray-800 text-white font-black text-sm uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50"
-              >
-                {submitting ? 'Settling...' : 'Confirm Lump-Sum Settlement ✓'}
-              </button>
+              {/* Sticky Footer */}
+              <div className="p-3.5 sm:p-4 bg-gray-50/90 border-t border-gray-100 shrink-0 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsLumpSumModalOpen(false)}
+                  className="px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex-1 py-3 bg-black hover:bg-gray-800 text-white font-black text-xs sm:text-sm uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {submitting ? 'Settling...' : 'Confirm Lump-Sum Settlement ✓'}
+                </button>
+              </div>
             </form>
           </div>
         </div>
@@ -2384,16 +2471,16 @@ Hotel me *${item.itemName}* ka stock critically low hai:
           MODAL 6: UPDATE TOTAL HOTEL LINEN INVENTORY
          ───────────────────────────────────────────────────────────── */}
       {isInventoryModalOpen && (
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 overflow-y-auto" onClick={() => setIsInventoryModalOpen(false)}>
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg my-auto overflow-hidden flex flex-col max-h-[92vh]" onClick={e => e.stopPropagation()}>
-            <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={() => setIsInventoryModalOpen(false)}>
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-lg my-0 sm:my-auto overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88vh]" onClick={e => e.stopPropagation()}>
+            <div className="px-4 py-3.5 sm:px-5 sm:py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/70 shrink-0">
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-black text-white rounded-xl">
                   <Boxes size={18} />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-gray-900">Total Linen Inventory</h3>
-                  <p className="text-[11px] font-bold text-gray-400">Total count of linen pieces owned by this property</p>
+                  <h3 className="text-sm sm:text-base font-black text-gray-900">Total Linen Inventory</h3>
+                  <p className="text-[10px] sm:text-[11px] font-bold text-gray-400">Total count of linen pieces owned by this property</p>
                 </div>
               </div>
               <button onClick={() => setIsInventoryModalOpen(false)} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full">
@@ -2401,34 +2488,44 @@ Hotel me *${item.itemName}* ka stock critically low hai:
               </button>
             </div>
 
-            <form onSubmit={handleSaveInventory} className="p-5 space-y-4 text-xs font-semibold overflow-y-auto">
-              <p className="text-gray-500 text-xs">
-                Set total inventory count for each linen type. The system uses these totals to calculate live clean stock availability in the store.
-              </p>
+            <form onSubmit={handleSaveInventory} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="p-4 sm:p-5 space-y-4 text-xs font-semibold overflow-y-auto flex-1 min-h-0">
+                <p className="text-gray-500 text-xs">
+                  Set total inventory count for each linen type. The system uses these totals to calculate live clean stock availability in the store.
+                </p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-72 overflow-y-auto pr-1">
-                {(linenRotation?.items || []).map(it => (
-                  <div key={it.itemName} className="p-2.5 bg-gray-50 rounded-xl border border-gray-200 flex items-center justify-between">
-                    <span className="font-bold text-gray-800 text-xs">{it.itemName}</span>
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="number"
-                        min="0"
-                        value={inventoryForm[it.itemName] ?? it.totalStock}
-                        onChange={e => setInventoryForm({ ...inventoryForm, [it.itemName]: Number(e.target.value) || 0 })}
-                        className="w-20 px-2 py-1 bg-white border border-gray-300 rounded-lg text-center font-black text-xs text-gray-900 outline-none focus:ring-1 focus:ring-black"
-                      />
-                      <span className="text-[10px] text-gray-400 font-bold">pcs</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {(linenRotation?.items || []).map(it => (
+                    <div key={it.itemName} className="p-2.5 bg-gray-50 rounded-xl border border-gray-200 flex items-center justify-between">
+                      <span className="font-bold text-gray-800 text-xs">{it.itemName}</span>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          min="0"
+                          value={inventoryForm[it.itemName] ?? it.totalStock}
+                          onChange={e => setInventoryForm({ ...inventoryForm, [it.itemName]: Number(e.target.value) || 0 })}
+                          className="w-20 px-2 py-1 bg-white border border-gray-300 rounded-lg text-center font-black text-xs text-gray-900 outline-none focus:ring-1 focus:ring-black"
+                        />
+                        <span className="text-[10px] text-gray-400 font-bold">pcs</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
 
-              <div className="pt-2">
+              {/* Sticky Footer */}
+              <div className="p-3.5 sm:p-4 bg-gray-50/90 border-t border-gray-100 shrink-0 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsInventoryModalOpen(false)}
+                  className="px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full py-3 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50"
+                  className="flex-1 py-3 bg-black hover:bg-gray-800 text-white font-black text-xs sm:text-sm uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50"
                 >
                   {submitting ? 'Saving Inventory...' : 'Save Linen Inventory ✓'}
                 </button>

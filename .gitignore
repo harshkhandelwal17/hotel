@@ -10,4 +10,5 @@ build/
 desktop/node_modules/
 desktop/dist-electron/
 *.log
-
+backend/uploads/
+uploads/

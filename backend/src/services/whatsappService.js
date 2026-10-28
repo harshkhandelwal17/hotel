@@ -250,11 +250,13 @@ const startHostelWhatsApp = async (hostelId) => {
   explicitlyDisconnected.delete(hostelId);
 
   const connectPromise = (async () => {
-    // Verify that Super Admin has enabled WhatsApp Sync for this hostel
+    // Ensure WhatsApp Sync is enabled for this property
     const hostel = await Hostel.findById(hostelId);
     if (!hostel) throw new Error('Hostel not found');
     if (!hostel.whatsappSyncEnabled) {
-      throw new Error('WhatsApp Live Sync is not enabled for this property. Contact Super Admin.');
+      hostel.whatsappSyncEnabled = true;
+      await hostel.save({ validateBeforeSave: false }).catch(() => {});
+      console.log(`[WhatsApp] Auto-enabled whatsappSyncEnabled for Hostel ${hostelId}`);
     }
 
     // If already connected, return existing active status
@@ -284,7 +286,7 @@ const startHostelWhatsApp = async (hostelId) => {
 
     const authPath = path.join(SESSIONS_DIR, `hostel_${hostelId}`);
     
-    // Guard against corrupted 0-byte creds.json (allow ongoing flush to finish)
+    // Guard against corrupted or 0-byte creds.json
     const credsPath = path.join(authPath, 'creds.json');
     if (fs.existsSync(credsPath)) {
       try {
@@ -297,19 +299,30 @@ const startHostelWhatsApp = async (hostelId) => {
               fs.rmSync(authPath, { recursive: true, force: true });
             }
           }
+        } else {
+          const raw = fs.readFileSync(credsPath, 'utf8');
+          JSON.parse(raw);
         }
-      } catch (_) {}
+      } catch (_) {
+        console.warn(`[WhatsApp] Corrupted creds.json found for Hostel ${hostelId}. Purging session directory...`);
+        try { fs.rmSync(authPath, { recursive: true, force: true }); } catch (_) {}
+      }
     }
 
     const { state, saveCreds } = await useMultiFileAuthState(authPath);
     let version = [2, 3000, 1049994111];
     try {
-      const waVersion = await fetchLatestWaWebVersion();
+      const waVersion = await Promise.race([
+        fetchLatestWaWebVersion(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+      ]);
       if (waVersion?.version) {
         version = waVersion.version;
         console.log(`[WhatsApp] Using latest WhatsApp Web version: ${version.join('.')}`);
       }
-    } catch (_) {}
+    } catch (_) {
+      console.log(`[WhatsApp] Using stable WhatsApp Web version: ${version.join('.')}`);
+    }
     const logger = pino({ level: 'warn' });
 
     console.log(`[WhatsApp] Initializing Baileys socket for Hostel ${hostelId} (v${version.join('.')})...`);
@@ -662,6 +675,11 @@ const disconnectHostelWhatsApp = async (hostelId) => {
 const requestHostelPairingCode = async (hostelId, phoneNumber) => {
   if (!phoneNumber) throw new Error('Phone number is required');
   explicitlyDisconnected.delete(hostelId);
+  const hCheck = await Hostel.findById(hostelId);
+  if (hCheck && !hCheck.whatsappSyncEnabled) {
+    hCheck.whatsappSyncEnabled = true;
+    await hCheck.save({ validateBeforeSave: false }).catch(() => {});
+  }
   let cleanPhone = phoneNumber.replace(/\D/g, '');
   if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
 

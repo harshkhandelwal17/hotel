@@ -26,14 +26,17 @@ const getTargetHostelId = async (req) => {
     hostelId = null;
   }
 
-  if (!hostelId && req.user && req.user.assignedHostel) {
-    const assigned = req.user.assignedHostel;
-    hostelId = typeof assigned === 'object' ? (assigned._id || assigned) : assigned;
-  }
-
-  if (!hostelId && req.user && req.user.role === 'admin') {
-    const myHostels = await Hostel.find({ owner: userId(req.user) }).select('_id');
-    if (myHostels.length > 0) hostelId = myHostels[0]._id;
+  if (!hostelId && req.user) {
+    if (req.user.assignedHostel) {
+      const assigned = req.user.assignedHostel;
+      hostelId = typeof assigned === 'object' ? (assigned._id || assigned) : assigned;
+    } else if (req.user.role === 'admin') {
+      const myHostels = await Hostel.find({ owner: userId(req.user) }).select('_id');
+      if (myHostels.length > 0) hostelId = myHostels[0]._id;
+    } else if (req.user.role === 'superadmin') {
+      const firstHostel = await Hostel.findOne().select('_id');
+      if (firstHostel) hostelId = firstHostel._id;
+    }
   }
 
   if (hostelId) {
