@@ -12,10 +12,10 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
   const guest = stay.guest || {};
   const room = stay.room || {};
 
-  // Local configurable options for this invoice
-  const [gstEnabled, setGstEnabled] = useState(Boolean(hostel.gstEnabled));
-  const [gstRate, setGstRate] = useState(hostel.gstRate || 12);
-  const [taxInclusive, setTaxInclusive] = useState(hostel.taxInclusive !== undefined ? hostel.taxInclusive : true);
+  // Local configurable options for this invoice (defaults to whether stay had GST applied)
+  const [gstEnabled, setGstEnabled] = useState(Boolean(stay.gstApplied));
+  const [gstRate, setGstRate] = useState(stay.gstRate || hostel.gstRate || 12);
+  const [taxInclusive, setTaxInclusive] = useState(stay.gstType === 'exclusive' ? false : (stay.gstType === 'inclusive' ? true : (hostel.taxInclusive !== undefined ? hostel.taxInclusive : true)));
   const [guestCompany, setGuestCompany] = useState(guest.companyName || '');
   const [guestGstin, setGuestGstin] = useState(guest.gstin || '');
   const [showTaxOptions, setShowTaxOptions] = useState(false);
@@ -420,3 +420,4 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
 };
 
 export default InvoiceModal;
+

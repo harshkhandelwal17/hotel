@@ -345,13 +345,13 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
               {/* GST & INVOICE STATUS STRIP */}
               <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-2xl mb-3 text-xs">
                 <div className="flex items-center gap-2.5">
-                  <span className={`w-2.5 h-2.5 rounded-full ${stay.hostel?.gstEnabled ? 'bg-blue-600 ring-2 ring-blue-100' : 'bg-slate-400'}`}></span>
+                  <span className={`w-2.5 h-2.5 rounded-full ${stay.gstApplied ? 'bg-blue-600 ring-2 ring-blue-100' : 'bg-slate-400'}`}></span>
                   <div>
                     <span className="font-extrabold text-gray-900">
-                      {stay.hostel?.gstEnabled ? `GST Tax Invoice Mode (${stay.hostel?.gstRate || 12}%)` : 'Non-GST Hospitality Bill'}
+                      {stay.gstApplied ? `GST Tax Invoice (${stay.gstRate || 12}%)` : 'Standard Non-GST Bill'}
                     </span>
                     <p className="text-[10px] text-gray-500 font-medium">
-                      {stay.hostel?.gstEnabled ? (stay.hostel?.gstin ? `GSTIN: ${stay.hostel.gstin}` : 'GST Active') : 'Bill of Supply / Composition Scheme'}
+                      {stay.gstApplied ? (stay.hostel?.gstin ? `GSTIN: ${stay.hostel.gstin}` : 'GST Applied') : 'Flat rate / Clean receipt (No GST)'}
                     </p>
                   </div>
                 </div>

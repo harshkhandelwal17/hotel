@@ -62,6 +62,24 @@ const staySchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  // GST Tax details for this reservation
+  gstApplied: {
+    type: Boolean,
+    default: false
+  },
+  gstType: {
+    type: String,
+    enum: ['none', 'exclusive', 'inclusive'],
+    default: 'none'
+  },
+  gstRate: {
+    type: Number,
+    default: 0
+  },
+  taxAmount: {
+    type: Number,
+    default: 0
+  },
   // Itemised extra charges (food, water, laundry, damage...)
   charges: [{
     description: { type: String, required: true, trim: true },

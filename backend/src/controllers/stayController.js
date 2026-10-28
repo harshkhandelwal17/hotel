@@ -112,6 +112,10 @@ exports.createStay = async (req, res, next) => {
       occupants: occupants || 1,
       commissionTo: commissionTo || '',
       commissionAmount: Number(commissionAmount) || 0,
+      gstApplied: Boolean(req.body.gstApplied),
+      gstType: req.body.gstType || 'none',
+      gstRate: Number(req.body.gstRate) || 0,
+      taxAmount: Number(req.body.taxAmount) || 0,
       createdBy: req.user._id
     });
 

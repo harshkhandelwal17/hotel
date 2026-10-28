@@ -30,7 +30,8 @@ import {
   Printer,
   Trash2,
   CalendarClock,
-  AlertTriangle
+  AlertTriangle,
+  Percent
 } from 'lucide-react';
 
 import { format, isPast } from 'date-fns';
@@ -129,6 +130,9 @@ const CheckIn = () => {
       isMorningCheckout: false,
       occupants: 1,
       totalAmount: '',
+      basePrice: '',
+      gstType: 'none',
+      gstRate: 12,
       paidAmount: '',
       paymentMethod: 'Cash',
       commissionTo: '',
@@ -1211,7 +1215,17 @@ const CheckIn = () => {
 
         isAlreadyCheckedOut: isPastCheckout,
 
-        actualCheckOutDate: actualOutIso
+        actualCheckOutDate: actualOutIso,
+
+        gstApplied: stayInfo.gstType !== 'none',
+
+        gstType: stayInfo.gstType || 'none',
+
+        gstRate: stayInfo.gstType !== 'none' ? (Number(stayInfo.gstRate) || 12) : 0,
+
+        taxAmount: stayInfo.gstType === 'exclusive' 
+          ? Math.round((Number(stayInfo.basePrice || stayInfo.totalAmount) * (Number(stayInfo.gstRate) || 12)) / 100)
+          : (stayInfo.gstType === 'inclusive' ? Math.round(Number(stayInfo.totalAmount) - (Number(stayInfo.totalAmount) / (1 + (Number(stayInfo.gstRate) || 12) / 100))) : 0)
       };
 
       console.log(
@@ -1296,6 +1310,57 @@ const CheckIn = () => {
     if (idx === 0 && g.mobileNumber.length !== 10) return false;
     return true;
   });
+
+  const handleGstModeChange = (newMode) => {
+    const rate = Number(stayInfo.gstRate) || Number(activeHostel?.gstRate) || 12;
+    const currentBase = Number(stayInfo.basePrice || stayInfo.totalAmount) || 0;
+    
+    if (newMode === 'exclusive') {
+      const extraGst = Math.round((currentBase * rate) / 100);
+      setStayInfo(prev => ({
+        ...prev,
+        gstType: 'exclusive',
+        gstRate: rate,
+        basePrice: currentBase ? currentBase.toString() : prev.totalAmount,
+        totalAmount: currentBase ? (currentBase + extraGst).toString() : prev.totalAmount
+      }));
+    } else if (newMode === 'none') {
+      const baseVal = stayInfo.basePrice || stayInfo.totalAmount;
+      setStayInfo(prev => ({
+        ...prev,
+        gstType: 'none',
+        gstRate: rate,
+        totalAmount: baseVal ? baseVal.toString() : ''
+      }));
+    } else if (newMode === 'inclusive') {
+      const totalVal = stayInfo.basePrice || stayInfo.totalAmount;
+      setStayInfo(prev => ({
+        ...prev,
+        gstType: 'inclusive',
+        gstRate: rate,
+        totalAmount: totalVal ? totalVal.toString() : ''
+      }));
+    }
+  };
+
+  const handlePriceInput = (val) => {
+    const num = Number(val) || 0;
+    const rate = Number(stayInfo.gstRate) || Number(activeHostel?.gstRate) || 12;
+    if (stayInfo.gstType === 'exclusive') {
+      const extraGst = Math.round((num * rate) / 100);
+      setStayInfo(p => ({
+        ...p,
+        basePrice: val,
+        totalAmount: num ? (num + extraGst).toString() : val
+      }));
+    } else {
+      setStayInfo(p => ({
+        ...p,
+        basePrice: val,
+        totalAmount: val
+      }));
+    }
+  };
 
   const resetForm = () => {
     if (!window.confirm('Clear all current data and start fresh?')) return;
@@ -2008,24 +2073,24 @@ const CheckIn = () => {
                   </span>
                 </div>
 
-                {/* AGREED TOTAL */}
-                <div className="pb-3 border-b border-gray-800/80">
+                {/* AGREED TOTAL & GST CONTROLS */}
+                <div className="pb-3 border-b border-gray-800/80 space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-400 font-bold text-xs uppercase tracking-wider">
-                      Agreed Total
-                    </span>
+                    <div>
+                      <span className="text-gray-400 font-bold text-xs uppercase tracking-wider block">
+                        {stayInfo.gstType === 'exclusive' ? 'Base Room Rate' : 'Agreed Total'}
+                      </span>
+                      {stayInfo.gstType === 'exclusive' && (
+                        <span className="text-[10px] text-blue-400 font-medium">+ 12% GST Extra</span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-1">
                       <span className="text-gray-500 font-black">₹</span>
                       <input
                         type="number"
                         placeholder="0"
-                        value={stayInfo.totalAmount}
-                        onChange={(e) =>
-                          setStayInfo((p) => ({
-                            ...p,
-                            totalAmount: e.target.value
-                          }))
-                        }
+                        value={stayInfo.gstType === 'exclusive' ? (stayInfo.basePrice || '') : stayInfo.totalAmount}
+                        onChange={(e) => handlePriceInput(e.target.value)}
                         className="w-28 bg-transparent text-right font-black text-xl outline-none border-b border-gray-700 focus:border-white text-white placeholder:text-gray-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none font-mono"
                       />
                     </div>
@@ -2033,16 +2098,86 @@ const CheckIn = () => {
 
                   {/* Standard rate pill if room has pricing and total is different */}
                   {selectedRoomDetails?.price24h > 0 && Number(stayInfo.totalAmount) !== selectedRoomDetails.price24h && (
-                    <div className="mt-1 flex justify-end">
+                    <div className="flex justify-end">
                       <button
                         type="button"
-                        onClick={() => setStayInfo(p => ({ ...p, totalAmount: selectedRoomDetails.price24h }))}
+                        onClick={() => handlePriceInput(selectedRoomDetails.price24h.toString())}
                         className="text-[10px] font-bold text-blue-400 hover:text-blue-300 underline"
                       >
                         💡 Set standard tariff: ₹{selectedRoomDetails.price24h}
                       </button>
                     </div>
                   )}
+
+                  {/* GST Billing Mode Selector */}
+                  <div className="pt-2 border-t border-gray-800/60">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                        <Percent size={11} className="text-blue-400" /> GST Billing Mode
+                      </span>
+                      {activeHostel?.gstin && (
+                        <span className="text-[9px] font-mono text-blue-400 bg-blue-950/60 px-1.5 py-0.5 rounded border border-blue-800/40">
+                          GSTIN: {activeHostel.gstin}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-1 bg-gray-900 p-1 rounded-xl border border-gray-800">
+                      <button
+                        type="button"
+                        onClick={() => handleGstModeChange('none')}
+                        className={`py-1.5 px-1 rounded-lg text-[11px] font-bold transition-all text-center ${
+                          stayInfo.gstType === 'none'
+                            ? 'bg-white text-black font-black shadow-xs'
+                            : 'text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        No GST (Flat)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleGstModeChange('exclusive')}
+                        className={`py-1.5 px-1 rounded-lg text-[11px] font-bold transition-all text-center ${
+                          stayInfo.gstType === 'exclusive'
+                            ? 'bg-blue-600 text-white font-black shadow-xs'
+                            : 'text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        + 12% Extra
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleGstModeChange('inclusive')}
+                        className={`py-1.5 px-1 rounded-lg text-[11px] font-bold transition-all text-center ${
+                          stayInfo.gstType === 'inclusive'
+                            ? 'bg-emerald-600 text-white font-black shadow-xs'
+                            : 'text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        GST Included
+                      </button>
+                    </div>
+
+                    {stayInfo.gstType === 'exclusive' && Number(stayInfo.totalAmount) > 0 && (
+                      <div className="mt-1.5 p-2 bg-blue-950/50 border border-blue-800/50 rounded-lg text-[11px] text-blue-300 flex justify-between items-center font-medium">
+                        <span>Base: ₹{stayInfo.basePrice || 0} + 12% GST: ₹{(Number(stayInfo.totalAmount) - Number(stayInfo.basePrice || 0))}</span>
+                        <span className="font-black text-white text-xs">Total: ₹{stayInfo.totalAmount}</span>
+                      </div>
+                    )}
+
+                    {stayInfo.gstType === 'inclusive' && Number(stayInfo.totalAmount) > 0 && (
+                      <div className="mt-1.5 p-2 bg-emerald-950/50 border border-emerald-800/50 rounded-lg text-[11px] text-emerald-300 flex justify-between items-center font-medium">
+                        <span>Net: ₹{Math.round(Number(stayInfo.totalAmount) / 1.12)} + 12% Included: ₹{Number(stayInfo.totalAmount) - Math.round(Number(stayInfo.totalAmount) / 1.12)}</span>
+                        <span className="font-black text-white text-xs">Total: ₹{stayInfo.totalAmount}</span>
+                      </div>
+                    )}
+
+                    {stayInfo.gstType === 'none' && (
+                      <p className="mt-1 text-[10px] text-gray-500 italic">
+                        Clean flat bill (no GST will be charged or shown on invoice).
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 {/* ADVANCE PAID */}

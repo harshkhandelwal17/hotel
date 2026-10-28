@@ -49,14 +49,17 @@ export const calculateInvoiceData = (stay, payments = [], options = {}) => {
   const room = stay.room || {};
 
   // Check GST configuration
+  // 1. Explicitly requested via options (e.g. receptionist toggled it in Invoice modal)
+  // 2. OR this specific stay had GST applied (stay.gstApplied === true)
+  // 3. Otherwise default to FALSE (clean standard Non-GST receipt so flat ₹1000 stays don't show tax!)
   const gstEnabled = options.gstEnabled !== undefined 
     ? Boolean(options.gstEnabled) 
-    : Boolean(hostel.gstEnabled);
+    : Boolean(stay.gstApplied);
 
-  const gstRate = Number(options.gstRate ?? hostel.gstRate ?? 12);
+  const gstRate = Number(options.gstRate ?? stay.gstRate ?? hostel.gstRate ?? 12);
   const taxInclusive = options.taxInclusive !== undefined 
     ? Boolean(options.taxInclusive) 
-    : (hostel.taxInclusive !== undefined ? Boolean(hostel.taxInclusive) : true);
+    : (stay.gstType === 'exclusive' ? false : (stay.gstType === 'inclusive' ? true : (hostel.taxInclusive !== undefined ? Boolean(hostel.taxInclusive) : true)));
 
   const charges = stay.charges || [];
   const chargesTotal = charges.reduce((s, c) => s + (Number(c.amount) || 0), 0);
