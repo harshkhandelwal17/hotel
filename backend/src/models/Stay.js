@@ -127,6 +127,8 @@ staySchema.index({ checkInDate: 1 });
 staySchema.index({ expectedCheckOutDate: 1 });
 staySchema.index({ hostel: 1, status: 1 });
 staySchema.index({ hostel: 1, status: 1, expectedCheckOutDate: -1 });
+staySchema.index({ hostel: 1, checkInDate: 1 });
+staySchema.index({ hostel: 1, expectedCheckOutDate: 1, status: 1 });
 
 module.exports = mongoose.model('Stay', staySchema);
 

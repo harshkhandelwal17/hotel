@@ -42,5 +42,6 @@ paymentSchema.index({ stay: 1 });
 paymentSchema.index({ guest: 1 });
 paymentSchema.index({ hostel: 1 });
 paymentSchema.index({ paymentDate: 1 });
+paymentSchema.index({ hostel: 1, paymentDate: -1 });
 
 module.exports = mongoose.model('Payment', paymentSchema);

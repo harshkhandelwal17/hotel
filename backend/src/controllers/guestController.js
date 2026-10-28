@@ -80,9 +80,11 @@ exports.getGuests = async (req, res, next) => {
     const startIndex = (page - 1) * limit;
 
     const guests = await Guest.find(filter)
+      .select('-idProofImage -idProofImageBack')
       .skip(startIndex)
       .limit(limit)
-      .sort('-createdAt');
+      .sort('-createdAt')
+      .lean();
 
     const total = await Guest.countDocuments(filter);
 

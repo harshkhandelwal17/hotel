@@ -62,7 +62,9 @@ exports.getRooms = async (req, res, next) => {
     const { getHostelFilter } = require('../utils/hostelAccess');
     const filter = await getHostelFilter(req.user, req.query.hostel);
 
-    const rooms = await Room.find(filter).populate('hostel', 'name address contactNumber email upiId upiPayeeName gstEnabled gstin taxInclusive gstRate hsnSacCode state stateCode invoicePrefix autoApplyGstOnCheckin aiOcrEnabled whatsappSyncEnabled');
+    const rooms = await Room.find(filter)
+      .populate('hostel', 'name address contactNumber email upiId upiPayeeName gstEnabled gstin taxInclusive gstRate hsnSacCode state stateCode invoicePrefix autoApplyGstOnCheckin aiOcrEnabled whatsappSyncEnabled')
+      .lean();
 
     // Only load open stays for the same hostel scope (not globally)
     const stayFilter = {
@@ -71,11 +73,11 @@ exports.getRooms = async (req, res, next) => {
     if (filter.hostel !== undefined) {
       stayFilter.hostel = filter.hostel;
     }
-    const activeStays = await Stay.find(stayFilter).select('room');
+    const activeStays = await Stay.find(stayFilter).select('room').lean();
     const occupiedRoomIds = new Set(activeStays.map(s => s.room.toString()));
 
     const roomsWithStatus = rooms.map(room => ({
-      ...room.toObject(),
+      ...room,
       isOccupied: occupiedRoomIds.has(room._id.toString())
     }));
 

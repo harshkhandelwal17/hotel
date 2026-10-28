@@ -44,7 +44,7 @@ exports.getDashboardStats = async (req, res, next) => {
       Stay.countDocuments({ ...filter, checkInDate: { $gte: today, $lt: tomorrow } }),
       Stay.countDocuments({ ...filter, expectedCheckOutDate: { $gte: today, $lt: tomorrow }, status: { $ne: 'Checked Out' } }),
       Stay.aggregate([
-        { $match: filter },
+        { $match: { ...filter, status: { $in: ['Active', 'Checkout Due', 'Overdue'] } } },
         { $project: { pending: { $subtract: ["$totalAmount", "$paidAmount"] } } },
         { $match: { pending: { $gt: 0 } } },
         { $group: { _id: null, totalPending: { $sum: "$pending" } } }

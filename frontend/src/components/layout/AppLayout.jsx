@@ -6,7 +6,7 @@ import { Home, Users, Bed, LogOut, Bell, PlusCircle, Building, CreditCard, BarCh
 import GlobalSearch from '../common/GlobalSearch';
 import soundAlert from '../../utils/soundAlert';
 import PoliceReportModal from '../../pages/admin/PoliceReportModal';
-import { apiCache } from '../../utils/apiCache';
+import { apiCache, prefetchRoute } from '../../utils/apiCache';
 
 const AppLayout = ({ children }) => {
   const { user, logout } = useContext(AuthContext);
@@ -277,6 +277,7 @@ const AppLayout = ({ children }) => {
                     <Link
                       key={item.name}
                       to={item.path}
+                      onMouseEnter={() => prefetchRoute(item.path, globalProperty)}
                       className={`px-2.5 lg:px-3 py-2 rounded-xl text-xs lg:text-sm font-bold transition-all flex items-center ${
                         isActive
                           ? 'bg-black text-white shadow-md'
@@ -617,23 +618,23 @@ const AppLayout = ({ children }) => {
       {user?.role !== 'superadmin' && (
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-200 pb-[env(safe-area-inset-bottom)] z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
           <div className="flex justify-around items-center h-16 px-2">
-            <Link to="/dashboard" className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${location.pathname === '/dashboard' ? 'text-black' : 'text-gray-400'}`}>
+            <Link to="/dashboard" onMouseEnter={() => prefetchRoute('/dashboard', globalProperty)} onTouchStart={() => prefetchRoute('/dashboard', globalProperty)} className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${location.pathname === '/dashboard' ? 'text-black' : 'text-gray-400'}`}>
               <Home size={22} className={location.pathname === '/dashboard' ? 'fill-black' : ''} />
               <span className="text-[9px] font-bold mt-1 uppercase tracking-widest">Home</span>
             </Link>
             
-            <Link to="/checkouts" className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${location.pathname.startsWith('/checkouts') || location.pathname.startsWith('/guests') ? 'text-black' : 'text-gray-400'}`}>
+            <Link to="/checkouts" onMouseEnter={() => prefetchRoute('/checkouts', globalProperty)} onTouchStart={() => prefetchRoute('/checkouts', globalProperty)} className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${location.pathname.startsWith('/checkouts') || location.pathname.startsWith('/guests') ? 'text-black' : 'text-gray-400'}`}>
               <Users size={22} className={location.pathname.startsWith('/checkouts') || location.pathname.startsWith('/guests') ? 'fill-black' : ''} />
               <span className="text-[9px] font-bold mt-1 uppercase tracking-widest">Guests</span>
             </Link>
             
             <div className="relative -top-5">
-              <Link to="/checkin" className="flex items-center justify-center w-14 h-14 bg-black text-white rounded-full shadow-xl hover:bg-gray-800 transition-all active:scale-95 border-4 border-[#F9FAFB]">
+              <Link to="/checkin" onMouseEnter={() => prefetchRoute('/checkin', globalProperty)} onTouchStart={() => prefetchRoute('/checkin', globalProperty)} className="flex items-center justify-center w-14 h-14 bg-black text-white rounded-full shadow-xl hover:bg-gray-800 transition-all active:scale-95 border-4 border-[#F9FAFB]">
                 <PlusCircle size={28} />
               </Link>
             </div>
             
-            <Link to="/payments" className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${location.pathname === '/payments' ? 'text-black' : 'text-gray-400'}`}>
+            <Link to="/payments" onMouseEnter={() => prefetchRoute('/payments', globalProperty)} onTouchStart={() => prefetchRoute('/payments', globalProperty)} className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${location.pathname === '/payments' ? 'text-black' : 'text-gray-400'}`}>
               <CreditCard size={22} className={location.pathname === '/payments' ? 'fill-black' : ''} />
               <span className="text-[9px] font-bold mt-1 uppercase tracking-widest">Pay</span>
             </Link>

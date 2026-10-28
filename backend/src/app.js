@@ -53,7 +53,11 @@ app.use('/api/superadmin', superAdminRoutes);
 app.use('/api/ocr', ocrRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/laundry', laundryRoutes);
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
+  maxAge: '7d',
+  etag: true,
+  lastModified: true
+}));
 
 // Error Handling Middleware
 app.use((err, req, res, next) => {
