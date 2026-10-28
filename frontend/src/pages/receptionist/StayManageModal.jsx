@@ -4,6 +4,7 @@ import axios from 'axios';
 import { format, addDays, addHours } from 'date-fns';
 import { X, Receipt, Plus, Wallet, ArrowRightLeft, CalendarPlus, Printer, Trash2, LogOut, AlertCircle, CheckCircle2, Phone, Edit3, Image as ImageIcon, Eye } from 'lucide-react';
 import { printInvoice } from '../../utils/invoice';
+import InvoiceModal from '../../components/InvoiceModal';
 import DynamicUpiQr from '../../components/DynamicUpiQr';
 import { compressImage } from '../../utils/imageCompression';
 import { getFullImageUrl } from '../../utils/imageUrl';
@@ -34,6 +35,7 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
 
   // Lock background scrolling while modal is open
   useEffect(() => {
@@ -340,6 +342,28 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
           {/* ---------------- BILL ---------------- */}
           {tab === 'bill' && (
             <>
+              {/* GST & INVOICE STATUS STRIP */}
+              <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-2xl mb-3 text-xs">
+                <div className="flex items-center gap-2.5">
+                  <span className={`w-2.5 h-2.5 rounded-full ${stay.hostel?.gstEnabled ? 'bg-blue-600 ring-2 ring-blue-100' : 'bg-slate-400'}`}></span>
+                  <div>
+                    <span className="font-extrabold text-gray-900">
+                      {stay.hostel?.gstEnabled ? `GST Tax Invoice Mode (${stay.hostel?.gstRate || 12}%)` : 'Non-GST Hospitality Bill'}
+                    </span>
+                    <p className="text-[10px] text-gray-500 font-medium">
+                      {stay.hostel?.gstEnabled ? (stay.hostel?.gstin ? `GSTIN: ${stay.hostel.gstin}` : 'GST Active') : 'Bill of Supply / Composition Scheme'}
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  type="button" 
+                  onClick={() => setIsInvoiceModalOpen(true)}
+                  className="px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-100 text-indigo-600 hover:text-indigo-800 font-extrabold rounded-xl transition-all shadow-2xs flex items-center gap-1.5 active:scale-95 text-xs"
+                >
+                  <Eye size={13} /> View / Customize Bill
+                </button>
+              </div>
+
               <div className="rounded-2xl border border-gray-200 divide-y divide-gray-100 text-sm">
                 <div className="flex justify-between p-3"><span className="text-gray-500 font-semibold">Room Rent</span><span className="font-black">₹{roomRent}</span></div>
                 {(stay.charges || []).map(c => (
@@ -985,13 +1009,22 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
         <div className="px-4 sm:px-6 py-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] sm:py-4 bg-gray-50 border-t border-gray-100 flex gap-2.5 sm:gap-3 shrink-0 items-center justify-between">
           {tab === 'bill' && (
             <>
-              <button 
-                type="button"
-                onClick={() => printInvoice(stay, payments)}
-                className="flex items-center justify-center gap-1.5 sm:gap-2 px-4 py-2.5 sm:py-3 bg-white border border-gray-200 rounded-xl text-xs sm:text-sm font-bold text-gray-700 hover:bg-gray-100 active:scale-95 transition-all shadow-xs"
-              >
-                <Printer size={16} /> Print Bill
-              </button>
+              <div className="flex items-center gap-2">
+                <button 
+                  type="button"
+                  onClick={() => setIsInvoiceModalOpen(true)}
+                  className="flex items-center justify-center gap-1.5 sm:gap-2 px-4 py-2.5 sm:py-3 bg-black text-white rounded-xl text-xs sm:text-sm font-bold hover:bg-gray-800 active:scale-95 transition-all shadow-sm"
+                >
+                  <Eye size={16} /> View & Print Bill
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => printInvoice(stay, payments)}
+                  className="hidden sm:flex items-center justify-center gap-1.5 sm:gap-2 px-3.5 py-2.5 sm:py-3 bg-white border border-gray-200 rounded-xl text-xs sm:text-sm font-bold text-gray-700 hover:bg-gray-100 active:scale-95 transition-all shadow-xs"
+                >
+                  <Printer size={16} /> Quick Print
+                </button>
+              </div>
               {isOpen && (
                 <button 
                   type="button"
@@ -1106,6 +1139,13 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
         </div>
       </div>
     </div>
+    {isInvoiceModalOpen && (
+      <InvoiceModal 
+        stay={stay} 
+        payments={payments} 
+        onClose={() => setIsInvoiceModalOpen(false)} 
+      />
+    )}
   </div>,
   document.body
 );

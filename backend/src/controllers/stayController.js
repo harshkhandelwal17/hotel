@@ -153,10 +153,10 @@ exports.getStays = async (req, res, next) => {
     }
 
     const stays = await Stay.find(filter)
-      .populate('guest', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth')
-      .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth')
+      .populate('guest', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth companyName gstin')
+      .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth companyName gstin')
       .populate('room', 'roomNumber price24h extraPerPerson24h')
-      .populate('hostel', 'name address contactNumber')
+      .populate('hostel', 'name address contactNumber email upiId upiPayeeName gstEnabled gstin taxInclusive gstRate hsnSacCode state stateCode invoicePrefix billTerms')
       .populate('createdBy', 'name role')
       .sort('-expectedCheckOutDate')
       .lean();
@@ -201,10 +201,10 @@ exports.getStay = async (req, res, next) => {
   try {
     const authorized = await loadAuthorizedStay(req);
     const stay = await Stay.findById(authorized._id)
-      .populate('guest', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth')
-      .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth')
+      .populate('guest', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth companyName gstin')
+      .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth companyName gstin')
       .populate('room', 'roomNumber price24h extraPerPerson24h')
-      .populate('hostel', 'name address upiId upiPayeeName');
+      .populate('hostel', 'name address contactNumber email upiId upiPayeeName gstEnabled gstin taxInclusive gstRate hsnSacCode state stateCode invoicePrefix billTerms');
     const payments = await Payment.find({ stay: stay._id }).sort('paymentDate');
     res.status(200).json({ success: true, data: { stay, payments } });
   } catch (error) {
@@ -684,10 +684,10 @@ exports.updateStay = async (req, res, next) => {
 
     // Return fresh populated stay
     const updatedStay = await Stay.findById(stay._id)
-      .populate('guest', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth')
-      .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth')
+      .populate('guest', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth companyName gstin')
+      .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth companyName gstin')
       .populate('room', 'roomNumber price24h extraPerPerson24h')
-      .populate('hostel', 'name address upiId upiPayeeName');
+      .populate('hostel', 'name address contactNumber email upiId upiPayeeName gstEnabled gstin taxInclusive gstRate hsnSacCode state stateCode invoicePrefix billTerms');
 
     res.status(200).json({
       success: true,

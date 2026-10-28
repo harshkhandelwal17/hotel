@@ -71,6 +71,49 @@ const hostelSchema = new mongoose.Schema({
     trim: true,
     default: ''
   },
+  // 🧾 GST & INVOICE SETTINGS
+  gstEnabled: {
+    type: Boolean,
+    default: false
+  },
+  gstin: {
+    type: String,
+    trim: true,
+    uppercase: true,
+    default: ''
+  },
+  taxInclusive: {
+    type: Boolean,
+    default: true
+  },
+  gstRate: {
+    type: Number,
+    default: 12
+  },
+  hsnSacCode: {
+    type: String,
+    trim: true,
+    default: '996311'
+  },
+  state: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  stateCode: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  invoicePrefix: {
+    type: String,
+    trim: true,
+    default: 'INV'
+  },
+  billTerms: {
+    type: String,
+    default: '1. Check-out time is 11:00 AM.\n2. Valid Govt ID proof required at check-in.\n3. Goods & services once billed are non-refundable.\n4. Disputes subject to local jurisdiction only.'
+  },
   owner: {
     type: mongoose.Schema.ObjectId,
     ref: 'User'

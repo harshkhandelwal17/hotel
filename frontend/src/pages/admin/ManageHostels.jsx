@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
-import { Building, Plus, X, MapPin, Phone, Mail, CheckCircle, ShieldCheck, Sparkles, Calendar, HelpCircle, QrCode } from 'lucide-react';
+import { Building, Plus, X, MapPin, Phone, Mail, CheckCircle, ShieldCheck, Sparkles, Calendar, HelpCircle, QrCode, Receipt, FileText } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 
 const ManageProperties = () => {
@@ -13,9 +13,12 @@ const ManageProperties = () => {
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formError, setFormError] = useState('');
-  const [formData, setFormData] = useState({
-    name: '', address: '', contactNumber: '', email: '', upiId: '', upiPayeeName: ''
-  });
+  const initialFormState = {
+    name: '', address: '', contactNumber: '', email: '', upiId: '', upiPayeeName: '',
+    gstEnabled: false, gstin: '', taxInclusive: true, gstRate: 12, hsnSacCode: '996311',
+    state: '', invoicePrefix: 'INV'
+  };
+  const [formData, setFormData] = useState(initialFormState);
 
   useEffect(() => {
     if (isModalOpen) {
@@ -41,7 +44,7 @@ const ManageProperties = () => {
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingId(null);
-    setFormData({ name: '', address: '', contactNumber: '', email: '', upiId: '', upiPayeeName: '' });
+    setFormData(initialFormState);
   };
 
   const handleEdit = (prop) => {
@@ -52,7 +55,14 @@ const ManageProperties = () => {
       contactNumber: prop.contactNumber || '', 
       email: prop.email || '',
       upiId: prop.upiId || '',
-      upiPayeeName: prop.upiPayeeName || ''
+      upiPayeeName: prop.upiPayeeName || '',
+      gstEnabled: Boolean(prop.gstEnabled),
+      gstin: prop.gstin || '',
+      taxInclusive: prop.taxInclusive !== undefined ? Boolean(prop.taxInclusive) : true,
+      gstRate: prop.gstRate ?? 12,
+      hsnSacCode: prop.hsnSacCode || '996311',
+      state: prop.state || '',
+      invoicePrefix: prop.invoicePrefix || 'INV'
     });
     setIsModalOpen(true);
   };
@@ -207,6 +217,18 @@ const ManageProperties = () => {
                       </span>
                     )}
                   </div>
+                  <div className="flex items-center gap-2.5 text-sm pt-1 border-t border-gray-100">
+                    <Receipt size={14} className="text-blue-600 flex-shrink-0" />
+                    {property.gstEnabled ? (
+                      <span className="text-xs font-mono font-bold text-blue-900 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 truncate">
+                        GSTIN: {property.gstin || 'Enabled'} ({property.gstRate || 12}% {property.taxInclusive ? 'Inc' : 'Exc'})
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-500 font-medium italic">
+                        Non-GST Billing (Standard Receipts)
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -298,6 +320,129 @@ const ManageProperties = () => {
                     <input type="text" className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-600 outline-none font-medium text-sm text-gray-900 placeholder:text-gray-400 placeholder:font-normal"
                       placeholder="e.g. Hotel Royal Taj" value={formData.upiPayeeName} onChange={e => setFormData({...formData, upiPayeeName: e.target.value})} />
                   </div>
+                </div>
+
+                {/* 🧾 GST & TAX INVOICE SETTINGS */}
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Receipt size={16} className="text-blue-600" />
+                      <span className="text-xs font-black uppercase tracking-wider text-slate-800">
+                        GST & Tax Invoice Settings
+                      </span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={formData.gstEnabled} 
+                        onChange={e => setFormData({ ...formData, gstEnabled: e.target.checked })} 
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                      <span className="ml-2 text-xs font-bold text-gray-700">
+                        {formData.gstEnabled ? 'GST Enabled' : 'Non-GST'}
+                      </span>
+                    </label>
+                  </div>
+
+                  {formData.gstEnabled ? (
+                    <div className="space-y-3 pt-2 border-t border-slate-200">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">
+                            Hotel GSTIN <span className="text-red-500">*</span>
+                          </label>
+                          <input 
+                            type="text" 
+                            maxLength={15}
+                            className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none font-mono font-bold text-sm uppercase text-gray-900 placeholder:text-gray-400 placeholder:font-normal"
+                            placeholder="e.g. 08AAAAA0000A1Z5" 
+                            value={formData.gstin} 
+                            onChange={e => setFormData({ ...formData, gstin: e.target.value.toUpperCase() })} 
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">
+                            Hotel State
+                          </label>
+                          <input 
+                            type="text" 
+                            className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none font-medium text-sm text-gray-900 placeholder:text-gray-400"
+                            placeholder="e.g. Rajasthan (08)" 
+                            value={formData.state} 
+                            onChange={e => setFormData({ ...formData, state: e.target.value })} 
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">
+                            Default GST Rate
+                          </label>
+                          <select 
+                            value={formData.gstRate} 
+                            onChange={e => setFormData({ ...formData, gstRate: Number(e.target.value) })}
+                            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none font-bold text-xs text-gray-900"
+                          >
+                            <option value={12}>12% (Rooms &lt; ₹7,500)</option>
+                            <option value={18}>18% (Luxury &gt; ₹7,500)</option>
+                            <option value={5}>5% (Economy / Food)</option>
+                            <option value={0}>0% (Tax Exempt)</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">
+                            Tariff Tax Rule
+                          </label>
+                          <select 
+                            value={formData.taxInclusive ? 'inclusive' : 'exclusive'} 
+                            onChange={e => setFormData({ ...formData, taxInclusive: e.target.value === 'inclusive' })}
+                            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none font-bold text-xs text-gray-900"
+                          >
+                            <option value="inclusive">Price is Inclusive of GST (MRP)</option>
+                            <option value="exclusive">Add GST on top of Price</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">
+                            HSN / SAC Code
+                          </label>
+                          <input 
+                            type="text" 
+                            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none font-mono font-bold text-xs text-gray-900"
+                            placeholder="996311" 
+                            value={formData.hsnSacCode} 
+                            onChange={e => setFormData({ ...formData, hsnSacCode: e.target.value })} 
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">
+                            Invoice No Prefix
+                          </label>
+                          <input 
+                            type="text" 
+                            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none font-mono font-bold text-xs text-gray-900"
+                            placeholder="INV or HTL" 
+                            value={formData.invoicePrefix} 
+                            onChange={e => setFormData({ ...formData, invoicePrefix: e.target.value.toUpperCase() })} 
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-white rounded-xl border border-slate-200 text-xs text-gray-600 space-y-1">
+                      <p className="font-bold text-gray-800">Non-GST / Composition Scheme Active</p>
+                      <p className="text-[11px] text-gray-500">
+                        Hotels with turnover under ₹20 Lakh or composition dealers: Clean, standard hospitality bills will be printed without CGST/SGST breakdown.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 

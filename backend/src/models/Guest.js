@@ -38,6 +38,17 @@ const guestSchema = new mongoose.Schema({
   address: String,
   emergencyContactName: String,
   emergencyContactNumber: String,
+  companyName: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  gstin: {
+    type: String,
+    trim: true,
+    uppercase: true,
+    default: ''
+  },
   notes: String,
   hostel: {
     type: mongoose.Schema.ObjectId,
