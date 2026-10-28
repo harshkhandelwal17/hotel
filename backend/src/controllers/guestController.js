@@ -79,12 +79,18 @@ exports.getGuests = async (req, res, next) => {
     const limit = parseInt(req.query.limit, 10) || 20;
     const startIndex = (page - 1) * limit;
 
-    const guests = await Guest.find(filter)
-      .select('-idProofImage -idProofImageBack')
+    let query = Guest.find(filter)
       .skip(startIndex)
       .limit(limit)
       .sort('-createdAt')
       .lean();
+
+    // Only exclude heavy images on general directory browsing, NOT on specific mobile lookup!
+    if (!req.query.mobile) {
+      query = query.select('-idProofImage -idProofImageBack');
+    }
+
+    const guests = await query;
 
     const total = await Guest.countDocuments(filter);
 

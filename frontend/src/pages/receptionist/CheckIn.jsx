@@ -531,35 +531,39 @@ const CheckIn = () => {
       ) {
         const baseGuest = res.data.data[0];
         
-        // Fetch full profile to get past stays & co-guests
-        if (index === 0) {
-          try {
-            const detailRes = await axios.get(`${API}/api/guests/${baseGuest._id}`);
-            const pastStays = detailRes.data.data.stays || [];
+        let guestData = res.data.data[0];
+        
+        // Fetch full profile to get past stays & co-guests (and ensure full ID images & details are present)
+        try {
+          const detailRes = await axios.get(`${API}/api/guests/${baseGuest._id}`);
+          if (detailRes.data && detailRes.data.data) {
+            const { stays, ...fullGuestInfo } = detailRes.data.data;
+            guestData = { ...guestData, ...fullGuestInfo };
             
-            const coGuestsMap = new Map();
-            pastStays.forEach(stay => {
-              if (stay.guest && stay.guest._id !== baseGuest._id) coGuestsMap.set(stay.guest._id, stay.guest);
-              if (stay.coGuests) {
-                stay.coGuests.forEach(cg => {
-                  if (cg && cg._id !== baseGuest._id) coGuestsMap.set(cg._id, cg);
-                });
-              }
-            });
-            setFrequentCoGuests(Array.from(coGuestsMap.values()));
-          } catch (err) {
-            console.error('Failed to fetch past co-guests', err);
+            if (index === 0) {
+              const pastStays = stays || [];
+              const coGuestsMap = new Map();
+              pastStays.forEach(stay => {
+                if (stay.guest && stay.guest._id !== baseGuest._id) coGuestsMap.set(stay.guest._id, stay.guest);
+                if (stay.coGuests) {
+                  stay.coGuests.forEach(cg => {
+                    if (cg && cg._id !== baseGuest._id) coGuestsMap.set(cg._id, cg);
+                  });
+                }
+              });
+              setFrequentCoGuests(Array.from(coGuestsMap.values()));
+            }
           }
+        } catch (err) {
+          console.error('Failed to fetch full guest details', err);
         }
         
-        // Ensure the fetched guest is used instead of blindly spreading res.data.data[0] again
-        // Actually, the original code spreads res.data.data[0] which is equivalent to baseGuest
         setGuests((prev) => {
           const updated = [...prev];
 
           updated[index] = {
             ...updated[index],
-            ...res.data.data[0],
+            ...guestData,
             isSearching: false
           };
 
