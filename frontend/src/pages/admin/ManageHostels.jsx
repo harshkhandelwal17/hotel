@@ -16,7 +16,7 @@ const ManageProperties = () => {
   const initialFormState = {
     name: '', address: '', contactNumber: '', email: '', upiId: '', upiPayeeName: '',
     gstEnabled: false, gstin: '', taxInclusive: true, gstRate: 12, hsnSacCode: '996311',
-    state: '', invoicePrefix: 'INV'
+    state: '', invoicePrefix: 'INV', autoApplyGstOnCheckin: true
   };
   const [formData, setFormData] = useState(initialFormState);
 
@@ -62,7 +62,8 @@ const ManageProperties = () => {
       gstRate: prop.gstRate ?? 12,
       hsnSacCode: prop.hsnSacCode || '996311',
       state: prop.state || '',
-      invoicePrefix: prop.invoicePrefix || 'INV'
+      invoicePrefix: prop.invoicePrefix || 'INV',
+      autoApplyGstOnCheckin: prop.autoApplyGstOnCheckin !== undefined ? Boolean(prop.autoApplyGstOnCheckin) : true
     });
     setIsModalOpen(true);
   };
@@ -433,6 +434,28 @@ const ManageProperties = () => {
                             onChange={e => setFormData({ ...formData, invoicePrefix: e.target.value.toUpperCase() })} 
                           />
                         </div>
+                      </div>
+
+                      <div className="pt-2.5 border-t border-slate-200 flex items-center justify-between">
+                        <div>
+                          <span className="text-xs font-bold text-gray-800 block">
+                            Auto-apply GST on Check-In by default?
+                          </span>
+                          <span className="text-[11px] text-gray-500">
+                            {formData.autoApplyGstOnCheckin 
+                              ? '✓ Every new check-in will automatically have GST enabled.' 
+                              : '✕ Check-in starts as Flat Non-GST. Receptionist can apply GST when required.'}
+                          </span>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-3">
+                          <input 
+                            type="checkbox" 
+                            checked={formData.autoApplyGstOnCheckin} 
+                            onChange={e => setFormData({ ...formData, autoApplyGstOnCheckin: e.target.checked })} 
+                            className="sr-only peer"
+                          />
+                          <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                        </label>
                       </div>
                     </div>
                   ) : (

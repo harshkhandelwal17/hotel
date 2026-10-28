@@ -160,7 +160,7 @@ exports.getStays = async (req, res, next) => {
       .populate('guest', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth companyName gstin')
       .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth companyName gstin')
       .populate('room', 'roomNumber price24h extraPerPerson24h')
-      .populate('hostel', 'name address contactNumber email upiId upiPayeeName gstEnabled gstin taxInclusive gstRate hsnSacCode state stateCode invoicePrefix billTerms')
+      .populate('hostel', 'name address contactNumber email upiId upiPayeeName gstEnabled gstin taxInclusive gstRate hsnSacCode state stateCode invoicePrefix billTerms autoApplyGstOnCheckin')
       .populate('createdBy', 'name role')
       .sort('-expectedCheckOutDate')
       .lean();
@@ -208,7 +208,7 @@ exports.getStay = async (req, res, next) => {
       .populate('guest', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth companyName gstin')
       .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth companyName gstin')
       .populate('room', 'roomNumber price24h extraPerPerson24h')
-      .populate('hostel', 'name address contactNumber email upiId upiPayeeName gstEnabled gstin taxInclusive gstRate hsnSacCode state stateCode invoicePrefix billTerms');
+      .populate('hostel', 'name address contactNumber email upiId upiPayeeName gstEnabled gstin taxInclusive gstRate hsnSacCode state stateCode invoicePrefix billTerms autoApplyGstOnCheckin');
     const payments = await Payment.find({ stay: stay._id }).sort('paymentDate');
     res.status(200).json({ success: true, data: { stay, payments } });
   } catch (error) {
@@ -691,7 +691,7 @@ exports.updateStay = async (req, res, next) => {
       .populate('guest', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth companyName gstin')
       .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth companyName gstin')
       .populate('room', 'roomNumber price24h extraPerPerson24h')
-      .populate('hostel', 'name address contactNumber email upiId upiPayeeName gstEnabled gstin taxInclusive gstRate hsnSacCode state stateCode invoicePrefix billTerms');
+      .populate('hostel', 'name address contactNumber email upiId upiPayeeName gstEnabled gstin taxInclusive gstRate hsnSacCode state stateCode invoicePrefix billTerms autoApplyGstOnCheckin');
 
     res.status(200).json({
       success: true,

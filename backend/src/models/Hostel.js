@@ -110,6 +110,10 @@ const hostelSchema = new mongoose.Schema({
     trim: true,
     default: 'INV'
   },
+  autoApplyGstOnCheckin: {
+    type: Boolean,
+    default: true
+  },
   billTerms: {
     type: String,
     default: '1. Check-out time is 11:00 AM.\n2. Valid Govt ID proof required at check-in.\n3. Goods & services once billed are non-refundable.\n4. Disputes subject to local jurisdiction only.'
