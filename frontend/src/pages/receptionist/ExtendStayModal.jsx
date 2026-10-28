@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { format, addDays } from 'date-fns';
 import { X } from 'lucide-react';
@@ -10,6 +11,13 @@ const ExtendStayModal = ({ stay, onClose, onSuccess }) => {
   const [extensionPayment, setExtensionPayment] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
 
   const currentOut = new Date(stay.expectedCheckOutDate);
   const newOut = new Date(newCheckOutDate);
@@ -46,10 +54,10 @@ const ExtendStayModal = ({ stay, onClose, onSuccess }) => {
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4" onClick={onClose}>
+  return createPortal(
+    <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={onClose}>
       <div 
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[92vh] sm:max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95"
+        className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-md my-0 sm:my-auto flex flex-col max-h-[92dvh] sm:max-h-[88vh] overflow-hidden animate-in fade-in zoom-in-95"
         onClick={e => e.stopPropagation()}
       >
         <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 shrink-0">
@@ -112,7 +120,7 @@ const ExtendStayModal = ({ stay, onClose, onSuccess }) => {
             </div>
           </div>
           
-          <div className="px-4 sm:px-6 py-4 bg-gray-50 border-t border-gray-100 flex flex-col-reverse sm:flex-row justify-end gap-2.5 rounded-b-2xl shrink-0">
+          <div className="px-4 sm:px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-gray-50 border-t border-gray-100 flex flex-col-reverse sm:flex-row justify-end gap-2.5 rounded-b-none sm:rounded-b-2xl shrink-0">
             <button
               type="button"
               onClick={onClose}
@@ -130,7 +138,8 @@ const ExtendStayModal = ({ stay, onClose, onSuccess }) => {
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

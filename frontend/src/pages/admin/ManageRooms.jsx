@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { Bed, Plus, X, Users, Clock, Building } from 'lucide-react';
 
@@ -15,6 +16,17 @@ const ManageRooms = () => {
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
+
+  useEffect(() => {
+    if (isModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isModalOpen]);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -166,10 +178,10 @@ const ManageRooms = () => {
       </div>
 
       {/* Add Room Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4"
+      {isModalOpen && createPortal(
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto"
           onClick={closeModal}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[92vh] sm:max-h-[90vh] overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300"
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-lg my-0 sm:my-auto flex flex-col max-h-[92dvh] sm:max-h-[88vh] overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300"
             onClick={e => e.stopPropagation()}>
             <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 shrink-0">
               <div>
@@ -218,7 +230,7 @@ const ManageRooms = () => {
                   </div>
                 </div>
               </div>
-              <div className="p-4 sm:p-5 bg-gray-50 border-t border-gray-100 flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3 rounded-b-2xl shrink-0">
+              <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5 bg-gray-50 border-t border-gray-100 flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3 rounded-b-none sm:rounded-b-2xl shrink-0">
                 <button type="button" onClick={closeModal} className="w-full sm:flex-1 py-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-700 hover:bg-gray-100 transition-colors text-sm">Cancel</button>
                 <button type="submit" disabled={saving} className="w-full sm:flex-1 py-3 bg-black rounded-xl font-bold text-white hover:bg-gray-800 transition-colors disabled:opacity-50 text-sm shadow-md active:scale-95">
                   {saving ? 'Saving...' : 'Save Room'}
@@ -226,7 +238,8 @@ const ManageRooms = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

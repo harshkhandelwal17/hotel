@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { Building, Plus, X, MapPin, Phone, Mail, CheckCircle, ShieldCheck, Sparkles, Calendar, HelpCircle, QrCode } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
@@ -15,6 +16,17 @@ const ManageProperties = () => {
   const [formData, setFormData] = useState({
     name: '', address: '', contactNumber: '', email: '', upiId: '', upiPayeeName: ''
   });
+
+  useEffect(() => {
+    if (isModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isModalOpen]);
 
   useEffect(() => { fetchProperties(); }, []);
 
@@ -220,10 +232,10 @@ const ManageProperties = () => {
       </div>
 
       {/* Add Property Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4"
+      {isModalOpen && createPortal(
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto"
           onClick={closeModal}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[92vh] sm:max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-md my-0 sm:my-auto flex flex-col max-h-[92dvh] sm:max-h-[88vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
             onClick={e => e.stopPropagation()}>
             <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 shrink-0">
               <div>
@@ -289,7 +301,7 @@ const ManageProperties = () => {
                 </div>
               </div>
 
-              <div className="p-4 sm:px-6 py-4 bg-gray-50 flex flex-col-reverse sm:flex-row justify-end gap-2.5 sm:gap-3 border-t border-gray-100 rounded-b-2xl shrink-0">
+              <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-4 bg-gray-50 flex flex-col-reverse sm:flex-row justify-end gap-2.5 sm:gap-3 border-t border-gray-100 rounded-b-none sm:rounded-b-2xl shrink-0">
                 <button type="button" onClick={closeModal} className="w-full sm:w-auto px-5 py-2.5 border border-gray-200 bg-white text-gray-700 font-semibold rounded-xl text-sm hover:bg-gray-100 transition-colors">Cancel</button>
                 <button type="submit" disabled={saving} className="w-full sm:w-auto px-5 py-2.5 bg-black text-white font-bold rounded-xl text-sm hover:bg-gray-800 disabled:opacity-50 flex items-center justify-center gap-2 shadow-md active:scale-95">
                   {saving ? 'Saving...' : <><CheckCircle size={15} /> Save Property</>}
@@ -297,7 +309,8 @@ const ManageProperties = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

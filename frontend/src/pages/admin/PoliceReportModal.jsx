@@ -551,11 +551,11 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
   // Render via React Portal on document.body
   return createPortal(
     <div 
-      className="fixed inset-0 z-[99999] flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
+      className="fixed inset-0 z-[99999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto"
       onClick={onClose}
     >
       <div 
-        className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-gray-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
+        className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-gray-200 w-full max-w-4xl my-0 sm:my-auto max-h-[92dvh] sm:max-h-[88vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
         onClick={e => e.stopPropagation()}
       >
         
@@ -959,7 +959,7 @@ export default function PoliceReportModal({ isOpen, onClose, stays = [], hostels
         </div>
 
         {/* Footer Actions - ALWAYS visible at bottom */}
-        <div className="px-5 py-3.5 bg-white border-t border-gray-200 flex flex-wrap items-center justify-between gap-2.5 shrink-0">
+        <div className="px-5 py-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] sm:py-3.5 bg-white border-t border-gray-200 flex flex-wrap items-center justify-between gap-2.5 shrink-0">
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-600 font-bold">
               Report will include: <strong className="text-emerald-700 font-black">{finalReportRows.length}</strong> selected guest(s)

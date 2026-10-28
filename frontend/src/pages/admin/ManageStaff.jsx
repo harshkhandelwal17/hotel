@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { Users, Plus, Trash2, Building, ShieldCheck, Phone } from 'lucide-react';
 
@@ -7,6 +8,17 @@ const ManageStaff = () => {
   const [hostels, setHostels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (isModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isModalOpen]);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -153,9 +165,9 @@ const ManageStaff = () => {
         </table>
       </div>
 
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4" onClick={() => setIsModalOpen(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[92vh] sm:max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+      {isModalOpen && createPortal(
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={() => setIsModalOpen(false)}>
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-md my-0 sm:my-auto flex flex-col max-h-[92dvh] sm:max-h-[88vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
             <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 shrink-0">
               <h2 className="text-lg font-bold text-gray-900">Add New Receptionist</h2>
               <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-700 p-1.5 rounded-full hover:bg-gray-100 transition-colors">✕</button>
@@ -199,7 +211,7 @@ const ManageStaff = () => {
                 </div>
               </div>
 
-              <div className="p-4 sm:px-6 py-4 bg-gray-50 border-t border-gray-100 flex flex-col-reverse sm:flex-row gap-2.5 rounded-b-2xl shrink-0">
+              <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-4 bg-gray-50 border-t border-gray-100 flex flex-col-reverse sm:flex-row gap-2.5 rounded-b-none sm:rounded-b-2xl shrink-0">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="w-full sm:flex-1 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-bold text-sm hover:bg-gray-100 transition-colors">
                   Cancel
                 </button>
@@ -209,7 +221,8 @@ const ManageStaff = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

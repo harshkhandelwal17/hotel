@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useContext, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../../context/AuthContext';
@@ -3247,9 +3248,9 @@ const CheckIn = () => {
       {/* =====================================================
           WHATSAPP QR CONNECTION MODAL
       ===================================================== */}
-      {waModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setWaModalOpen(false)}>
-          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full p-4 sm:p-6 shadow-2xl border border-gray-100 relative max-h-[92vh] sm:max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+      {waModalOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto" onClick={() => setWaModalOpen(false)}>
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-md w-full my-0 sm:my-auto p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-6 shadow-2xl border border-gray-100 relative max-h-[92dvh] sm:max-h-[88vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             {/* CLOSE BUTTON */}
             <button
               onClick={() => setWaModalOpen(false)}
@@ -3545,15 +3546,16 @@ const CheckIn = () => {
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* =====================================================
           WHATSAPP PHOTO PICKER MODAL
       ===================================================== */}
-      {waPickerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setWaPickerOpen(false)}>
-          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl border border-gray-100 relative max-h-[92vh] sm:max-h-[88vh] flex flex-col" onClick={e => e.stopPropagation()}>
+      {waPickerOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto" onClick={() => setWaPickerOpen(false)}>
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-2xl w-full my-0 sm:my-auto p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-6 shadow-2xl border border-gray-100 relative max-h-[92dvh] sm:max-h-[88vh] flex flex-col" onClick={e => e.stopPropagation()}>
             {/* CLOSE BUTTON */}
             <button
               onClick={() => setWaPickerOpen(false)}
@@ -3699,16 +3701,17 @@ const CheckIn = () => {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* =====================================================
           PHOTO ZOOM PREVIEW MODAL
       ===================================================== */}
-      {waPreviewImage && (
+      {waPreviewImage && createPortal(
         <div 
           onClick={() => setWaPreviewImage(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 cursor-zoom-out"
+          className="fixed inset-0 z-[99999] flex items-center justify-center p-2.5 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 cursor-zoom-out"
         >
           <div className="relative max-w-3xl max-h-[92vh] bg-black rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl p-2" onClick={(e) => e.stopPropagation()}>
             <button
@@ -3719,7 +3722,8 @@ const CheckIn = () => {
             </button>
             <img src={waPreviewImage} alt="WhatsApp ID Full" className="max-w-full max-h-[85vh] object-contain rounded-xl sm:rounded-2xl mx-auto" />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* =====================================================

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { 
   ShieldAlert, 
@@ -1258,9 +1259,9 @@ const SuperAdminDashboard = () => {
       {/* ============================================================== */}
       {/* 👤 MODAL 1: CREATE NEW HOTEL OWNER (ADMIN) */}
       {/* ============================================================== */}
-      {isCreateOwnerOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setIsCreateOwnerOpen(false)}>
-          <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+      {isCreateOwnerOpen && createPortal(
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 animate-in fade-in duration-200 overflow-y-auto" onClick={() => setIsCreateOwnerOpen(false)}>
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-lg w-full my-0 sm:my-auto overflow-hidden shadow-2xl border border-gray-100 max-h-[92dvh] sm:max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
             <div className="p-6 bg-gradient-to-r from-gray-950 to-gray-900 text-white flex justify-between items-start">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-widest text-purple-400 bg-purple-500/20 px-2.5 py-0.5 rounded-full">
@@ -1357,15 +1358,16 @@ const SuperAdminDashboard = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ============================================================== */}
       {/* 🏨 MODAL 2: REGISTER NEW PROPERTY & ASSIGN TO OWNER */}
       {/* ============================================================== */}
-      {isAddPropertyOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setIsAddPropertyOpen(false)}>
-          <div className="bg-white rounded-3xl max-w-xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+      {isAddPropertyOpen && createPortal(
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 animate-in fade-in duration-200 overflow-y-auto" onClick={() => setIsAddPropertyOpen(false)}>
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-xl w-full my-0 sm:my-auto max-h-[92dvh] sm:max-h-[88vh] overflow-y-auto shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
             <div className="p-6 bg-gradient-to-r from-gray-950 to-gray-900 text-white flex justify-between items-start sticky top-0 z-10">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 bg-blue-500/20 px-2.5 py-0.5 rounded-full">
@@ -1608,15 +1610,16 @@ const SuperAdminDashboard = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ============================================================== */}
       {/* 🎟️ MODAL 3: EDIT SUBSCRIPTION PLAN */}
       {/* ============================================================== */}
-      {selectedPlanHostel && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setSelectedPlanHostel(null)}>
-          <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+      {selectedPlanHostel && createPortal(
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 animate-in fade-in duration-200 overflow-y-auto" onClick={() => setSelectedPlanHostel(null)}>
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-lg w-full my-0 sm:my-auto overflow-hidden shadow-2xl border border-gray-100 max-h-[92dvh] sm:max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
             <div className="p-6 bg-gray-950 text-white flex justify-between items-start">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full">
@@ -1753,13 +1756,14 @@ const SuperAdminDashboard = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ✏️ EDIT PROPERTY DETAILS MODAL */}
-      {selectedEditHostel && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setSelectedEditHostel(null)}>
-          <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+      {selectedEditHostel && createPortal(
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 animate-in fade-in duration-200 overflow-y-auto" onClick={() => setSelectedEditHostel(null)}>
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-lg w-full my-0 sm:my-auto overflow-hidden shadow-2xl border border-gray-100 max-h-[92dvh] sm:max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
             <div className="p-6 bg-gradient-to-r from-gray-950 to-gray-900 text-white flex justify-between items-start">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 bg-blue-500/20 px-2.5 py-0.5 rounded-full">
@@ -1899,15 +1903,16 @@ const SuperAdminDashboard = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ============================================================== */}
       {/* 👤 MODAL 5: EDIT USER & PHONE DETAILS */}
       {/* ============================================================== */}
-      {selectedEditUser && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setSelectedEditUser(null)}>
-          <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+      {selectedEditUser && createPortal(
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 animate-in fade-in duration-200 overflow-y-auto" onClick={() => setSelectedEditUser(null)}>
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-md w-full my-0 sm:my-auto overflow-hidden shadow-2xl border border-gray-100 max-h-[92dvh] sm:max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
             <div className="p-6 bg-gradient-to-r from-gray-950 to-gray-900 text-white flex justify-between items-start">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-500/20 px-2.5 py-0.5 rounded-full">
@@ -1983,7 +1988,8 @@ const SuperAdminDashboard = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

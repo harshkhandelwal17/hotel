@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { format } from 'date-fns';
 import { CreditCard, Plus, Search, ArrowUpRight } from 'lucide-react';
@@ -13,6 +14,17 @@ const PaymentsList = () => {
   const [payMethod, setPayMethod] = useState('Cash');
   const [payLoading, setPayLoading] = useState(false);
   const [payError, setPayError] = useState('');
+
+  useEffect(() => {
+    if (selectedStay) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [selectedStay]);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -125,48 +137,50 @@ const PaymentsList = () => {
       )}
 
       {/* Quick Pay Modal */}
-      {selectedStay && (
-        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4" onClick={() => setSelectedStay(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm flex flex-col max-h-[92vh] sm:max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+      {selectedStay && createPortal(
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={() => setSelectedStay(null)}>
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-sm my-0 sm:my-auto flex flex-col max-h-[92dvh] sm:max-h-[88vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
             <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-gray-100 bg-gray-50/50 shrink-0">
               <h3 className="font-black text-gray-900 text-lg">Collect Payment</h3>
               <p className="text-xs text-gray-500 mt-0.5 font-medium">{selectedStay.guest?.fullName} &bull; Room {selectedStay.room?.roomNumber}</p>
             </div>
-            <form onSubmit={handlePayment} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0 flex flex-col">
-              {payError && <div className="text-red-600 text-sm bg-red-50 p-3 rounded-xl border border-red-100 font-medium">{payError}</div>}
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">Amount (₹)</label>
-                <input
-                  type="number"
-                  min="1"
-                  max={selectedStay.totalAmount - selectedStay.paidAmount}
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none text-xl font-black text-gray-900"
-                  value={payAmount}
-                  onChange={e => setPayAmount(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="flex gap-2">
-                {['Cash', 'UPI', 'Card'].map(m => (
-                  <button key={m} type="button" onClick={() => setPayMethod(m)}
-                    className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all ${payMethod === m ? 'bg-black text-white border-black shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
-                    {m}
-                  </button>
-                ))}
-              </div>
-
-              {payMethod === 'UPI' && Number(payAmount) > 0 && (
-                <div className="pt-1">
-                  <DynamicUpiQr 
-                    amount={Number(payAmount)}
-                    roomNumber={selectedStay.room?.roomNumber}
-                    guestName={selectedStay.guest?.fullName}
-                    hostel={selectedStay.hostel}
+            <form onSubmit={handlePayment} className="flex flex-col flex-1 min-h-0">
+              <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0 flex flex-col">
+                {payError && <div className="text-red-600 text-sm bg-red-50 p-3 rounded-xl border border-red-100 font-medium">{payError}</div>}
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">Amount (₹)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max={selectedStay.totalAmount - selectedStay.paidAmount}
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none text-xl font-black text-gray-900"
+                    value={payAmount}
+                    onChange={e => setPayAmount(e.target.value)}
+                    required
                   />
                 </div>
-              )}
+                <div className="flex gap-2">
+                  {['Cash', 'UPI', 'Card'].map(m => (
+                    <button key={m} type="button" onClick={() => setPayMethod(m)}
+                      className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all ${payMethod === m ? 'bg-black text-white border-black shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                      {m}
+                    </button>
+                  ))}
+                </div>
 
-              <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3 pt-3 mt-auto shrink-0">
+                {payMethod === 'UPI' && Number(payAmount) > 0 && (
+                  <div className="pt-1">
+                    <DynamicUpiQr 
+                      amount={Number(payAmount)}
+                      roomNumber={selectedStay.room?.roomNumber}
+                      guestName={selectedStay.guest?.fullName}
+                      hostel={selectedStay.hostel}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-gray-50 border-t border-gray-100 shrink-0">
                 <button type="button" onClick={() => setSelectedStay(null)} className="w-full sm:flex-1 py-2.5 border border-gray-200 text-gray-700 font-bold rounded-xl text-sm hover:bg-gray-50 transition-colors">Cancel</button>
                 <button type="submit" disabled={payLoading} className="w-full sm:flex-1 py-2.5 bg-green-600 text-white font-bold rounded-xl text-sm hover:bg-green-700 shadow-md disabled:opacity-50 active:scale-95 transition-all">
                   {payLoading ? 'Saving...' : 'Confirm ✓'}
@@ -174,7 +188,8 @@ const PaymentsList = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

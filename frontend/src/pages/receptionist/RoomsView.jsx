@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useOutletContext, Link } from 'react-router-dom';
 import axios from 'axios';
 import { Users, Clock, CheckCircle2, Wrench, BedDouble, RefreshCw, Search } from 'lucide-react';
@@ -20,6 +21,17 @@ const RoomsView = () => {
   const [mBusy, setMBusy] = useState(false);
   const [mError, setMError] = useState('');
   const REASONS = ['AC not working', 'Water leakage', 'Electrical / TV', 'Plumbing', 'Pest / Cleaning', 'Furniture repair'];
+
+  useEffect(() => {
+    if (mDialog) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [mDialog]);
 
   const openMaintenance = (room, mode) => { setMDialog({ room, mode }); setMText(''); setMError(''); };
 
@@ -208,9 +220,9 @@ const RoomsView = () => {
       )}
 
       {/* Maintenance dialog */}
-      {mDialog && (
-        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4" onClick={() => setMDialog(null)}>
-          <form onSubmit={submitMaintenance} onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5 sm:p-6 space-y-4 max-h-[92vh] flex flex-col overflow-y-auto">
+      {mDialog && createPortal(
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={() => setMDialog(null)}>
+          <form onSubmit={submitMaintenance} onClick={e => e.stopPropagation()} className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-sm my-0 sm:my-auto p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:p-6 space-y-4 max-h-[92dvh] sm:max-h-[88vh] flex flex-col overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
             <div>
               <h2 className="text-lg font-black text-gray-900 flex items-center gap-2"><Wrench size={18} className="text-yellow-600" />
                 {mDialog.mode === 'start' ? `Room ${mDialog.room.roomNumber} → Maintenance` : `Room ${mDialog.room.roomNumber} repaired?`}
@@ -235,14 +247,15 @@ const RoomsView = () => {
               value={mText} onChange={e => setMText(e.target.value)}
               placeholder={mDialog.mode === 'start' ? 'What is the problem?' : 'What was fixed? (optional)'}
               className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-black outline-none" />
-            <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3">
+            <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3 pt-2">
               <button type="button" onClick={() => setMDialog(null)} className="w-full sm:flex-1 py-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-700 hover:bg-gray-50 text-sm">Cancel</button>
               <button disabled={mBusy} className="w-full sm:flex-1 py-3 bg-black text-white rounded-xl font-bold disabled:opacity-50 text-sm shadow-md active:scale-95">
                 {mBusy ? 'Saving...' : mDialog.mode === 'start' ? 'Block Room' : 'Mark Repaired'}
               </button>
             </div>
           </form>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

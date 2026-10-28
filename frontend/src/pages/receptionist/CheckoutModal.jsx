@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { format } from 'date-fns';
 import { X, User, Home, Calendar, CreditCard, AlertCircle, CheckCircle2, Plus, Printer, ChevronRight } from 'lucide-react';
@@ -14,6 +15,13 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
   const [checkoutComplete, setCheckoutComplete] = useState(false);
   const [completedStay, setCompletedStay] = useState(null);
   const [payments, setPayments] = useState([]);
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
 
   const toDateTimeLocal = (d) => {
     if (!d) return '';
@@ -68,8 +76,8 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
   if (checkoutComplete) {
     const finalAmount = completedStay ? completedStay.totalAmount : stay.totalAmount;
     
-    return (
-      <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onSuccess}>
+    return createPortal(
+      <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4" onClick={onSuccess}>
         <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden p-8 text-center animate-in fade-in zoom-in-95" onClick={e => e.stopPropagation()}>
           <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">
             <CheckCircle2 size={40} className="text-green-600" />
@@ -95,14 +103,15 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
             </button>
           </div>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
-  return (
-    <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+  return createPortal(
+    <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300 flex flex-col max-h-[95vh] sm:max-h-[90vh]"
+        className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-lg my-0 sm:my-auto overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300 flex flex-col max-h-[92dvh] sm:max-h-[88vh]"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -283,7 +292,7 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
             )}
           </div>
           
-          <div className="px-4 sm:px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col-reverse sm:flex-row justify-end gap-3 rounded-b-3xl flex-shrink-0">
+          <div className="px-4 sm:px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-gray-50 border-t border-gray-200 flex flex-col-reverse sm:flex-row justify-end gap-3 rounded-b-none sm:rounded-b-3xl flex-shrink-0">
             <button type="button" onClick={onClose} className="w-full sm:w-auto px-5 py-3 sm:py-2.5 text-sm font-bold text-gray-600 bg-white sm:bg-transparent border sm:border-0 border-gray-200 rounded-xl hover:text-gray-900 hover:bg-gray-100 transition-colors">Cancel</button>
             <button type="submit" disabled={loading || isHostelExpired || (finalBalance > 0 && Number(checkoutPayment) < finalBalance)} 
               className="w-full sm:w-auto justify-center px-8 py-3.5 sm:py-2.5 bg-red-600 text-white text-sm font-black uppercase tracking-wide rounded-xl hover:bg-red-700 transition-colors shadow-md disabled:opacity-50 flex items-center gap-2 active:scale-95"
@@ -293,7 +302,8 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

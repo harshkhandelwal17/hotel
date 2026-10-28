@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { format, addDays, addHours } from 'date-fns';
 import { X, Receipt, Plus, Wallet, ArrowRightLeft, CalendarPlus, Printer, Trash2, LogOut, AlertCircle, CheckCircle2, Phone, Edit3, Image as ImageIcon, Eye } from 'lucide-react';
@@ -33,6 +34,14 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // Lock background scrolling while modal is open
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
 
   // charge form
   const [pendingCharges, setPendingCharges] = useState([]);
@@ -271,9 +280,9 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
   const labelCls = 'block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5';
   const btnCls = 'w-full py-3 bg-black text-white font-bold rounded-xl disabled:opacity-50 active:scale-95 transition-all';
 
-  return (
-    <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-2 sm:p-4 md:p-6 overflow-y-auto" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl sm:max-w-3xl flex flex-col my-auto max-h-[92vh] sm:max-h-[88vh] overflow-hidden border border-gray-100" onClick={e => e.stopPropagation()}>
+  return createPortal(
+    <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 md:p-6 overflow-y-auto" onClick={onClose}>
+      <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-2xl sm:max-w-3xl flex flex-col my-0 sm:my-auto max-h-[92dvh] sm:max-h-[88vh] overflow-hidden border border-gray-100" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="px-5 py-3.5 sm:py-4 border-b border-gray-100 flex justify-between items-center shrink-0 bg-white">
           <div>
@@ -985,7 +994,7 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
         </div>
 
         {/* Footer actions */}
-        <div className="px-4 sm:px-5 py-3.5 sm:py-4 bg-gray-50 border-t border-gray-200 flex gap-2.5 sm:gap-3 shrink-0 items-center justify-between">
+        <div className="px-4 sm:px-5 py-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] sm:py-4 bg-gray-50 border-t border-gray-200 flex gap-2.5 sm:gap-3 shrink-0 items-center justify-between">
           {tab === 'edit' ? (
             <>
               <button
@@ -1020,7 +1029,8 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
