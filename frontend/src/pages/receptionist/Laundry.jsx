@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useContext } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { useOutletContext } from 'react-router-dom';
 import { format, isToday, isThisWeek, isThisMonth, isYesterday, parseISO, startOfDay, endOfDay, isWithinInterval } from 'date-fns';
@@ -146,6 +147,19 @@ const Laundry = () => {
   // Total Hotel Linen Inventory Modal State
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
   const [inventoryForm, setInventoryForm] = useState({});
+
+  // Prevent background scrolling when any modal is open
+  const isAnyModalOpen = isDispatchModalOpen || isReceiveModalOpen || isPayModalOpen || isRatesModalOpen || isLumpSumModalOpen || isInventoryModalOpen;
+  useEffect(() => {
+    if (isAnyModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isAnyModalOpen]);
 
   const flash = (msg, isErr = false) => {
     if (isErr) {
@@ -1632,8 +1646,8 @@ Hotel me *${item.itemName}* ka stock critically low hai:
       {/* ─────────────────────────────────────────────────────────────
           MODAL 1: SEND CLOTHES TO LAUNDRY (DISPATCH)
          ───────────────────────────────────────────────────────────── */}
-      {isDispatchModalOpen && (
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={() => setIsDispatchModalOpen(false)}>
+      {isDispatchModalOpen && createPortal(
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={() => setIsDispatchModalOpen(false)}>
           <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-2xl my-0 sm:my-auto overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88vh]" onClick={e => e.stopPropagation()}>
             {/* Header - Sticky */}
             <div className="px-4 py-3.5 sm:px-5 sm:py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/70 shrink-0">
@@ -1900,7 +1914,7 @@ Hotel me *${item.itemName}* ka stock critically low hai:
               </div>
 
               {/* Sticky Footer */}
-              <div className="p-3.5 sm:p-4 bg-gray-50/90 border-t border-gray-100 shrink-0 flex items-center gap-2">
+              <div className="p-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-4 bg-gray-50/95 border-t border-gray-100 shrink-0 flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setIsDispatchModalOpen(false)}
@@ -1918,14 +1932,15 @@ Hotel me *${item.itemName}* ka stock critically low hai:
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ─────────────────────────────────────────────────────────────
           MODAL 2: RECEIVE LAUNDRY (कपड़े वापस लेना)
          ───────────────────────────────────────────────────────────── */}
-      {isReceiveModalOpen && selectedOrder && (
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={() => setIsReceiveModalOpen(false)}>
+      {isReceiveModalOpen && selectedOrder && createPortal(
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={() => setIsReceiveModalOpen(false)}>
           <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-xl my-0 sm:my-auto overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88vh]" onClick={e => e.stopPropagation()}>
             {/* Header - Sticky */}
             <div className="px-4 py-3.5 sm:px-5 sm:py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/70 shrink-0">
@@ -2091,7 +2106,7 @@ Hotel me *${item.itemName}* ka stock critically low hai:
               </div>
 
               {/* Sticky Footer */}
-              <div className="p-3.5 sm:p-4 bg-gray-50/90 border-t border-gray-100 shrink-0 flex items-center gap-2">
+              <div className="p-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-4 bg-gray-50/95 border-t border-gray-100 shrink-0 flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setIsReceiveModalOpen(false)}
@@ -2109,14 +2124,15 @@ Hotel me *${item.itemName}* ka stock critically low hai:
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ─────────────────────────────────────────────────────────────
           MODAL 3: RECORD PAYMENT
          ───────────────────────────────────────────────────────────── */}
-      {isPayModalOpen && selectedOrder && (
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={() => setIsPayModalOpen(false)}>
+      {isPayModalOpen && selectedOrder && createPortal(
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={() => setIsPayModalOpen(false)}>
           <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-md my-0 sm:my-auto overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88vh]" onClick={e => e.stopPropagation()}>
             <div className="px-4 py-3.5 sm:px-5 sm:py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/70 shrink-0">
               <div>
@@ -2191,7 +2207,7 @@ Hotel me *${item.itemName}* ka stock critically low hai:
                 </div>
               </div>
 
-              <div className="p-3.5 sm:p-4 bg-gray-50/90 border-t border-gray-100 shrink-0 flex items-center gap-2">
+              <div className="p-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-4 bg-gray-50/95 border-t border-gray-100 shrink-0 flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setIsPayModalOpen(false)}
@@ -2209,14 +2225,15 @@ Hotel me *${item.itemName}* ka stock critically low hai:
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ─────────────────────────────────────────────────────────────
           MODAL 4: STANDARD RATES & LINEN ITEMS MANAGER
          ───────────────────────────────────────────────────────────── */}
-      {isRatesModalOpen && (
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={() => setIsRatesModalOpen(false)}>
+      {isRatesModalOpen && createPortal(
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={() => setIsRatesModalOpen(false)}>
           <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-xl my-0 sm:my-auto overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88vh]" onClick={e => e.stopPropagation()}>
             <div className="px-4 py-3.5 sm:px-5 sm:py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/70 shrink-0">
               <div className="flex items-center gap-2">
@@ -2331,7 +2348,7 @@ Hotel me *${item.itemName}* ka stock critically low hai:
               </div>
 
               {/* Sticky Footer */}
-              <div className="p-3.5 sm:p-4 bg-gray-50/90 border-t border-gray-100 shrink-0 flex items-center gap-2">
+              <div className="p-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-4 bg-gray-50/95 border-t border-gray-100 shrink-0 flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setIsRatesModalOpen(false)}
@@ -2349,14 +2366,15 @@ Hotel me *${item.itemName}* ka stock critically low hai:
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ─────────────────────────────────────────────────────────────
           MODAL 5: SETTLE DHOBI KHATA / LUMP-SUM PAYMENT
          ───────────────────────────────────────────────────────────── */}
-      {isLumpSumModalOpen && (
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={() => setIsLumpSumModalOpen(false)}>
+      {isLumpSumModalOpen && createPortal(
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={() => setIsLumpSumModalOpen(false)}>
           <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-md my-0 sm:my-auto overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88vh]" onClick={e => e.stopPropagation()}>
             <div className="px-4 py-3.5 sm:px-5 sm:py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/70 shrink-0">
               <div className="flex items-center gap-2">
@@ -2446,7 +2464,7 @@ Hotel me *${item.itemName}* ka stock critically low hai:
               </div>
 
               {/* Sticky Footer */}
-              <div className="p-3.5 sm:p-4 bg-gray-50/90 border-t border-gray-100 shrink-0 flex items-center gap-2">
+              <div className="p-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-4 bg-gray-50/95 border-t border-gray-100 shrink-0 flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setIsLumpSumModalOpen(false)}
@@ -2464,14 +2482,15 @@ Hotel me *${item.itemName}* ka stock critically low hai:
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ─────────────────────────────────────────────────────────────
           MODAL 6: UPDATE TOTAL HOTEL LINEN INVENTORY
          ───────────────────────────────────────────────────────────── */}
-      {isInventoryModalOpen && (
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={() => setIsInventoryModalOpen(false)}>
+      {isInventoryModalOpen && createPortal(
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={() => setIsInventoryModalOpen(false)}>
           <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-lg my-0 sm:my-auto overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88vh]" onClick={e => e.stopPropagation()}>
             <div className="px-4 py-3.5 sm:px-5 sm:py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/70 shrink-0">
               <div className="flex items-center gap-2">
@@ -2514,7 +2533,7 @@ Hotel me *${item.itemName}* ka stock critically low hai:
               </div>
 
               {/* Sticky Footer */}
-              <div className="p-3.5 sm:p-4 bg-gray-50/90 border-t border-gray-100 shrink-0 flex items-center gap-2">
+              <div className="p-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-4 bg-gray-50/95 border-t border-gray-100 shrink-0 flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setIsInventoryModalOpen(false)}
@@ -2532,7 +2551,8 @@ Hotel me *${item.itemName}* ka stock critically low hai:
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

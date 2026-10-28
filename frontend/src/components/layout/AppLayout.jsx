@@ -483,7 +483,7 @@ const AppLayout = ({ children }) => {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-screen-2xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-24 md:pb-8 animate-in fade-in duration-500">
+      <main className="flex-1 max-w-screen-2xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-24 md:pb-8">
         {isCurrentPropertyExpired && (
           <div className="bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white rounded-2xl p-4 sm:p-5 shadow-lg mb-6 border-2 border-red-300 animate-in fade-in">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
