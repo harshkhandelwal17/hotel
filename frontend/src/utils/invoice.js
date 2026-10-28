@@ -187,7 +187,7 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
 
   // Terms and conditions
   const termsText = inv.hostel.billTerms || '1. Check-out time is 11:00 AM.\n2. Valid Govt ID proof required at check-in.\n3. Goods & services once billed are non-refundable.\n4. Disputes subject to local jurisdiction only.';
-  const termsHtml = termsText.split('\n').filter(Boolean).map(t => `<li>${esc(t.replace(/^[0-9]+[\.\)]\s*/, ''))}</li>`).join('');
+  const termsHtml = termsText.split('\n').filter(Boolean).map(t => `<li>${esc(t.replace(/^[0-9]+[.)]\s*/, ''))}</li>`).join('');
 
   return `<!DOCTYPE html>
 <html lang="en">

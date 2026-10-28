@@ -414,7 +414,13 @@ exports.checkout = async (req, res, next) => {
 
     const payments = await Payment.find({ stay: stay._id }).sort('paymentDate');
 
-    res.status(200).json({ success: true, data: flipped, payments });
+    const populated = await Stay.findById(flipped._id)
+      .populate('guest', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth companyName gstin')
+      .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth companyName gstin')
+      .populate('room', 'roomNumber price24h extraPerPerson24h')
+      .populate('hostel', 'name address contactNumber email upiId upiPayeeName gstEnabled gstin taxInclusive gstRate hsnSacCode state stateCode invoicePrefix billTerms autoApplyGstOnCheckin');
+
+    res.status(200).json({ success: true, data: populated || flipped, payments });
   } catch (error) {
     sendError(res, next, error);
   }
