@@ -2390,7 +2390,7 @@ const CheckIn = () => {
                             paymentMethod: 'Wallet'
                           }));
                         }}
-                        className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black rounded-lg text-[10px] transition-transform active:scale-95 cursor-pointer shadow"
+                        className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black rounded-lg text-[10px] transition-transform active:scale-95 cursor-pointer shadow shrink-0 ml-2"
                       >
                         Use Wallet
                       </button>

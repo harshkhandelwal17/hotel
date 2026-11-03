@@ -162,7 +162,9 @@ const PaymentMethodSelector = ({
   return (
     <div className={`space-y-2.5 ${className}`}>
       {/* METHOD BUTTONS */}
-      <div className={`flex flex-wrap sm:flex-nowrap gap-1.5 p-1 rounded-xl ${isDark ? 'bg-gray-800/90 border border-gray-700/60' : 'bg-gray-100 border border-gray-200'}`}>
+      <div className={`flex flex-wrap gap-1.5 p-1 rounded-xl transition-all ${
+        isDark ? 'bg-gray-800/90 border border-gray-700/60' : 'bg-gray-100 border border-gray-200'
+      }`}>
         {methods.map((method) => {
           const isSelected = paymentMethod === method;
           let activeCls = '';
@@ -190,28 +192,35 @@ const PaymentMethodSelector = ({
               : 'text-gray-600 hover:text-gray-900 hover:bg-white/80 font-bold';
           }
 
+          const label = method === 'Bank Transfer'
+            ? 'Bank'
+            : method === 'Khata'
+            ? 'Khata'
+            : method === 'Wallet'
+            ? 'Wallet'
+            : method;
+
           return (
             <button
               key={method}
               type="button"
               onClick={() => handleSelectMethod(method)}
-              className={`flex-1 min-w-[70px] py-2 px-1 text-xs rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 ${activeCls}`}
-            >
-              {method === 'Cash' && <Banknote size={13} className="shrink-0" />}
-              {method === 'UPI' && <Smartphone size={13} className="shrink-0" />}
-              {method === 'Card' && <CreditCard size={13} className="shrink-0" />}
-              {method === 'Wallet' && <Wallet size={13} className="shrink-0 text-emerald-400" />}
-              {method === 'Khata' && <BookOpen size={13} className="shrink-0 text-amber-500" />}
-              {method === 'Mixed' && <Shuffle size={13} className="shrink-0" />}
-              <span>
-                {method === 'Bank Transfer'
-                  ? 'Bank'
+              title={
+                method === 'Khata'
+                  ? 'Khata / Credit (उधार)'
                   : method === 'Wallet'
-                  ? `Wallet (₹${walletBalance})`
-                  : method === 'Khata'
-                  ? 'Khata (उधार)'
-                  : method}
-              </span>
+                  ? `Wallet Advance: ₹${walletBalance}`
+                  : method
+              }
+              className={`flex-1 min-w-[68px] sm:min-w-[74px] py-2 px-1 text-xs rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer select-none active:scale-95 whitespace-nowrap ${activeCls}`}
+            >
+              {method === 'Cash' && <Banknote size={13} className={`shrink-0 ${!isSelected ? 'text-emerald-500' : ''}`} />}
+              {method === 'UPI' && <Smartphone size={13} className={`shrink-0 ${!isSelected ? 'text-purple-400' : ''}`} />}
+              {method === 'Card' && <CreditCard size={13} className={`shrink-0 ${!isSelected ? 'text-blue-400' : ''}`} />}
+              {method === 'Wallet' && <Wallet size={13} className={`shrink-0 ${!isSelected ? 'text-emerald-400' : ''}`} />}
+              {method === 'Khata' && <BookOpen size={13} className={`shrink-0 ${!isSelected ? 'text-amber-500' : ''}`} />}
+              {method === 'Mixed' && <Shuffle size={13} className={`shrink-0 ${!isSelected ? 'text-indigo-400' : ''}`} />}
+              <span className="truncate">{label}</span>
             </button>
           );
         })}
@@ -306,7 +315,7 @@ const PaymentMethodSelector = ({
             <div>
               <label className={`block text-[11px] font-bold mb-1 flex items-center gap-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                 <Smartphone size={12} className="text-purple-500" />
-                <span>UPI / Online (₹)</span>
+                <span className="truncate">UPI (₹)</span>
               </label>
               <div className="relative">
                 <span className="absolute left-2.5 top-2 text-xs font-bold text-gray-400">₹</span>
@@ -316,7 +325,7 @@ const PaymentMethodSelector = ({
                   placeholder="0"
                   value={splitBreakdown.upi ?? ''}
                   onChange={(e) => handleUpiChange(e.target.value)}
-                  className={`w-full pl-6 pr-2.5 py-1.5 text-sm font-black rounded-xl border outline-none transition-all ${
+                  className={`w-full pl-6 pr-2 py-1.5 text-xs sm:text-sm font-black rounded-xl border outline-none transition-all ${
                     isDark 
                       ? 'bg-gray-900/90 border-gray-700 text-white focus:border-amber-400' 
                       : 'bg-white border-gray-300 text-gray-900 focus:ring-2 focus:ring-black'
@@ -329,7 +338,7 @@ const PaymentMethodSelector = ({
             <div>
               <label className={`block text-[11px] font-bold mb-1 flex items-center gap-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                 <CreditCard size={12} className="text-blue-500" />
-                <span>Card (₹) <span className="text-[10px] opacity-60 font-normal">opt</span></span>
+                <span className="truncate">Card (₹)</span>
               </label>
               <div className="relative">
                 <span className="absolute left-2.5 top-2 text-xs font-bold text-gray-400">₹</span>
