@@ -168,6 +168,9 @@ exports.getKhataSummary = async (req, res, next) => {
         { mobileNumber: regex },
         { idProofNumber: regex }
       ];
+    } else {
+      // Use indexed ledgerBalance to only fetch guests with active credit / advance
+      guestQuery.ledgerBalance = { $ne: 0 };
     }
 
     const allGuests = await Guest.find(guestQuery)

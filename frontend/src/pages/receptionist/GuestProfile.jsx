@@ -371,7 +371,7 @@ const GuestProfile = () => {
 
         {/* Balance KPI Banner */}
         <div className="p-6 bg-gray-50/70 border-b border-gray-100 grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-2xs">
+          <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
             <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Current Ledger Status</span>
             <div className="mt-1 flex items-baseline gap-2">
               <span className={`text-2xl font-black ${
@@ -399,14 +399,14 @@ const GuestProfile = () => {
             </div>
           </div>
 
-          <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-2xs">
+          <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
             <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Total Recorded Entries</span>
             <div className="mt-1 text-2xl font-black text-gray-900">
               {ledgerEntries.length} Transactions
             </div>
           </div>
 
-          <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-2xs">
+          <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
             <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Primary Contact</span>
             <div className="mt-1 text-sm font-bold text-gray-800 truncate">
               {guest.mobileNumber || 'No mobile'} {guest.idProofNumber ? `• ${guest.idProofType}: ${guest.idProofNumber}` : ''}
@@ -607,8 +607,8 @@ const GuestProfile = () => {
 
       {/* Deposit Advance Modal */}
       {depositModalOpen && (
-        <div className="fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setDepositModalOpen(false)}>
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-5">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
@@ -701,8 +701,8 @@ const GuestProfile = () => {
 
       {/* Settle Khata Payment Modal */}
       {paymentModalOpen && (
-        <div className="fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setPaymentModalOpen(false)}>
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-5">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center">

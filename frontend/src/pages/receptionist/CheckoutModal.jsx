@@ -375,10 +375,38 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
           
           <div className="px-4 sm:px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-gray-50 border-t border-gray-200 flex flex-col-reverse sm:flex-row justify-end gap-3 rounded-b-none sm:rounded-b-3xl flex-shrink-0">
             <button type="button" onClick={onClose} className="w-full sm:w-auto px-5 py-3 sm:py-2.5 text-sm font-bold text-gray-600 bg-white sm:bg-transparent border sm:border-0 border-gray-200 rounded-xl hover:text-gray-900 hover:bg-gray-100 transition-colors">Cancel</button>
-            <button type="submit" disabled={loading || isHostelExpired || (finalBalance > 0 && Number(checkoutPayment) < finalBalance)} 
-              className="w-full sm:w-auto justify-center px-8 py-3.5 sm:py-2.5 bg-red-600 text-white text-sm font-black uppercase tracking-wide rounded-xl hover:bg-red-700 transition-colors shadow-md disabled:opacity-50 flex items-center gap-2 active:scale-95"
-              title={isHostelExpired ? 'Subscription plan expired' : ''}>
-              {loading ? 'Processing...' : isHostelExpired ? '🔒 Plan Expired' : 'Confirm Checkout'} <ChevronRight size={16}/>
+            <button
+              type="submit"
+              disabled={
+                loading ||
+                isHostelExpired ||
+                (finalBalance > 0 && Number(checkoutPayment) < finalBalance) ||
+                (paymentMethod === 'Wallet' && Number(checkoutPayment) > (Number(stay.guest?.ledgerBalance) || 0))
+              }
+              className={`w-full sm:w-auto justify-center px-8 py-3.5 sm:py-2.5 text-white text-sm font-black uppercase tracking-wide rounded-xl transition-all shadow-md disabled:opacity-50 flex items-center gap-2 active:scale-95 cursor-pointer ${
+                paymentMethod === 'Khata'
+                  ? 'bg-amber-600 hover:bg-amber-700'
+                  : paymentMethod === 'Wallet'
+                  ? 'bg-emerald-600 hover:bg-emerald-700'
+                  : 'bg-red-600 hover:bg-red-700'
+              }`}
+              title={
+                isHostelExpired
+                  ? 'Subscription plan expired'
+                  : paymentMethod === 'Wallet' && Number(checkoutPayment) > (Number(stay.guest?.ledgerBalance) || 0)
+                  ? 'Insufficient wallet balance'
+                  : ''
+              }
+            >
+              {loading
+                ? 'Processing...'
+                : isHostelExpired
+                ? '🔒 Plan Expired'
+                : paymentMethod === 'Khata'
+                ? 'Confirm Khata Checkout'
+                : paymentMethod === 'Wallet'
+                ? 'Checkout with Wallet'
+                : 'Confirm Checkout'} <ChevronRight size={16} />
             </button>
           </div>
         </form>

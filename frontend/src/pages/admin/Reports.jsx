@@ -559,18 +559,20 @@ const Reports = () => {
           </select>
         )}
 
-        <select
-          value={staffFilter}
-          onChange={e => setStaffFilter(e.target.value)}
-          className="w-full md:w-48 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-black outline-none appearance-none"
-        >
-          <option value="all">All Staff / Receptionists</option>
-          {staffList.map(s => (
-            <option key={s.id} value={s.id}>
-              {s.name} ({s.role})
-            </option>
-          ))}
-        </select>
+        {(activeTab === 'bookings' || activeTab === 'transactions') && (
+          <select
+            value={staffFilter}
+            onChange={e => setStaffFilter(e.target.value)}
+            className="w-full md:w-48 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-black outline-none appearance-none"
+          >
+            <option value="all">All Staff / Receptionists</option>
+            {staffList.map(s => (
+              <option key={s.id} value={s.id}>
+                {s.name} ({s.role})
+              </option>
+            ))}
+          </select>
+        )}
 
         {globalProperty === 'all' && (
           <select value={hostelFilter} onChange={e => setHostelFilter(e.target.value)} className="w-full md:w-48 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-black outline-none appearance-none">

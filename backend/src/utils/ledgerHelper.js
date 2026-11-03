@@ -14,7 +14,9 @@ async function recordLedgerImpact({ guestId, hostelId, stayId, amount, paymentMe
   if (amt <= 0) return null;
 
   try {
-    const guestDoc = await Guest.findById(guestId);
+    const targetGuestId = (guestId && typeof guestId === 'object') ? (guestId._id || guestId.id) : guestId;
+    if (!targetGuestId) return null;
+    const guestDoc = await Guest.findById(targetGuestId);
     if (!guestDoc) return null;
 
     const prevBal = Number(guestDoc.ledgerBalance) || 0;

@@ -220,15 +220,23 @@ const PaymentMethodSelector = ({
       {/* WALLET INFO BANNER */}
       {paymentMethod === 'Wallet' && (
         <div className={`p-2.5 rounded-xl border flex items-center justify-between text-xs animate-in fade-in ${
-          isDark ? 'bg-emerald-950/40 border-emerald-800 text-emerald-200' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+          (walletBalance || 0) < target
+            ? isDark ? 'bg-red-950/40 border-red-800 text-red-200' : 'bg-red-50 border-red-200 text-red-800'
+            : isDark ? 'bg-emerald-950/40 border-emerald-800 text-emerald-200' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
         }`}>
           <div className="flex items-center gap-2">
-            <Wallet size={15} className="text-emerald-500 shrink-0" />
+            <Wallet size={15} className={(walletBalance || 0) < target ? 'text-red-500 shrink-0' : 'text-emerald-500 shrink-0'} />
             <span>
-              <strong>Advance Wallet:</strong> ₹{target.toLocaleString('en-IN')} will be deducted from guest's advance balance.
+              {(walletBalance || 0) < target ? (
+                <><strong>Insufficient Wallet Balance:</strong> Guest has only ₹{(walletBalance || 0).toLocaleString('en-IN')}, but ₹{target.toLocaleString('en-IN')} is required.</>
+              ) : (
+                <><strong>Advance Wallet:</strong> ₹{target.toLocaleString('en-IN')} will be deducted from guest's advance balance.</>
+              )}
             </span>
           </div>
-          <span className="font-black px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 text-[10px] shrink-0 ml-2">
+          <span className={`font-black px-2 py-0.5 rounded text-[10px] shrink-0 ml-2 ${
+            (walletBalance || 0) < target ? 'bg-red-100 text-red-900' : 'bg-emerald-100 text-emerald-900'
+          }`}>
             Avail: ₹{(walletBalance || 0).toLocaleString('en-IN')}
           </span>
         </div>
