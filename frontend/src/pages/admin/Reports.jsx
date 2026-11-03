@@ -641,6 +641,7 @@ const Reports = () => {
                         <span className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-lg ${
                           p.paymentMethod === 'Cash' ? 'bg-green-50 text-green-700 border border-green-200' :
                           p.paymentMethod === 'UPI' ? 'bg-purple-50 text-purple-700 border border-purple-200' :
+                          p.paymentMethod === 'Mixed' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
                           'bg-blue-50 text-blue-700 border border-blue-200'
                         }`}>
                           {p.paymentMethod}

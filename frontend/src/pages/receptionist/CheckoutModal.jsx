@@ -6,12 +6,14 @@ import { X, User, Home, Calendar, CreditCard, AlertCircle, CheckCircle2, Plus, P
 import { printInvoice, getInvoiceWhatsAppUrl } from '../../utils/invoice';
 import InvoiceModal from '../../components/InvoiceModal';
 import DynamicUpiQr from '../../components/DynamicUpiQr';
+import PaymentMethodSelector, { validateSplitPayment, buildSplitPayments } from '../../components/common/PaymentMethodSelector';
 import { apiCache } from '../../utils/apiCache';
 
 const CheckoutModal = ({ stay, onClose, onSuccess }) => {
   const [chargesList, setChargesList] = useState([]);
   const [checkoutPayment, setCheckoutPayment] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState('Cash');
+  const [splitBreakdown, setSplitBreakdown] = useState({ cash: '', upi: '', card: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [checkoutComplete, setCheckoutComplete] = useState(false);
@@ -59,11 +61,23 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+
+    const payAmt = Number(checkoutPayment) || 0;
+    if (paymentMethod === 'Mixed' && payAmt > 0) {
+      const valRes = validateSplitPayment(paymentMethod, payAmt, splitBreakdown);
+      if (!valRes.isValid) {
+        setError(valRes.error);
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
       const res = await axios.post(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/stays/${stay._id}/checkout`, {
         chargesList,
-        checkoutPayment: Number(checkoutPayment),
+        checkoutPayment: payAmt,
         paymentMethod,
+        splitPayments: buildSplitPayments(paymentMethod, payAmt, splitBreakdown, 'Checkout Payment'),
         actualCheckOutDate: isEditingCheckoutTime && actualCheckOutDate ? new Date(actualCheckOutDate).toISOString() : new Date().toISOString()
       });
       setCompletedStay(res.data.data);
@@ -305,25 +319,19 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
                     <button type="button" onClick={() => setCheckoutPayment(finalBalance)} className="w-full sm:w-auto py-3 sm:py-0 px-6 bg-black text-white font-bold text-sm rounded-xl hover:bg-gray-800 transition-colors shadow-md active:scale-95">Full ₹{finalBalance}</button>
                   </div>
                 </div>
-                <div className="flex gap-2 mt-2">
-                  {['Cash', 'UPI', 'Card'].map(m => (
-                    <button key={m} type="button" onClick={() => setPaymentMethod(m)}
-                      className={`flex-1 py-3 text-sm font-bold rounded-lg border transition-all ${paymentMethod === m ? 'bg-black text-white border-black shadow-md' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
-                      {m}
-                    </button>
-                  ))}
-                </div>
-
-                {paymentMethod === 'UPI' && Number(checkoutPayment) > 0 && (
-                  <div className="pt-2">
-                    <DynamicUpiQr 
-                      amount={Number(checkoutPayment)}
-                      roomNumber={stay.room?.roomNumber}
-                      guestName={stay.guest?.fullName}
-                      hostel={stay.hostel}
-                    />
-                  </div>
-                )}
+                <PaymentMethodSelector
+                  paymentMethod={paymentMethod}
+                  onChangeMethod={setPaymentMethod}
+                  totalAmount={Number(checkoutPayment) || 0}
+                  splitBreakdown={splitBreakdown}
+                  onChangeSplit={setSplitBreakdown}
+                  theme="light"
+                  qrDetails={{
+                    roomNumber: stay.room?.roomNumber,
+                    guestName: stay.guest?.fullName,
+                    hostel: stay.hostel
+                  }}
+                />
               </div>
             )}
           </div>

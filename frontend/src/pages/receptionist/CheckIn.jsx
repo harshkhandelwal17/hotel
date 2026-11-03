@@ -42,6 +42,7 @@ import { apiCache } from '../../utils/apiCache';
 import GuestRegistrationCardModal from '../../components/reception/GuestRegistrationCardModal';
 import { getFullImageUrl } from '../../utils/imageUrl';
 import DynamicUpiQr from '../../components/DynamicUpiQr';
+import PaymentMethodSelector, { validateSplitPayment, buildSplitPayments } from '../../components/common/PaymentMethodSelector';
 
 const API =
   import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
@@ -136,6 +137,7 @@ const CheckIn = () => {
       gstRate: 12,
       paidAmount: '',
       paymentMethod: 'Cash',
+      splitBreakdown: { cash: '', upi: '', card: '' },
       commissionTo: '',
       commissionAmount: '',
       isBackdated: false,
@@ -154,6 +156,7 @@ const CheckIn = () => {
         durationHours: hours,
         isMorningCheckout: saved.isMorningCheckout || false,
         paidAmount: saved.paidAmount === 0 || saved.paidAmount === '0' ? '' : saved.paidAmount,
+        splitBreakdown: saved.splitBreakdown || { cash: '', upi: '', card: '' },
         isBackdated: saved.isBackdated || false,
         checkInDate: saved.checkInDate || '',
         isAlreadyCheckedOut: saved.isAlreadyCheckedOut || false,
@@ -1230,6 +1233,17 @@ const CheckIn = () => {
         ? `${Math.max(1, effDays)}d (10 AM)`
         : (effDays > 0 && hours > 0) ? `${effDays}d ${hours}h` : effDays > 0 ? `${effDays}d (24h)` : `${hours}h`;
 
+      // Validate Mixed Payment if selected
+      const initialPay = Number(stayInfo.paidAmount) || 0;
+      if (stayInfo.paymentMethod === 'Mixed' && initialPay > 0) {
+        const valRes = validateSplitPayment(stayInfo.paymentMethod, initialPay, stayInfo.splitBreakdown);
+        if (!valRes.isValid) {
+          toast({ message: valRes.error, type: 'error' });
+          setLoading(false);
+          return;
+        }
+      }
+
       const stayPayload = {
         guest: pGuestId,
 
@@ -1247,10 +1261,17 @@ const CheckIn = () => {
         totalAmount:
           Number(stayInfo.totalAmount) || 0,
 
-        initialPaymentAmount: Number(stayInfo.paidAmount) || 0,
+        initialPaymentAmount: initialPay,
 
         paymentMethod:
           stayInfo.paymentMethod,
+
+        splitPayments: buildSplitPayments(
+          stayInfo.paymentMethod,
+          initialPay,
+          stayInfo.splitBreakdown,
+          'Advance Payment'
+        ),
 
         commissionTo:
           stayInfo.commissionTo,
@@ -1441,6 +1462,7 @@ const CheckIn = () => {
       totalAmount: '',
       paidAmount: '',
       paymentMethod: 'Cash',
+      splitBreakdown: { cash: '', upi: '', card: '' },
       commissionTo: '',
       commissionAmount: ''
     });
@@ -2341,39 +2363,20 @@ const CheckIn = () => {
                   </span>
                 </div>
 
-                {/* PAYMENT METHOD */}
-                <div className="flex gap-1.5 bg-gray-800/90 p-1 rounded-xl">
-                  {['Cash', 'UPI', 'Card'].map((method) => (
-                    <button
-                      key={method}
-                      type="button"
-                      onClick={() =>
-                        setStayInfo((p) => ({
-                          ...p,
-                          paymentMethod: method
-                        }))
-                      }
-                      className={`flex-1 py-1.5 rounded-lg text-xs font-black transition-all ${
-                        stayInfo.paymentMethod === method
-                          ? 'bg-white text-black shadow-xs'
-                          : 'text-gray-400 hover:text-white hover:bg-gray-700'
-                      }`}
-                    >
-                      {method}
-                    </button>
-                  ))}
-                </div>
-
-                {stayInfo.paymentMethod === 'UPI' && Number(stayInfo.paidAmount) > 0 && (
-                  <div className="pt-2">
-                    <DynamicUpiQr 
-                      amount={Number(stayInfo.paidAmount)}
-                      roomNumber={selectedRoomDetails?.roomNumber}
-                      guestName={guests[0]?.fullName}
-                      hostel={selectedRoomDetails?.hostel || activeHostel || user?.assignedHostel}
-                    />
-                  </div>
-                )}
+                {/* PAYMENT METHOD SELECTOR (CASH, UPI, CARD, MIXED) */}
+                <PaymentMethodSelector
+                  paymentMethod={stayInfo.paymentMethod || 'Cash'}
+                  onChangeMethod={(m) => setStayInfo((p) => ({ ...p, paymentMethod: m }))}
+                  totalAmount={Number(stayInfo.paidAmount) || 0}
+                  splitBreakdown={stayInfo.splitBreakdown || { cash: '', upi: '', card: '' }}
+                  onChangeSplit={(splits) => setStayInfo((p) => ({ ...p, splitBreakdown: splits }))}
+                  theme="dark"
+                  qrDetails={{
+                    roomNumber: selectedRoomDetails?.roomNumber,
+                    guestName: guests[0]?.fullName,
+                    hostel: selectedRoomDetails?.hostel || activeHostel || user?.assignedHostel
+                  }}
+                />
 
                 {/* BROKER / COMMISSION (OPTIONAL) */}
                 <div className="pt-2">

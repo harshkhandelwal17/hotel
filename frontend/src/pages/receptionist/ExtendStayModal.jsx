@@ -3,12 +3,15 @@ import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { format, addDays } from 'date-fns';
 import { X } from 'lucide-react';
+import PaymentMethodSelector, { validateSplitPayment, buildSplitPayments } from '../../components/common/PaymentMethodSelector';
 
 const ExtendStayModal = ({ stay, onClose, onSuccess }) => {
   const [newCheckOutDate, setNewCheckOutDate] = useState(
     format(addDays(new Date(stay.expectedCheckOutDate), 1), 'yyyy-MM-dd')
   );
   const [extensionPayment, setExtensionPayment] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState('Cash');
+  const [splitBreakdown, setSplitBreakdown] = useState({ cash: '', upi: '', card: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -37,6 +40,15 @@ const ExtendStayModal = ({ stay, onClose, onSuccess }) => {
       return;
     }
 
+    const payAmt = Number(extensionPayment) || 0;
+    if (paymentMethod === 'Mixed' && payAmt > 0) {
+      const valRes = validateSplitPayment(paymentMethod, payAmt, splitBreakdown);
+      if (!valRes.isValid) {
+        setError(valRes.error);
+        return;
+      }
+    }
+
     setLoading(true);
     setError('');
 
@@ -44,7 +56,9 @@ const ExtendStayModal = ({ stay, onClose, onSuccess }) => {
     try {
       await axios.post(`${apiUrl}/api/stays/${stay._id}/extend`, {
         newCheckOutDate,
-        extensionPayment: Number(extensionPayment)
+        extensionPayment: payAmt,
+        paymentMethod,
+        splitPayments: buildSplitPayments(paymentMethod, payAmt, splitBreakdown, 'Extension Payment')
       });
       onSuccess();
     } catch (err) {
@@ -118,6 +132,25 @@ const ExtendStayModal = ({ stay, onClose, onSuccess }) => {
                 placeholder="0"
               />
             </div>
+
+            {Number(extensionPayment) > 0 && (
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">Payment Mode</label>
+                <PaymentMethodSelector
+                  paymentMethod={paymentMethod}
+                  onChangeMethod={setPaymentMethod}
+                  totalAmount={Number(extensionPayment) || 0}
+                  splitBreakdown={splitBreakdown}
+                  onChangeSplit={setSplitBreakdown}
+                  theme="light"
+                  qrDetails={{
+                    roomNumber: stay.room?.roomNumber,
+                    guestName: stay.guest?.fullName,
+                    hostel: stay.hostel
+                  }}
+                />
+              </div>
+            )}
           </div>
           
           <div className="px-4 sm:px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-gray-50 border-t border-gray-100 flex flex-col-reverse sm:flex-row justify-end gap-2.5 rounded-b-none sm:rounded-b-2xl shrink-0">

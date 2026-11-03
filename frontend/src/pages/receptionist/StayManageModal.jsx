@@ -6,6 +6,7 @@ import { X, Receipt, Plus, Wallet, ArrowRightLeft, CalendarPlus, Printer, Trash2
 import { printInvoice } from '../../utils/invoice';
 import InvoiceModal from '../../components/InvoiceModal';
 import DynamicUpiQr from '../../components/DynamicUpiQr';
+import PaymentMethodSelector, { validateSplitPayment, buildSplitPayments } from '../../components/common/PaymentMethodSelector';
 import { compressImage } from '../../utils/imageCompression';
 import { getFullImageUrl } from '../../utils/imageUrl';
 import { apiCache } from '../../utils/apiCache';
@@ -49,7 +50,12 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
   // charge form
   const [pendingCharges, setPendingCharges] = useState([]);
   // payment form
-  const [payForm, setPayForm] = useState({ amount: '', paymentMethod: 'Cash', notes: '' });
+  const [payForm, setPayForm] = useState({
+    amount: '',
+    paymentMethod: 'Cash',
+    splitBreakdown: { cash: '', upi: '', card: '' },
+    notes: ''
+  });
   // shift form
   const [rooms, setRooms] = useState([]);
   const [shiftForm, setShiftForm] = useState({ newRoomId: '', priceAdjustment: '', reason: '' });
@@ -59,7 +65,8 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
     extendHours: 0,
     additionalRent: '',
     extensionPayment: '',
-    paymentMethod: 'Cash'
+    paymentMethod: 'Cash',
+    splitBreakdown: { cash: '', upi: '', card: '' }
   });
 
   // edit form (fixes mistakes in guest, timings, rent)
@@ -82,7 +89,12 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
   const [uploadingFront, setUploadingFront] = useState(false);
   const [uploadingBack, setUploadingBack] = useState(false);
   const [editPayments, setEditPayments] = useState([]);
-  const [newPaymentForm, setNewPaymentForm] = useState({ amount: '', paymentMethod: 'Cash', notes: '' });
+  const [newPaymentForm, setNewPaymentForm] = useState({
+    amount: '',
+    paymentMethod: 'Cash',
+    splitBreakdown: { cash: '', upi: '', card: '' },
+    notes: ''
+  });
   const [showAddPaymentRow, setShowAddPaymentRow] = useState(false);
 
   const reload = useCallback(async () => {
@@ -218,11 +230,12 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
         newPayment: Number(newPaymentForm.amount) > 0 ? {
           amount: Number(newPaymentForm.amount),
           paymentMethod: newPaymentForm.paymentMethod || 'Cash',
+          splitPayments: buildSplitPayments(newPaymentForm.paymentMethod, Number(newPaymentForm.amount), newPaymentForm.splitBreakdown, 'Recorded via Edit'),
           notes: newPaymentForm.notes || 'Recorded via Edit'
         } : undefined
       };
       await axios.put(`${API}/api/stays/${stay._id}`, payload);
-      setNewPaymentForm({ amount: '', paymentMethod: 'Cash', notes: '' });
+      setNewPaymentForm({ amount: '', paymentMethod: 'Cash', splitBreakdown: { cash: '', upi: '', card: '' }, notes: '' });
       setShowAddPaymentRow(false);
     }, '✅ Entry & Payment details updated successfully!');
   };
@@ -246,10 +259,25 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
 
   const addPayment = async (e) => {
     e.preventDefault();
+    const payAmt = Number(payForm.amount) || 0;
+    if (payForm.paymentMethod === 'Mixed' && payAmt > 0) {
+      const valRes = validateSplitPayment(payForm.paymentMethod, payAmt, payForm.splitBreakdown);
+      if (!valRes.isValid) {
+        setError(valRes.error);
+        return;
+      }
+    }
+
     const ok = await run(() => axios.post(`${API}/api/stays/${stay._id}/payments`, {
-      ...payForm, amount: Number(payForm.amount)
+      amount: payAmt,
+      paymentMethod: payForm.paymentMethod,
+      splitPayments: buildSplitPayments(payForm.paymentMethod, payAmt, payForm.splitBreakdown, 'Payment'),
+      notes: payForm.notes
     }), 'Payment recorded');
-    if (ok) { setPayForm({ amount: '', paymentMethod: 'Cash', notes: '' }); setTab('bill'); }
+    if (ok) {
+      setPayForm({ amount: '', paymentMethod: 'Cash', splitBreakdown: { cash: '', upi: '', card: '' }, notes: '' });
+      setTab('bill');
+    }
   };
 
   const shiftRoom = async (e) => {
@@ -269,12 +297,22 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
   const extend = async (e) => {
     e.preventDefault();
     const newDate = addHours(addDays(new Date(stay.expectedCheckOutDate), Number(extendForm.extendDays) || 0), Number(extendForm.extendHours) || 0);
+    const extPay = Number(extendForm.extensionPayment) || 0;
+
+    if (extendForm.paymentMethod === 'Mixed' && extPay > 0) {
+      const valRes = validateSplitPayment(extendForm.paymentMethod, extPay, extendForm.splitBreakdown);
+      if (!valRes.isValid) {
+        setError(valRes.error);
+        return;
+      }
+    }
 
     const ok = await run(() => axios.post(`${API}/api/stays/${stay._id}/extend`, {
       newCheckOutDate: newDate.toISOString(),
       additionalRent: Number(extendForm.additionalRent) || 0,
-      extensionPayment: Number(extendForm.extensionPayment) || 0,
-      paymentMethod: extendForm.paymentMethod
+      extensionPayment: extPay,
+      paymentMethod: extendForm.paymentMethod,
+      splitPayments: buildSplitPayments(extendForm.paymentMethod, extPay, extendForm.splitBreakdown, 'Extension Payment')
     }), 'Stay extended');
     if (ok) setTab('bill');
   };
@@ -513,22 +551,19 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                   <button type="button" onClick={() => setPayForm({ ...payForm, amount: balance })}
                     className="px-4 bg-gray-100 rounded-xl text-xs font-bold whitespace-nowrap hover:bg-gray-200">Full</button>
                 </div></div>
-              <div className="flex gap-2">
-                {['Cash', 'UPI', 'Card'].map(m => (
-                  <button type="button" key={m} onClick={() => setPayForm({ ...payForm, paymentMethod: m })}
-                    className={`flex-1 py-2 text-sm font-bold rounded-lg border ${payForm.paymentMethod === m ? 'bg-black text-white border-black' : 'bg-white text-gray-600 border-gray-200'}`}>{m}</button>
-                ))}
-              </div>
-              {payForm.paymentMethod === 'UPI' && Number(payForm.amount) > 0 && (
-                <div className="pt-1">
-                  <DynamicUpiQr 
-                    amount={Number(payForm.amount)}
-                    roomNumber={stay.room?.roomNumber}
-                    guestName={stay.guest?.fullName}
-                    hostel={stay.hostel}
-                  />
-                </div>
-              )}
+              <PaymentMethodSelector
+                paymentMethod={payForm.paymentMethod}
+                onChangeMethod={(m) => setPayForm((p) => ({ ...p, paymentMethod: m }))}
+                totalAmount={Number(payForm.amount) || 0}
+                splitBreakdown={payForm.splitBreakdown}
+                onChangeSplit={(s) => setPayForm((p) => ({ ...p, splitBreakdown: s }))}
+                theme="light"
+                qrDetails={{
+                  roomNumber: stay.room?.roomNumber,
+                  guestName: stay.guest?.fullName,
+                  hostel: stay.hostel
+                }}
+              />
               <div><label className={labelCls}>Note (optional)</label>
                 <input className={inputCls} value={payForm.notes} onChange={e => setPayForm({ ...payForm, notes: e.target.value })} /></div>
             </form>
@@ -587,6 +622,25 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                   <input type="number" min="0" className={inputCls} placeholder="0" value={extendForm.extensionPayment}
                     onChange={e => setExtendForm({ ...extendForm, extensionPayment: e.target.value })} /></div>
               </div>
+
+              {Number(extendForm.extensionPayment) > 0 && (
+                <div className="pt-1">
+                  <label className={labelCls}>Payment Mode</label>
+                  <PaymentMethodSelector
+                    paymentMethod={extendForm.paymentMethod}
+                    onChangeMethod={(m) => setExtendForm((p) => ({ ...p, paymentMethod: m }))}
+                    totalAmount={Number(extendForm.extensionPayment) || 0}
+                    splitBreakdown={extendForm.splitBreakdown}
+                    onChangeSplit={(s) => setExtendForm((p) => ({ ...p, splitBreakdown: s }))}
+                    theme="light"
+                    qrDetails={{
+                      roomNumber: stay.room?.roomNumber,
+                      guestName: stay.guest?.fullName,
+                      hostel: stay.hostel
+                    }}
+                  />
+                </div>
+              )}
             </form>
           )}
 
@@ -889,32 +943,6 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                     <p className="text-xs font-bold text-gray-500">No advance payment recorded yet.</p>
                     
                     <div>
-                      <label className={labelCls}>Select Payment Mode</label>
-                      <div className="grid grid-cols-4 gap-1.5 mt-1">
-                        {['Cash', 'UPI', 'Card', 'Bank Transfer'].map(method => (
-                          <button
-                            type="button"
-                            key={method}
-                            onClick={() => setNewPaymentForm({ ...newPaymentForm, paymentMethod: method })}
-                            className={`py-2 text-xs font-black rounded-lg border transition-all ${
-                              newPaymentForm.paymentMethod === method
-                                ? method === 'Cash'
-                                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                                  : method === 'UPI'
-                                  ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
-                                  : method === 'Card'
-                                  ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                                  : 'bg-black text-white border-black shadow-xs'
-                                : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
-                            }`}
-                          >
-                            {method === 'Bank Transfer' ? 'Bank' : method}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
                       <label className={labelCls}>Paid Amount (₹)</label>
                       <input
                         type="number"
@@ -923,6 +951,24 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                         className={inputCls}
                         value={newPaymentForm.amount}
                         onChange={e => setNewPaymentForm({ ...newPaymentForm, amount: e.target.value })}
+                      />
+                    </div>
+
+                    <div>
+                      <label className={labelCls}>Select Payment Mode</label>
+                      <PaymentMethodSelector
+                        paymentMethod={newPaymentForm.paymentMethod}
+                        onChangeMethod={(m) => setNewPaymentForm((p) => ({ ...p, paymentMethod: m }))}
+                        totalAmount={Number(newPaymentForm.amount) || 0}
+                        splitBreakdown={newPaymentForm.splitBreakdown}
+                        onChangeSplit={(s) => setNewPaymentForm((p) => ({ ...p, splitBreakdown: s }))}
+                        theme="light"
+                        allowBankTransfer={true}
+                        qrDetails={{
+                          roomNumber: stay.room?.roomNumber,
+                          guestName: stay.guest?.fullName,
+                          hostel: stay.hostel
+                        }}
                       />
                     </div>
                   </div>
@@ -956,46 +1002,43 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                         </div>
 
                         <div>
-                          <label className={labelCls}>Payment Mode</label>
-                          <div className="grid grid-cols-4 gap-1.5">
-                            {['Cash', 'UPI', 'Card', 'Bank Transfer'].map(m => (
-                              <button
-                                type="button"
-                                key={m}
-                                onClick={() => setNewPaymentForm({ ...newPaymentForm, paymentMethod: m })}
-                                className={`py-1.5 text-xs font-black rounded-lg border transition-all ${
-                                  newPaymentForm.paymentMethod === m
-                                    ? 'bg-black text-white border-black'
-                                    : 'bg-white text-gray-700 border-gray-200'
-                                }`}
-                              >
-                                {m === 'Bank Transfer' ? 'Bank' : m}
-                              </button>
-                            ))}
-                          </div>
+                          <label className={labelCls}>Amount (₹)</label>
+                          <input
+                            type="number"
+                            min="1"
+                            placeholder="Amount (₹)"
+                            className={inputCls}
+                            value={newPaymentForm.amount}
+                            onChange={e => setNewPaymentForm({ ...newPaymentForm, amount: e.target.value })}
+                          />
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          <div>
-                            <label className={labelCls}>Amount (₹)</label>
-                            <input
-                              type="number"
-                              min="1"
-                              placeholder="Amount (₹)"
-                              className={inputCls}
-                              value={newPaymentForm.amount}
-                              onChange={e => setNewPaymentForm({ ...newPaymentForm, amount: e.target.value })}
-                            />
-                          </div>
-                          <div>
-                            <label className={labelCls}>Note</label>
-                            <input
-                              placeholder="Note (optional)"
-                              className={inputCls}
-                              value={newPaymentForm.notes}
-                              onChange={e => setNewPaymentForm({ ...newPaymentForm, notes: e.target.value })}
-                            />
-                          </div>
+                        <div>
+                          <label className={labelCls}>Payment Mode</label>
+                          <PaymentMethodSelector
+                            paymentMethod={newPaymentForm.paymentMethod}
+                            onChangeMethod={(m) => setNewPaymentForm((p) => ({ ...p, paymentMethod: m }))}
+                            totalAmount={Number(newPaymentForm.amount) || 0}
+                            splitBreakdown={newPaymentForm.splitBreakdown}
+                            onChangeSplit={(s) => setNewPaymentForm((p) => ({ ...p, splitBreakdown: s }))}
+                            theme="light"
+                            allowBankTransfer={true}
+                            qrDetails={{
+                              roomNumber: stay.room?.roomNumber,
+                              guestName: stay.guest?.fullName,
+                              hostel: stay.hostel
+                            }}
+                          />
+                        </div>
+
+                        <div>
+                          <label className={labelCls}>Note</label>
+                          <input
+                            placeholder="Note (optional)"
+                            className={inputCls}
+                            value={newPaymentForm.notes}
+                            onChange={e => setNewPaymentForm({ ...newPaymentForm, notes: e.target.value })}
+                          />
                         </div>
                       </div>
                     )}

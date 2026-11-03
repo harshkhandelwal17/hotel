@@ -21,7 +21,7 @@ exports.createStay = async (req, res, next) => {
   try {
     const {
       guest, room, checkInDate, expectedCheckOutDate, initialPaymentAmount,
-      paymentMethod, durationOption, occupants, coGuests, commissionTo, commissionAmount,
+      paymentMethod, splitPayments, durationOption, occupants, coGuests, commissionTo, commissionAmount,
       isAlreadyCheckedOut, actualCheckOutDate
     } = req.body;
 
@@ -129,14 +129,31 @@ exports.createStay = async (req, res, next) => {
     }
 
     if (advance > 0) {
-      await Payment.create({
-        stay: stay._id,
-        guest,
-        hostel,
-        amount: advance,
-        paymentMethod: paymentMethod || 'Cash',
-        createdBy: req.user._id
-      });
+      if (Array.isArray(splitPayments) && splitPayments.length > 0) {
+        for (const sp of splitPayments) {
+          const spAmt = Number(sp.amount);
+          if (spAmt > 0) {
+            await Payment.create({
+              stay: stay._id,
+              guest,
+              hostel,
+              amount: spAmt,
+              paymentMethod: sp.paymentMethod || 'Cash',
+              notes: sp.notes || 'Advance Payment',
+              createdBy: req.user._id
+            });
+          }
+        }
+      } else {
+        await Payment.create({
+          stay: stay._id,
+          guest,
+          hostel,
+          amount: advance,
+          paymentMethod: paymentMethod || 'Cash',
+          createdBy: req.user._id
+        });
+      }
     }
 
     res.status(201).json({ success: true, data: stay });
@@ -307,15 +324,33 @@ exports.addPayment = async (req, res, next) => {
       throw err;
     }
 
-    await Payment.create({
-      stay: stay._id,
-      guest: stay.guest,
-      hostel: stay.hostel,
-      amount,
-      paymentMethod: req.body.paymentMethod || 'Cash',
-      notes: req.body.notes,
-      createdBy: req.user._id
-    });
+    const splitPayments = req.body.splitPayments;
+    if (Array.isArray(splitPayments) && splitPayments.length > 0) {
+      for (const sp of splitPayments) {
+        const spAmt = Number(sp.amount);
+        if (spAmt > 0) {
+          await Payment.create({
+            stay: stay._id,
+            guest: stay.guest,
+            hostel: stay.hostel,
+            amount: spAmt,
+            paymentMethod: sp.paymentMethod || 'Cash',
+            notes: sp.notes || req.body.notes || 'Payment',
+            createdBy: req.user._id
+          });
+        }
+      }
+    } else {
+      await Payment.create({
+        stay: stay._id,
+        guest: stay.guest,
+        hostel: stay.hostel,
+        amount,
+        paymentMethod: req.body.paymentMethod || 'Cash',
+        notes: req.body.notes,
+        createdBy: req.user._id
+      });
+    }
 
     res.status(201).json({ success: true, data: updated });
   } catch (error) {
@@ -332,7 +367,7 @@ exports.checkout = async (req, res, next) => {
 
     const additionalCharges = Number(req.body.additionalCharges) || 0;
     const checkoutPayment = Number(req.body.checkoutPayment) || 0;
-    const { paymentMethod, additionalChargesNote } = req.body;
+    const { paymentMethod, splitPayments, additionalChargesNote } = req.body;
 
     if (checkoutPayment < 0 || !Number.isFinite(checkoutPayment)) {
       throw new Error('Invalid payment amount');
@@ -402,14 +437,31 @@ exports.checkout = async (req, res, next) => {
     }
 
     if (checkoutPayment > 0) {
-      await Payment.create({
-        stay: stay._id,
-        guest: stay.guest,
-        hostel: stay.hostel,
-        amount: checkoutPayment,
-        paymentMethod: paymentMethod || 'Cash',
-        createdBy: req.user._id
-      });
+      if (Array.isArray(splitPayments) && splitPayments.length > 0) {
+        for (const sp of splitPayments) {
+          const spAmt = Number(sp.amount);
+          if (spAmt > 0) {
+            await Payment.create({
+              stay: stay._id,
+              guest: stay.guest,
+              hostel: stay.hostel,
+              amount: spAmt,
+              paymentMethod: sp.paymentMethod || 'Cash',
+              notes: sp.notes || 'Checkout Payment',
+              createdBy: req.user._id
+            });
+          }
+        }
+      } else {
+        await Payment.create({
+          stay: stay._id,
+          guest: stay.guest,
+          hostel: stay.hostel,
+          amount: checkoutPayment,
+          paymentMethod: paymentMethod || 'Cash',
+          createdBy: req.user._id
+        });
+      }
     }
 
     const payments = await Payment.find({ stay: stay._id }).sort('paymentDate');
@@ -431,7 +483,7 @@ exports.extendStay = async (req, res, next) => {
     const stay = await loadAuthorizedStay(req);
     if (!OPEN_STATUSES.includes(stay.status)) throw new Error('Only a guest who is still staying can be extended');
 
-    const { newCheckOutDate, extensionPayment, paymentMethod } = req.body;
+    const { newCheckOutDate, extensionPayment, paymentMethod, splitPayments } = req.body;
     const newOutDate = new Date(newCheckOutDate);
     if (isNaN(newOutDate.getTime())) throw new Error('Invalid new checkout date');
 
@@ -460,14 +512,31 @@ exports.extendStay = async (req, res, next) => {
 
     if (pay > 0) {
       stay.paidAmount += pay;
-      await Payment.create({
-        stay: stay._id,
-        guest: stay.guest,
-        hostel: stay.hostel,
-        amount: pay,
-        paymentMethod: paymentMethod || 'Cash',
-        createdBy: req.user._id
-      });
+      if (Array.isArray(splitPayments) && splitPayments.length > 0) {
+        for (const sp of splitPayments) {
+          const spAmt = Number(sp.amount);
+          if (spAmt > 0) {
+            await Payment.create({
+              stay: stay._id,
+              guest: stay.guest,
+              hostel: stay.hostel,
+              amount: spAmt,
+              paymentMethod: sp.paymentMethod || 'Cash',
+              notes: sp.notes || 'Extension Payment',
+              createdBy: req.user._id
+            });
+          }
+        }
+      } else {
+        await Payment.create({
+          stay: stay._id,
+          guest: stay.guest,
+          hostel: stay.hostel,
+          amount: pay,
+          paymentMethod: paymentMethod || 'Cash',
+          createdBy: req.user._id
+        });
+      }
     }
 
     await stay.save();
@@ -673,15 +742,32 @@ exports.updateStay = async (req, res, next) => {
     }
 
     if (newPayment && Number(newPayment.amount) > 0) {
-      await Payment.create({
-        stay: stay._id,
-        guest: stay.guest,
-        hostel: stay.hostel,
-        amount: Number(newPayment.amount),
-        paymentMethod: newPayment.paymentMethod || 'Cash',
-        notes: newPayment.notes || 'Recorded via Edit',
-        createdBy: req.user._id
-      });
+      if (Array.isArray(newPayment.splitPayments) && newPayment.splitPayments.length > 0) {
+        for (const sp of newPayment.splitPayments) {
+          const spAmt = Number(sp.amount);
+          if (spAmt > 0) {
+            await Payment.create({
+              stay: stay._id,
+              guest: stay.guest,
+              hostel: stay.hostel,
+              amount: spAmt,
+              paymentMethod: sp.paymentMethod || 'Cash',
+              notes: sp.notes || newPayment.notes || 'Recorded via Edit (Mixed)',
+              createdBy: req.user._id
+            });
+          }
+        }
+      } else {
+        await Payment.create({
+          stay: stay._id,
+          guest: stay.guest,
+          hostel: stay.hostel,
+          amount: Number(newPayment.amount),
+          paymentMethod: newPayment.paymentMethod || 'Cash',
+          notes: newPayment.notes || 'Recorded via Edit',
+          createdBy: req.user._id
+        });
+      }
     }
 
     // Recalculate and sync stay.paidAmount from actual payments

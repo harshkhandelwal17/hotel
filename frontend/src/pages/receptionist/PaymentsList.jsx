@@ -4,6 +4,7 @@ import axios from 'axios';
 import { format } from 'date-fns';
 import { CreditCard, Plus, Search, ArrowUpRight } from 'lucide-react';
 import DynamicUpiQr from '../../components/DynamicUpiQr';
+import PaymentMethodSelector, { validateSplitPayment, buildSplitPayments } from '../../components/common/PaymentMethodSelector';
 import { apiCache } from '../../utils/apiCache';
 
 const PaymentsList = () => {
@@ -13,6 +14,7 @@ const PaymentsList = () => {
   const [selectedStay, setSelectedStay] = useState(null);
   const [payAmount, setPayAmount] = useState('');
   const [payMethod, setPayMethod] = useState('Cash');
+  const [splitBreakdown, setSplitBreakdown] = useState({ cash: '', upi: '', card: '' });
   const [payLoading, setPayLoading] = useState(false);
   const [payError, setPayError] = useState('');
 
@@ -54,17 +56,29 @@ const PaymentsList = () => {
 
   const handlePayment = async (e) => {
     e.preventDefault();
-    if (!payAmount || Number(payAmount) <= 0) return;
+    const amt = Number(payAmount) || 0;
+    if (amt <= 0) return;
+
+    if (payMethod === 'Mixed' && amt > 0) {
+      const valRes = validateSplitPayment(payMethod, amt, splitBreakdown);
+      if (!valRes.isValid) {
+        setPayError(valRes.error);
+        return;
+      }
+    }
+
     setPayLoading(true);
     setPayError('');
     try {
       await axios.post(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/payments`, {
         stayId: selectedStay._id,
-        amount: Number(payAmount),
+        amount: amt,
         paymentMethod: payMethod,
+        splitPayments: buildSplitPayments(payMethod, amt, splitBreakdown, 'Payment'),
       });
       setSelectedStay(null);
       setPayAmount('');
+      setSplitBreakdown({ cash: '', upi: '', card: '' });
       apiCache.invalidate();
       fetchData(true);
     } catch (err) {
@@ -175,25 +189,19 @@ const PaymentsList = () => {
                     required
                   />
                 </div>
-                <div className="flex gap-2">
-                  {['Cash', 'UPI', 'Card'].map(m => (
-                    <button key={m} type="button" onClick={() => setPayMethod(m)}
-                      className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all ${payMethod === m ? 'bg-black text-white border-black shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
-                      {m}
-                    </button>
-                  ))}
-                </div>
-
-                {payMethod === 'UPI' && Number(payAmount) > 0 && (
-                  <div className="pt-1">
-                    <DynamicUpiQr 
-                      amount={Number(payAmount)}
-                      roomNumber={selectedStay.room?.roomNumber}
-                      guestName={selectedStay.guest?.fullName}
-                      hostel={selectedStay.hostel}
-                    />
-                  </div>
-                )}
+                <PaymentMethodSelector
+                  paymentMethod={payMethod}
+                  onChangeMethod={setPayMethod}
+                  totalAmount={Number(payAmount) || 0}
+                  splitBreakdown={splitBreakdown}
+                  onChangeSplit={setSplitBreakdown}
+                  theme="light"
+                  qrDetails={{
+                    roomNumber: selectedStay.room?.roomNumber,
+                    guestName: selectedStay.guest?.fullName,
+                    hostel: selectedStay.hostel
+                  }}
+                />
               </div>
 
               <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-gray-50 border-t border-gray-100 shrink-0">

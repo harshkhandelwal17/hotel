@@ -50,17 +50,39 @@ exports.createPayment = async (req, res, next) => {
       });
     }
 
-    const payment = await Payment.create({
-      stay: stayId,
-      guest: stay.guest,
-      hostel: stay.hostel,
-      amount: payAmount,
-      paymentMethod: paymentMethod || 'Cash',
-      notes: notes || note || '',
-      createdBy: req.user._id
-    });
+    const splitPayments = req.body.splitPayments;
+    let createdPayments = [];
 
-    res.status(201).json({ success: true, data: payment });
+    if (Array.isArray(splitPayments) && splitPayments.length > 0) {
+      for (const sp of splitPayments) {
+        const spAmt = Number(sp.amount);
+        if (spAmt > 0) {
+          const p = await Payment.create({
+            stay: stayId,
+            guest: stay.guest,
+            hostel: stay.hostel,
+            amount: spAmt,
+            paymentMethod: sp.paymentMethod || 'Cash',
+            notes: sp.notes || notes || note || 'Payment (Mixed)',
+            createdBy: req.user._id
+          });
+          createdPayments.push(p);
+        }
+      }
+    } else {
+      const payment = await Payment.create({
+        stay: stayId,
+        guest: stay.guest,
+        hostel: stay.hostel,
+        amount: payAmount,
+        paymentMethod: paymentMethod || 'Cash',
+        notes: notes || note || '',
+        createdBy: req.user._id
+      });
+      createdPayments.push(payment);
+    }
+
+    res.status(201).json({ success: true, data: createdPayments[0], payments: createdPayments });
   } catch (error) {
     next(error);
   }
