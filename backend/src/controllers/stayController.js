@@ -3,6 +3,7 @@ const Room = require('../models/Room');
 const Payment = require('../models/Payment');
 const Guest = require('../models/Guest');
 const { assertHostelAccess, getHostelFilter, userCanAccessHostel } = require('../utils/hostelAccess');
+const { recordLedgerImpact } = require('../utils/ledgerHelper');
 
 const OPEN_STATUSES = ['Upcoming', 'Active', 'Checkout Due', 'Overdue'];
 
@@ -133,25 +134,45 @@ exports.createStay = async (req, res, next) => {
         for (const sp of splitPayments) {
           const spAmt = Number(sp.amount);
           if (spAmt > 0) {
+            const pMethod = sp.paymentMethod || 'Cash';
             await Payment.create({
               stay: stay._id,
               guest,
               hostel,
               amount: spAmt,
-              paymentMethod: sp.paymentMethod || 'Cash',
+              paymentMethod: pMethod,
               notes: sp.notes || 'Advance Payment',
               createdBy: req.user._id
+            });
+            await recordLedgerImpact({
+              guestId: guest,
+              hostelId: hostel,
+              stayId: stay._id,
+              amount: spAmt,
+              paymentMethod: pMethod,
+              description: sp.notes || `Advance payment (${pMethod}) for room check-in`,
+              userId: req.user._id
             });
           }
         }
       } else {
+        const pMethod = paymentMethod || 'Cash';
         await Payment.create({
           stay: stay._id,
           guest,
           hostel,
           amount: advance,
-          paymentMethod: paymentMethod || 'Cash',
+          paymentMethod: pMethod,
           createdBy: req.user._id
+        });
+        await recordLedgerImpact({
+          guestId: guest,
+          hostelId: hostel,
+          stayId: stay._id,
+          amount: advance,
+          paymentMethod: pMethod,
+          description: `Advance payment (${pMethod}) for room check-in`,
+          userId: req.user._id
         });
       }
     }
@@ -329,26 +350,46 @@ exports.addPayment = async (req, res, next) => {
       for (const sp of splitPayments) {
         const spAmt = Number(sp.amount);
         if (spAmt > 0) {
+          const pMethod = sp.paymentMethod || 'Cash';
           await Payment.create({
             stay: stay._id,
             guest: stay.guest,
             hostel: stay.hostel,
             amount: spAmt,
-            paymentMethod: sp.paymentMethod || 'Cash',
+            paymentMethod: pMethod,
             notes: sp.notes || req.body.notes || 'Payment',
             createdBy: req.user._id
+          });
+          await recordLedgerImpact({
+            guestId: stay.guest,
+            hostelId: stay.hostel,
+            stayId: stay._id,
+            amount: spAmt,
+            paymentMethod: pMethod,
+            description: sp.notes || req.body.notes || `Stay payment (${pMethod})`,
+            userId: req.user._id
           });
         }
       }
     } else {
+      const pMethod = req.body.paymentMethod || 'Cash';
       await Payment.create({
         stay: stay._id,
         guest: stay.guest,
         hostel: stay.hostel,
         amount,
-        paymentMethod: req.body.paymentMethod || 'Cash',
+        paymentMethod: pMethod,
         notes: req.body.notes,
         createdBy: req.user._id
+      });
+      await recordLedgerImpact({
+        guestId: stay.guest,
+        hostelId: stay.hostel,
+        stayId: stay._id,
+        amount,
+        paymentMethod: pMethod,
+        description: req.body.notes || `Stay payment (${pMethod})`,
+        userId: req.user._id
       });
     }
 
@@ -441,25 +482,45 @@ exports.checkout = async (req, res, next) => {
         for (const sp of splitPayments) {
           const spAmt = Number(sp.amount);
           if (spAmt > 0) {
+            const pMethod = sp.paymentMethod || 'Cash';
             await Payment.create({
               stay: stay._id,
               guest: stay.guest,
               hostel: stay.hostel,
               amount: spAmt,
-              paymentMethod: sp.paymentMethod || 'Cash',
+              paymentMethod: pMethod,
               notes: sp.notes || 'Checkout Payment',
               createdBy: req.user._id
+            });
+            await recordLedgerImpact({
+              guestId: stay.guest,
+              hostelId: stay.hostel,
+              stayId: stay._id,
+              amount: spAmt,
+              paymentMethod: pMethod,
+              description: sp.notes || `Checkout payment (${pMethod})`,
+              userId: req.user._id
             });
           }
         }
       } else {
+        const pMethod = paymentMethod || 'Cash';
         await Payment.create({
           stay: stay._id,
           guest: stay.guest,
           hostel: stay.hostel,
           amount: checkoutPayment,
-          paymentMethod: paymentMethod || 'Cash',
+          paymentMethod: pMethod,
           createdBy: req.user._id
+        });
+        await recordLedgerImpact({
+          guestId: stay.guest,
+          hostelId: stay.hostel,
+          stayId: stay._id,
+          amount: checkoutPayment,
+          paymentMethod: pMethod,
+          description: `Checkout payment (${pMethod})`,
+          userId: req.user._id
         });
       }
     }

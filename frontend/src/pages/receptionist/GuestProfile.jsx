@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { format } from 'date-fns';
-import { User, Phone, CheckCircle, Clock, Printer, FileText } from 'lucide-react';
+import { User, Phone, CheckCircle, Clock, Printer, FileText, Wallet, BookOpen, Share2, PlusCircle, ArrowDownLeft, ArrowUpRight, X, AlertCircle } from 'lucide-react';
 import { printInvoice } from '../../utils/invoice';
 import ExtendStayModal from './ExtendStayModal';
 import ShiftRoomModal from './ShiftRoomModal';
@@ -17,8 +17,20 @@ const GuestProfile = () => {
   const [selectedStay, setSelectedStay] = useState(null);
   const [selectedGrcStay, setSelectedGrcStay] = useState(null);
 
+  // Ledger / Khata state
+  const [ledgerEntries, setLedgerEntries] = useState([]);
+  const [ledgerLoading, setLedgerLoading] = useState(false);
+  const [depositModalOpen, setDepositModalOpen] = useState(false);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [formAmount, setFormAmount] = useState('');
+  const [formMethod, setFormMethod] = useState('Cash');
+  const [formNotes, setFormNotes] = useState('');
+  const [submittingLedger, setSubmittingLedger] = useState(false);
+  const [ledgerActionError, setLedgerActionError] = useState('');
+
   useEffect(() => {
     fetchGuest();
+    fetchLedger();
   }, [id]);
 
   async function fetchGuest() {
@@ -30,6 +42,92 @@ const GuestProfile = () => {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function fetchLedger() {
+    try {
+      setLedgerLoading(true);
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/guests/${id}/ledger`);
+      if (res.data?.success) {
+        setLedgerEntries(res.data.data.entries || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch ledger:', error);
+    } finally {
+      setLedgerLoading(false);
+    }
+  }
+
+  const handleDepositSubmit = async (e) => {
+    e.preventDefault();
+    const amt = Number(formAmount);
+    if (!amt || amt <= 0) {
+      setLedgerActionError('Please enter a valid amount');
+      return;
+    }
+    setSubmittingLedger(true);
+    setLedgerActionError('');
+    try {
+      await axios.post(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/guests/${id}/ledger/deposit`, {
+        amount: amt,
+        paymentMethod: formMethod,
+        description: formNotes || 'Advance Deposit (अग्रिम जमा)'
+      });
+      setDepositModalOpen(false);
+      setFormAmount('');
+      setFormNotes('');
+      fetchGuest();
+      fetchLedger();
+    } catch (err) {
+      setLedgerActionError(err.response?.data?.message || 'Failed to record deposit');
+    } finally {
+      setSubmittingLedger(false);
+    }
+  };
+
+  const handlePaymentSubmit = async (e) => {
+    e.preventDefault();
+    const amt = Number(formAmount);
+    if (!amt || amt <= 0) {
+      setLedgerActionError('Please enter a valid amount');
+      return;
+    }
+    setSubmittingLedger(true);
+    setLedgerActionError('');
+    try {
+      await axios.post(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/guests/${id}/ledger/payment`, {
+        amount: amt,
+        paymentMethod: formMethod,
+        description: formNotes || 'Khata Payment Received (उधार वसूली)'
+      });
+      setPaymentModalOpen(false);
+      setFormAmount('');
+      setFormNotes('');
+      fetchGuest();
+      fetchLedger();
+    } catch (err) {
+      setLedgerActionError(err.response?.data?.message || 'Failed to record payment');
+    } finally {
+      setSubmittingLedger(false);
+    }
+  };
+
+  const getWhatsAppStatementUrl = () => {
+    if (!guest || !guest.mobileNumber) return null;
+    const cleanMobile = guest.mobileNumber.replace(/[^0-9]/g, '');
+    const phone = cleanMobile.length === 10 ? `91${cleanMobile}` : cleanMobile;
+    const bal = Number(guest.ledgerBalance) || 0;
+    const statusStr = bal > 0 ? `Advance Balance: ₹${bal.toLocaleString('en-IN')}` : bal < 0 ? `Total Due / Udhaar: ₹${Math.abs(bal).toLocaleString('en-IN')}` : `Balance: ₹0 (Settled)`;
+    
+    let msg = `*HOTEL KHATA / PASSBOOK STATEMENT*\nGuest: *${guest.fullName}*\nStatus: *${statusStr}*\nDate: ${format(new Date(), 'dd MMM yyyy')}\n\n`;
+    msg += `*Recent Transactions:*\n`;
+    (ledgerEntries || []).slice(0, 6).forEach((entry, idx) => {
+      const isCredit = entry.entryType === 'DEPOSIT' || entry.entryType === 'PAYMENT';
+      const sign = isCredit ? '+' : '-';
+      msg += `${idx + 1}. ${format(new Date(entry.date), 'dd/MM/yy')} | ${entry.entryType.replace('_', ' ')}: ${sign}₹${entry.amount} (${entry.paymentMethod})\n   Balance: ₹${entry.balanceAfter}\n`;
+    });
+    msg += `\nThank you for choosing us!`;
+    return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
   };
 
   const handlePrint = async (stayToPrint) => {
@@ -91,7 +189,19 @@ const GuestProfile = () => {
           </div>
         </div>
         
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0 flex flex-wrap items-center gap-2">
+          {Number(guest.ledgerBalance) > 0 && (
+            <div className="px-4 py-2 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+              <Wallet size={15} className="text-emerald-600" />
+              <span>Wallet: ₹{Number(guest.ledgerBalance).toLocaleString('en-IN')}</span>
+            </div>
+          )}
+          {Number(guest.ledgerBalance) < 0 && (
+            <div className="px-4 py-2 bg-red-50 text-red-800 border border-red-200 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+              <BookOpen size={15} className="text-red-600" />
+              <span>Khata Due: ₹{Math.abs(Number(guest.ledgerBalance)).toLocaleString('en-IN')}</span>
+            </div>
+          )}
           {activeStay ? (
             <span className="px-4 py-2 inline-flex text-xs uppercase tracking-widest font-black rounded-xl bg-green-500 text-white shadow-md items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-white animate-pulse"></span> Active Guest
@@ -208,6 +318,179 @@ const GuestProfile = () => {
         </div>
       )}
 
+      {/* ─── Guest Khata & Wallet Passbook ─── */}
+      <div className="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden print:border-none">
+        <div className="bg-gradient-to-r from-gray-900 to-black px-6 sm:px-8 py-5 text-white flex flex-col md:flex-row justify-between md:items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-amber-400">
+              <BookOpen size={20} />
+            </div>
+            <div>
+              <h2 className="text-lg font-black uppercase tracking-tight flex items-center gap-2">
+                Khata & Advance Passbook (खाता लेजर)
+              </h2>
+              <p className="text-xs text-gray-400 font-medium">
+                Wallet deposit & credit ledger transactions for {guest.fullName}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => { setFormAmount(''); setFormNotes(''); setLedgerActionError(''); setDepositModalOpen(true); }}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-transform active:scale-95 cursor-pointer"
+            >
+              <PlusCircle size={15} /> + Advance Jama Karein
+            </button>
+            <button
+              onClick={() => { setFormAmount(''); setFormNotes(''); setLedgerActionError(''); setPaymentModalOpen(true); }}
+              className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-gray-950 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-transform active:scale-95 cursor-pointer"
+            >
+              <ArrowDownLeft size={15} /> 💰 Wasool Karein
+            </button>
+            {getWhatsAppStatementUrl() && (
+              <a
+                href={getWhatsAppStatementUrl()}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3.5 py-2 bg-emerald-700/80 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-transform active:scale-95"
+                title="Send Khata Statement on WhatsApp"
+              >
+                <Share2 size={14} /> WhatsApp
+              </a>
+            )}
+            <button
+              onClick={() => window.print()}
+              className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-colors print:hidden cursor-pointer"
+              title="Print Passbook Statement"
+            >
+              <Printer size={14} /> Print
+            </button>
+          </div>
+        </div>
+
+        {/* Balance KPI Banner */}
+        <div className="p-6 bg-gray-50/70 border-b border-gray-100 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-2xs">
+            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Current Ledger Status</span>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className={`text-2xl font-black ${
+                Number(guest.ledgerBalance) > 0 ? 'text-emerald-600' : Number(guest.ledgerBalance) < 0 ? 'text-red-600' : 'text-gray-900'
+              }`}>
+                {Number(guest.ledgerBalance) > 0
+                  ? `+₹${Number(guest.ledgerBalance).toLocaleString('en-IN')}`
+                  : Number(guest.ledgerBalance) < 0
+                  ? `-₹${Math.abs(Number(guest.ledgerBalance)).toLocaleString('en-IN')}`
+                  : '₹0'}
+              </span>
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                Number(guest.ledgerBalance) > 0
+                  ? 'bg-emerald-100 text-emerald-800'
+                  : Number(guest.ledgerBalance) < 0
+                  ? 'bg-red-100 text-red-800'
+                  : 'bg-gray-100 text-gray-700'
+              }`}>
+                {Number(guest.ledgerBalance) > 0
+                  ? 'Advance / Wallet (जमा)'
+                  : Number(guest.ledgerBalance) < 0
+                  ? 'Pending Due / Udhaar (उधार बाकी)'
+                  : 'All Cleared (चुकता)'}
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-2xs">
+            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Total Recorded Entries</span>
+            <div className="mt-1 text-2xl font-black text-gray-900">
+              {ledgerEntries.length} Transactions
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-2xs">
+            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Primary Contact</span>
+            <div className="mt-1 text-sm font-bold text-gray-800 truncate">
+              {guest.mobileNumber || 'No mobile'} {guest.idProofNumber ? `• ${guest.idProofType}: ${guest.idProofNumber}` : ''}
+            </div>
+          </div>
+        </div>
+
+        {/* Passbook Table */}
+        {ledgerLoading ? (
+          <div className="p-8 text-center text-gray-400 text-sm font-medium">Loading passbook entries...</div>
+        ) : ledgerEntries.length === 0 ? (
+          <div className="p-10 text-center text-gray-400 font-medium text-sm">
+            <p>No ledger transactions recorded yet for this guest.</p>
+            <p className="text-xs text-gray-400 mt-1">Use "+ Advance Jama Karein" to add deposit, or check in/out with Wallet or Khata.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-gray-200 bg-gray-50/50 text-[10px] font-black uppercase tracking-wider text-gray-500">
+                  <th className="py-3 px-5">Date</th>
+                  <th className="py-3 px-4">Type</th>
+                  <th className="py-3 px-4">Description / Details</th>
+                  <th className="py-3 px-4">Mode</th>
+                  <th className="py-3 px-4 text-right">Amount</th>
+                  <th className="py-3 px-5 text-right">Balance After</th>
+                  <th className="py-3 px-4">Staff</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 text-xs font-semibold text-gray-800">
+                {ledgerEntries.map((entry) => {
+                  const isCredit = entry.entryType === 'DEPOSIT' || entry.entryType === 'PAYMENT';
+                  return (
+                    <tr key={entry._id} className="hover:bg-gray-50/70 transition-colors">
+                      <td className="py-3 px-5 font-mono text-gray-500 whitespace-nowrap">
+                        {format(new Date(entry.date || entry.createdAt), 'dd MMM yyyy, hh:mm a')}
+                      </td>
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1 ${
+                          entry.entryType === 'DEPOSIT'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : entry.entryType === 'PAYMENT'
+                            ? 'bg-blue-100 text-blue-800'
+                            : entry.entryType === 'WALLET_DEDUCTION'
+                            ? 'bg-purple-100 text-purple-800'
+                            : 'bg-amber-100 text-amber-900'
+                        }`}>
+                          {isCredit ? <ArrowDownLeft size={11} /> : <ArrowUpRight size={11} />}
+                          {entry.entryType.replace('_', ' ')}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 max-w-xs text-gray-700">
+                        <span className="font-bold">{entry.description || '-'}</span>
+                        {entry.stay && (
+                          <span className="block text-[10px] text-gray-400 font-normal">
+                            Room Stay ({entry.stay.status})
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 whitespace-nowrap text-gray-600 font-bold">
+                        {entry.paymentMethod || 'Cash'}
+                      </td>
+                      <td className="py-3 px-4 text-right whitespace-nowrap font-black font-mono">
+                        <span className={isCredit ? 'text-emerald-600' : 'text-red-600'}>
+                          {isCredit ? '+' : '-'}₹{entry.amount.toLocaleString('en-IN')}
+                        </span>
+                      </td>
+                      <td className="py-3 px-5 text-right whitespace-nowrap font-black font-mono">
+                        <span className={entry.balanceAfter > 0 ? 'text-emerald-700' : entry.balanceAfter < 0 ? 'text-red-700' : 'text-gray-900'}>
+                          ₹{entry.balanceAfter.toLocaleString('en-IN')}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 whitespace-nowrap text-gray-400 text-[11px]">
+                        {entry.createdBy?.name || 'Staff'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {/* ─── Stay History ─── */}
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="px-6 sm:px-8 py-6 border-b border-gray-100 bg-gray-50">
@@ -322,20 +605,210 @@ const GuestProfile = () => {
         />
       )}
 
-      {/* Guest Registration Card Modal (GRC) */}
-      {selectedGrcStay && (
-        <GuestRegistrationCardModal
-          isOpen={Boolean(selectedGrcStay)}
-          onClose={() => setSelectedGrcStay(null)}
-          stayData={selectedGrcStay}
-          roomData={selectedGrcStay.room}
-          guests={
-            selectedGrcStay.guest 
-              ? [selectedGrcStay.guest, ...(selectedGrcStay.coGuests || [])]
-              : [guest]
-          }
-          hotelData={selectedGrcStay.hostel}
-        />
+      {/* Deposit Advance Modal */}
+      {depositModalOpen && (
+        <div className="fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95">
+            <div className="flex justify-between items-center mb-5">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                  <Wallet size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-gray-900">Deposit Advance (जमा करें)</h3>
+                  <p className="text-[11px] text-gray-500 font-medium">Adds credit to guest advance wallet</p>
+                </div>
+              </div>
+              <button onClick={() => setDepositModalOpen(false)} className="text-gray-400 hover:text-gray-600 p-1">
+                <X size={18} />
+              </button>
+            </div>
+
+            {ledgerActionError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-xs font-bold text-red-600 flex items-center gap-2">
+                <AlertCircle size={15} /> {ledgerActionError}
+              </div>
+            )}
+
+            <form onSubmit={handleDepositSubmit} className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-1.5">
+                  Deposit Amount (₹) *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-black text-gray-400">₹</span>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    placeholder="e.g. 5000"
+                    value={formAmount}
+                    onChange={(e) => setFormAmount(e.target.value)}
+                    className="w-full pl-8 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-black text-base text-gray-900 focus:ring-2 focus:ring-black outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-1.5">
+                  Payment Mode *
+                </label>
+                <select
+                  value={formMethod}
+                  onChange={(e) => setFormMethod(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-xs text-gray-900 focus:ring-2 focus:ring-black outline-none"
+                >
+                  <option value="Cash">Cash (नकद)</option>
+                  <option value="UPI">UPI (Google Pay / PhonePe / Paytm)</option>
+                  <option value="Card">Card</option>
+                  <option value="Bank Transfer">Bank Transfer / NEFT</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-1.5">
+                  Notes / Reference (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Monthly corporate advance deposit"
+                  value={formNotes}
+                  onChange={(e) => setFormNotes(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium text-xs text-gray-900 focus:ring-2 focus:ring-black outline-none"
+                />
+              </div>
+
+              <div className="pt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDepositModalOpen(false)}
+                  className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingLedger}
+                  className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-md transition-transform active:scale-95 disabled:opacity-50 cursor-pointer"
+                >
+                  {submittingLedger ? 'Saving...' : 'Confirm Deposit'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Settle Khata Payment Modal */}
+      {paymentModalOpen && (
+        <div className="fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95">
+            <div className="flex justify-between items-center mb-5">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center">
+                  <ArrowDownLeft size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-gray-900">Receive Payment (उधार वसूली)</h3>
+                  <p className="text-[11px] text-gray-500 font-medium">Record payment received against outstanding due</p>
+                </div>
+              </div>
+              <button onClick={() => setPaymentModalOpen(false)} className="text-gray-400 hover:text-gray-600 p-1">
+                <X size={18} />
+              </button>
+            </div>
+
+            {Number(guest.ledgerBalance) < 0 && (
+              <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs flex justify-between items-center">
+                <span className="font-bold text-amber-900">Current Outstanding Due:</span>
+                <span className="font-black text-red-600 text-sm">₹{Math.abs(Number(guest.ledgerBalance)).toLocaleString('en-IN')}</span>
+              </div>
+            )}
+
+            {ledgerActionError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-xs font-bold text-red-600 flex items-center gap-2">
+                <AlertCircle size={15} /> {ledgerActionError}
+              </div>
+            )}
+
+            <form onSubmit={handlePaymentSubmit} className="space-y-4">
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500">
+                    Received Amount (₹) *
+                  </label>
+                  {Number(guest.ledgerBalance) < 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setFormAmount(String(Math.abs(Number(guest.ledgerBalance))))}
+                      className="text-[10px] font-black text-amber-700 hover:underline cursor-pointer"
+                    >
+                      Full Due (₹{Math.abs(Number(guest.ledgerBalance))})
+                    </button>
+                  )}
+                </div>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-black text-gray-400">₹</span>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    placeholder="e.g. 2000"
+                    value={formAmount}
+                    onChange={(e) => setFormAmount(e.target.value)}
+                    className="w-full pl-8 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-black text-base text-gray-900 focus:ring-2 focus:ring-black outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-1.5">
+                  Payment Mode *
+                </label>
+                <select
+                  value={formMethod}
+                  onChange={(e) => setFormMethod(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-xs text-gray-900 focus:ring-2 focus:ring-black outline-none"
+                >
+                  <option value="Cash">Cash (नकद)</option>
+                  <option value="UPI">UPI (Google Pay / PhonePe / Paytm)</option>
+                  <option value="Card">Card</option>
+                  <option value="Bank Transfer">Bank Transfer / NEFT</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-1.5">
+                  Notes / Reference (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Cleared bill for last week visits"
+                  value={formNotes}
+                  onChange={(e) => setFormNotes(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium text-xs text-gray-900 focus:ring-2 focus:ring-black outline-none"
+                />
+              </div>
+
+              <div className="pt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPaymentModalOpen(false)}
+                  className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingLedger}
+                  className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-gray-950 font-black text-xs rounded-xl shadow-md transition-transform active:scale-95 disabled:opacity-50 cursor-pointer"
+                >
+                  {submittingLedger ? 'Saving...' : 'Record Payment'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

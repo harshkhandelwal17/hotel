@@ -307,7 +307,18 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
 
             {finalBalance > 0 && (
               <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-3">
-                <label className="block text-xs font-black text-gray-800 uppercase tracking-widest">Collect Payment</label>
+                <div className="flex justify-between items-center">
+                  <label className="block text-xs font-black text-gray-800 uppercase tracking-widest">Collect Payment</label>
+                  {stay.guest?.ledgerBalance !== undefined && Number(stay.guest.ledgerBalance) !== 0 && (
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      Number(stay.guest.ledgerBalance) > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
+                    }`}>
+                      {Number(stay.guest.ledgerBalance) > 0 
+                        ? `💼 Wallet: ₹${Number(stay.guest.ledgerBalance).toLocaleString('en-IN')}` 
+                        : `⚠️ Due: ₹${Math.abs(Number(stay.guest.ledgerBalance)).toLocaleString('en-IN')}`}
+                    </span>
+                  )}
+                </div>
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                   <div className="w-full sm:flex-1 relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₹</span>
@@ -315,8 +326,31 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
                       className="w-full pl-7 pr-3 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-black outline-none font-black text-xl text-gray-900 shadow-sm"
                       value={checkoutPayment} onChange={e => setCheckoutPayment(e.target.value)} />
                   </div>
-                  <div className="flex gap-2 w-full sm:w-auto">
-                    <button type="button" onClick={() => setCheckoutPayment(finalBalance)} className="w-full sm:w-auto py-3 sm:py-0 px-6 bg-black text-white font-bold text-sm rounded-xl hover:bg-gray-800 transition-colors shadow-md active:scale-95">Full ₹{finalBalance}</button>
+                  <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                    <button type="button" onClick={() => setCheckoutPayment(finalBalance)} className="flex-1 sm:flex-none py-3 sm:py-0 px-4 bg-black text-white font-bold text-xs rounded-xl hover:bg-gray-800 transition-colors shadow-md active:scale-95">Full ₹{finalBalance}</button>
+                    {Number(stay.guest?.ledgerBalance) > 0 && (
+                      <button 
+                        type="button" 
+                        onClick={() => {
+                          setCheckoutPayment(Math.min(finalBalance, Number(stay.guest.ledgerBalance)));
+                          setPaymentMethod('Wallet');
+                        }} 
+                        className="flex-1 sm:flex-none py-3 sm:py-0 px-3 bg-emerald-600 text-white font-bold text-xs rounded-xl hover:bg-emerald-700 transition-colors shadow-md active:scale-95"
+                      >
+                        💼 Wallet
+                      </button>
+                    )}
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        setCheckoutPayment(finalBalance);
+                        setPaymentMethod('Khata');
+                      }} 
+                      className="flex-1 sm:flex-none py-3 sm:py-0 px-3 bg-amber-500 text-gray-950 font-black text-xs rounded-xl hover:bg-amber-400 transition-colors shadow-md active:scale-95"
+                      title="Bill full remaining balance to guest's Khata (उधार)"
+                    >
+                      📑 Bill to Khata
+                    </button>
                   </div>
                 </div>
                 <PaymentMethodSelector
@@ -325,6 +359,9 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
                   totalAmount={Number(checkoutPayment) || 0}
                   splitBreakdown={splitBreakdown}
                   onChangeSplit={setSplitBreakdown}
+                  allowWallet={Number(stay.guest?.ledgerBalance) > 0}
+                  walletBalance={Number(stay.guest?.ledgerBalance) || 0}
+                  allowKhata={true}
                   theme="light"
                   qrDetails={{
                     roomNumber: stay.room?.roomNumber,

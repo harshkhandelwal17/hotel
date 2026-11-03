@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth, parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
-import { Search, Download, TrendingUp, PieChart, Users, Receipt, ArrowRight, ShieldCheck, Trash, Shirt } from 'lucide-react';
+import { Search, Download, TrendingUp, PieChart, Users, Receipt, ArrowRight, ShieldCheck, Trash, Shirt, BookOpen, Wallet, Share2 } from 'lucide-react';
 import { useOutletContext, Link } from 'react-router-dom';
 import PoliceReportModal from './PoliceReportModal';
 
@@ -14,7 +14,19 @@ const Reports = () => {
   const [showPoliceModal, setShowPoliceModal] = useState(false);
   
   // Tabs
-  const [activeTab, setActiveTab] = useState('bookings'); // bookings, transactions, laundry
+  const [activeTab, setActiveTab] = useState('bookings'); // bookings, transactions, laundry, khata
+
+  // Khata Summary
+  const [khataSummary, setKhataSummary] = useState({
+    totalMarketDue: 0,
+    totalAdvanceHeld: 0,
+    netBalance: 0,
+    dueGuestsCount: 0,
+    advanceGuestsCount: 0,
+    totalCreditAccounts: 0,
+    customers: []
+  });
+  const [khataTypeFilter, setKhataTypeFilter] = useState('all'); // all, due, advance
 
   // Filters
   const [dateFilter, setDateFilter] = useState('all');
@@ -31,16 +43,20 @@ const Reports = () => {
   async function fetchData() {
     try {
       setLoading(true);
-      const [staysRes, hostelsRes, paymentsRes, laundryRes] = await Promise.all([
+      const [staysRes, hostelsRes, paymentsRes, laundryRes, khataRes] = await Promise.all([
         axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/stays'),
         axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/hostels'),
         axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/payments'),
-        axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/laundry').catch(() => ({ data: { data: [] } }))
+        axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/laundry').catch(() => ({ data: { data: [] } })),
+        axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/guests/khata/summary').catch(() => ({ data: { data: { totalMarketDue: 0, totalAdvanceHeld: 0, netBalance: 0, customers: [] } } }))
       ]);
       setStays(staysRes.data.data);
       setHostels(hostelsRes.data.data);
       setPayments(paymentsRes.data.data);
       setLaundryOrders(laundryRes?.data?.data || []);
+      if (khataRes?.data?.data) {
+        setKhataSummary(khataRes.data.data);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -252,6 +268,27 @@ const Reports = () => {
     };
   }, [filteredStays, filteredPayments, filteredLaundryOrders]);
 
+  const filteredKhataCustomers = useMemo(() => {
+    let list = khataSummary.customers || [];
+    if (hostelFilter !== 'all') {
+      list = list.filter(c => (c.hostel?._id || c.hostel) === hostelFilter);
+    }
+    if (khataTypeFilter === 'due') {
+      list = list.filter(c => c.dueAmount > 0);
+    } else if (khataTypeFilter === 'advance') {
+      list = list.filter(c => c.advanceAmount > 0);
+    }
+    if (searchQuery && searchQuery.trim() !== '') {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter(c =>
+        (c.fullName && c.fullName.toLowerCase().includes(q)) ||
+        (c.mobileNumber && c.mobileNumber.toLowerCase().includes(q)) ||
+        (c.idProofNumber && c.idProofNumber.toLowerCase().includes(q))
+      );
+    }
+    return list;
+  }, [khataSummary, hostelFilter, khataTypeFilter, searchQuery]);
+
   const downloadCSV = () => {
     let csvContent = "";
     if (activeTab === 'bookings') {
@@ -272,6 +309,12 @@ const Reports = () => {
       const csvData = filteredLaundryOrders.map(o => {
         const due = Math.max(0, (o.totalAmount || 0) - (o.paidAmount || 0));
         return `"${o.orderNumber || ''}","${format(new Date(o.sentDate || o.createdAt), 'dd MMM yyyy')}","${o.vendorName || ''}","${o.vendorPhone || ''}",${o.totalPiecesSent || 0},${o.totalPiecesReceived || 0},${o.totalPiecesMissing || 0},${o.totalAmount || 0},${o.paidAmount || 0},${due},"${o.paymentStatus || ''}","${o.status || ''}"`;
+      });
+      csvContent = [headers.join(','), ...csvData].join('\n');
+    } else if (activeTab === 'khata') {
+      const headers = ['Guest Name', 'Mobile Number', 'ID Proof', 'Account Status', 'Due Amount (Receivable)', 'Advance Amount (Held)', 'Net Balance'];
+      const csvData = (khataSummary.customers || []).map(c => {
+        return `"${c.fullName || ''}","${c.mobileNumber || ''}","${c.idProofType || ''} ${c.idProofNumber || ''}","${c.status || ''}",${c.dueAmount || 0},${c.advanceAmount || 0},${c.ledgerBalance || 0}`;
       });
       csvContent = [headers.join(','), ...csvData].join('\n');
     }
@@ -337,6 +380,9 @@ const Reports = () => {
           </button>
           <button onClick={() => setActiveTab('laundry')} className={`flex-1 sm:flex-none px-4 sm:px-5 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all text-center flex items-center justify-center gap-1.5 ${activeTab === 'laundry' ? 'bg-white shadow-sm text-indigo-700' : 'text-gray-500 hover:text-gray-900'}`}>
             <Shirt size={15} /> Laundry Expenses
+          </button>
+          <button onClick={() => setActiveTab('khata')} className={`flex-1 sm:flex-none px-4 sm:px-5 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all text-center flex items-center justify-center gap-1.5 ${activeTab === 'khata' ? 'bg-white shadow-sm text-amber-700 font-black' : 'text-gray-500 hover:text-gray-900'}`}>
+            <BookOpen size={15} /> Khata & Credit (उधार / जमा)
           </button>
         </div>
         {activeTab === 'laundry' && (
@@ -414,6 +460,48 @@ const Reports = () => {
             <p className="text-[10px] text-gray-400 mt-1">Pieces sent to laundry</p>
           </div>
         </div>
+      ) : activeTab === 'khata' ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-red-50 p-5 rounded-2xl border border-red-200 shadow-sm transition-colors">
+            <p className="text-[10px] font-black text-red-600 uppercase tracking-widest">Market Credit Due (उधार बाकी)</p>
+            <div className="flex items-center gap-3 mt-2">
+              <div className="p-2.5 bg-red-100 text-red-700 rounded-lg"><BookOpen size={20} /></div>
+              <div>
+                <h2 className="text-2xl font-black text-red-700">₹{khataSummary.totalMarketDue.toLocaleString()}</h2>
+                <p className="text-[10px] text-red-500 font-bold mt-0.5">{khataSummary.dueGuestsCount} Guests owe payment</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-emerald-50 p-5 rounded-2xl border border-emerald-200 shadow-sm transition-colors">
+            <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Advance Deposits Held (जमा राशि)</p>
+            <div className="flex items-center gap-3 mt-2">
+              <div className="p-2.5 bg-emerald-100 text-emerald-700 rounded-lg"><Wallet size={20} /></div>
+              <div>
+                <h2 className="text-2xl font-black text-emerald-700">₹{khataSummary.totalAdvanceHeld.toLocaleString()}</h2>
+                <p className="text-[10px] text-emerald-600 font-bold mt-0.5">{khataSummary.advanceGuestsCount} Guests with advance</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm hover:border-black transition-colors">
+            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Net Khata Position</p>
+            <div className="mt-2 text-2xl font-black text-gray-900">
+              <span className={khataSummary.netBalance >= 0 ? 'text-emerald-600' : 'text-red-600'}>
+                {khataSummary.netBalance >= 0 ? `+₹${khataSummary.netBalance.toLocaleString()}` : `-₹${Math.abs(khataSummary.netBalance).toLocaleString()}`}
+              </span>
+            </div>
+            <p className="text-[10px] text-gray-400 mt-1">Advance held minus market credit</p>
+          </div>
+
+          <div className="bg-gray-900 p-5 rounded-2xl border border-black shadow-lg">
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Khata Customers</p>
+            <div className="mt-2 text-2xl font-black text-white">
+              {khataSummary.totalCreditAccounts} Active Accounts
+            </div>
+            <p className="text-[10px] text-gray-400 mt-1">Regular customer accounts</p>
+          </div>
+        </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
           <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm hover:border-black transition-colors">
@@ -439,18 +527,28 @@ const Reports = () => {
       <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col md:flex-row gap-3">
         <div className="relative flex-1 min-w-[200px]">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400"><Search size={16} /></div>
-          <input type="text" placeholder={activeTab === 'laundry' ? "Search Vendor, Order #..." : "Search Guest, Room..."} value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+          <input type="text" placeholder={activeTab === 'laundry' ? "Search Vendor, Order #..." : activeTab === 'khata' ? "Search Customer Name, Mobile, ID..." : "Search Guest, Room..."} value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-black outline-none transition-all" />
         </div>
         
-        <select value={dateFilter} onChange={e => setDateFilter(e.target.value)} className="w-full md:w-48 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-black outline-none appearance-none">
-          <option value="all">All Time</option>
-          <option value="today">Today</option>
-          <option value="yesterday">Yesterday</option>
-          <option value="week">This Week</option>
-          <option value="month">This Month</option>
-          <option value="custom">Custom Date</option>
-        </select>
+        {activeTab !== 'khata' && (
+          <select value={dateFilter} onChange={e => setDateFilter(e.target.value)} className="w-full md:w-48 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-black outline-none appearance-none">
+            <option value="all">All Time</option>
+            <option value="today">Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="week">This Week</option>
+            <option value="month">This Month</option>
+            <option value="custom">Custom Date</option>
+          </select>
+        )}
+
+        {activeTab === 'khata' && (
+          <select value={khataTypeFilter} onChange={e => setKhataTypeFilter(e.target.value)} className="w-full md:w-56 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-black outline-none appearance-none">
+            <option value="all">All Khata Accounts</option>
+            <option value="due">Only Market Due (उधार बाकी)</option>
+            <option value="advance">Only Advance Held (जमा राशि)</option>
+          </select>
+        )}
 
         {activeTab === 'transactions' && (
           <select value={paymentMethodFilter} onChange={e => setPaymentMethodFilter(e.target.value)} className="w-full md:w-48 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-black outline-none appearance-none">
@@ -659,7 +757,7 @@ const Reports = () => {
                 )}
               </tbody>
             </table>
-          ) : (
+          ) : activeTab === 'laundry' ? (
             <table className="w-full text-left text-sm whitespace-nowrap">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
@@ -740,7 +838,105 @@ const Reports = () => {
                 )}
               </tbody>
             </table>
-          )}
+          ) : activeTab === 'khata' ? (
+            <table className="w-full text-left text-sm whitespace-nowrap">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest">Customer Details</th>
+                  <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest">ID Proof</th>
+                  <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest text-right">Market Due (उधार)</th>
+                  <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest text-right">Advance Held (जमा)</th>
+                  <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest text-center">Net Balance</th>
+                  <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredKhataCustomers.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-12 text-center text-gray-500 font-medium">
+                      No customer khata records found.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredKhataCustomers.map(customer => {
+                    const bal = Number(customer.ledgerBalance) || 0;
+                    const cleanMobile = customer.mobileNumber ? customer.mobileNumber.replace(/[^0-9]/g, '') : '';
+                    const phone = cleanMobile.length === 10 ? `91${cleanMobile}` : cleanMobile;
+                    const waText = bal < 0 
+                      ? encodeURIComponent(`Namaste ${customer.fullName}, this is a reminder from the hotel regarding your pending khata due balance of ₹${Math.abs(bal).toLocaleString('en-IN')}. Kindly clear this at your earliest convenience. Thank you!`)
+                      : encodeURIComponent(`Namaste ${customer.fullName}, your current advance deposit balance with the hotel is ₹${bal.toLocaleString('en-IN')}. Thank you for choosing us!`);
+                    const waLink = phone ? `https://wa.me/${phone}?text=${waText}` : null;
+
+                    return (
+                      <tr key={customer._id} className="hover:bg-gray-50/80 transition-colors">
+                        <td className="px-6 py-4">
+                          <Link to={`/guests/${customer._id}`} className="font-bold text-gray-900 hover:text-indigo-600 transition-colors">
+                            {customer.fullName}
+                          </Link>
+                          <p className="text-xs text-gray-500 mt-0.5">{customer.mobileNumber || 'No mobile'}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-xs font-bold text-gray-700 bg-gray-100 px-2.5 py-1 rounded-md">
+                            {customer.idProofType}: {customer.idProofNumber || '-'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          {customer.dueAmount > 0 ? (
+                            <span className="font-black text-red-600 bg-red-50 px-2.5 py-1 rounded-lg inline-block">
+                              ₹{customer.dueAmount.toLocaleString('en-IN')}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 font-medium">₹0</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          {customer.advanceAmount > 0 ? (
+                            <span className="font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg inline-block">
+                              ₹{customer.advanceAmount.toLocaleString('en-IN')}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 font-medium">₹0</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className={`px-2.5 py-1 text-xs font-black uppercase tracking-wider rounded-lg border ${
+                            bal < 0 ? 'bg-red-50 text-red-700 border-red-200' :
+                            bal > 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                            'bg-gray-50 text-gray-600 border-gray-200'
+                          }`}>
+                            {bal < 0 ? `Due: ₹${Math.abs(bal).toLocaleString('en-IN')}` :
+                             bal > 0 ? `Advance: ₹${bal.toLocaleString('en-IN')}` :
+                             'Cleared ₹0'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {waLink && (
+                              <a
+                                href={waLink}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-black transition-colors flex items-center gap-1 active:scale-95"
+                                title="Send WhatsApp Reminder / Statement"
+                              >
+                                <Share2 size={13} /> WhatsApp
+                              </a>
+                            )}
+                            <Link
+                              to={`/guests/${customer._id}`}
+                              className="px-3.5 py-1.5 bg-black hover:bg-gray-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 flex items-center gap-1"
+                            >
+                              Passbook &rarr;
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          ) : null}
         </div>
       </div>
 

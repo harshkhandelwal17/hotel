@@ -1,6 +1,7 @@
 const Payment = require('../models/Payment');
 const Stay = require('../models/Stay');
 const { userCanAccessHostel, getHostelFilter } = require('../utils/hostelAccess');
+const { recordLedgerImpact } = require('../utils/ledgerHelper');
 
 exports.createPayment = async (req, res, next) => {
   try {
@@ -57,27 +58,47 @@ exports.createPayment = async (req, res, next) => {
       for (const sp of splitPayments) {
         const spAmt = Number(sp.amount);
         if (spAmt > 0) {
+          const pMethod = sp.paymentMethod || 'Cash';
           const p = await Payment.create({
             stay: stayId,
             guest: stay.guest,
             hostel: stay.hostel,
             amount: spAmt,
-            paymentMethod: sp.paymentMethod || 'Cash',
+            paymentMethod: pMethod,
             notes: sp.notes || notes || note || 'Payment (Mixed)',
             createdBy: req.user._id
+          });
+          await recordLedgerImpact({
+            guestId: stay.guest,
+            hostelId: stay.hostel,
+            stayId: stay._id,
+            amount: spAmt,
+            paymentMethod: pMethod,
+            description: sp.notes || notes || note || `Stay payment (${pMethod})`,
+            userId: req.user._id
           });
           createdPayments.push(p);
         }
       }
     } else {
+      const pMethod = paymentMethod || 'Cash';
       const payment = await Payment.create({
         stay: stayId,
         guest: stay.guest,
         hostel: stay.hostel,
         amount: payAmount,
-        paymentMethod: paymentMethod || 'Cash',
+        paymentMethod: pMethod,
         notes: notes || note || '',
         createdBy: req.user._id
+      });
+      await recordLedgerImpact({
+        guestId: stay.guest,
+        hostelId: stay.hostel,
+        stayId: stay._id,
+        amount: payAmount,
+        paymentMethod: pMethod,
+        description: notes || note || `Stay payment (${pMethod})`,
+        userId: req.user._id
       });
       createdPayments.push(payment);
     }

@@ -49,6 +49,10 @@ const guestSchema = new mongoose.Schema({
     uppercase: true,
     default: ''
   },
+  ledgerBalance: {
+    type: Number,
+    default: 0
+  },
   notes: String,
   hostel: {
     type: mongoose.Schema.ObjectId,
@@ -60,5 +64,6 @@ const guestSchema = new mongoose.Schema({
 guestSchema.index({ hostel: 1, mobileNumber: 1 });
 guestSchema.index({ hostel: 1, idProofNumber: 1 });
 guestSchema.index({ hostel: 1, fullName: 1 });
+guestSchema.index({ hostel: 1, ledgerBalance: 1 });
 
 module.exports = mongoose.model('Guest', guestSchema);

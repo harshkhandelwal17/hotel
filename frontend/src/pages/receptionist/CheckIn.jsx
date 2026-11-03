@@ -2363,13 +2363,51 @@ const CheckIn = () => {
                   </span>
                 </div>
 
-                {/* PAYMENT METHOD SELECTOR (CASH, UPI, CARD, MIXED) */}
+                {/* PRIMARY GUEST KHATA / WALLET ALERT */}
+                {guests[0]?.ledgerBalance !== undefined && Number(guests[0]?.ledgerBalance) !== 0 && (
+                  <div className={`p-2.5 rounded-xl border flex items-center justify-between text-xs animate-in fade-in ${
+                    Number(guests[0].ledgerBalance) > 0
+                      ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
+                      : 'bg-red-950/40 border-red-500/40 text-red-300'
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      {Number(guests[0].ledgerBalance) > 0 ? (
+                        <span>💼 <strong>Advance Wallet:</strong> ₹{Number(guests[0].ledgerBalance).toLocaleString('en-IN')} available</span>
+                      ) : (
+                        <span>⚠️ <strong>Previous Khata Due:</strong> ₹{Math.abs(Number(guests[0].ledgerBalance)).toLocaleString('en-IN')} pending</span>
+                      )}
+                    </div>
+                    {Number(guests[0].ledgerBalance) > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const total = Number(stayInfo.totalAmount) || 0;
+                          const avail = Number(guests[0].ledgerBalance) || 0;
+                          const pay = Math.min(total, avail);
+                          setStayInfo(p => ({
+                            ...p,
+                            paidAmount: pay,
+                            paymentMethod: 'Wallet'
+                          }));
+                        }}
+                        className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black rounded-lg text-[10px] transition-transform active:scale-95 cursor-pointer shadow"
+                      >
+                        Use Wallet
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* PAYMENT METHOD SELECTOR (CASH, UPI, CARD, WALLET, KHATA, MIXED) */}
                 <PaymentMethodSelector
                   paymentMethod={stayInfo.paymentMethod || 'Cash'}
                   onChangeMethod={(m) => setStayInfo((p) => ({ ...p, paymentMethod: m }))}
                   totalAmount={Number(stayInfo.paidAmount) || 0}
                   splitBreakdown={stayInfo.splitBreakdown || { cash: '', upi: '', card: '' }}
                   onChangeSplit={(splits) => setStayInfo((p) => ({ ...p, splitBreakdown: splits }))}
+                  allowWallet={Number(guests[0]?.ledgerBalance) > 0}
+                  walletBalance={Number(guests[0]?.ledgerBalance) || 0}
+                  allowKhata={true}
                   theme="dark"
                   qrDetails={{
                     roomNumber: selectedRoomDetails?.roomNumber,

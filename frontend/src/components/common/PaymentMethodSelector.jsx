@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Banknote, Smartphone, CreditCard, Shuffle, CheckCircle2, AlertCircle, PlusCircle } from 'lucide-react';
+import { Banknote, Smartphone, CreditCard, Shuffle, CheckCircle2, AlertCircle, PlusCircle, Wallet, BookOpen } from 'lucide-react';
 import DynamicUpiQr from '../DynamicUpiQr';
 
 /**
@@ -79,6 +79,9 @@ const PaymentMethodSelector = ({
   theme = 'light', // 'light' | 'dark'
   qrDetails = null, // { roomNumber, guestName, hostel }
   allowBankTransfer = false,
+  allowWallet = false,
+  walletBalance = 0,
+  allowKhata = false,
   className = ''
 }) => {
   const target = Math.max(0, Number(totalAmount) || 0);
@@ -146,12 +149,20 @@ const PaymentMethodSelector = ({
 
   const isDark = theme === 'dark';
 
-  const methods = ['Cash', 'UPI', 'Card', ...(allowBankTransfer ? ['Bank Transfer'] : []), 'Mixed'];
+  const methods = [
+    'Cash',
+    'UPI',
+    'Card',
+    ...(allowBankTransfer ? ['Bank Transfer'] : []),
+    ...(allowWallet ? ['Wallet'] : []),
+    ...(allowKhata ? ['Khata'] : []),
+    'Mixed'
+  ];
 
   return (
     <div className={`space-y-2.5 ${className}`}>
       {/* METHOD BUTTONS */}
-      <div className={`flex gap-1.5 p-1 rounded-xl ${isDark ? 'bg-gray-800/90 border border-gray-700/60' : 'bg-gray-100 border border-gray-200'}`}>
+      <div className={`flex flex-wrap sm:flex-nowrap gap-1.5 p-1 rounded-xl ${isDark ? 'bg-gray-800/90 border border-gray-700/60' : 'bg-gray-100 border border-gray-200'}`}>
         {methods.map((method) => {
           const isSelected = paymentMethod === method;
           let activeCls = '';
@@ -159,10 +170,18 @@ const PaymentMethodSelector = ({
             if (isDark) {
               activeCls = method === 'Mixed'
                 ? 'bg-amber-400 text-gray-950 shadow-sm font-black'
+                : method === 'Wallet'
+                ? 'bg-emerald-400 text-gray-950 shadow-sm font-black'
+                : method === 'Khata'
+                ? 'bg-amber-400 text-gray-950 shadow-sm font-black'
                 : 'bg-white text-gray-950 shadow-sm font-black';
             } else {
               activeCls = method === 'Mixed'
                 ? 'bg-amber-600 text-white border-amber-600 shadow-md font-black'
+                : method === 'Wallet'
+                ? 'bg-emerald-700 text-white border-emerald-700 shadow-md font-black'
+                : method === 'Khata'
+                ? 'bg-amber-700 text-white border-amber-700 shadow-md font-black'
                 : 'bg-black text-white border-black shadow-md font-black';
             }
           } else {
@@ -176,17 +195,61 @@ const PaymentMethodSelector = ({
               key={method}
               type="button"
               onClick={() => handleSelectMethod(method)}
-              className={`flex-1 py-2 px-1 text-xs rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 ${activeCls}`}
+              className={`flex-1 min-w-[70px] py-2 px-1 text-xs rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 ${activeCls}`}
             >
               {method === 'Cash' && <Banknote size={13} className="shrink-0" />}
               {method === 'UPI' && <Smartphone size={13} className="shrink-0" />}
               {method === 'Card' && <CreditCard size={13} className="shrink-0" />}
+              {method === 'Wallet' && <Wallet size={13} className="shrink-0 text-emerald-400" />}
+              {method === 'Khata' && <BookOpen size={13} className="shrink-0 text-amber-500" />}
               {method === 'Mixed' && <Shuffle size={13} className="shrink-0" />}
-              <span>{method === 'Bank Transfer' ? 'Bank' : method}</span>
+              <span>
+                {method === 'Bank Transfer'
+                  ? 'Bank'
+                  : method === 'Wallet'
+                  ? `Wallet (₹${walletBalance})`
+                  : method === 'Khata'
+                  ? 'Khata (उधार)'
+                  : method}
+              </span>
             </button>
           );
         })}
       </div>
+
+      {/* WALLET INFO BANNER */}
+      {paymentMethod === 'Wallet' && (
+        <div className={`p-2.5 rounded-xl border flex items-center justify-between text-xs animate-in fade-in ${
+          isDark ? 'bg-emerald-950/40 border-emerald-800 text-emerald-200' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+        }`}>
+          <div className="flex items-center gap-2">
+            <Wallet size={15} className="text-emerald-500 shrink-0" />
+            <span>
+              <strong>Advance Wallet:</strong> ₹{target.toLocaleString('en-IN')} will be deducted from guest's advance balance.
+            </span>
+          </div>
+          <span className="font-black px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 text-[10px] shrink-0 ml-2">
+            Avail: ₹{(walletBalance || 0).toLocaleString('en-IN')}
+          </span>
+        </div>
+      )}
+
+      {/* KHATA INFO BANNER */}
+      {paymentMethod === 'Khata' && (
+        <div className={`p-2.5 rounded-xl border flex items-center justify-between text-xs animate-in fade-in ${
+          isDark ? 'bg-amber-950/40 border-amber-800 text-amber-200' : 'bg-amber-50 border-amber-200 text-amber-800'
+        }`}>
+          <div className="flex items-center gap-2">
+            <BookOpen size={15} className="text-amber-500 shrink-0" />
+            <span>
+              <strong>Khata / Pay Later (उधार):</strong> ₹{target.toLocaleString('en-IN')} will be charged to the Primary Guest's Khata account.
+            </span>
+          </div>
+          <span className="font-black px-2 py-0.5 rounded bg-amber-100 text-amber-900 text-[10px] shrink-0 ml-2">
+            Pay Later
+          </span>
+        </div>
+      )}
 
       {/* MIXED PAYMENT BREAKDOWN PANEL */}
       {paymentMethod === 'Mixed' && (
