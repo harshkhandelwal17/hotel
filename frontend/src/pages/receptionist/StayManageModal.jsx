@@ -2,9 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { format, addDays, addHours } from 'date-fns';
-import { X, Receipt, Plus, Wallet, ArrowRightLeft, CalendarPlus, Printer, Trash2, LogOut, AlertCircle, CheckCircle2, Phone, Edit3, Image as ImageIcon, Eye } from 'lucide-react';
+import { X, Receipt, Plus, Wallet, ArrowRightLeft, CalendarPlus, Printer, Trash2, LogOut, AlertCircle, CheckCircle2, Phone, Edit3, Image as ImageIcon, Eye, FileText } from 'lucide-react';
 import { printInvoice } from '../../utils/invoice';
 import InvoiceModal from '../../components/InvoiceModal';
+import GuestRegistrationCardModal from '../../components/reception/GuestRegistrationCardModal';
 import DynamicUpiQr from '../../components/DynamicUpiQr';
 import PaymentMethodSelector, { validateSplitPayment, buildSplitPayments } from '../../components/common/PaymentMethodSelector';
 import { compressImage } from '../../utils/imageCompression';
@@ -96,6 +97,7 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
     notes: ''
   });
   const [showAddPaymentRow, setShowAddPaymentRow] = useState(false);
+  const [showGrcModal, setShowGrcModal] = useState(false);
 
   const reload = useCallback(async () => {
     const res = await axios.get(`${API}/api/stays/${initialStay._id}`);
@@ -352,13 +354,23 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
               <span>{format(new Date(stay.checkInDate), 'dd MMM, hh:mm a')} &rarr; {format(new Date(stay.expectedCheckOutDate), 'dd MMM, hh:mm a')}</span>
             </div>
           </div>
-          <button 
-            type="button" 
-            onClick={onClose} 
-            className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowGrcModal(true)}
+              className="hidden sm:flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-1.5 rounded-xl transition-all active:scale-95 shadow-2xs"
+              title="Print Guest Registration Card (GRC)"
+            >
+              <FileText size={14} /> GRC Card
+            </button>
+            <button 
+              type="button" 
+              onClick={onClose} 
+              className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -1064,6 +1076,14 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                 </button>
                 <button 
                   type="button"
+                  onClick={() => setShowGrcModal(true)}
+                  className="flex items-center justify-center gap-1.5 sm:gap-2 px-3.5 py-2.5 sm:py-3 bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 rounded-xl text-xs sm:text-sm font-black active:scale-95 transition-all shadow-2xs"
+                  title="Print Guest Registration Card (GRC)"
+                >
+                  <FileText size={16} /> Print GRC
+                </button>
+                <button 
+                  type="button"
                   onClick={() => printInvoice(stay, payments)}
                   className="hidden sm:flex items-center justify-center gap-1.5 sm:gap-2 px-3.5 py-2.5 sm:py-3 bg-white border border-gray-200 rounded-xl text-xs sm:text-sm font-bold text-gray-700 hover:bg-gray-100 active:scale-95 transition-all shadow-xs"
                 >
@@ -1189,6 +1209,16 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
         stay={stay} 
         payments={payments} 
         onClose={() => setIsInvoiceModalOpen(false)} 
+      />
+    )}
+    {showGrcModal && (
+      <GuestRegistrationCardModal
+        isOpen={showGrcModal}
+        onClose={() => setShowGrcModal(false)}
+        stayData={stay}
+        roomData={stay.room}
+        guests={stay.guest ? [stay.guest, ...(stay.coGuests || [])] : []}
+        hotelData={stay.hostel}
       />
     )}
   </div>,

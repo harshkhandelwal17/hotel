@@ -101,10 +101,10 @@ export default function GuestRegistrationCardModal({
   };
 
   // Property info fallback
-  const hotelName = hotelData?.name || roomData?.hostel?.name || 'HOTEL & RESIDENCY';
-  const hotelAddress = hotelData?.address || roomData?.hostel?.address || 'Main Road, City Center';
-  const hotelContact = hotelData?.contactNumber || roomData?.hostel?.contactNumber || '+91 98765 43210';
-  const hotelEmail = hotelData?.email || roomData?.hostel?.email || '';
+  const hotelName = hotelData?.name || roomData?.hostel?.name || stayData?.hostel?.name || 'HOTEL & RESIDENCY';
+  const hotelAddress = hotelData?.address || roomData?.hostel?.address || stayData?.hostel?.address || 'Main Road, City Center';
+  const hotelContact = hotelData?.contactNumber || roomData?.hostel?.contactNumber || stayData?.hostel?.contactNumber || '+91 98765 43210';
+  const hotelEmail = hotelData?.email || roomData?.hostel?.email || stayData?.hostel?.email || '';
 
   // Collect ID Cards for ALL guests
   const idCards = [];

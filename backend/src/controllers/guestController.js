@@ -132,8 +132,8 @@ exports.getGuest = async (req, res, next) => {
         hostelFilter.hostel !== undefined ? { hostel: hostelFilter.hostel } : {}
       ]
     })
-      .populate('guest', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack companyName gstin')
-      .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack companyName gstin')
+      .populate('guest', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack companyName gstin address gender dateOfBirth')
+      .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack companyName gstin address gender dateOfBirth')
       .populate('room', 'roomNumber price24h extraPerPerson24h extraPerPerson12h')
       .populate('hostel', 'name address contactNumber email upiId upiPayeeName gstEnabled gstin taxInclusive gstRate hsnSacCode state stateCode invoicePrefix billTerms')
       .sort('-createdAt');

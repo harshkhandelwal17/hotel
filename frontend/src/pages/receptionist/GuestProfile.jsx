@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { format } from 'date-fns';
-import { User, Phone, CheckCircle, Clock, Printer } from 'lucide-react';
+import { User, Phone, CheckCircle, Clock, Printer, FileText } from 'lucide-react';
 import { printInvoice } from '../../utils/invoice';
 import ExtendStayModal from './ExtendStayModal';
 import ShiftRoomModal from './ShiftRoomModal';
+import GuestRegistrationCardModal from '../../components/reception/GuestRegistrationCardModal';
 
 const GuestProfile = () => {
   const { id } = useParams();
@@ -14,6 +15,7 @@ const GuestProfile = () => {
   const [extendModalOpen, setExtendModalOpen] = useState(false);
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [selectedStay, setSelectedStay] = useState(null);
+  const [selectedGrcStay, setSelectedGrcStay] = useState(null);
 
   useEffect(() => {
     fetchGuest();
@@ -115,6 +117,13 @@ const GuestProfile = () => {
                 className="w-full sm:w-auto bg-white text-blue-700 font-black uppercase tracking-widest text-xs border-2 border-blue-200 px-5 py-2.5 rounded-xl hover:bg-blue-100 transition-all active:scale-95"
               >
                 Extend Stay
+              </button>
+              <button 
+                onClick={() => setSelectedGrcStay(activeStay)}
+                className="w-full sm:w-auto bg-indigo-600 text-white font-black uppercase tracking-widest text-xs px-5 py-2.5 rounded-xl hover:bg-indigo-700 transition-all shadow-md active:scale-95 flex items-center justify-center gap-2"
+                title="Print Guest Registration Card (GRC)"
+              >
+                <FileText size={16} /> Print GRC
               </button>
               <button 
                 onClick={() => handlePrint(activeStay)}
@@ -277,13 +286,23 @@ const GuestProfile = () => {
                       </span>
                     </td>
                     <td className="px-6 py-5">
-                      <button 
-                        onClick={() => handlePrint(stay)}
-                        className="text-gray-500 hover:text-black bg-gray-50 hover:bg-gray-100 p-2.5 rounded-xl transition-colors border border-gray-200"
-                        title="Print Invoice"
-                      >
-                        <Printer size={16} />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => handlePrint(stay)}
+                          className="text-gray-500 hover:text-black bg-gray-50 hover:bg-gray-100 p-2.5 rounded-xl transition-colors border border-gray-200"
+                          title="Print Invoice / Bill"
+                        >
+                          <Printer size={16} />
+                        </button>
+                        <button 
+                          onClick={() => setSelectedGrcStay(stay)}
+                          className="text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-3 py-2 rounded-xl transition-colors border border-indigo-200 flex items-center gap-1.5 font-black text-xs shadow-2xs cursor-pointer active:scale-95"
+                          title="Print Guest Registration Card (GRC)"
+                        >
+                          <FileText size={15} />
+                          <span className="text-[10px] font-black uppercase tracking-wider">GRC</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -299,7 +318,23 @@ const GuestProfile = () => {
         <ExtendStayModal 
           stay={selectedStay} 
           onClose={() => { setExtendModalOpen(false); setSelectedStay(null); }}
-          onSuccess={() => { setExtendModalOpen(false); setSelectedStay(null); fetchGuestData(); }}
+          onSuccess={() => { setExtendModalOpen(false); setSelectedStay(null); fetchGuest(); }}
+        />
+      )}
+
+      {/* Guest Registration Card Modal (GRC) */}
+      {selectedGrcStay && (
+        <GuestRegistrationCardModal
+          isOpen={Boolean(selectedGrcStay)}
+          onClose={() => setSelectedGrcStay(null)}
+          stayData={selectedGrcStay}
+          roomData={selectedGrcStay.room}
+          guests={
+            selectedGrcStay.guest 
+              ? [selectedGrcStay.guest, ...(selectedGrcStay.coGuests || [])]
+              : [guest]
+          }
+          hotelData={selectedGrcStay.hostel}
         />
       )}
     </div>
