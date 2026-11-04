@@ -195,6 +195,9 @@ const PaymentsList = () => {
                   totalAmount={Number(payAmount) || 0}
                   splitBreakdown={splitBreakdown}
                   onChangeSplit={setSplitBreakdown}
+                  allowWallet={Number(selectedStay.guest?.ledgerBalance) > 0}
+                  walletBalance={Number(selectedStay.guest?.ledgerBalance) || 0}
+                  allowKhata={true}
                   theme="light"
                   qrDetails={{
                     roomNumber: selectedStay.room?.roomNumber,

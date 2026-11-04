@@ -142,6 +142,9 @@ const ExtendStayModal = ({ stay, onClose, onSuccess }) => {
                   totalAmount={Number(extensionPayment) || 0}
                   splitBreakdown={splitBreakdown}
                   onChangeSplit={setSplitBreakdown}
+                  allowWallet={Number(stay.guest?.ledgerBalance) > 0}
+                  walletBalance={Number(stay.guest?.ledgerBalance) || 0}
+                  allowKhata={true}
                   theme="light"
                   qrDetails={{
                     roomNumber: stay.room?.roomNumber,

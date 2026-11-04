@@ -577,25 +577,45 @@ exports.extendStay = async (req, res, next) => {
         for (const sp of splitPayments) {
           const spAmt = Number(sp.amount);
           if (spAmt > 0) {
+            const pMethod = sp.paymentMethod || 'Cash';
             await Payment.create({
               stay: stay._id,
               guest: stay.guest,
               hostel: stay.hostel,
               amount: spAmt,
-              paymentMethod: sp.paymentMethod || 'Cash',
+              paymentMethod: pMethod,
               notes: sp.notes || 'Extension Payment',
               createdBy: req.user._id
+            });
+            await recordLedgerImpact({
+              guestId: stay.guest,
+              hostelId: stay.hostel,
+              stayId: stay._id,
+              amount: spAmt,
+              paymentMethod: pMethod,
+              description: sp.notes || `Extension payment (${pMethod})`,
+              userId: req.user._id
             });
           }
         }
       } else {
+        const pMethod = paymentMethod || 'Cash';
         await Payment.create({
           stay: stay._id,
           guest: stay.guest,
           hostel: stay.hostel,
           amount: pay,
-          paymentMethod: paymentMethod || 'Cash',
+          paymentMethod: pMethod,
           createdBy: req.user._id
+        });
+        await recordLedgerImpact({
+          guestId: stay.guest,
+          hostelId: stay.hostel,
+          stayId: stay._id,
+          amount: pay,
+          paymentMethod: pMethod,
+          description: `Extension payment (${pMethod})`,
+          userId: req.user._id
         });
       }
     }

@@ -569,6 +569,9 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                 totalAmount={Number(payForm.amount) || 0}
                 splitBreakdown={payForm.splitBreakdown}
                 onChangeSplit={(s) => setPayForm((p) => ({ ...p, splitBreakdown: s }))}
+                allowWallet={Number(stay.guest?.ledgerBalance) > 0}
+                walletBalance={Number(stay.guest?.ledgerBalance) || 0}
+                allowKhata={true}
                 theme="light"
                 qrDetails={{
                   roomNumber: stay.room?.roomNumber,

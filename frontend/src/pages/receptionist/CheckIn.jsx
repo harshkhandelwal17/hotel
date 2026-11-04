@@ -2401,7 +2401,16 @@ const CheckIn = () => {
                 {/* PAYMENT METHOD SELECTOR (CASH, UPI, CARD, WALLET, KHATA, MIXED) */}
                 <PaymentMethodSelector
                   paymentMethod={stayInfo.paymentMethod || 'Cash'}
-                  onChangeMethod={(m) => setStayInfo((p) => ({ ...p, paymentMethod: m }))}
+                  onChangeMethod={(m) => {
+                    setStayInfo((p) => {
+                      const shouldAutoFill = (m === 'Khata' && (!p.paidAmount || Number(p.paidAmount) === 0));
+                      return {
+                        ...p,
+                        paymentMethod: m,
+                        paidAmount: shouldAutoFill ? p.totalAmount : p.paidAmount
+                      };
+                    });
+                  }}
                   totalAmount={Number(stayInfo.paidAmount) || 0}
                   splitBreakdown={stayInfo.splitBreakdown || { cash: '', upi: '', card: '' }}
                   onChangeSplit={(splits) => setStayInfo((p) => ({ ...p, splitBreakdown: splits }))}

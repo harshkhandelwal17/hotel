@@ -355,7 +355,12 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
                 </div>
                 <PaymentMethodSelector
                   paymentMethod={paymentMethod}
-                  onChangeMethod={setPaymentMethod}
+                  onChangeMethod={(m) => {
+                    setPaymentMethod(m);
+                    if (m === 'Khata' && (!checkoutPayment || Number(checkoutPayment) === 0)) {
+                      setCheckoutPayment(finalBalance);
+                    }
+                  }}
                   totalAmount={Number(checkoutPayment) || 0}
                   splitBreakdown={splitBreakdown}
                   onChangeSplit={setSplitBreakdown}
