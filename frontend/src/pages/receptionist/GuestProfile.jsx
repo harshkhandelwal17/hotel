@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { format } from 'date-fns';
 import { User, Phone, CheckCircle, Clock, Printer, FileText, Wallet, BookOpen, Share2, PlusCircle, ArrowDownLeft, ArrowUpRight, X, AlertCircle } from 'lucide-react';
@@ -10,6 +10,10 @@ import GuestRegistrationCardModal from '../../components/reception/GuestRegistra
 
 const GuestProfile = () => {
   const { id } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState(tabParam === 'khata' ? 'khata' : 'history');
+
   const [guest, setGuest] = useState(null);
   const [loading, setLoading] = useState(true);
   const [extendModalOpen, setExtendModalOpen] = useState(false);
@@ -27,6 +31,17 @@ const GuestProfile = () => {
   const [formNotes, setFormNotes] = useState('');
   const [submittingLedger, setSubmittingLedger] = useState(false);
   const [ledgerActionError, setLedgerActionError] = useState('');
+
+  useEffect(() => {
+    if (tabParam && (tabParam === 'khata' || tabParam === 'history')) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
+
+  const handleTabChange = (newTab) => {
+    setActiveTab(newTab);
+    setSearchParams({ tab: newTab });
+  };
 
   useEffect(() => {
     fetchGuest();
@@ -191,16 +206,26 @@ const GuestProfile = () => {
         
         <div className="flex-shrink-0 flex flex-wrap items-center gap-2">
           {Number(guest.ledgerBalance) > 0 && (
-            <div className="px-4 py-2 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+            <button
+              type="button"
+              onClick={() => handleTabChange('khata')}
+              className="px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer"
+              title="Click to view Advance Wallet Passbook"
+            >
               <Wallet size={15} className="text-emerald-600" />
               <span>Wallet: ₹{Number(guest.ledgerBalance).toLocaleString('en-IN')}</span>
-            </div>
+            </button>
           )}
           {Number(guest.ledgerBalance) < 0 && (
-            <div className="px-4 py-2 bg-red-50 text-red-800 border border-red-200 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+            <button
+              type="button"
+              onClick={() => handleTabChange('khata')}
+              className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-800 border border-red-200 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer animate-pulse hover:animate-none"
+              title="Click to view Khata Passbook & Settle Due"
+            >
               <BookOpen size={15} className="text-red-600" />
               <span>Khata Due: ₹{Math.abs(Number(guest.ledgerBalance)).toLocaleString('en-IN')}</span>
-            </div>
+            </button>
           )}
           {activeStay ? (
             <span className="px-4 py-2 inline-flex text-xs uppercase tracking-widest font-black rounded-xl bg-green-500 text-white shadow-md items-center gap-2">
@@ -318,282 +343,368 @@ const GuestProfile = () => {
         </div>
       )}
 
-      {/* ─── Guest Khata & Wallet Passbook ─── */}
-      <div className="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden print:border-none">
-        <div className="bg-gradient-to-r from-gray-900 to-black px-6 sm:px-8 py-5 text-white flex flex-col md:flex-row justify-between md:items-center gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-amber-400">
-              <BookOpen size={20} />
-            </div>
-            <div>
-              <h2 className="text-lg font-black uppercase tracking-tight flex items-center gap-2">
-                Khata & Advance Passbook (खाता लेजर)
-              </h2>
-              <p className="text-xs text-gray-400 font-medium">
-                Wallet deposit & credit ledger transactions for {guest.fullName}
-              </p>
-            </div>
-          </div>
+      {/* ─── TAB NAVIGATION BAR ─── */}
+      <div className="bg-white p-2 rounded-2xl border border-gray-200 shadow-xs flex flex-wrap items-center justify-between gap-3 print:hidden">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => handleTabChange('history')}
+            className={`px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'history'
+                ? 'bg-black text-white shadow-md'
+                : 'text-gray-600 hover:text-black hover:bg-gray-100'
+            }`}
+          >
+            <Clock size={16} />
+            <span>Stay History</span>
+            <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
+              activeTab === 'history' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-700'
+            }`}>
+              {historyStays.length}
+            </span>
+          </button>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => { setFormAmount(''); setFormNotes(''); setLedgerActionError(''); setDepositModalOpen(true); }}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-transform active:scale-95 cursor-pointer"
-            >
-              <PlusCircle size={15} /> + Advance Jama Karein
-            </button>
-            <button
-              onClick={() => { setFormAmount(''); setFormNotes(''); setLedgerActionError(''); setPaymentModalOpen(true); }}
-              className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-gray-950 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-transform active:scale-95 cursor-pointer"
-            >
-              <ArrowDownLeft size={15} /> 💰 Wasool Karein
-            </button>
-            {getWhatsAppStatementUrl() && (
-              <a
-                href={getWhatsAppStatementUrl()}
-                target="_blank"
-                rel="noreferrer"
-                className="px-3.5 py-2 bg-emerald-700/80 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-transform active:scale-95"
-                title="Send Khata Statement on WhatsApp"
-              >
-                <Share2 size={14} /> WhatsApp
-              </a>
-            )}
-            <button
-              onClick={() => window.print()}
-              className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-colors print:hidden cursor-pointer"
-              title="Print Passbook Statement"
-            >
-              <Printer size={14} /> Print
-            </button>
-          </div>
-        </div>
-
-        {/* Balance KPI Banner */}
-        <div className="p-6 bg-gray-50/70 border-b border-gray-100 grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
-            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Current Ledger Status</span>
-            <div className="mt-1 flex items-baseline gap-2">
-              <span className={`text-2xl font-black ${
-                Number(guest.ledgerBalance) > 0 ? 'text-emerald-600' : Number(guest.ledgerBalance) < 0 ? 'text-red-600' : 'text-gray-900'
+          <button
+            type="button"
+            onClick={() => handleTabChange('khata')}
+            className={`px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'khata'
+                ? 'bg-amber-500 text-gray-950 shadow-md font-black'
+                : 'text-gray-600 hover:text-black hover:bg-gray-100'
+            }`}
+          >
+            <BookOpen size={16} />
+            <span>Khata & Passbook</span>
+            {Number(guest.ledgerBalance) !== 0 ? (
+              <span className={`text-[11px] px-2 py-0.5 rounded-full font-black ${
+                Number(guest.ledgerBalance) > 0
+                  ? activeTab === 'khata' ? 'bg-black text-emerald-400' : 'bg-emerald-100 text-emerald-800'
+                  : activeTab === 'khata' ? 'bg-black text-red-300' : 'bg-red-100 text-red-800'
               }`}>
                 {Number(guest.ledgerBalance) > 0
                   ? `+₹${Number(guest.ledgerBalance).toLocaleString('en-IN')}`
-                  : Number(guest.ledgerBalance) < 0
-                  ? `-₹${Math.abs(Number(guest.ledgerBalance)).toLocaleString('en-IN')}`
-                  : '₹0'}
+                  : `-₹${Math.abs(Number(guest.ledgerBalance)).toLocaleString('en-IN')}`}
               </span>
-              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                Number(guest.ledgerBalance) > 0
-                  ? 'bg-emerald-100 text-emerald-800'
-                  : Number(guest.ledgerBalance) < 0
-                  ? 'bg-red-100 text-red-800'
-                  : 'bg-gray-100 text-gray-700'
+            ) : (
+              <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
+                activeTab === 'khata' ? 'bg-black/15 text-gray-950' : 'bg-gray-200 text-gray-700'
               }`}>
-                {Number(guest.ledgerBalance) > 0
-                  ? 'Advance / Wallet (जमा)'
-                  : Number(guest.ledgerBalance) < 0
-                  ? 'Pending Due / Udhaar (उधार बाकी)'
-                  : 'All Cleared (चुकता)'}
+                {ledgerEntries.length}
               </span>
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
-            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Total Recorded Entries</span>
-            <div className="mt-1 text-2xl font-black text-gray-900">
-              {ledgerEntries.length} Transactions
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
-            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Primary Contact</span>
-            <div className="mt-1 text-sm font-bold text-gray-800 truncate">
-              {guest.mobileNumber || 'No mobile'} {guest.idProofNumber ? `• ${guest.idProofType}: ${guest.idProofNumber}` : ''}
-            </div>
-          </div>
+            )}
+          </button>
         </div>
 
-        {/* Passbook Table */}
-        {ledgerLoading ? (
-          <div className="p-8 text-center text-gray-400 text-sm font-medium">Loading passbook entries...</div>
-        ) : ledgerEntries.length === 0 ? (
-          <div className="p-10 text-center text-gray-400 font-medium text-sm">
-            <p>No ledger transactions recorded yet for this guest.</p>
-            <p className="text-xs text-gray-400 mt-1">Use "+ Advance Jama Karein" to add deposit, or check in/out with Wallet or Khata.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-gray-200 bg-gray-50/50 text-[10px] font-black uppercase tracking-wider text-gray-500">
-                  <th className="py-3 px-5">Date</th>
-                  <th className="py-3 px-4">Type</th>
-                  <th className="py-3 px-4">Description / Details</th>
-                  <th className="py-3 px-4">Mode</th>
-                  <th className="py-3 px-4 text-right">Amount</th>
-                  <th className="py-3 px-5 text-right">Balance After</th>
-                  <th className="py-3 px-4">Staff</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 text-xs font-semibold text-gray-800">
-                {ledgerEntries.map((entry) => {
-                  const isCredit = entry.entryType === 'DEPOSIT' || entry.entryType === 'PAYMENT';
-                  return (
-                    <tr key={entry._id} className="hover:bg-gray-50/70 transition-colors">
-                      <td className="py-3 px-5 font-mono text-gray-500 whitespace-nowrap">
-                        {format(new Date(entry.date || entry.createdAt), 'dd MMM yyyy, hh:mm a')}
-                      </td>
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1 ${
-                          entry.entryType === 'DEPOSIT'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : entry.entryType === 'PAYMENT'
-                            ? 'bg-blue-100 text-blue-800'
-                            : entry.entryType === 'WALLET_DEDUCTION'
-                            ? 'bg-purple-100 text-purple-800'
-                            : 'bg-amber-100 text-amber-900'
-                        }`}>
-                          {isCredit ? <ArrowDownLeft size={11} /> : <ArrowUpRight size={11} />}
-                          {entry.entryType.replace('_', ' ')}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 max-w-xs text-gray-700">
-                        <span className="font-bold">{entry.description || '-'}</span>
-                        {entry.stay && (
-                          <span className="block text-[10px] text-gray-400 font-normal">
-                            Room Stay ({entry.stay.status})
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 whitespace-nowrap text-gray-600 font-bold">
-                        {entry.paymentMethod || 'Cash'}
-                      </td>
-                      <td className="py-3 px-4 text-right whitespace-nowrap font-black font-mono">
-                        <span className={isCredit ? 'text-emerald-600' : 'text-red-600'}>
-                          {isCredit ? '+' : '-'}₹{entry.amount.toLocaleString('en-IN')}
-                        </span>
-                      </td>
-                      <td className="py-3 px-5 text-right whitespace-nowrap font-black font-mono">
-                        <span className={entry.balanceAfter > 0 ? 'text-emerald-700' : entry.balanceAfter < 0 ? 'text-red-700' : 'text-gray-900'}>
-                          ₹{entry.balanceAfter.toLocaleString('en-IN')}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 whitespace-nowrap text-gray-400 text-[11px]">
-                        {entry.createdBy?.name || 'Staff'}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+        {/* Quick action buttons if Khata tab is active */}
+        {activeTab === 'khata' && (
+          <div className="flex items-center gap-2 px-1">
+            <button
+              type="button"
+              onClick={() => { setFormAmount(''); setFormNotes(''); setLedgerActionError(''); setDepositModalOpen(true); }}
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1 shadow-sm transition-transform active:scale-95 cursor-pointer"
+            >
+              <PlusCircle size={13} /> + Advance
+            </button>
+            <button
+              type="button"
+              onClick={() => { setFormAmount(''); setFormNotes(''); setLedgerActionError(''); setPaymentModalOpen(true); }}
+              className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-gray-950 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1 shadow-sm transition-transform active:scale-95 cursor-pointer"
+            >
+              <ArrowDownLeft size={13} /> 💰 Wasool
+            </button>
           </div>
         )}
       </div>
 
-      {/* ─── Stay History ─── */}
-      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-6 sm:px-8 py-6 border-b border-gray-100 bg-gray-50">
-          <h2 className="text-xl font-black text-gray-900 flex items-center uppercase tracking-tight">
-            <Clock size={24} className="mr-3 text-gray-400" /> Stay History
-          </h2>
-        </div>
-        
-        {(!historyStays || historyStays.length === 0) ? (
-          <div className="p-12 text-center text-gray-500 font-medium">No past stays found for this guest.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left whitespace-nowrap">
-              <thead className="bg-white border-b-2 border-gray-100">
-                <tr>
-                  <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Room</th>
-                  <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Check-in</th>
-                  <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Checkout</th>
-                  <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Bill</th>
-                  <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
-                  <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-50">
-                {historyStays.map((stay) => {
-                  const isPrimary = (typeof stay.guest === 'object' ? stay.guest?._id : stay.guest) === guest._id;
-                  return (
-                  <tr key={stay._id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-6 py-5">
-                      <div className="flex items-center gap-2">
-                        <p className="font-black text-gray-900 text-base">{stay.room?.roomNumber || 'N/A'}</p>
-                        {!isPrimary && (
-                          <span className="bg-purple-100 text-purple-800 text-[9px] px-2 py-0.5 rounded border border-purple-200 font-black uppercase tracking-widest">Co-Guest</span>
-                        )}
-                      </div>
-                      <p className="text-xs font-bold text-gray-500 mt-0.5">{stay.occupants} Guests</p>
-                      
-                      {!isPrimary && stay.guest?._id ? (
-                        <Link to={`/guests/${stay.guest._id}`} className="inline-block text-[10px] font-bold text-purple-700 hover:text-purple-900 hover:underline mt-1 bg-purple-50 px-2 py-0.5 rounded border border-purple-100">
-                          Primary: {stay.guest?.fullName || 'Unknown'}
-                        </Link>
-                      ) : !isPrimary && (
-                        <p className="text-[10px] font-bold text-purple-600 mt-1">Primary: Unknown</p>
-                      )}
-                      
-                      {stay.coGuests && stay.coGuests.filter(cg => cg._id !== guest._id).length > 0 && (
-                        <div className="mt-2 flex flex-col gap-1">
-                          <p className="text-[9px] font-black uppercase text-gray-400 tracking-wider">With:</p>
-                          <div className="flex flex-wrap gap-1">
-                            {stay.coGuests.filter(cg => cg._id !== guest._id).map(cg => (
-                              <Link to={`/guests/${cg._id}`} key={cg._id} className="text-[9px] font-bold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-900 px-2 py-1 rounded-md border border-indigo-100 transition-colors">
-                                {cg.fullName || 'Unknown'}
-                              </Link>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-5">
-                      <p className="font-bold text-gray-900 text-sm">{format(new Date(stay.checkInDate), 'dd MMM yyyy')}</p>
-                      <p className="text-xs font-bold text-gray-400 mt-0.5">{format(new Date(stay.checkInDate), 'hh:mm a')}</p>
-                    </td>
-                    <td className="px-6 py-5">
-                      <p className="font-bold text-gray-900 text-sm">{stay.actualCheckOutDate ? format(new Date(stay.actualCheckOutDate), 'dd MMM yyyy') : format(new Date(stay.expectedCheckOutDate), 'dd MMM yyyy')}</p>
-                      <p className="text-xs font-bold text-gray-400 mt-0.5">{stay.actualCheckOutDate ? format(new Date(stay.actualCheckOutDate), 'hh:mm a') : format(new Date(stay.expectedCheckOutDate), 'hh:mm a')}</p>
-                    </td>
-                    <td className="px-6 py-5">
-                      <p className="font-black text-gray-900 text-base">₹{stay.totalAmount}</p>
-                    </td>
-                    <td className="px-6 py-5">
-                      <span className={`px-3 py-1 inline-flex text-[10px] leading-5 font-black uppercase tracking-widest rounded-lg border ${
-                        stay.status === 'Completed' ? 'bg-green-50 text-green-700 border-green-200' : 
-                        stay.status === 'Cancelled' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-gray-50 text-gray-700 border-gray-200'
-                      }`}>
-                        {stay.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-5">
-                      <div className="flex items-center gap-2">
-                        <button 
-                          onClick={() => handlePrint(stay)}
-                          className="text-gray-500 hover:text-black bg-gray-50 hover:bg-gray-100 p-2.5 rounded-xl transition-colors border border-gray-200"
-                          title="Print Invoice / Bill"
-                        >
-                          <Printer size={16} />
-                        </button>
-                        <button 
-                          onClick={() => setSelectedGrcStay(stay)}
-                          className="text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-3 py-2 rounded-xl transition-colors border border-indigo-200 flex items-center gap-1.5 font-black text-xs shadow-2xs cursor-pointer active:scale-95"
-                          title="Print Guest Registration Card (GRC)"
-                        >
-                          <FileText size={15} />
-                          <span className="text-[10px] font-black uppercase tracking-wider">GRC</span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-                })}
-              </tbody>
-            </table>
+      {/* ─── Stay History Tab Content ─── */}
+      <div className={activeTab === 'history' ? 'block' : 'hidden print:block'}>
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-6 sm:px-8 py-5 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+            <h2 className="text-lg font-black text-gray-900 flex items-center uppercase tracking-tight">
+              <Clock size={20} className="mr-2 text-gray-400" /> Past Stay History
+            </h2>
+            <span className="text-xs font-bold text-gray-500 bg-gray-200/60 px-3 py-1 rounded-full">
+              {historyStays.length} {historyStays.length === 1 ? 'Stay' : 'Stays'} Recorded
+            </span>
           </div>
-        )}
+          
+          {(!historyStays || historyStays.length === 0) ? (
+            <div className="p-12 text-center text-gray-400 font-medium">
+              <Clock size={32} className="mx-auto mb-2 opacity-30" />
+              <p>No past stays found for this guest.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-left whitespace-nowrap">
+                <thead className="bg-white border-b-2 border-gray-100">
+                  <tr>
+                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Room</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Check-in</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Checkout</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Bill</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-50">
+                  {historyStays.map((stay) => {
+                    const isPrimary = (typeof stay.guest === 'object' ? stay.guest?._id : stay.guest) === guest._id;
+                    return (
+                    <tr key={stay._id} className="hover:bg-gray-50/50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <p className="font-black text-gray-900 text-base">{stay.room?.roomNumber || 'N/A'}</p>
+                          {!isPrimary && (
+                            <span className="bg-purple-100 text-purple-800 text-[9px] px-2 py-0.5 rounded border border-purple-200 font-black uppercase tracking-widest">Co-Guest</span>
+                          )}
+                        </div>
+                        <p className="text-xs font-bold text-gray-500 mt-0.5">{stay.occupants} Guests</p>
+                        
+                        {!isPrimary && stay.guest?._id ? (
+                          <Link to={`/guests/${stay.guest._id}`} className="inline-block text-[10px] font-bold text-purple-700 hover:text-purple-900 hover:underline mt-1 bg-purple-50 px-2 py-0.5 rounded border border-purple-100">
+                            Primary: {stay.guest?.fullName || 'Unknown'}
+                          </Link>
+                        ) : !isPrimary && (
+                          <p className="text-[10px] font-bold text-purple-600 mt-1">Primary: Unknown</p>
+                        )}
+                        
+                        {stay.coGuests && stay.coGuests.filter(cg => cg._id !== guest._id).length > 0 && (
+                          <div className="mt-2 flex flex-col gap-1">
+                            <p className="text-[9px] font-black uppercase text-gray-400 tracking-wider">With:</p>
+                            <div className="flex flex-wrap gap-1">
+                              {stay.coGuests.filter(cg => cg._id !== guest._id).map(cg => (
+                                <Link to={`/guests/${cg._id}`} key={cg._id} className="text-[9px] font-bold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-900 px-2 py-1 rounded-md border border-indigo-100 transition-colors">
+                                  {cg.fullName || 'Unknown'}
+                                </Link>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="font-bold text-gray-900 text-sm">{format(new Date(stay.checkInDate), 'dd MMM yyyy')}</p>
+                        <p className="text-xs font-bold text-gray-400 mt-0.5">{format(new Date(stay.checkInDate), 'hh:mm a')}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="font-bold text-gray-900 text-sm">{stay.actualCheckOutDate ? format(new Date(stay.actualCheckOutDate), 'dd MMM yyyy') : format(new Date(stay.expectedCheckOutDate), 'dd MMM yyyy')}</p>
+                        <p className="text-xs font-bold text-gray-400 mt-0.5">{stay.actualCheckOutDate ? format(new Date(stay.actualCheckOutDate), 'hh:mm a') : format(new Date(stay.expectedCheckOutDate), 'hh:mm a')}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="font-black text-gray-900 text-base">₹{stay.totalAmount}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-3 py-1 inline-flex text-[10px] leading-5 font-black uppercase tracking-widest rounded-lg border ${
+                          stay.status === 'Completed' ? 'bg-green-50 text-green-700 border-green-200' : 
+                          stay.status === 'Cancelled' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-gray-50 text-gray-700 border-gray-200'
+                        }`}>
+                          {stay.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={() => handlePrint(stay)}
+                            className="text-gray-500 hover:text-black bg-gray-50 hover:bg-gray-100 p-2.5 rounded-xl transition-colors border border-gray-200 cursor-pointer"
+                            title="Print Invoice / Bill"
+                          >
+                            <Printer size={16} />
+                          </button>
+                          <button 
+                            onClick={() => setSelectedGrcStay(stay)}
+                            className="text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-3 py-2 rounded-xl transition-colors border border-indigo-200 flex items-center gap-1.5 font-black text-xs shadow-2xs cursor-pointer active:scale-95"
+                            title="Print Guest Registration Card (GRC)"
+                          >
+                            <FileText size={15} />
+                            <span className="text-[10px] font-black uppercase tracking-wider">GRC</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ─── Guest Khata & Wallet Passbook Tab Content ─── */}
+      <div className={activeTab === 'khata' ? 'block' : 'hidden print:block'}>
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden print:border-none">
+          <div className="bg-gradient-to-r from-gray-900 to-black px-6 sm:px-8 py-5 text-white flex flex-col md:flex-row justify-between md:items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-amber-400">
+                <BookOpen size={20} />
+              </div>
+              <div>
+                <h2 className="text-lg font-black uppercase tracking-tight flex items-center gap-2">
+                  Khata & Advance Passbook (खाता लेजर)
+                </h2>
+                <p className="text-xs text-gray-400 font-medium">
+                  Wallet deposit & credit ledger transactions for {guest.fullName}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => { setFormAmount(''); setFormNotes(''); setLedgerActionError(''); setDepositModalOpen(true); }}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-transform active:scale-95 cursor-pointer"
+              >
+                <PlusCircle size={15} /> + Advance Jama Karein
+              </button>
+              <button
+                type="button"
+                onClick={() => { setFormAmount(''); setFormNotes(''); setLedgerActionError(''); setPaymentModalOpen(true); }}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-gray-950 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-transform active:scale-95 cursor-pointer"
+              >
+                <ArrowDownLeft size={15} /> 💰 Wasool Karein
+              </button>
+              {getWhatsAppStatementUrl() && (
+                <a
+                  href={getWhatsAppStatementUrl()}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3.5 py-2 bg-emerald-700/80 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-transform active:scale-95"
+                  title="Send Khata Statement on WhatsApp"
+                >
+                  <Share2 size={14} /> WhatsApp
+                </a>
+              )}
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-colors print:hidden cursor-pointer"
+                title="Print Passbook Statement"
+              >
+                <Printer size={14} /> Print
+              </button>
+            </div>
+          </div>
+
+          {/* Balance KPI Banner */}
+          <div className="p-6 bg-gray-50/70 border-b border-gray-100 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
+              <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Current Ledger Status</span>
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className={`text-2xl font-black ${
+                  Number(guest.ledgerBalance) > 0 ? 'text-emerald-600' : Number(guest.ledgerBalance) < 0 ? 'text-red-600' : 'text-gray-900'
+                }`}>
+                  {Number(guest.ledgerBalance) > 0
+                    ? `+₹${Number(guest.ledgerBalance).toLocaleString('en-IN')}`
+                    : Number(guest.ledgerBalance) < 0
+                    ? `-₹${Math.abs(Number(guest.ledgerBalance)).toLocaleString('en-IN')}`
+                    : '₹0'}
+                </span>
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                  Number(guest.ledgerBalance) > 0
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : Number(guest.ledgerBalance) < 0
+                    ? 'bg-red-100 text-red-800'
+                    : 'bg-gray-100 text-gray-700'
+                }`}>
+                  {Number(guest.ledgerBalance) > 0
+                    ? 'Advance / Wallet (जमा)'
+                    : Number(guest.ledgerBalance) < 0
+                    ? 'Pending Due / Udhaar (उधार बाकी)'
+                    : 'All Cleared (चुकता)'}
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
+              <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Total Recorded Entries</span>
+              <div className="mt-1 text-2xl font-black text-gray-900">
+                {ledgerEntries.length} Transactions
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
+              <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Primary Contact</span>
+              <div className="mt-1 text-sm font-bold text-gray-800 truncate">
+                {guest.mobileNumber || 'No mobile'} {guest.idProofNumber ? `• ${guest.idProofType}: ${guest.idProofNumber}` : ''}
+              </div>
+            </div>
+          </div>
+
+          {/* Passbook Table with Sticky Header and Scrollable Body */}
+          {ledgerLoading ? (
+            <div className="p-8 text-center text-gray-400 text-sm font-medium">Loading passbook entries...</div>
+          ) : ledgerEntries.length === 0 ? (
+            <div className="p-10 text-center text-gray-400 font-medium text-sm">
+              <p>No ledger transactions recorded yet for this guest.</p>
+              <p className="text-xs text-gray-400 mt-1">Use "+ Advance Jama Karein" to add deposit, or check in/out with Wallet or Khata.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto max-h-[560px] overflow-y-auto">
+              <table className="w-full text-left border-collapse">
+                <thead className="sticky top-0 bg-gray-50/95 backdrop-blur-xs z-10">
+                  <tr className="border-b border-gray-200 text-[10px] font-black uppercase tracking-wider text-gray-500">
+                    <th className="py-3 px-5">Date</th>
+                    <th className="py-3 px-4">Type</th>
+                    <th className="py-3 px-4">Description / Details</th>
+                    <th className="py-3 px-4">Mode</th>
+                    <th className="py-3 px-4 text-right">Amount</th>
+                    <th className="py-3 px-5 text-right">Balance After</th>
+                    <th className="py-3 px-4">Staff</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 text-xs font-semibold text-gray-800">
+                  {ledgerEntries.map((entry) => {
+                    const isCredit = entry.entryType === 'DEPOSIT' || entry.entryType === 'PAYMENT';
+                    return (
+                      <tr key={entry._id} className="hover:bg-gray-50/70 transition-colors">
+                        <td className="py-3 px-5 font-mono text-gray-500 whitespace-nowrap">
+                          {format(new Date(entry.date || entry.createdAt), 'dd MMM yyyy, hh:mm a')}
+                        </td>
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1 ${
+                            entry.entryType === 'DEPOSIT'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : entry.entryType === 'PAYMENT'
+                              ? 'bg-blue-100 text-blue-800'
+                              : entry.entryType === 'WALLET_DEDUCTION'
+                              ? 'bg-purple-100 text-purple-800'
+                              : 'bg-amber-100 text-amber-900'
+                          }`}>
+                            {isCredit ? <ArrowDownLeft size={11} /> : <ArrowUpRight size={11} />}
+                            {entry.entryType.replace('_', ' ')}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 max-w-xs text-gray-700">
+                          <span className="font-bold">{entry.description || '-'}</span>
+                          {entry.stay && (
+                            <span className="block text-[10px] text-gray-400 font-normal">
+                              Room Stay ({entry.stay.status})
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 whitespace-nowrap text-gray-600 font-bold">
+                          {entry.paymentMethod || 'Cash'}
+                        </td>
+                        <td className="py-3 px-4 text-right whitespace-nowrap font-black font-mono">
+                          <span className={isCredit ? 'text-emerald-600' : 'text-red-600'}>
+                            {isCredit ? '+' : '-'}₹{entry.amount.toLocaleString('en-IN')}
+                          </span>
+                        </td>
+                        <td className="py-3 px-5 text-right whitespace-nowrap font-black font-mono">
+                          <span className={entry.balanceAfter > 0 ? 'text-emerald-700' : entry.balanceAfter < 0 ? 'text-red-700' : 'text-gray-900'}>
+                            ₹{entry.balanceAfter.toLocaleString('en-IN')}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 whitespace-nowrap text-gray-400 text-[11px]">
+                          {entry.createdBy?.name || 'Staff'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
       
       {/* Extend Stay Modal */}

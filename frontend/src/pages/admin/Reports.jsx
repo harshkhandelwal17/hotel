@@ -872,7 +872,7 @@ const Reports = () => {
                     return (
                       <tr key={customer._id} className="hover:bg-gray-50/80 transition-colors">
                         <td className="px-6 py-4">
-                          <Link to={`/guests/${customer._id}`} className="font-bold text-gray-900 hover:text-indigo-600 transition-colors">
+                          <Link to={`/guests/${customer._id}?tab=khata`} className="font-bold text-gray-900 hover:text-indigo-600 transition-colors">
                             {customer.fullName}
                           </Link>
                           <p className="text-xs text-gray-500 mt-0.5">{customer.mobileNumber || 'No mobile'}</p>
@@ -925,7 +925,7 @@ const Reports = () => {
                               </a>
                             )}
                             <Link
-                              to={`/guests/${customer._id}`}
+                              to={`/guests/${customer._id}?tab=khata`}
                               className="px-3.5 py-1.5 bg-black hover:bg-gray-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 flex items-center gap-1"
                             >
                               Passbook &rarr;
