@@ -17,7 +17,7 @@ const guestLedgerSchema = new mongoose.Schema({
   },
   entryType: {
     type: String,
-    enum: ['DEPOSIT', 'PAYMENT', 'STAY_CHARGE', 'WALLET_DEDUCTION', 'ADJUSTMENT'],
+    enum: ['DEPOSIT', 'PAYMENT', 'STAY_CHARGE', 'WALLET_DEDUCTION', 'ADJUSTMENT', 'REVERSAL', 'REFUND'],
     required: true
   },
   amount: {

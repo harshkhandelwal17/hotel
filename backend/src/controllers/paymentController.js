@@ -1,5 +1,7 @@
 const Payment = require('../models/Payment');
 const Stay = require('../models/Stay');
+const Guest = require('../models/Guest');
+const GuestLedger = require('../models/GuestLedger');
 const { userCanAccessHostel, getHostelFilter } = require('../utils/hostelAccess');
 const { recordLedgerImpact } = require('../utils/ledgerHelper');
 
@@ -195,6 +197,34 @@ exports.deletePayment = async (req, res, next) => {
     }
 
     const stayId = payment.stay;
+
+    // Reverse ledger impact if payment was from Wallet or Khata
+    if ((payment.paymentMethod === 'Wallet' || payment.paymentMethod === 'Khata') && payment.guest) {
+      try {
+        const guestDoc = await Guest.findById(payment.guest);
+        if (guestDoc) {
+          const refundAmt = Number(payment.amount) || 0;
+          const newBal = Math.round(((Number(guestDoc.ledgerBalance) || 0) + refundAmt) * 100) / 100;
+          guestDoc.ledgerBalance = newBal;
+          await guestDoc.save();
+
+          await GuestLedger.create({
+            guest: guestDoc._id,
+            hostel: payment.hostel,
+            stay: payment.stay,
+            entryType: 'REVERSAL',
+            amount: refundAmt,
+            balanceAfter: newBal,
+            paymentMethod: payment.paymentMethod,
+            description: `Payment deleted/reversed: ₹${refundAmt} (${payment.paymentMethod})`,
+            createdBy: req.user._id
+          });
+        }
+      } catch (lErr) {
+        console.error('Error reversing ledger on payment delete:', lErr);
+      }
+    }
+
     await Payment.findByIdAndDelete(id);
 
     // Sync stay.paidAmount

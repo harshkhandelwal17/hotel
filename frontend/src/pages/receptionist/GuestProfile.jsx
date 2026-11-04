@@ -653,7 +653,7 @@ const GuestProfile = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-100 text-xs font-semibold text-gray-800">
                   {ledgerEntries.map((entry) => {
-                    const isCredit = entry.entryType === 'DEPOSIT' || entry.entryType === 'PAYMENT';
+                    const isCredit = entry.entryType === 'DEPOSIT' || entry.entryType === 'PAYMENT' || entry.entryType === 'REVERSAL' || entry.entryType === 'REFUND';
                     return (
                       <tr key={entry._id} className="hover:bg-gray-50/70 transition-colors">
                         <td className="py-3 px-5 font-mono text-gray-500 whitespace-nowrap">
@@ -665,6 +665,8 @@ const GuestProfile = () => {
                               ? 'bg-emerald-100 text-emerald-800'
                               : entry.entryType === 'PAYMENT'
                               ? 'bg-blue-100 text-blue-800'
+                              : entry.entryType === 'REVERSAL' || entry.entryType === 'REFUND'
+                              ? 'bg-teal-100 text-teal-800'
                               : entry.entryType === 'WALLET_DEDUCTION'
                               ? 'bg-purple-100 text-purple-800'
                               : 'bg-amber-100 text-amber-900'
