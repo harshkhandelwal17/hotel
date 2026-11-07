@@ -227,3 +227,29 @@ exports.getKhataSummary = async (req, res, next) => {
   }
 };
 
+/**
+ * Get all ledger transactions across property with guest and staff details
+ * GET /api/guests/khata/transactions
+ */
+exports.getAllLedgerTransactions = async (req, res, next) => {
+  try {
+    const filter = await getHostelFilter(req.user, req.query.hostel);
+    const entries = await GuestLedger.find(filter)
+      .populate('guest', 'fullName mobileNumber idProofType idProofNumber')
+      .populate('createdBy', 'name role')
+      .populate('hostel', 'name')
+      .populate({
+        path: 'stay',
+        select: 'checkInDate expectedCheckOutDate room',
+        populate: { path: 'room', select: 'roomNumber' }
+      })
+      .sort({ date: -1, createdAt: -1 })
+      .limit(3000)
+      .lean();
+
+    res.status(200).json({ success: true, count: entries.length, data: entries });
+  } catch (error) {
+    sendError(res, next, error);
+  }
+};
+

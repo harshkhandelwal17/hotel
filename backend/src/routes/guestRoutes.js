@@ -4,7 +4,8 @@ const {
   addDeposit,
   recordPayment,
   getGuestLedger,
-  getKhataSummary
+  getKhataSummary,
+  getAllLedgerTransactions
 } = require('../controllers/guestLedgerController');
 const { protect } = require('../middlewares/auth');
 
@@ -12,8 +13,9 @@ const router = express.Router();
 
 router.use(protect);
 
-// Summary endpoint MUST come before /:id parameter route
+// Summary & Transaction endpoints MUST come before /:id parameter route
 router.get('/khata/summary', getKhataSummary);
+router.get('/khata/transactions', getAllLedgerTransactions);
 
 router.route('/')
   .get(getGuests)

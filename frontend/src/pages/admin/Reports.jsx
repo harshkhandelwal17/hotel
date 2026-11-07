@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth, parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
-import { Search, Download, TrendingUp, PieChart, Users, Receipt, ArrowRight, ShieldCheck, Trash, Shirt, BookOpen, Wallet, Share2 } from 'lucide-react';
+import { Search, Download, TrendingUp, PieChart, Users, Receipt, ArrowRight, ShieldCheck, Trash, Shirt, BookOpen, Wallet, Share2, Clock, Banknote, CheckCircle, Building, Sparkles } from 'lucide-react';
 import { useOutletContext, Link } from 'react-router-dom';
 import PoliceReportModal from './PoliceReportModal';
+import ShiftHandoverModal from './ShiftHandoverModal';
 
 const Reports = () => {
   const [stays, setStays] = useState([]);
@@ -12,6 +13,7 @@ const Reports = () => {
   const [hostels, setHostels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showPoliceModal, setShowPoliceModal] = useState(false);
+  const [showHandoverModal, setShowHandoverModal] = useState(false);
   
   // Tabs
   const [activeTab, setActiveTab] = useState('bookings'); // bookings, transactions, laundry, khata
@@ -32,6 +34,8 @@ const Reports = () => {
   const [dateFilter, setDateFilter] = useState('all');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
+  const [customStartTime, setCustomStartTime] = useState('');
+  const [customEndTime, setCustomEndTime] = useState('');
   const { globalProperty } = useOutletContext() || { globalProperty: 'all' };
   const [hostelFilter, setHostelFilter] = useState(globalProperty || 'all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -93,6 +97,94 @@ const Reports = () => {
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [payments, stays]);
 
+  // Shift preset helper
+  const applyShiftPreset = (preset) => {
+    setDateFilter('custom');
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const yesterday = new Date(Date.now() - 86400000);
+    const yesterdayStr = format(yesterday, 'yyyy-MM-dd');
+
+    if (preset === 'morning') {
+      setCustomStart(todayStr);
+      setCustomEnd(todayStr);
+      setCustomStartTime('08:00');
+      setCustomEndTime('16:00');
+    } else if (preset === 'evening') {
+      setCustomStart(todayStr);
+      setCustomEnd(todayStr);
+      setCustomStartTime('16:00');
+      setCustomEndTime('23:59');
+    } else if (preset === 'night') {
+      setCustomStart(yesterdayStr);
+      setCustomEnd(todayStr);
+      setCustomStartTime('23:00');
+      setCustomEndTime('08:00');
+    } else if (preset === 'hotel24') {
+      setCustomStart(yesterdayStr);
+      setCustomEnd(todayStr);
+      setCustomStartTime('12:00');
+      setCustomEndTime('12:00');
+    } else if (preset === 'todayFull') {
+      setCustomStart(todayStr);
+      setCustomEnd(todayStr);
+      setCustomStartTime('00:00');
+      setCustomEndTime('23:59');
+    } else if (preset === 'clear') {
+      setCustomStartTime('');
+      setCustomEndTime('');
+    }
+  };
+
+  // Active Date & Time Range Calculator (Exact to the minute)
+  const activeDateTimeRange = useMemo(() => {
+    if (dateFilter === 'today') {
+      const now = new Date();
+      return { start: startOfDay(now), end: endOfDay(now), label: 'Today (Full Day)' };
+    }
+    if (dateFilter === 'yesterday') {
+      const yesterday = new Date(Date.now() - 86400000);
+      return { start: startOfDay(yesterday), end: endOfDay(yesterday), label: 'Yesterday (Full Day)' };
+    }
+    if (dateFilter === 'week') {
+      const now = new Date();
+      const day = now.getDay();
+      const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+      const start = startOfDay(new Date(now.setDate(diff)));
+      const end = endOfDay(new Date());
+      return { start, end, label: 'This Week' };
+    }
+    if (dateFilter === 'month') {
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+      const end = endOfDay(now);
+      return { start, end, label: 'This Month' };
+    }
+    if (dateFilter === 'custom' && customStart) {
+      let start;
+      if (customStartTime) {
+        start = new Date(`${customStart}T${customStartTime}:00`);
+      } else {
+        start = startOfDay(parseISO(customStart));
+      }
+
+      let end;
+      const endDateStr = customEnd || customStart;
+      if (customEndTime) {
+        end = new Date(`${endDateStr}T${customEndTime}:59`);
+      } else {
+        end = endOfDay(parseISO(endDateStr));
+      }
+
+      let label = `${format(start, 'dd MMM yyyy')}`;
+      if (customStartTime) label += ` ${format(start, 'hh:mm a')}`;
+      label += `  ➔  ${format(end, 'dd MMM yyyy')}`;
+      if (customEndTime) label += ` ${format(end, 'hh:mm a')}`;
+
+      return { start, end, label };
+    }
+    return null;
+  }, [dateFilter, customStart, customEnd, customStartTime, customEndTime]);
+
   // Filter Stays
   const filteredStays = useMemo(() => {
     return stays.filter(stay => {
@@ -109,18 +201,10 @@ const Reports = () => {
         return false;
       }
 
-      // 3. Date Filter (Based on check-in date)
-      if (dateFilter !== 'all') {
+      // 3. Date & Time Filter (Based on check-in date/time)
+      if (activeDateTimeRange) {
         const date = new Date(stay.checkInDate);
-        if (dateFilter === 'today' && !isToday(date)) return false;
-        if (dateFilter === 'yesterday' && !isYesterday(date)) return false;
-        if (dateFilter === 'week' && !isThisWeek(date)) return false;
-        if (dateFilter === 'month' && !isThisMonth(date)) return false;
-        if (dateFilter === 'custom' && customStart && customEnd) {
-           const start = startOfDay(parseISO(customStart));
-           const end = endOfDay(parseISO(customEnd));
-           if (!isWithinInterval(date, { start, end })) return false;
-        }
+        if (date < activeDateTimeRange.start || date > activeDateTimeRange.end) return false;
       }
 
       // 4. Staff Filter
@@ -131,7 +215,7 @@ const Reports = () => {
       
       return true;
     }).sort((a, b) => new Date(b.checkInDate) - new Date(a.checkInDate));
-  }, [stays, hostelFilter, searchQuery, dateFilter, customStart, customEnd, staffFilter]);
+  }, [stays, hostelFilter, searchQuery, activeDateTimeRange, staffFilter]);
 
   // Filter Payments
   const filteredPayments = useMemo(() => {
@@ -150,22 +234,15 @@ const Reports = () => {
       }
 
       // 3. Payment Method Filter
-      if (paymentMethodFilter !== 'all' && payment.paymentMethod !== paymentMethodFilter) {
-        return false;
+      if (paymentMethodFilter !== 'all') {
+        const method = (payment.paymentMethod || '').toLowerCase();
+        if (method !== paymentMethodFilter.toLowerCase()) return false;
       }
 
-      // 4. Date Filter
-      if (dateFilter !== 'all') {
+      // 4. Date & Time Filter (Based on payment timestamp)
+      if (activeDateTimeRange) {
         const date = new Date(payment.paymentDate);
-        if (dateFilter === 'today' && !isToday(date)) return false;
-        if (dateFilter === 'yesterday' && !isYesterday(date)) return false;
-        if (dateFilter === 'week' && !isThisWeek(date)) return false;
-        if (dateFilter === 'month' && !isThisMonth(date)) return false;
-        if (dateFilter === 'custom' && customStart && customEnd) {
-           const start = startOfDay(parseISO(customStart));
-           const end = endOfDay(parseISO(customEnd));
-           if (!isWithinInterval(date, { start, end })) return false;
-        }
+        if (date < activeDateTimeRange.start || date > activeDateTimeRange.end) return false;
       }
 
       // 5. Staff / Receptionist Filter
@@ -176,7 +253,7 @@ const Reports = () => {
       
       return true;
     }).sort((a, b) => new Date(b.paymentDate) - new Date(a.paymentDate));
-  }, [payments, hostelFilter, searchQuery, paymentMethodFilter, dateFilter, customStart, customEnd, staffFilter]);
+  }, [payments, hostelFilter, searchQuery, paymentMethodFilter, activeDateTimeRange, staffFilter]);
 
   // Filter Laundry Orders
   const filteredLaundryOrders = useMemo(() => {
@@ -195,23 +272,15 @@ const Reports = () => {
         return false;
       }
 
-      // 3. Date Filter (Based on sentDate or createdAt)
-      if (dateFilter !== 'all') {
+      // 3. Date & Time Filter (Based on sentDate or createdAt)
+      if (activeDateTimeRange) {
         const date = new Date(order.sentDate || order.createdAt);
-        if (dateFilter === 'today' && !isToday(date)) return false;
-        if (dateFilter === 'yesterday' && !isYesterday(date)) return false;
-        if (dateFilter === 'week' && !isThisWeek(date)) return false;
-        if (dateFilter === 'month' && !isThisMonth(date)) return false;
-        if (dateFilter === 'custom' && customStart && customEnd) {
-           const start = startOfDay(parseISO(customStart));
-           const end = endOfDay(parseISO(customEnd));
-           if (!isWithinInterval(date, { start, end })) return false;
-        }
+        if (date < activeDateTimeRange.start || date > activeDateTimeRange.end) return false;
       }
 
       return true;
     }).sort((a, b) => new Date(b.sentDate || b.createdAt) - new Date(a.sentDate || a.createdAt));
-  }, [laundryOrders, hostelFilter, searchQuery, dateFilter, customStart, customEnd]);
+  }, [laundryOrders, hostelFilter, searchQuery, activeDateTimeRange]);
 
   // Calculate Financial Stats
   const stats = useMemo(() => {
@@ -244,13 +313,47 @@ const Reports = () => {
     let cashTotal = 0;
     let upiTotal = 0;
     let cardTotal = 0;
+    let walletTotal = 0;
+    let khataTotal = 0;
+    const staffCollectionMap = {};
 
     filteredPayments.forEach(p => {
-      totalCollected += p.amount;
-      if (p.paymentMethod === 'Cash') cashTotal += p.amount;
-      else if (p.paymentMethod === 'UPI') upiTotal += p.amount;
-      else if (p.paymentMethod === 'Card') cardTotal += p.amount;
+      const amt = Number(p.amount) || 0;
+      totalCollected += amt;
+      const method = (p.paymentMethod || 'Cash').toLowerCase();
+      if (method === 'cash') cashTotal += amt;
+      else if (method === 'upi') upiTotal += amt;
+      else if (method === 'card' || method === 'bank') cardTotal += amt;
+      else if (method === 'wallet' || method === 'advance') walletTotal += amt;
+      else if (method === 'khata') khataTotal += amt;
+      else cardTotal += amt;
+
+      const sId = p.createdBy?._id || (typeof p.createdBy === 'string' ? p.createdBy : 'reception');
+      const sName = p.createdBy?.name || (typeof p.createdBy === 'string' ? 'Staff' : 'Reception Staff');
+      const sRole = p.createdBy?.role || 'Staff';
+
+      if (!staffCollectionMap[sId]) {
+        staffCollectionMap[sId] = {
+          id: sId,
+          name: sName,
+          role: sRole,
+          total: 0,
+          cash: 0,
+          upi: 0,
+          card: 0,
+          other: 0,
+          count: 0
+        };
+      }
+      staffCollectionMap[sId].total += amt;
+      staffCollectionMap[sId].count += 1;
+      if (method === 'cash') staffCollectionMap[sId].cash += amt;
+      else if (method === 'upi') staffCollectionMap[sId].upi += amt;
+      else if (method === 'card' || method === 'bank') staffCollectionMap[sId].card += amt;
+      else staffCollectionMap[sId].other += amt;
     });
+
+    const staffBreakdown = Object.values(staffCollectionMap).sort((a, b) => b.total - a.total);
     
     return {
       grossBooking,
@@ -264,7 +367,10 @@ const Reports = () => {
       totalCollected,
       cashTotal,
       upiTotal,
-      cardTotal
+      cardTotal,
+      walletTotal,
+      khataTotal,
+      staffBreakdown
     };
   }, [filteredStays, filteredPayments, filteredLaundryOrders]);
 
@@ -357,6 +463,13 @@ const Reports = () => {
           <p className="text-sm text-gray-500 mt-1 font-medium">Track Bookings, Commissions, and real Cash Flow.</p>
         </div>
         <div className="flex flex-wrap sm:flex-nowrap gap-2 w-full sm:w-auto">
+          <button 
+            onClick={() => setShowHandoverModal(true)} 
+            className="flex-1 sm:flex-none justify-center px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-gray-950 font-black text-sm rounded-xl transition-all shadow-sm flex items-center gap-2 active:scale-95 cursor-pointer"
+            title="Generate Printable Shift Handover & Cash Drawer Voucher"
+          >
+            <Banknote size={16} /> Shift Handover Slip
+          </button>
           <button 
             onClick={() => setShowPoliceModal(true)} 
             className="flex-1 sm:flex-none justify-center px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition-colors shadow-sm flex items-center gap-2 active:scale-95"
@@ -553,9 +666,12 @@ const Reports = () => {
         {activeTab === 'transactions' && (
           <select value={paymentMethodFilter} onChange={e => setPaymentMethodFilter(e.target.value)} className="w-full md:w-48 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-black outline-none appearance-none">
             <option value="all">All Methods</option>
-            <option value="Cash">Cash</option>
-            <option value="UPI">UPI</option>
-            <option value="Card">Card</option>
+            <option value="Cash">Cash (कैश)</option>
+            <option value="UPI">UPI (GooglePay/PhonePe/Paytm)</option>
+            <option value="Card">Card / POS Machine</option>
+            <option value="Wallet">Wallet / Advance Credit</option>
+            <option value="Khata">Khata (उधार)</option>
+            <option value="Bank">Bank Transfer / NEFT</option>
           </select>
         )}
 
@@ -582,51 +698,214 @@ const Reports = () => {
         )}
       </div>
       
+      {/* Custom Date & Time Filter Panel with Hotel Shift Presets */}
       {dateFilter === 'custom' && (
-        <div className="flex flex-col sm:flex-row items-center gap-3 p-4 bg-gray-50/50 rounded-2xl border border-gray-200 shadow-inner animate-in fade-in slide-in-from-top-2">
-          <div className="flex-1 w-full relative">
-            <label className="absolute -top-2 left-3 bg-white px-1 text-[10px] font-black text-gray-500 uppercase tracking-widest rounded shadow-sm border border-gray-100">Start Date</label>
-            <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-black outline-none transition-all shadow-sm" />
+        <div className="p-5 bg-gradient-to-br from-gray-50 to-amber-50/30 rounded-3xl border border-gray-200 shadow-xs space-y-4 animate-in fade-in slide-in-from-top-2">
+          {/* Quick Shift Presets */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-black uppercase tracking-wider text-gray-500 mr-1 flex items-center gap-1">
+              <Clock size={13} className="text-amber-600" /> Hotel Shift Presets:
+            </span>
+            <button
+              type="button"
+              onClick={() => applyShiftPreset('morning')}
+              className="px-3 py-1.5 bg-white hover:bg-amber-100 text-gray-800 border border-gray-200 hover:border-amber-300 rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95"
+            >
+              ☀️ Morning (08:00 AM – 04:00 PM)
+            </button>
+            <button
+              type="button"
+              onClick={() => applyShiftPreset('evening')}
+              className="px-3 py-1.5 bg-white hover:bg-amber-100 text-gray-800 border border-gray-200 hover:border-amber-300 rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95"
+            >
+              🌆 Evening (04:00 PM – 11:59 PM)
+            </button>
+            <button
+              type="button"
+              onClick={() => applyShiftPreset('night')}
+              className="px-3 py-1.5 bg-white hover:bg-amber-100 text-gray-800 border border-gray-200 hover:border-amber-300 rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95"
+            >
+              🌙 Night Shift (11:00 PM – 08:00 AM)
+            </button>
+            <button
+              type="button"
+              onClick={() => applyShiftPreset('hotel24')}
+              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95"
+            >
+              🏨 Hotel 24h (12:00 PM – 12:00 PM)
+            </button>
+            <button
+              type="button"
+              onClick={() => applyShiftPreset('todayFull')}
+              className="px-3 py-1.5 bg-white hover:bg-gray-100 text-gray-700 border border-gray-200 rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95"
+            >
+              ⏰ Today Full Day (00:00 – 23:59)
+            </button>
+            {(customStartTime || customEndTime) && (
+              <button
+                type="button"
+                onClick={() => applyShiftPreset('clear')}
+                className="px-2.5 py-1.5 text-red-600 hover:bg-red-50 rounded-xl text-xs font-bold transition-colors ml-auto"
+              >
+                Reset Times
+              </button>
+            )}
           </div>
-          <div className="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-400 font-bold shadow-sm shrink-0 z-10">
-            <ArrowRight size={14} className="hidden sm:block" />
-            <ArrowRight size={14} className="sm:hidden rotate-90" />
+
+          {/* Exact Date & Time Inputs */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Start Date & Time */}
+            <div className="p-3 bg-white rounded-2xl border border-gray-200 shadow-2xs space-y-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Start Date & Time (से)
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input
+                  type="date"
+                  value={customStart}
+                  onChange={e => setCustomStart(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-black outline-none transition-all"
+                />
+                <input
+                  type="time"
+                  value={customStartTime}
+                  onChange={e => setCustomStartTime(e.target.value)}
+                  placeholder="00:00"
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-black outline-none transition-all"
+                />
+              </div>
+            </div>
+
+            {/* End Date & Time */}
+            <div className="p-3 bg-white rounded-2xl border border-gray-200 shadow-2xs space-y-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-red-700 flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-red-500"></span> End Date & Time (तक)
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input
+                  type="date"
+                  value={customEnd}
+                  onChange={e => setCustomEnd(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-black outline-none transition-all"
+                />
+                <input
+                  type="time"
+                  value={customEndTime}
+                  onChange={e => setCustomEndTime(e.target.value)}
+                  placeholder="23:59"
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-black outline-none transition-all"
+                />
+              </div>
+            </div>
           </div>
-          <div className="flex-1 w-full relative">
-            <label className="absolute -top-2 left-3 bg-white px-1 text-[10px] font-black text-gray-500 uppercase tracking-widest rounded shadow-sm border border-gray-100">End Date</label>
-            <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-black outline-none transition-all shadow-sm" />
-          </div>
+
+          {/* Active Range Preview Label */}
+          {activeDateTimeRange?.label && (
+            <div className="flex items-center justify-between text-xs bg-white px-4 py-2 rounded-xl border border-gray-200 font-bold text-gray-700">
+              <span className="flex items-center gap-2">
+                <Sparkles size={14} className="text-amber-500" /> Active Range: <span className="text-gray-900 font-black">{activeDateTimeRange.label}</span>
+              </span>
+              <span className="text-[10px] text-gray-400 font-medium">Exact minute precision</span>
+            </div>
+          )}
         </div>
       )}
 
-      
-      {/* Payment Summary */}
-      {activeTab === 'payments' && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
-            <div>
+      {/* Cash Flow Drawer & Shift Handover Summary (Transactions Tab) */}
+      {activeTab === 'transactions' && (
+        <div className="space-y-4 mb-2">
+          {/* Drawer Status Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="bg-gray-900 p-4 rounded-2xl shadow-sm text-white">
               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Collected</p>
-              <p className="text-2xl font-black text-gray-900 mt-1">₹{filteredPayments.reduce((sum, p) => sum + p.amount, 0).toLocaleString('en-IN')}</p>
+              <p className="text-2xl font-black text-white mt-1">₹{stats.totalCollected.toLocaleString('en-IN')}</p>
+              <p className="text-[10px] text-gray-400 mt-1 font-medium">{filteredPayments.length} Payments recorded</p>
+            </div>
+
+            <div className="bg-emerald-50 p-4 rounded-2xl shadow-sm border border-emerald-200">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-black text-emerald-800 uppercase tracking-widest">Cash In Hand (Drawer)</p>
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              </div>
+              <p className="text-2xl font-black text-emerald-700 mt-1">₹{stats.cashTotal.toLocaleString('en-IN')}</p>
+              <p className="text-[10px] text-emerald-600 mt-1 font-bold">Physical cash to handover</p>
+            </div>
+
+            <div className="bg-purple-50 p-4 rounded-2xl shadow-sm border border-purple-200">
+              <p className="text-[10px] font-black text-purple-800 uppercase tracking-widest">UPI Direct (Bank)</p>
+              <p className="text-2xl font-black text-purple-700 mt-1">₹{stats.upiTotal.toLocaleString('en-IN')}</p>
+              <p className="text-[10px] text-purple-600 mt-1 font-medium">GPay / PhonePe / QR</p>
+            </div>
+
+            <div className="bg-blue-50 p-4 rounded-2xl shadow-sm border border-blue-200">
+              <p className="text-[10px] font-black text-blue-800 uppercase tracking-widest">Card / POS</p>
+              <p className="text-2xl font-black text-blue-700 mt-1">₹{stats.cardTotal.toLocaleString('en-IN')}</p>
+              <p className="text-[10px] text-blue-600 mt-1 font-medium">Credit/Debit machine</p>
+            </div>
+
+            <div className="bg-amber-50 p-4 rounded-2xl shadow-sm border border-amber-200">
+              <p className="text-[10px] font-black text-amber-800 uppercase tracking-widest">Wallet / Khata</p>
+              <p className="text-2xl font-black text-amber-700 mt-1">₹{(stats.walletTotal + stats.khataTotal).toLocaleString('en-IN')}</p>
+              <p className="text-[10px] text-amber-600 mt-1 font-medium">Pre-deposit / Ledger</p>
             </div>
           </div>
-          <div className="bg-green-50 p-5 rounded-2xl shadow-sm border border-green-100 flex items-center justify-between">
-            <div>
-              <p className="text-[10px] font-black text-green-600 uppercase tracking-widest">Cash</p>
-              <p className="text-2xl font-black text-green-700 mt-1">₹{filteredPayments.filter(p => p.paymentMethod === 'Cash').reduce((sum, p) => sum + p.amount, 0).toLocaleString('en-IN')}</p>
+
+          {/* Staff-wise Collection Breakdown & Shift Verification Banner */}
+          {stats.staffBreakdown && stats.staffBreakdown.length > 0 && (
+            <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-xs">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
+                <div>
+                  <h3 className="text-sm font-black text-gray-900 uppercase tracking-wide flex items-center gap-2">
+                    <Users size={16} className="text-amber-600" /> Staff-Wise Collection & Shift Handover Tally
+                  </h3>
+                  <p className="text-xs text-gray-500 font-medium mt-0.5">
+                    Breakdown of physical cash and digital collections per receptionist in this time window
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowHandoverModal(true)}
+                  className="px-4 py-2 bg-gray-900 hover:bg-black text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-xs"
+                >
+                  <Banknote size={14} className="text-amber-400" /> Print Shift Handover Voucher
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-3">
+                {stats.staffBreakdown.map((staff, idx) => (
+                  <div key={staff.id || idx} className="p-3.5 bg-gray-50 rounded-2xl border border-gray-200/80 hover:border-gray-300 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-black text-white font-black text-xs flex items-center justify-center">
+                          {staff.name?.charAt(0) || 'S'}
+                        </div>
+                        <div>
+                          <p className="text-xs font-black text-gray-900 leading-tight">{staff.name}</p>
+                          <p className="text-[10px] text-gray-400 capitalize">{staff.role}</p>
+                        </div>
+                      </div>
+                      <span className="text-xs font-black text-gray-900">₹{staff.total.toLocaleString('en-IN')}</span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-1.5 mt-3 pt-2 border-t border-gray-200/60 text-center">
+                      <div className="bg-emerald-100/60 p-1.5 rounded-lg">
+                        <p className="text-[9px] font-black text-emerald-800 uppercase">Cash</p>
+                        <p className="text-xs font-black text-emerald-900 mt-0.5">₹{staff.cash.toLocaleString('en-IN')}</p>
+                      </div>
+                      <div className="bg-purple-100/60 p-1.5 rounded-lg">
+                        <p className="text-[9px] font-black text-purple-800 uppercase">UPI</p>
+                        <p className="text-xs font-black text-purple-900 mt-0.5">₹{staff.upi.toLocaleString('en-IN')}</p>
+                      </div>
+                      <div className="bg-blue-100/60 p-1.5 rounded-lg">
+                        <p className="text-[9px] font-black text-blue-800 uppercase">Card/Other</p>
+                        <p className="text-xs font-black text-blue-900 mt-0.5">₹{(staff.card + staff.other).toLocaleString('en-IN')}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-          <div className="bg-purple-50 p-5 rounded-2xl shadow-sm border border-purple-100 flex items-center justify-between">
-            <div>
-              <p className="text-[10px] font-black text-purple-600 uppercase tracking-widest">UPI</p>
-              <p className="text-2xl font-black text-purple-700 mt-1">₹{filteredPayments.filter(p => p.paymentMethod === 'UPI').reduce((sum, p) => sum + p.amount, 0).toLocaleString('en-IN')}</p>
-            </div>
-          </div>
-          <div className="bg-blue-50 p-5 rounded-2xl shadow-sm border border-blue-100 flex items-center justify-between">
-            <div>
-              <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Card/Bank</p>
-              <p className="text-2xl font-black text-blue-700 mt-1">₹{filteredPayments.filter(p => p.paymentMethod === 'Card' || p.paymentMethod === 'Bank').reduce((sum, p) => sum + p.amount, 0).toLocaleString('en-IN')}</p>
-            </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -949,6 +1228,17 @@ const Reports = () => {
         stays={stays}
         hostels={hostels}
         defaultHostel={hostelFilter}
+      />
+
+      {/* Shift Handover & Cash Drawer Voucher Modal */}
+      <ShiftHandoverModal
+        isOpen={showHandoverModal}
+        onClose={() => setShowHandoverModal(false)}
+        windowLabel={activeDateTimeRange?.label || (dateFilter === 'all' ? 'All Time' : dateFilter)}
+        stats={stats}
+        payments={filteredPayments}
+        staffBreakdown={stats.staffBreakdown || []}
+        hostelName={hostels.find(h => h._id === hostelFilter)?.name || (hostelFilter === 'all' ? 'All Properties' : 'Hotel Property')}
       />
     </div>
   );
