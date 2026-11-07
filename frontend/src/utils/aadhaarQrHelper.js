@@ -590,67 +590,59 @@ export async function scanAadhaarQrFromImage(imageSource) {
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
     if (!rawQr && ctx) {
-      const setupCropCanvas = (cropRect = null, maxDim = 2000) => {
-        let sx = 0, sy = 0, sw = originalW, sh = originalH;
-        if (cropRect) {
-          sx = Math.round(cropRect.x * originalW);
-          sy = Math.round(cropRect.y * originalH);
-          sw = Math.round(cropRect.w * originalW);
-          sh = Math.round(cropRect.h * originalH);
+      // IMPORTANT: Aadhaar Secure QR is a Version 25-40 QR (up to 177x177 modules, ~4500 digits).
+      // It needs >= 3px per module. NEVER downscale phone photos below native resolution!
+      const MAX_SIDE = 4600;
+
+      const drawRegion = (region, scale) => {
+        const sx = Math.round(region.x * originalW);
+        const sy = Math.round(region.y * originalH);
+        const sw = Math.max(1, Math.round(region.w * originalW));
+        const sh = Math.max(1, Math.round(region.h * originalH));
+        let dw = Math.round(sw * scale);
+        let dh = Math.round(sh * scale);
+        const longest = Math.max(dw, dh);
+        if (longest > MAX_SIDE) {
+          const f = MAX_SIDE / longest;
+          dw = Math.round(dw * f);
+          dh = Math.round(dh * f);
         }
-        let dw = sw;
-        let dh = sh;
-        if (dw > maxDim || dh > maxDim) {
-          const factor = Math.min(maxDim / dw, maxDim / dh);
-          dw = Math.max(1, Math.round(dw * factor));
-          dh = Math.max(1, Math.round(dh * factor));
-        } else if (cropRect && Math.max(dw, dh) < 1200) {
-          // Upscale cropped QR region so dense Version 25-40 QR modules have 4+ pixels per module
-          const factor = Math.min(2.5, 1200 / Math.max(dw, dh));
-          dw = Math.round(dw * factor);
-          dh = Math.round(dh * factor);
-        }
+        if (dw < 40 || dh < 40) return false;
         canvas.width = dw;
         canvas.height = dh;
-        ctx.imageSmoothingEnabled = false;
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, sx, sy, sw, sh, 0, 0, dw, dh);
+        return true;
       };
 
       const tryDecodeCanvas = () => {
-        let found = decodeZxing(canvas, false);
-        if (found) return found;
-        found = decodeJsQR(canvas, false);
-        if (found) return found;
-        found = decodeZxing(canvas, true);
-        if (found) return found;
-        found = decodeJsQR(canvas, true);
-        if (found) return found;
-        return null;
+        return decodeZxing(canvas, false) || decodeJsQR(canvas, false) || decodeZxing(canvas, true) || null;
       };
 
-      // PASS 1: Full image at high 2000px resolution
-      setupCropCanvas(null, 2000);
-      rawQr = tryDecodeCanvas();
+      const FULL = { x: 0, y: 0, w: 1, h: 1 };
+      const regions = [
+        FULL,
+        { x: 0.35, y: 0.25, w: 0.65, h: 0.75 }, // right / bottom-right
+        { x: 0, y: 0.25, w: 0.65, h: 0.75 },    // left / bottom-left
+        { x: 0.25, y: 0.35, w: 0.75, h: 0.65 }, // bottom
+        { x: 0.35, y: 0, w: 0.65, h: 0.75 },    // top-right
+        { x: 0, y: 0, w: 0.65, h: 0.75 },       // top-left
+        { x: 0.2, y: 0.2, w: 0.6, h: 0.6 }      // center
+      ];
+      // Multi-scale ladder: native first, then slight down/up-scale (different blur/moire luck per scale)
+      const scales = [1, 0.75, 1.5, 0.55, 2];
 
-      // PASS 2: All 4 corners + halves where Aadhaar QR codes reside (handles any card orientation)
-      if (!rawQr) {
-        const regions = [
-          { x: 0.35, y: 0.35, w: 0.65, h: 0.65 }, // bottom-right
-          { x: 0, y: 0.35, w: 0.65, h: 0.65 },    // bottom-left
-          { x: 0.35, y: 0, w: 0.65, h: 0.65 },    // top-right
-          { x: 0, y: 0, w: 0.65, h: 0.65 },       // top-left
-          { x: 0, y: 0.3, w: 1, h: 0.7 },         // bottom-half
-          { x: 0.3, y: 0, w: 0.7, h: 1 },         // right-half
-          { x: 0, y: 0, w: 0.7, h: 1 },           // left-half
-          { x: 0.15, y: 0.15, w: 0.7, h: 0.7 }    // center
-        ];
-
-        for (const r of regions) {
-          // Yield to UI thread so browser stays 100% responsive
+      outer:
+      for (const scale of scales) {
+        for (const region of regions) {
+          // Skip pointless huge upscales of the full frame
+          if (scale > 1 && region === FULL && Math.max(originalW, originalH) * scale > MAX_SIDE) continue;
+          // Yield to the UI thread so the page never freezes
           await new Promise(resolve => setTimeout(resolve, 0));
-          setupCropCanvas(r, 1400);
-          rawQr = await tryNativeBarcodeDetector(canvas) || tryDecodeCanvas();
-          if (rawQr) break;
+          if (!drawRegion(region, scale)) continue;
+          rawQr = tryDecodeCanvas();
+          if (rawQr) break outer;
         }
       }
     }

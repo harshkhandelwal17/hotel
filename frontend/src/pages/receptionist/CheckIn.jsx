@@ -87,6 +87,8 @@ const CheckIn = () => {
   const [scanningQr, setScanningQr] = useState({ index: null, side: null });
   const [aiOcrEnabled, setAiOcrEnabled] = useState(false);
   const guestsRef = useRef([]);
+  // Keep ORIGINAL full-resolution ID photos so QR re-scan never works on a compressed copy
+  const originalIdFilesRef = useRef({});
   const [roomSearchQuery, setRoomSearchQuery] = useState('');
   const [selectedFloorFilter, setSelectedFloorFilter] = useState('All');
   const [frequentCoGuests, setFrequentCoGuests] = useState([]);
@@ -643,6 +645,7 @@ const CheckIn = () => {
   ) => {
     if (!file) return;
 
+    originalIdFilesRef.current[`${index}-${side}`] = file;
     setUploadingImage(true);
 
     try {
@@ -855,7 +858,8 @@ const CheckIn = () => {
         ? (curGuest.localFrontDataUrl || getFullImageUrl(imageSrc))
         : (curGuest.localBackDataUrl || getFullImageUrl(imageSrc));
 
-      let res = await scanAadhaarQrFromImage(preferredLocalSrc);
+      const originalFile = originalIdFilesRef.current[`${guestIdx}-${sideName}`];
+      let res = await scanAadhaarQrFromImage(originalFile || preferredLocalSrc);
       let foundOnOtherSide = false;
 
       // If not found on this side, check if the other side of the ID has an image uploaded!
@@ -864,7 +868,8 @@ const CheckIn = () => {
           ? (curGuest.localBackDataUrl || curGuest.idProofImageBack)
           : (curGuest.localFrontDataUrl || curGuest.idProofImage);
         if (otherSideSrc) {
-          const otherRes = await scanAadhaarQrFromImage(getFullImageUrl(otherSideSrc));
+          const otherKey = `${guestIdx}-${sideName === 'front' ? 'back' : 'front'}`;
+          const otherRes = await scanAadhaarQrFromImage(originalIdFilesRef.current[otherKey] || getFullImageUrl(otherSideSrc));
           if (otherRes && otherRes.success) {
             res = otherRes;
             foundOnOtherSide = true;
