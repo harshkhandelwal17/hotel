@@ -38,6 +38,7 @@ import { format, isPast } from 'date-fns';
 import { useToast } from '../../components/ui/Toast';
 import { compressImage } from '../../utils/imageCompression';
 import { extractAddressFromBackId } from '../../utils/idOcr';
+import { scanAadhaarQrFromImage, validateAadhaarNumber } from '../../utils/aadhaarQrHelper';
 import { apiCache } from '../../utils/apiCache';
 import GuestRegistrationCardModal from '../../components/reception/GuestRegistrationCardModal';
 import { getFullImageUrl } from '../../utils/imageUrl';
@@ -83,6 +84,7 @@ const CheckIn = () => {
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [scanningOcr, setScanningOcr] = useState({ index: null, side: null });
+  const [scanningQr, setScanningQr] = useState({ index: null, side: null });
   const [aiOcrEnabled, setAiOcrEnabled] = useState(false);
   const guestsRef = useRef([]);
   const [roomSearchQuery, setRoomSearchQuery] = useState('');
@@ -684,9 +686,45 @@ const CheckIn = () => {
       });
 
       // =========================================================
-      // AI VISION OCR SCANNING (Gemini 1.5 Flash Vision)
+      // 1. INSTANT LOCAL AADHAAR SECURE QR SCANNER (100% Free & Genuine Check)
       // =========================================================
-      if (aiOcrEnabled) {
+      let qrProcessed = false;
+      setScanningQr({ index, side });
+      try {
+        const qrRes = await scanAadhaarQrFromImage(file);
+        if (qrRes && qrRes.success && qrRes.data) {
+          const qrData = qrRes.data;
+          setGuests(prev => {
+            const updated = [...prev];
+            const g = { ...updated[index] };
+            if (qrData.fullName) g.fullName = qrData.fullName;
+            if (qrData.idProofNumber) g.idProofNumber = qrData.idProofNumber;
+            if (qrData.gender) g.gender = qrData.gender;
+            if (qrData.dateOfBirth) g.dateOfBirth = qrData.dateOfBirth;
+            if (qrData.address) g.address = qrData.address;
+            g.idProofType = 'Aadhaar';
+            g.isAadhaarVerified = true;
+            g.aadhaarQrType = qrData.qrType || 'UIDAI Secure QR';
+            updated[index] = g;
+            return updated;
+          });
+
+          qrProcessed = true;
+          toast({
+            message: `🛡️ Verified Aadhaar QR Detected! Auto-filled details for ${qrData.fullName}.`,
+            type: 'success'
+          });
+        }
+      } catch (qrScanErr) {
+        console.log('No QR detected in image:', qrScanErr);
+      } finally {
+        setScanningQr({ index: null, side: null });
+      }
+
+      // =========================================================
+      // 2. AI VISION OCR SCANNING (Gemini 1.5 Flash Vision Fallback)
+      // =========================================================
+      if (!qrProcessed && aiOcrEnabled) {
         setScanningOcr({ index, side });
         try {
           const currentGuest = guestsRef.current[index] || {};
@@ -798,6 +836,40 @@ const CheckIn = () => {
     }
   };
 
+  // Re-scan Aadhaar QR code from already uploaded image
+  const handleManualScanAadhaarQr = async (guestIdx, imageSrc, sideName = 'front') => {
+    if (!imageSrc) return;
+    setScanningQr({ index: guestIdx, side: sideName });
+    try {
+      const res = await scanAadhaarQrFromImage(getFullImageUrl(imageSrc));
+      if (res && res.success && res.data) {
+        const qrData = res.data;
+        setGuests(prev => {
+          const updated = [...prev];
+          const g = { ...updated[guestIdx] };
+          if (qrData.fullName) g.fullName = qrData.fullName;
+          if (qrData.idProofNumber) g.idProofNumber = qrData.idProofNumber;
+          if (qrData.gender) g.gender = qrData.gender;
+          if (qrData.dateOfBirth) g.dateOfBirth = qrData.dateOfBirth;
+          if (qrData.address) g.address = qrData.address;
+          g.idProofType = 'Aadhaar';
+          g.isAadhaarVerified = true;
+          g.aadhaarQrType = qrData.qrType || 'UIDAI Secure QR';
+          updated[guestIdx] = g;
+          return updated;
+        });
+        toast({ message: `🛡️ Verified Aadhaar QR Detected! Auto-filled details for ${qrData.fullName}.`, type: 'success' });
+      } else {
+        toast({ message: 'No readable Aadhaar QR code found in this photo.', type: 'error' });
+      }
+    } catch (err) {
+      console.warn('QR scan error:', err);
+      toast({ message: 'Error reading QR code from image.', type: 'error' });
+    } finally {
+      setScanningQr({ index: null, side: null });
+    }
+  };
+
   // =========================================================
   // CLIPBOARD PASTE HANDLER
   // =========================================================
@@ -888,8 +960,42 @@ const CheckIn = () => {
 
       toast({ message: `Image attached from WhatsApp to ${side === 'front' ? 'Front ID' : 'Back ID'}!`, type: 'success' });
 
-      // Run AI OCR scan
-      if (aiOcrEnabled) {
+      // 1. Fast Local Aadhaar Secure QR Scanner
+      let qrProcessed = false;
+      setScanningQr({ index, side });
+      try {
+        const qrRes = await scanAadhaarQrFromImage(resolvedUrl);
+        if (qrRes && qrRes.success && qrRes.data) {
+          const qrData = qrRes.data;
+          setGuests(prev => {
+            const updated = [...prev];
+            const g = { ...updated[index] };
+            if (qrData.fullName) g.fullName = qrData.fullName;
+            if (qrData.idProofNumber) g.idProofNumber = qrData.idProofNumber;
+            if (qrData.gender) g.gender = qrData.gender;
+            if (qrData.dateOfBirth) g.dateOfBirth = qrData.dateOfBirth;
+            if (qrData.address) g.address = qrData.address;
+            g.idProofType = 'Aadhaar';
+            g.isAadhaarVerified = true;
+            g.aadhaarQrType = qrData.qrType || 'UIDAI Secure QR';
+            updated[index] = g;
+            return updated;
+          });
+
+          qrProcessed = true;
+          toast({
+            message: `🛡️ Verified Aadhaar QR from WhatsApp! Auto-filled details for ${qrData.fullName}.`,
+            type: 'success'
+          });
+        }
+      } catch (qrErr) {
+        console.log('WhatsApp QR scan note:', qrErr);
+      } finally {
+        setScanningQr({ index: null, side: null });
+      }
+
+      // 2. Run AI OCR scan as fallback
+      if (!qrProcessed && aiOcrEnabled) {
         setScanningOcr({ index, side });
         try {
           const currentGuest = guestsRef.current[index] || {};
@@ -2888,13 +2994,17 @@ const CheckIn = () => {
 
                   </h3>
 
+                  {guest.isAadhaarVerified && (
+                    <span className="text-[10px] font-black text-emerald-800 bg-emerald-100 border border-emerald-300 px-3 py-1.5 rounded-full uppercase tracking-wider flex items-center gap-1 shadow-2xs">
+                      <ShieldCheck size={13} className="text-emerald-700" />
+                      UIDAI Verified
+                    </span>
+                  )}
+
                   {guest._id && (
                     <span className="text-[10px] font-black text-green-700 bg-green-100 px-3 py-1.5 rounded-full uppercase tracking-wider flex items-center gap-1">
-
                       <CheckCircle2 size={12} />
-
                       Returning
-
                     </span>
                   )}
 
@@ -2903,6 +3013,27 @@ const CheckIn = () => {
                 {/* FORM */}
 
                 <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 relative">
+
+                  {guest.isAadhaarVerified && (
+                    <div className="col-span-1 md:col-span-2 p-3.5 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border-2 border-emerald-400 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs animate-in fade-in">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                          <ShieldCheck size={20} />
+                        </div>
+                        <div>
+                          <p className="text-xs font-black text-emerald-950 uppercase tracking-wide flex items-center gap-1.5">
+                            UIDAI Digitally Verified & Genuine
+                          </p>
+                          <p className="text-[10px] text-emerald-700 font-bold mt-0.5">
+                            Authentic tamper-proof QR validated • {guest.aadhaarQrType || 'UIDAI Secure QR'}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-widest bg-emerald-600 text-white px-3 py-1.5 rounded-xl shadow-2xs shrink-0">
+                        100% Genuine ID
+                      </span>
+                    </div>
+                  )}
 
                   {guest.isSearching && (
                     <div className="absolute top-6 right-6 text-xs font-bold text-blue-500 flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-full">
@@ -2989,159 +3120,134 @@ const CheckIn = () => {
 
                   {/* ID */}
 
-                  {/* ID & DEMOGRAPHICS: DYNAMIC ADAPTATION BASED ON AI OCR FEATURE */}
-                  {aiOcrEnabled ? (
-                    <>
-                      {/* ROW 2 - COL 1: ID TYPE & ID NUMBER */}
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">
-                            ID Type
-                          </label>
-                          <select
-                            value={guest.idProofType}
-                            onChange={(e) =>
-                              handleGuestChange(
-                                index,
-                                'idProofType',
-                                e.target.value
-                              )
-                            }
-                            className="w-full px-4 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-black focus:ring-0 outline-none font-bold text-sm text-gray-900 transition-colors"
-                          >
-                            <option>Aadhaar</option>
-                            <option>Passport</option>
-                            <option>DL</option>
-                            <option>Voter ID</option>
-                            <option>Other</option>
-                          </select>
-                        </div>
+                  {/* ID & DEMOGRAPHICS: ID TYPE, ID NUMBER (WITH VERHOEFF CHECK), GENDER & DOB */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">
+                        ID Type
+                      </label>
+                      <select
+                        value={guest.idProofType}
+                        onChange={(e) =>
+                          handleGuestChange(
+                            index,
+                            'idProofType',
+                            e.target.value
+                          )
+                        }
+                        className="w-full px-4 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-black focus:ring-0 outline-none font-bold text-sm text-gray-900 transition-colors"
+                      >
+                        <option>Aadhaar</option>
+                        <option>Passport</option>
+                        <option>DL</option>
+                        <option>Voter ID</option>
+                        <option>Other</option>
+                      </select>
+                    </div>
 
-                        <div>
-                          <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 flex items-center justify-between">
-                            <span>ID Number (Opt)</span>
-                            {guest.idProofNumber && guest.idProofImage && (
-                              <span className="text-purple-600 text-[9px] flex items-center gap-0.5 font-bold">
-                                <Sparkles size={10} /> AI Auto
+                    <div>
+                      <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 flex items-center justify-between">
+                        <span>ID Number</span>
+                        {guest.isAadhaarVerified ? (
+                          <span className="text-emerald-700 text-[9px] flex items-center gap-0.5 font-black bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                            <ShieldCheck size={10} /> QR Verified
+                          </span>
+                        ) : guest.idProofType === 'Aadhaar' && guest.idProofNumber && (guest.idProofNumber.replace(/\s+/g, '').length === 12) ? (
+                          (() => {
+                            const validRes = validateAadhaarNumber(guest.idProofNumber);
+                            return validRes.valid ? (
+                              <span className="text-emerald-700 text-[9px] flex items-center gap-0.5 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                <ShieldCheck size={10} /> Valid Checksum
                               </span>
-                            )}
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="XXXX-XXXX"
-                            value={guest.idProofNumber || ''}
-                            onChange={(e) =>
-                              handleGuestChange(
-                                index,
-                                'idProofNumber',
-                                e.target.value
-                              )
-                            }
-                            className="w-full px-4 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-black focus:ring-0 outline-none font-bold text-sm text-gray-900 uppercase transition-colors"
-                          />
-                        </div>
-                      </div>
-
-                      {/* ROW 2 - COL 2: GENDER & DOB (AI SCANNER FEATURE) */}
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 flex items-center justify-between">
-                            <span>Gender (Opt)</span>
-                            {guest.gender && (
-                              <span className="text-purple-600 text-[9px] flex items-center gap-0.5 font-bold">
-                                <Sparkles size={10} /> AI Auto
+                            ) : (
+                              <span className="text-red-500 text-[9px] flex items-center gap-0.5 font-bold bg-red-50 px-1.5 py-0.5 rounded border border-red-200" title={validRes.error}>
+                                <AlertTriangle size={10} /> Fake/Invalid
                               </span>
-                            )}
-                          </label>
-                          <select
-                            value={guest.gender || ''}
-                            onChange={(e) =>
-                              handleGuestChange(
-                                index,
-                                'gender',
-                                e.target.value
-                              )
-                            }
-                            className="w-full px-4 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-black focus:ring-0 outline-none font-bold text-sm text-gray-900 transition-colors"
-                          >
-                            <option value="">Select</option>
-                            <option value="Male">Male</option>
-                            <option value="Female">Female</option>
-                            <option value="Other">Other</option>
-                          </select>
-                        </div>
+                            );
+                          })()
+                        ) : guest.idProofNumber && guest.idProofImage ? (
+                          <span className="text-purple-600 text-[9px] flex items-center gap-0.5 font-bold">
+                            <Sparkles size={10} /> Auto
+                          </span>
+                        ) : null}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder={guest.idProofType === 'Aadhaar' ? "12-digit Aadhaar Number" : "ID Number"}
+                        value={guest.idProofNumber || ''}
+                        onChange={(e) =>
+                          handleGuestChange(
+                            index,
+                            'idProofNumber',
+                            e.target.value
+                          )
+                        }
+                        className="w-full px-4 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-black focus:ring-0 outline-none font-bold text-sm text-gray-900 uppercase transition-colors"
+                      />
+                    </div>
+                  </div>
 
-                        <div>
-                          <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 flex items-center justify-between">
-                            <span>DOB / Year (Opt)</span>
-                            {guest.dateOfBirth && (
-                              <span className="text-purple-600 text-[9px] flex items-center gap-0.5 font-bold">
-                                <Sparkles size={10} /> AI Auto
-                              </span>
-                            )}
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="DD/MM/YYYY or YYYY"
-                            value={guest.dateOfBirth || ''}
-                            onChange={(e) =>
-                              handleGuestChange(
-                                index,
-                                'dateOfBirth',
-                                e.target.value
-                              )
-                            }
-                            className="w-full px-4 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-black focus:ring-0 outline-none font-bold text-sm text-gray-900 transition-colors"
-                          />
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      {/* STANDARD ORIGINAL FORM: ID TYPE & ID NUMBER SPLIT AS COL 1 AND COL 2 */}
-                      <div>
-                        <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">
-                          ID Type
-                        </label>
-                        <select
-                          value={guest.idProofType}
-                          onChange={(e) =>
-                            handleGuestChange(
-                              index,
-                              'idProofType',
-                              e.target.value
-                            )
-                          }
-                          className="w-full px-4 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-black focus:ring-0 outline-none font-bold text-sm text-gray-900 transition-colors"
-                        >
-                          <option>Aadhaar</option>
-                          <option>Passport</option>
-                          <option>DL</option>
-                          <option>Voter ID</option>
-                          <option>Other</option>
-                        </select>
-                      </div>
+                  {/* GENDER & DOB */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 flex items-center justify-between">
+                        <span>Gender</span>
+                        {guest.isAadhaarVerified ? (
+                          <span className="text-emerald-700 text-[9px] flex items-center gap-0.5 font-black bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                            <ShieldCheck size={10} /> QR Auto
+                          </span>
+                        ) : guest.gender && (
+                          <span className="text-purple-600 text-[9px] flex items-center gap-0.5 font-bold">
+                            <Sparkles size={10} /> Auto
+                          </span>
+                        )}
+                      </label>
+                      <select
+                        value={guest.gender || ''}
+                        onChange={(e) =>
+                          handleGuestChange(
+                            index,
+                            'gender',
+                            e.target.value
+                          )
+                        }
+                        className="w-full px-4 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-black focus:ring-0 outline-none font-bold text-sm text-gray-900 transition-colors"
+                      >
+                        <option value="">Select</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
 
-                      <div>
-                        <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">
-                          ID Number (Opt)
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="XXXX-XXXX"
-                          value={guest.idProofNumber || ''}
-                          onChange={(e) =>
-                            handleGuestChange(
-                              index,
-                              'idProofNumber',
-                              e.target.value
-                            )
-                          }
-                          className="w-full px-4 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-black focus:ring-0 outline-none font-bold text-sm text-gray-900 uppercase transition-colors"
-                        />
-                      </div>
-                    </>
-                  )}
+                    <div>
+                      <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 flex items-center justify-between">
+                        <span>DOB / Year</span>
+                        {guest.isAadhaarVerified ? (
+                          <span className="text-emerald-700 text-[9px] flex items-center gap-0.5 font-black bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                            <ShieldCheck size={10} /> QR Auto
+                          </span>
+                        ) : guest.dateOfBirth && (
+                          <span className="text-purple-600 text-[9px] flex items-center gap-0.5 font-bold">
+                            <Sparkles size={10} /> Auto
+                          </span>
+                        )}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="DD/MM/YYYY or YYYY"
+                        value={guest.dateOfBirth || ''}
+                        onChange={(e) =>
+                          handleGuestChange(
+                            index,
+                            'dateOfBirth',
+                            e.target.value
+                          )
+                        }
+                        className="w-full px-4 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-black focus:ring-0 outline-none font-bold text-sm text-gray-900 transition-colors"
+                      />
+                    </div>
+                  </div>
 
                   {/* IMAGE */}
 
@@ -3225,6 +3331,12 @@ const CheckIn = () => {
                               Uploading...
                             </div>
                           )}
+                          {scanningQr.index === index && scanningQr.side === 'front' && (
+                            <div className="mt-2 text-[10px] font-black text-emerald-800 bg-emerald-50 border border-emerald-300 p-2 rounded-xl flex items-center justify-center gap-2 animate-pulse">
+                              <ShieldCheck size={13} className="text-emerald-600 animate-bounce" />
+                              Scanning Aadhaar Secure QR Code...
+                            </div>
+                          )}
                           {scanningOcr.index === index && scanningOcr.side === 'front' && (
                             <div className="mt-2 text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 p-2 rounded-xl flex items-center justify-center gap-2 animate-pulse">
                               <Sparkles size={12} className="animate-spin text-purple-600" />
@@ -3243,10 +3355,18 @@ const CheckIn = () => {
                                 e.currentTarget.style.display = 'none';
                               }}
                             />
-                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                              <a href={getFullImageUrl(guest.idProofImage)} target="_blank" rel="noreferrer" className="text-white text-[10px] font-black uppercase tracking-widest bg-black/60 px-3 py-1.5 rounded-full backdrop-blur-sm hover:bg-black transition-colors">
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <a href={getFullImageUrl(guest.idProofImage)} target="_blank" rel="noreferrer" className="text-white text-[10px] font-black uppercase tracking-widest bg-black/60 px-2.5 py-1.5 rounded-full backdrop-blur-sm hover:bg-black transition-colors">
                                 View Full
                               </a>
+                              <button
+                                type="button"
+                                onClick={() => handleManualScanAadhaarQr(index, guest.idProofImage, 'front')}
+                                className="text-white text-[10px] font-black uppercase tracking-widest bg-emerald-600/90 hover:bg-emerald-500 px-2.5 py-1.5 rounded-full backdrop-blur-sm transition-colors flex items-center gap-1 shadow-xs"
+                                title="Scan Aadhaar QR"
+                              >
+                                <QrCode size={11} /> Scan QR
+                              </button>
                             </div>
                             <button 
                               onClick={() => {
@@ -3260,6 +3380,12 @@ const CheckIn = () => {
                               <X size={14} />
                             </button>
                           </div>
+                          {scanningQr.index === index && scanningQr.side === 'front' && (
+                            <div className="mt-1 text-[10px] font-black text-emerald-800 bg-emerald-50 border border-emerald-300 p-1.5 rounded-xl flex items-center justify-center gap-1.5 animate-pulse">
+                              <ShieldCheck size={12} className="text-emerald-600 animate-bounce" />
+                              Scanning Aadhaar QR...
+                            </div>
+                          )}
                           {scanningOcr.index === index && scanningOcr.side === 'front' && (
                             <div className="mt-1 text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 p-1.5 rounded-xl flex items-center justify-center gap-1.5 animate-pulse">
                               <Sparkles size={12} className="animate-spin text-purple-600" />
@@ -3348,6 +3474,12 @@ const CheckIn = () => {
                               Uploading...
                             </div>
                           )}
+                          {scanningQr.index === index && scanningQr.side === 'back' && (
+                            <div className="mt-2 text-[10px] font-black text-emerald-800 bg-emerald-50 border border-emerald-300 p-2 rounded-xl flex items-center justify-center gap-2 animate-pulse">
+                              <ShieldCheck size={13} className="text-emerald-600 animate-bounce" />
+                              Scanning Aadhaar Secure QR Code...
+                            </div>
+                          )}
                           {scanningOcr.index === index && scanningOcr.side === 'back' && (
                             <div className="mt-2 text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 p-2 rounded-xl flex items-center justify-center gap-2 animate-pulse">
                               <Sparkles size={12} className="animate-spin text-purple-600" />
@@ -3366,10 +3498,18 @@ const CheckIn = () => {
                                 e.currentTarget.style.display = 'none';
                               }}
                             />
-                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                              <a href={getFullImageUrl(guest.idProofImageBack)} target="_blank" rel="noreferrer" className="text-white text-[10px] font-black uppercase tracking-widest bg-black/60 px-3 py-1.5 rounded-full backdrop-blur-sm hover:bg-black transition-colors">
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <a href={getFullImageUrl(guest.idProofImageBack)} target="_blank" rel="noreferrer" className="text-white text-[10px] font-black uppercase tracking-widest bg-black/60 px-2.5 py-1.5 rounded-full backdrop-blur-sm hover:bg-black transition-colors">
                                 View Full
                               </a>
+                              <button
+                                type="button"
+                                onClick={() => handleManualScanAadhaarQr(index, guest.idProofImageBack, 'back')}
+                                className="text-white text-[10px] font-black uppercase tracking-widest bg-emerald-600/90 hover:bg-emerald-500 px-2.5 py-1.5 rounded-full backdrop-blur-sm transition-colors flex items-center gap-1 shadow-xs"
+                                title="Scan Aadhaar QR"
+                              >
+                                <QrCode size={11} /> Scan QR
+                              </button>
                             </div>
                             <button 
                               onClick={() => {
@@ -3383,6 +3523,12 @@ const CheckIn = () => {
                               <X size={14} />
                             </button>
                           </div>
+                          {scanningQr.index === index && scanningQr.side === 'back' && (
+                            <div className="mt-1 text-[10px] font-black text-emerald-800 bg-emerald-50 border border-emerald-300 p-1.5 rounded-xl flex items-center justify-center gap-1.5 animate-pulse">
+                              <ShieldCheck size={12} className="text-emerald-600 animate-bounce" />
+                              Scanning Aadhaar QR...
+                            </div>
+                          )}
                           {scanningOcr.index === index && scanningOcr.side === 'back' && (
                             <div className="mt-1 text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 p-1.5 rounded-xl flex items-center justify-center gap-1.5 animate-pulse">
                               <Sparkles size={12} className="animate-spin text-purple-600" />
@@ -3400,7 +3546,11 @@ const CheckIn = () => {
                       <span className="flex items-center gap-1.5">
                         Address <span className="text-gray-400 font-normal">(Optional)</span>
                       </span>
-                      {guest.address && (
+                      {guest.isAadhaarVerified ? (
+                        <span className="text-emerald-700 text-[10px] flex items-center gap-1 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                          <ShieldCheck size={11} /> UIDAI QR Auto-Filled
+                        </span>
+                      ) : guest.address && (
                         <span className="text-purple-600 text-[10px] flex items-center gap-1 font-bold bg-purple-50 px-2 py-0.5 rounded-md border border-purple-100">
                           <Sparkles size={11} /> AI Auto-Filled
                         </span>

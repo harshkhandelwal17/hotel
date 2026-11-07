@@ -36,6 +36,14 @@ const guestSchema = new mongoose.Schema({
   gender: String,
   dateOfBirth: String,
   address: String,
+  isAadhaarVerified: {
+    type: Boolean,
+    default: false
+  },
+  aadhaarQrType: {
+    type: String,
+    default: ''
+  },
   emergencyContactName: String,
   emergencyContactNumber: String,
   companyName: {
