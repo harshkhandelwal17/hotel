@@ -56,7 +56,11 @@ app.use('/api/laundry', laundryRoutes);
 app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
   maxAge: '7d',
   etag: true,
-  lastModified: true
+  lastModified: true,
+  setHeaders: (res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  }
 }));
 
 // Error Handling Middleware

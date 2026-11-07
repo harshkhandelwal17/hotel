@@ -1,5 +1,14 @@
 import jsQR from 'jsqr';
 import * as pako from 'pako';
+import {
+  MultiFormatReader,
+  BarcodeFormat,
+  DecodeHintType,
+  RGBLuminanceSource,
+  BinaryBitmap,
+  HybridBinarizer,
+  GlobalHistogramBinarizer
+} from '@zxing/library';
 
 // ============================================================================
 // VERHOEFF CHECKSUM ALGORITHM FOR AADHAAR VALIDATION
@@ -69,9 +78,6 @@ export function validateAadhaarNumber(aadhaarStr) {
 // FORMAT HELPERS
 // ============================================================================
 
-/**
- * Normalizes date into YYYY-MM-DD format for HTML date input
- */
 function normalizeDateOfBirth(raw) {
   if (!raw) return '';
   const str = String(raw).trim();
@@ -96,9 +102,6 @@ function normalizeDateOfBirth(raw) {
   return '';
 }
 
-/**
- * Normalizes gender to Male / Female / Other
- */
 function normalizeGender(raw) {
   if (!raw) return '';
   const g = String(raw).trim().toUpperCase();
@@ -107,22 +110,20 @@ function normalizeGender(raw) {
   return 'Other';
 }
 
-/**
- * Converts BigInt decimal string to Uint8Array
- */
 function bigIntToBytes(bigIntStr) {
-  let n = BigInt(bigIntStr);
-  const bytes = [];
-  while (n > 0n) {
-    bytes.push(Number(n & 0xffn));
-    n >>= 8n;
+  try {
+    let n = BigInt(bigIntStr);
+    const bytes = [];
+    while (n > 0n) {
+      bytes.push(Number(n & 0xffn));
+      n >>= 8n;
+    }
+    return new Uint8Array(bytes.reverse());
+  } catch {
+    return null;
   }
-  return new Uint8Array(bytes.reverse());
 }
 
-/**
- * Converts byte array to BigInt and then to byte array in big-endian order
- */
 function parseBigIntToByteArray(str) {
   try {
     let bigInt = BigInt(str);
@@ -143,12 +144,6 @@ function parseBigIntToByteArray(str) {
 // UIDAI QR CODE PARSER
 // ============================================================================
 
-/**
- * Parses raw Aadhaar QR data (supports XML format and UIDAI Secure QR Code V1/V2)
- * @param {string} rawData 
- * @param {Uint8Array|Array} binaryData 
- * @returns {object|null}
- */
 export function parseAadhaarQrData(rawData, binaryData = null) {
   if (!rawData && (!binaryData || binaryData.length === 0)) return null;
 
@@ -181,7 +176,6 @@ export function parseAadhaarQrData(rawData, binaryData = null) {
       const state = getAttr('state');
       const pc = getAttr('pc');
 
-      // Compose clean human-readable address
       const addressParts = [co, house, street, lm, loc, vtc, po, dist, subdist, state, pc ? `PIN: ${pc}` : '']
         .filter(Boolean)
         .filter((item, index, self) => self.indexOf(item) === index);
@@ -214,33 +208,27 @@ export function parseAadhaarQrData(rawData, binaryData = null) {
   // --------------------------------------------------------------------------
   let byteStream = null;
 
-  // If binaryData was directly supplied by QR reader
   if (binaryData && binaryData.length > 50) {
     byteStream = new Uint8Array(binaryData);
   }
 
-  // If rawData is decimal BigInt string (standard UIDAI representation)
   if (!byteStream && /^\d+$/.test(text) && text.length > 100) {
     byteStream = parseBigIntToByteArray(text) || bigIntToBytes(text);
   }
 
-  // Attempt decompression using pako (gzip / deflate / zlib)
+  // If byteStream is available, decompress using pako
   if (byteStream) {
     let decompressed = null;
 
     try {
-      // Standard zlib/deflate
       decompressed = pako.inflate(byteStream);
     } catch {
       try {
-        // Raw deflate without header
         decompressed = pako.inflateRaw(byteStream);
       } catch {
         try {
-          // Gzip
           decompressed = pako.ungzip(byteStream);
         } catch {
-          // Fallback: If byteStream was already decompressed or had a leading offset
           for (let offset = 1; offset < 10; offset++) {
             try {
               decompressed = pako.inflate(byteStream.subarray(offset));
@@ -253,7 +241,6 @@ export function parseAadhaarQrData(rawData, binaryData = null) {
 
     if (decompressed && decompressed.length > 0) {
       try {
-        // UIDAI V2 fields are delimited by 255 (0xFF)
         const fields = [];
         let currentField = [];
         let photoBytes = null;
@@ -261,13 +248,10 @@ export function parseAadhaarQrData(rawData, binaryData = null) {
         for (let i = 0; i < decompressed.length; i++) {
           const byte = decompressed[i];
           if (byte === 255) {
-            // Once we have 16 text fields, the 17th field is photo bytes
             if (fields.length === 15) {
               fields.push(new Uint8Array(currentField));
               currentField = [];
-              // The next stream is photo bytes up to signature delimiter or end
               const remaining = decompressed.subarray(i + 1);
-              // Look for signature boundary (last 256 bytes RSA signature)
               if (remaining.length > 256) {
                 photoBytes = remaining.subarray(0, remaining.length - 256);
               } else {
@@ -287,24 +271,6 @@ export function parseAadhaarQrData(rawData, binaryData = null) {
           const decoder = new TextDecoder('utf-8', { fatal: false });
           const textFields = fields.map(f => decoder.decode(f).trim());
 
-          // V2 Field Order:
-          // 0: Email/Mobile flag
-          // 1: Reference ID (last 4 digits of Aadhaar e.g. "9876/...")
-          // 2: Name
-          // 3: DOB (DD-MM-YYYY)
-          // 4: Gender (M/F/T)
-          // 5: Care of
-          // 6: District
-          // 7: Landmark
-          // 8: House
-          // 9: Location
-          // 10: Pincode
-          // 11: Post Office
-          // 12: State
-          // 13: Street
-          // 14: Sub-district
-          // 15: VTC (Village / Town / City)
-
           const refId = textFields[1] || '';
           const name = textFields[2] || '';
           const dob = normalizeDateOfBirth(textFields[3]);
@@ -321,21 +287,18 @@ export function parseAadhaarQrData(rawData, binaryData = null) {
           const subdist = textFields[14] || '';
           const vtc = textFields[15] || '';
 
-          // Extract last 4 digits of Aadhaar from Reference ID if available
           let aadhaarNumber = '';
           const refMatch = refId.match(/^(\d{4})/);
           if (refMatch) {
             aadhaarNumber = `XXXX XXXX ${refMatch[1]}`;
           }
 
-          // Build clean full address
           const addressParts = [co, house, street, lm, loc, vtc, po, dist, subdist, state, pc ? `PIN: ${pc}` : '']
             .filter(Boolean)
             .filter((item, index, self) => self.indexOf(item) === index);
 
           const fullAddress = addressParts.join(', ');
 
-          // Optional photo base64 extraction (JPEG starts with 0xFF, 0xD8)
           let photoBase64 = null;
           if (photoBytes && photoBytes.length > 50 && photoBytes[0] === 0xFF && photoBytes[1] === 0xD8) {
             let binary = '';
@@ -365,117 +328,333 @@ export function parseAadhaarQrData(rawData, binaryData = null) {
           };
         }
       } catch (err) {
-        console.warn('[AadhaarQR] Error parsing decompressed V2 stream:', err);
+        console.warn('[AadhaarQR] Error parsing decompressed stream:', err);
       }
     }
+  }
+
+  // --------------------------------------------------------------------------
+  // 3. Fallback: JSON or formatted text if non-standard QR
+  // --------------------------------------------------------------------------
+  if (text.startsWith('{') && text.endsWith('}')) {
+    try {
+      const parsedJson = JSON.parse(text);
+      if (parsedJson.name || parsedJson.fullName) {
+        return {
+          success: true,
+          verified: true,
+          qrType: 'JSON QR',
+          fullName: parsedJson.name || parsedJson.fullName || '',
+          idProofNumber: parsedJson.uid || parsedJson.aadhaar || '',
+          gender: normalizeGender(parsedJson.gender),
+          dateOfBirth: normalizeDateOfBirth(parsedJson.dob),
+          address: parsedJson.address || '',
+          pincode: parsedJson.pincode || parsedJson.pin || ''
+        };
+      }
+    } catch (_) {}
   }
 
   return null;
 }
 
 // ============================================================================
-// IMAGE CANVAS SCANNER (Finds & decodes QR code from any image file or URL)
+// DUAL-ENGINE IMAGE SCANNER (ZXing HybridBinarizer + jsQR Multi-Angle)
 // ============================================================================
 
 /**
- * Loads an image from File, Blob, or URL into an HTMLImageElement
+ * Loads an image safely without CORS taint issues
  */
-function loadImage(src) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'Anonymous';
-    img.onload = () => resolve(img);
-    img.onerror = (e) => reject(new Error('Failed to load image for QR scanning'));
-    if (typeof src === 'string') {
-      img.src = src;
-    } else if (src instanceof Blob || src instanceof File) {
-      img.src = URL.createObjectURL(src);
-    } else {
-      reject(new Error('Invalid image source'));
+async function loadSafeImage(src) {
+  // If already a File or Blob, create local object URL directly
+  if (src instanceof Blob || src instanceof File) {
+    const objectUrl = URL.createObjectURL(src);
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve({ img, cleanup: () => URL.revokeObjectURL(objectUrl) });
+      img.onerror = () => reject(new Error('Failed to load image from file blob'));
+      img.src = objectUrl;
+    });
+  }
+
+  if (typeof src === 'string') {
+    // If it's a data: URL or blob: URL
+    if (src.startsWith('data:') || src.startsWith('blob:')) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve({ img, cleanup: () => {} });
+        img.onerror = () => reject(new Error('Failed to load data URL image'));
+        img.src = src;
+      });
     }
-  });
+
+    // If HTTP URL: Fetch as Blob first to bypass canvas tainting completely!
+    try {
+      const res = await fetch(src, { mode: 'cors' });
+      if (res.ok) {
+        const blob = await res.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve({ img, cleanup: () => URL.revokeObjectURL(objectUrl) });
+          img.onerror = () => reject(new Error('Failed to load fetched blob image'));
+          img.src = objectUrl;
+        });
+      }
+    } catch (fetchErr) {
+      console.warn('[AadhaarQR] Fetch image blob failed, falling back to crossOrigin Image:', fetchErr);
+    }
+
+    // Direct image tag fallback
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.onload = () => resolve({ img, cleanup: () => {} });
+      img.onerror = () => reject(new Error('Failed to load image URL'));
+      img.src = src;
+    });
+  }
+
+  throw new Error('Invalid image source');
 }
 
 /**
- * Scans for an Aadhaar QR code in an image (with multi-scale & contrast fallback)
- * @param {File|Blob|string} imageSource - Image file, blob, or resolved URL
- * @returns {Promise<{ success: boolean, verified?: boolean, data?: object, error?: string }>}
+ * Decodes QR code from canvas using ZXing MultiFormatReader
+ */
+function decodeZxing(canvas, useGlobalHistogram = false) {
+  try {
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return null;
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+    const len = canvas.width * canvas.height;
+    const luminances = new Uint8ClampedArray(len);
+
+    for (let i = 0; i < len; i++) {
+      const idx = i * 4;
+      // Fast luminance formula
+      luminances[i] = (data[idx] * 306 + data[idx + 1] * 601 + data[idx + 2] * 117) >> 10;
+    }
+
+    const source = new RGBLuminanceSource(luminances, canvas.width, canvas.height);
+    const binarizer = useGlobalHistogram 
+      ? new GlobalHistogramBinarizer(source) 
+      : new HybridBinarizer(source);
+    const bitmap = new BinaryBitmap(binarizer);
+
+    const hints = new Map();
+    hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.QR_CODE]);
+    hints.set(DecodeHintType.TRY_HARDER, true);
+
+    const reader = new MultiFormatReader();
+    reader.setHints(hints);
+
+    const result = reader.decode(bitmap);
+    if (result) {
+      return {
+        text: result.getText(),
+        rawBytes: result.getRawBytes()
+      };
+    }
+  } catch (_) {
+    // Normal: QR not in this specific frame/binarization
+  }
+  return null;
+}
+
+/**
+ * Decodes QR code from canvas using jsQR
+ */
+function decodeJsQR(canvas, enhanceContrast = false) {
+  try {
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return null;
+    let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+    if (enhanceContrast) {
+      const d = imageData.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const avg = (d[i] + d[i + 1] + d[i + 2]) / 3;
+        const val = avg > 128 ? 255 : 0;
+        d[i] = val;
+        d[i + 1] = val;
+        d[i + 2] = val;
+      }
+    }
+
+    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+      inversionAttempts: 'attemptBoth'
+    });
+
+    if (code && (code.data || (code.binaryData && code.binaryData.length > 0))) {
+      return {
+        text: code.data,
+        rawBytes: code.binaryData
+      };
+    }
+  } catch (_) {}
+  return null;
+}
+
+/**
+ * Scans an image for Aadhaar QR code with multi-engine, multi-angle, and sub-crop passes
+ * @param {File|Blob|string} imageSource
+ * @returns {Promise<{ success: boolean, data?: object, error?: string }>}
  */
 export async function scanAadhaarQrFromImage(imageSource) {
+  let loaded = null;
   try {
-    const img = await loadImage(imageSource);
+    loaded = await loadSafeImage(imageSource);
+    const { img } = loaded;
+
+    const originalW = img.naturalWidth || img.width;
+    const originalH = img.naturalHeight || img.height;
+
+    if (!originalW || !originalH) {
+      return { success: false, error: 'INVALID_IMAGE_DIMENSIONS', message: 'Image has 0 dimensions' };
+    }
+
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
     if (!ctx) {
-      return { success: false, error: 'Canvas 2D context unavailable' };
+      return { success: false, error: 'CANVAS_UNAVAILABLE', message: 'Canvas 2D unavailable' };
     }
 
-    // Helper to test scan on canvas
-    const tryScanAtDimensions = (width, height, enhanceContrast = false) => {
-      canvas.width = width;
-      canvas.height = height;
-      ctx.drawImage(img, 0, 0, width, height);
+    // Helper: Draws image with rotation and optional crop
+    const setupCanvas = (rotationDeg = 0, scale = 1, cropRect = null) => {
+      let sw = originalW;
+      let sh = originalH;
+      let sx = 0;
+      let sy = 0;
 
-      let imageData = ctx.getImageData(0, 0, width, height);
-
-      if (enhanceContrast) {
-        // High-contrast binarization helper for faded/camera-phone photos
-        const d = imageData.data;
-        for (let i = 0; i < d.length; i += 4) {
-          const avg = (d[i] + d[i + 1] + d[i + 2]) / 3;
-          const val = avg > 128 ? 255 : 0;
-          d[i] = val;
-          d[i + 1] = val;
-          d[i + 2] = val;
-        }
+      if (cropRect) {
+        sx = Math.round(cropRect.x * originalW);
+        sy = Math.round(cropRect.y * originalH);
+        sw = Math.round(cropRect.w * originalW);
+        sh = Math.round(cropRect.h * originalH);
       }
 
-      const code = jsQR(imageData.data, imageData.width, imageData.height, {
-        inversionAttempts: 'attemptBoth'
-      });
+      let dw = Math.round(sw * scale);
+      let dh = Math.round(sh * scale);
 
-      return code;
+      // Max dimension safeguard (avoid 16K memory exhaustion)
+      if (dw > 2400 || dh > 2400) {
+        const factor = Math.min(2400 / dw, 2400 / dh);
+        dw = Math.round(dw * factor);
+        dh = Math.round(dh * factor);
+      }
+
+      if (rotationDeg === 90 || rotationDeg === 270) {
+        canvas.width = dh;
+        canvas.height = dw;
+      } else {
+        canvas.width = dw;
+        canvas.height = dh;
+      }
+
+      ctx.save();
+      if (rotationDeg === 90) {
+        ctx.translate(canvas.width, 0);
+        ctx.rotate((90 * Math.PI) / 180);
+      } else if (rotationDeg === 180) {
+        ctx.translate(canvas.width, canvas.height);
+        ctx.rotate((180 * Math.PI) / 180);
+      } else if (rotationDeg === 270) {
+        ctx.translate(0, canvas.height);
+        ctx.rotate((270 * Math.PI) / 180);
+      }
+
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, dw, dh);
+      ctx.restore();
     };
 
-    // Pass 1: Original dimensions (or capped at 2400px to avoid huge memory spikes)
-    let w = img.naturalWidth || img.width;
-    let h = img.naturalHeight || img.height;
-    if (w > 2400 || h > 2400) {
-      const scale = Math.min(2400 / w, 2400 / h);
-      w = Math.round(w * scale);
-      h = Math.round(h * scale);
+    // Helper to run both ZXing and jsQR on the current canvas state
+    const tryDecodeCanvas = () => {
+      // 1. ZXing HybridBinarizer (best with shadows/glare)
+      let found = decodeZxing(canvas, false);
+      if (found) return found;
+
+      // 2. jsQR (attempt both normal and inverted)
+      found = decodeJsQR(canvas, false);
+      if (found) return found;
+
+      // 3. ZXing GlobalHistogram
+      found = decodeZxing(canvas, true);
+      if (found) return found;
+
+      // 4. jsQR with contrast enhancement
+      found = decodeJsQR(canvas, true);
+      if (found) return found;
+
+      return null;
+    };
+
+    let rawQr = null;
+
+    // ========================================================================
+    // PASS 1: Full image at original scale + standard 0° orientation
+    // ========================================================================
+    setupCanvas(0, 1.0, null);
+    rawQr = tryDecodeCanvas();
+
+    // ========================================================================
+    // PASS 2: Rotations (90°, 270°, 180°) for sideways/portrait phone camera shots
+    // ========================================================================
+    if (!rawQr) {
+      for (const rot of [90, 270, 180]) {
+        setupCanvas(rot, 1.0, null);
+        rawQr = tryDecodeCanvas();
+        if (rawQr) break;
+      }
     }
 
-    let qrCode = tryScanAtDimensions(w, h, false);
+    // ========================================================================
+    // PASS 3: Sub-quadrants (Where Aadhaar QR codes typically reside)
+    // - Bottom half (PVC back, letter bottom)
+    // - Right half (e-Aadhaar)
+    // - Left half (PVC back left)
+    // - Center 75%
+    // ========================================================================
+    if (!rawQr) {
+      const quadrants = [
+        { name: 'bottom-half', x: 0, y: 0.35, w: 1, h: 0.65 },
+        { name: 'right-half', x: 0.35, y: 0, w: 0.65, h: 1 },
+        { name: 'bottom-right', x: 0.35, y: 0.35, w: 0.65, h: 0.65 },
+        { name: 'bottom-left', x: 0, y: 0.35, w: 0.65, h: 0.65 },
+        { name: 'center', x: 0.12, y: 0.12, w: 0.76, h: 0.76 }
+      ];
 
-    // Pass 2: If not found, try standardized 1200px (sweet spot for QR detection)
-    if (!qrCode && (w > 1200 || h > 1200)) {
-      const scale = Math.min(1200 / w, 1200 / h);
-      qrCode = tryScanAtDimensions(Math.round(w * scale), Math.round(h * scale), false);
+      for (const q of quadrants) {
+        setupCanvas(0, 1.2, q);
+        rawQr = tryDecodeCanvas();
+        if (rawQr) break;
+
+        // Try 90° on bottom-right and bottom-half
+        if (q.name === 'bottom-half' || q.name === 'bottom-right') {
+          setupCanvas(90, 1.2, q);
+          rawQr = tryDecodeCanvas();
+          if (rawQr) break;
+        }
+      }
     }
 
-    // Pass 3: If still not found, try contrast-enhanced pass
-    if (!qrCode) {
-      qrCode = tryScanAtDimensions(w, h, true);
-    }
-
-    if (!qrCode || (!qrCode.data && (!qrCode.binaryData || qrCode.binaryData.length === 0))) {
+    if (!rawQr) {
       return {
         success: false,
         error: 'NO_QR_FOUND',
-        message: 'No readable QR code found in this image.'
+        message: 'No readable Aadhaar QR code found in this photo. Please make sure the side with the QR code is uploaded and clearly visible.'
       };
     }
 
-    // Parse the detected QR code
-    const parsed = parseAadhaarQrData(qrCode.data, qrCode.binaryData);
+    // Parse extracted data
+    const parsed = parseAadhaarQrData(rawQr.text, rawQr.rawBytes);
 
     if (!parsed || !parsed.fullName) {
       return {
         success: false,
-        error: 'INVALID_AADHAAR_QR',
-        message: 'A QR code was detected, but it does not appear to be an official UIDAI Aadhaar QR code.'
+        error: 'NOT_AADHAAR_QR',
+        message: 'A QR code was detected, but it does not contain official Aadhaar data.'
       };
     }
 
@@ -485,10 +664,15 @@ export async function scanAadhaarQrFromImage(imageSource) {
       data: parsed
     };
   } catch (err) {
-    console.warn('[AadhaarQR] Error during scan:', err);
+    console.warn('[AadhaarQR] Scan exception:', err);
     return {
       success: false,
-      error: err.message || 'Error scanning image'
+      error: err.message || 'QR_SCAN_ERROR',
+      message: 'Failed to process image for QR code.'
     };
+  } finally {
+    if (loaded && loaded.cleanup) {
+      loaded.cleanup();
+    }
   }
 }

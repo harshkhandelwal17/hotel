@@ -14,9 +14,9 @@ export const compressImage = (file) => {
       let width = image.width;
       let height = image.height;
       
-      // Reduce max dimensions to 800px to ensure tiny memory footprint
-      const MAX_WIDTH = 800;
-      const MAX_HEIGHT = 800;
+      // Standard 1600px max dimensions ensures high-density Aadhaar QR codes and fine text remain readable
+      const MAX_WIDTH = 1600;
+      const MAX_HEIGHT = 1600;
       
       if (width > height) {
         if (width > MAX_WIDTH) {

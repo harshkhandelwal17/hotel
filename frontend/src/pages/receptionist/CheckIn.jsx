@@ -841,7 +841,22 @@ const CheckIn = () => {
     if (!imageSrc) return;
     setScanningQr({ index: guestIdx, side: sideName });
     try {
-      const res = await scanAadhaarQrFromImage(getFullImageUrl(imageSrc));
+      let res = await scanAadhaarQrFromImage(getFullImageUrl(imageSrc));
+      let foundOnOtherSide = false;
+
+      // If not found on this side, check if the other side of the ID has an image uploaded!
+      if (!res || !res.success) {
+        const curGuest = guestsRef.current[guestIdx] || guests[guestIdx] || {};
+        const otherSideSrc = sideName === 'front' ? curGuest.idProofImageBack : curGuest.idProofImage;
+        if (otherSideSrc) {
+          const otherRes = await scanAadhaarQrFromImage(getFullImageUrl(otherSideSrc));
+          if (otherRes && otherRes.success) {
+            res = otherRes;
+            foundOnOtherSide = true;
+          }
+        }
+      }
+
       if (res && res.success && res.data) {
         const qrData = res.data;
         setGuests(prev => {
@@ -858,9 +873,17 @@ const CheckIn = () => {
           updated[guestIdx] = g;
           return updated;
         });
-        toast({ message: `🛡️ Verified Aadhaar QR Detected! Auto-filled details for ${qrData.fullName}.`, type: 'success' });
+        toast({
+          message: foundOnOtherSide
+            ? `🛡️ Aadhaar QR found on ${sideName === 'front' ? 'Back' : 'Front'} ID! Auto-filled details for ${qrData.fullName}.`
+            : `🛡️ Verified Aadhaar QR Detected! Auto-filled details for ${qrData.fullName}.`,
+          type: 'success'
+        });
       } else {
-        toast({ message: 'No readable Aadhaar QR code found in this photo.', type: 'error' });
+        toast({
+          message: res?.message || 'No readable Aadhaar QR code found in this photo. Please make sure the side with the QR code is clearly visible and not blurry.',
+          type: 'error'
+        });
       }
     } catch (err) {
       console.warn('QR scan error:', err);
