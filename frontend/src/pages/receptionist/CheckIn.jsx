@@ -819,7 +819,7 @@ const CheckIn = () => {
         } finally {
           setScanningOcr({ index: null, side: null });
         }
-      } else if (side === 'back') {
+      } else if (side === 'back' && !qrProcessed) {
         // AI disabled: standard address extraction for back ID
         extractAddressFromBackId(uploadedUrl).then((address) => {
           if (address) {
@@ -1148,7 +1148,7 @@ const CheckIn = () => {
         } finally {
           setScanningOcr({ index: null, side: null });
         }
-      } else if (side === 'back') {
+      } else if (side === 'back' && !qrProcessed) {
         extractAddressFromBackId(imageUrl).then((address) => {
           if (address) {
             setGuests(prev => {
