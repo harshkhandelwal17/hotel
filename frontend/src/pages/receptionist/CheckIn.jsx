@@ -360,9 +360,7 @@ const CheckIn = () => {
         const res = await axios.get(`${API}/api/whatsapp/status?hostelId=${encodeURIComponent(hostelId)}&_t=${Date.now()}`);
         if (isMounted && res.data?.success) {
           setWaSyncEnabled(!!res.data.data.whatsappSyncEnabled);
-          if (res.data.data.aiOcrEnabled !== undefined) {
-            setAiOcrEnabled(res.data.data.aiOcrEnabled !== false);
-          }
+          setAiOcrEnabled(true);
           if (res.data.data.hostelName) {
             setPropertyData({
               name: res.data.data.hostelName,
@@ -397,9 +395,7 @@ const CheckIn = () => {
   // Sync property feature flags from selected room details
   useEffect(() => {
     if (selectedRoomDetails?.hostel && typeof selectedRoomDetails.hostel === 'object') {
-      if (selectedRoomDetails.hostel.aiOcrEnabled !== undefined) {
-        setAiOcrEnabled(selectedRoomDetails.hostel.aiOcrEnabled !== false);
-      }
+      setAiOcrEnabled(true);
       if (selectedRoomDetails.hostel.whatsappSyncEnabled !== undefined) {
         setWaSyncEnabled(!!selectedRoomDetails.hostel.whatsappSyncEnabled);
       }

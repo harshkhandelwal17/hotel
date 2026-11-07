@@ -275,15 +275,11 @@ export function parseAadhaarQrData(rawData, binaryData = null) {
         // Auto-detect field offset:
         // Legacy Secure QR: [0:ind, 1:refId, 2:name, 3:dob, 4:gender, 5:co, 6:dist, 7:lm, 8:house, 9:loc, 10:pc, 11:po, 12:state, 13:street, 14:subdist, 15:vtc]
         // V2/V3/V4/V5 QR:  [0:'V2', 1:ind, 2:refId, 3:name, 4:dob, 5:gender, 6:co, 7:dist, 8:lm, 9:house, 10:loc, 11:pc, 12:po, 13:state, 14:street, 15:subdist, 16:vtc]
-        let genderIdx = 4;
-        if (/^V\d/i.test(textFields[0])) {
-          genderIdx = 5;
-        } else {
-          for (let idx = 3; idx <= 6 && idx < textFields.length; idx++) {
-            if (/^(M|F|T|MALE|FEMALE|TRANSGENDER)$/i.test(textFields[idx])) {
-              genderIdx = idx;
-              break;
-            }
+        let genderIdx = /^V\d/i.test(textFields[0]) ? 5 : 4;
+        for (let idx = 3; idx <= 6 && idx < textFields.length; idx++) {
+          if (/^(M|F|T|MALE|FEMALE|TRANSGENDER)$/i.test(textFields[idx])) {
+            genderIdx = idx;
+            break;
           }
         }
 

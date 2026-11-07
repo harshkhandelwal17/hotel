@@ -537,17 +537,17 @@ const startHostelWhatsApp = async (hostelId) => {
  */
 const getHostelWhatsAppStatus = async (hostelId) => {
   if (!hostelId || !mongoose.Types.ObjectId.isValid(hostelId)) {
-    return { status: 'disconnected', whatsappSyncEnabled: false, aiOcrEnabled: false, pairing: false };
+    return { status: 'disconnected', whatsappSyncEnabled: false, aiOcrEnabled: true, pairing: false };
   }
 
   const hostel = await Hostel.findById(hostelId);
-  if (!hostel) return { status: 'disconnected', whatsappSyncEnabled: false, aiOcrEnabled: false, pairing: false };
+  if (!hostel) return { status: 'disconnected', whatsappSyncEnabled: false, aiOcrEnabled: true, pairing: false };
 
   // If user explicitly disconnected or marked disconnected in database or sync is disabled:
   if (hostel.whatsappStatus === 'disconnected' || explicitlyDisconnected.has(hostelId) || !hostel.whatsappSyncEnabled) {
     return {
       whatsappSyncEnabled: !!hostel.whatsappSyncEnabled,
-      aiOcrEnabled: !!hostel.aiOcrEnabled,
+      aiOcrEnabled: true,
       hostelName: hostel.name,
       hostelAddress: hostel.address,
       hostelContact: hostel.contactNumber,
@@ -594,7 +594,7 @@ const getHostelWhatsAppStatus = async (hostelId) => {
 
   return {
     whatsappSyncEnabled: !!hostel.whatsappSyncEnabled,
-    aiOcrEnabled: !!hostel.aiOcrEnabled,
+    aiOcrEnabled: true,
     hostelName: hostel.name,
     hostelAddress: hostel.address,
     hostelContact: hostel.contactNumber,
