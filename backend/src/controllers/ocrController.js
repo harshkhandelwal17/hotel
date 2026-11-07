@@ -64,14 +64,14 @@ exports.scanIdCard = async (req, res, next) => {
       }
     }
 
-    // 3. Check if property has AI OCR enabled (Superadmin bypasses)
+    // 3. Check if property has AI OCR explicitly disabled (Superadmin bypasses)
     if (req.user.role !== 'superadmin' && targetHostelId) {
       const hostel = await Hostel.findById(targetHostelId);
       if (!hostel) {
         return res.status(404).json({ success: false, message: 'Property not found' });
       }
 
-      if (!hostel.aiOcrEnabled) {
+      if (hostel.aiOcrEnabled === false) {
         return res.status(403).json({
           success: false,
           code: 'AI_OCR_DISABLED',

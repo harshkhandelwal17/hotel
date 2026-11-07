@@ -85,7 +85,7 @@ const CheckIn = () => {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [scanningOcr, setScanningOcr] = useState({ index: null, side: null });
   const [scanningQr, setScanningQr] = useState({ index: null, side: null });
-  const [aiOcrEnabled, setAiOcrEnabled] = useState(false);
+  const [aiOcrEnabled, setAiOcrEnabled] = useState(true);
   const guestsRef = useRef([]);
   const [roomSearchQuery, setRoomSearchQuery] = useState('');
   const [selectedFloorFilter, setSelectedFloorFilter] = useState('All');
@@ -361,7 +361,7 @@ const CheckIn = () => {
         if (isMounted && res.data?.success) {
           setWaSyncEnabled(!!res.data.data.whatsappSyncEnabled);
           if (res.data.data.aiOcrEnabled !== undefined) {
-            setAiOcrEnabled(!!res.data.data.aiOcrEnabled);
+            setAiOcrEnabled(res.data.data.aiOcrEnabled !== false);
           }
           if (res.data.data.hostelName) {
             setPropertyData({
@@ -398,7 +398,7 @@ const CheckIn = () => {
   useEffect(() => {
     if (selectedRoomDetails?.hostel && typeof selectedRoomDetails.hostel === 'object') {
       if (selectedRoomDetails.hostel.aiOcrEnabled !== undefined) {
-        setAiOcrEnabled(!!selectedRoomDetails.hostel.aiOcrEnabled);
+        setAiOcrEnabled(selectedRoomDetails.hostel.aiOcrEnabled !== false);
       }
       if (selectedRoomDetails.hostel.whatsappSyncEnabled !== undefined) {
         setWaSyncEnabled(!!selectedRoomDetails.hostel.whatsappSyncEnabled);
@@ -751,6 +751,7 @@ const CheckIn = () => {
                   else g.gender = 'Other';
                 }
                 if (aiData.dateOfBirth) g.dateOfBirth = aiData.dateOfBirth;
+                if (aiData.address && !g.address) g.address = aiData.address;
                 updated[index] = g;
                 return updated;
               });
@@ -766,18 +767,22 @@ const CheckIn = () => {
                 type: 'success'
               });
             } else if (side === 'back') {
-              if (aiData.address) {
-                setGuests(prev => {
-                  const updated = [...prev];
-                  updated[index] = { ...updated[index], address: aiData.address };
-                  return updated;
-                });
+              setGuests(prev => {
+                const updated = [...prev];
+                const g = { ...updated[index] };
+                if (aiData.address) g.address = aiData.address;
+                if (aiData.fullName && !g.fullName) g.fullName = aiData.fullName;
+                if (aiData.idProofNumber && !g.idProofNumber) g.idProofNumber = aiData.idProofNumber;
+                updated[index] = g;
+                return updated;
+              });
 
-                toast({
-                  message: '✨ AI Auto-Filled Address from Back ID!',
-                  type: 'success'
-                });
-              }
+              toast({
+                message: aiData.address 
+                  ? '✨ AI Auto-Filled Address from Back ID!'
+                  : '✨ Back ID scanned successfully!',
+                type: 'success'
+              });
             }
           }
         } catch (ocrErr) {
@@ -880,6 +885,54 @@ const CheckIn = () => {
           type: 'success'
         });
       } else {
+        // Fallback to AI OCR if QR is not present (e.g. Front side of PVC card, or glare)
+        setScanningOcr({ index: guestIdx, side: sideName });
+        try {
+          const curGuest = guestsRef.current[guestIdx] || guests[guestIdx] || {};
+          const fullImg = getFullImageUrl(imageSrc);
+          const ocrRes = await axios.post(`${API}/api/ocr/scan-id`, {
+            imageUrl: fullImg,
+            side: sideName,
+            hostelId,
+            idProofType: curGuest.idProofType || 'Aadhaar'
+          });
+
+          if (ocrRes.data && ocrRes.data.success && ocrRes.data.data) {
+            const aiData = ocrRes.data.data;
+            const filledFields = [];
+            setGuests(prev => {
+              const updated = [...prev];
+              const g = { ...updated[guestIdx] };
+              if (aiData.fullName) { g.fullName = aiData.fullName; filledFields.push('Name'); }
+              if (aiData.idProofNumber) { g.idProofNumber = aiData.idProofNumber; filledFields.push('ID Number'); }
+              if (aiData.gender) {
+                const genLower = aiData.gender.toLowerCase();
+                if (genLower.includes('fe') || genLower.includes('महिला')) g.gender = 'Female';
+                else if (genLower.includes('ma') || genLower.includes('पुरुष')) g.gender = 'Male';
+                else g.gender = 'Other';
+                filledFields.push('Gender');
+              }
+              if (aiData.dateOfBirth) { g.dateOfBirth = aiData.dateOfBirth; filledFields.push('DOB'); }
+              if (aiData.address) { g.address = aiData.address; filledFields.push('Address'); }
+              g.idProofType = 'Aadhaar';
+              updated[guestIdx] = g;
+              return updated;
+            });
+
+            toast({
+              message: filledFields.length > 0
+                ? `✨ Card text scanned! Auto-filled: ${filledFields.join(', ')}`
+                : '✨ ID photo scanned successfully!',
+              type: 'success'
+            });
+            return;
+          }
+        } catch (ocrErr) {
+          console.warn('AI OCR fallback error in manual scan:', ocrErr);
+        } finally {
+          setScanningOcr({ index: null, side: null });
+        }
+
         toast({
           message: res?.message || 'No readable Aadhaar QR code found in this photo. Please make sure the side with the QR code is clearly visible and not blurry.',
           type: 'error'

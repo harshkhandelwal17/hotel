@@ -1,7 +1,8 @@
 import jsQR from 'jsqr';
 import * as pako from 'pako';
 import {
-  MultiFormatReader,
+  QRCodeReader,
+  BrowserQRCodeReader,
   BarcodeFormat,
   DecodeHintType,
   RGBLuminanceSource,
@@ -432,7 +433,6 @@ function decodeZxing(canvas, useGlobalHistogram = false) {
 
     for (let i = 0; i < len; i++) {
       const idx = i * 4;
-      // Fast luminance formula
       luminances[i] = (data[idx] * 306 + data[idx + 1] * 601 + data[idx + 2] * 117) >> 10;
     }
 
@@ -442,13 +442,7 @@ function decodeZxing(canvas, useGlobalHistogram = false) {
       : new HybridBinarizer(source);
     const bitmap = new BinaryBitmap(binarizer);
 
-    const hints = new Map();
-    hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.QR_CODE]);
-    hints.set(DecodeHintType.TRY_HARDER, true);
-
-    const reader = new MultiFormatReader();
-    reader.setHints(hints);
-
+    const reader = new QRCodeReader();
     const result = reader.decode(bitmap);
     if (result) {
       return {
@@ -593,10 +587,28 @@ export async function scanAadhaarQrFromImage(imageSource) {
     let rawQr = null;
 
     // ========================================================================
+    // PASS 0: Fast BrowserQRCodeReader directly on the loaded HTMLImageElement
+    // ========================================================================
+    try {
+      const codeReader = new BrowserQRCodeReader();
+      const zxRes = await codeReader.decodeFromImageElement(img);
+      if (zxRes) {
+        rawQr = {
+          text: zxRes.getText(),
+          rawBytes: zxRes.getRawBytes ? zxRes.getRawBytes() : null
+        };
+      }
+    } catch (_) {
+      // Proceed to multi-pass canvas if not decoded immediately
+    }
+
+    // ========================================================================
     // PASS 1: Full image at original scale + standard 0° orientation
     // ========================================================================
-    setupCanvas(0, 1.0, null);
-    rawQr = tryDecodeCanvas();
+    if (!rawQr) {
+      setupCanvas(0, 1.0, null);
+      rawQr = tryDecodeCanvas();
+    }
 
     // ========================================================================
     // PASS 2: Rotations (90°, 270°, 180°) for sideways/portrait phone camera shots
