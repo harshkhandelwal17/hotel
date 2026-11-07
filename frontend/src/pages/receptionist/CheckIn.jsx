@@ -670,18 +670,27 @@ const CheckIn = () => {
       const uploadedUrl = res.data.url;
       const resolvedUrl = getFullImageUrl(uploadedUrl);
 
+      // Convert compressedFile to a local data URL for instant CORS-free re-scanning & 0ms backend OCR
+      const localDataUrl = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result || '');
+        reader.onerror = () => resolve('');
+        reader.readAsDataURL(compressedFile);
+      });
+
       setGuests(prev => {
         const updated = [...prev];
         if (side === 'back') {
-          updated[index] = { ...updated[index], idProofImageBack: resolvedUrl };
+          updated[index] = { ...updated[index], idProofImageBack: resolvedUrl, localBackDataUrl: localDataUrl };
         } else {
-          updated[index] = { ...updated[index], idProofImage: resolvedUrl };
+          updated[index] = { ...updated[index], idProofImage: resolvedUrl, localFrontDataUrl: localDataUrl };
         }
         return updated;
       });
+      setUploadingImage(false);
 
       toast({
-        message: 'Image uploaded successfully!',
+        message: 'Image uploaded! Scanning ID details...',
         type: 'success'
       });
 
@@ -698,7 +707,13 @@ const CheckIn = () => {
             const updated = [...prev];
             const g = { ...updated[index] };
             if (qrData.fullName) g.fullName = qrData.fullName;
-            if (qrData.idProofNumber) g.idProofNumber = qrData.idProofNumber;
+            if (qrData.idProofNumber) {
+              const isMasked = String(qrData.idProofNumber).includes('X');
+              const hasFull12 = /^\d{4}\s?\d{4}\s?\d{4}$/.test(String(g.idProofNumber || '').trim());
+              if (!isMasked || !hasFull12) {
+                g.idProofNumber = qrData.idProofNumber;
+              }
+            }
             if (qrData.gender) g.gender = qrData.gender;
             if (qrData.dateOfBirth) g.dateOfBirth = qrData.dateOfBirth;
             if (qrData.address) g.address = qrData.address;
@@ -722,14 +737,14 @@ const CheckIn = () => {
       }
 
       // =========================================================
-      // 2. AI VISION OCR SCANNING (Gemini 1.5 Flash Vision Fallback)
+      // 2. AI VISION OCR SCANNING (Gemini / Groq Vision Fallback)
       // =========================================================
       if (!qrProcessed && aiOcrEnabled) {
         setScanningOcr({ index, side });
         try {
           const currentGuest = guestsRef.current[index] || {};
           const ocrRes = await axios.post(`${API}/api/ocr/scan-id`, {
-            imageUrl: uploadedUrl,
+            imageUrl: localDataUrl || uploadedUrl,
             side,
             hostelId,
             idProofType: currentGuest.idProofType || 'Aadhaar'
@@ -737,53 +752,42 @@ const CheckIn = () => {
 
           if (ocrRes.data && ocrRes.data.success && ocrRes.data.data) {
             const aiData = ocrRes.data.data;
+            const filled = [];
 
-            if (side === 'front') {
-              setGuests(prev => {
-                const updated = [...prev];
-                const g = { ...updated[index] };
-                if (aiData.fullName) g.fullName = aiData.fullName;
-                if (aiData.idProofNumber) g.idProofNumber = aiData.idProofNumber;
-                if (aiData.gender) {
-                  const genLower = aiData.gender.toLowerCase();
-                  if (genLower.includes('fe') || genLower.includes('महिला')) g.gender = 'Female';
-                  else if (genLower.includes('ma') || genLower.includes('पुरुष')) g.gender = 'Male';
-                  else g.gender = 'Other';
-                }
-                if (aiData.dateOfBirth) g.dateOfBirth = aiData.dateOfBirth;
-                if (aiData.address && !g.address) g.address = aiData.address;
-                updated[index] = g;
-                return updated;
-              });
+            setGuests(prev => {
+              const updated = [...prev];
+              const g = { ...updated[index] };
+              if (aiData.fullName && (side === 'front' || !g.fullName)) {
+                g.fullName = aiData.fullName;
+                filled.push(aiData.fullName);
+              }
+              if (aiData.idProofNumber && (side === 'front' || !g.idProofNumber || String(g.idProofNumber).includes('X'))) {
+                g.idProofNumber = aiData.idProofNumber;
+                filled.push(aiData.idProofNumber);
+              }
+              if (aiData.gender && (side === 'front' || !g.gender)) {
+                const genLower = aiData.gender.toLowerCase();
+                if (genLower.includes('fe') || genLower.includes('महिला')) g.gender = 'Female';
+                else if (genLower.includes('ma') || genLower.includes('पुरुष')) g.gender = 'Male';
+                else g.gender = 'Other';
+              }
+              if (aiData.dateOfBirth && (side === 'front' || !g.dateOfBirth)) {
+                g.dateOfBirth = aiData.dateOfBirth;
+              }
+              if (aiData.address && (side === 'back' || !g.address)) {
+                g.address = aiData.address;
+                filled.push('Address');
+              }
+              updated[index] = g;
+              return updated;
+            });
 
-              const found = [];
-              if (aiData.fullName) found.push(aiData.fullName);
-              if (aiData.idProofNumber) found.push(aiData.idProofNumber);
-
-              toast({
-                message: found.length > 0 
-                  ? `✨ AI Auto-Filled: ${found.join(' | ')}`
-                  : '✨ Front ID scanned successfully!',
-                type: 'success'
-              });
-            } else if (side === 'back') {
-              setGuests(prev => {
-                const updated = [...prev];
-                const g = { ...updated[index] };
-                if (aiData.address) g.address = aiData.address;
-                if (aiData.fullName && !g.fullName) g.fullName = aiData.fullName;
-                if (aiData.idProofNumber && !g.idProofNumber) g.idProofNumber = aiData.idProofNumber;
-                updated[index] = g;
-                return updated;
-              });
-
-              toast({
-                message: aiData.address 
-                  ? '✨ AI Auto-Filled Address from Back ID!'
-                  : '✨ Back ID scanned successfully!',
-                type: 'success'
-              });
-            }
+            toast({
+              message: filled.length > 0
+                ? `✨ Auto-Filled: ${filled.join(' | ')}`
+                : `✨ ${side === 'front' ? 'Front' : 'Back'} ID scanned successfully!`,
+              type: 'success'
+            });
           }
         } catch (ocrErr) {
           const isAiDisabled = ocrErr?.response?.data?.code === 'AI_OCR_DISABLED';
@@ -846,13 +850,19 @@ const CheckIn = () => {
     if (!imageSrc) return;
     setScanningQr({ index: guestIdx, side: sideName });
     try {
-      let res = await scanAadhaarQrFromImage(getFullImageUrl(imageSrc));
+      const curGuest = guestsRef.current[guestIdx] || guests[guestIdx] || {};
+      const preferredLocalSrc = sideName === 'front'
+        ? (curGuest.localFrontDataUrl || getFullImageUrl(imageSrc))
+        : (curGuest.localBackDataUrl || getFullImageUrl(imageSrc));
+
+      let res = await scanAadhaarQrFromImage(preferredLocalSrc);
       let foundOnOtherSide = false;
 
       // If not found on this side, check if the other side of the ID has an image uploaded!
       if (!res || !res.success) {
-        const curGuest = guestsRef.current[guestIdx] || guests[guestIdx] || {};
-        const otherSideSrc = sideName === 'front' ? curGuest.idProofImageBack : curGuest.idProofImage;
+        const otherSideSrc = sideName === 'front'
+          ? (curGuest.localBackDataUrl || curGuest.idProofImageBack)
+          : (curGuest.localFrontDataUrl || curGuest.idProofImage);
         if (otherSideSrc) {
           const otherRes = await scanAadhaarQrFromImage(getFullImageUrl(otherSideSrc));
           if (otherRes && otherRes.success) {
@@ -868,7 +878,13 @@ const CheckIn = () => {
           const updated = [...prev];
           const g = { ...updated[guestIdx] };
           if (qrData.fullName) g.fullName = qrData.fullName;
-          if (qrData.idProofNumber) g.idProofNumber = qrData.idProofNumber;
+          if (qrData.idProofNumber) {
+            const isMasked = String(qrData.idProofNumber).includes('X');
+            const hasFull12 = /^\d{4}\s?\d{4}\s?\d{4}$/.test(String(g.idProofNumber || '').trim());
+            if (!isMasked || !hasFull12) {
+              g.idProofNumber = qrData.idProofNumber;
+            }
+          }
           if (qrData.gender) g.gender = qrData.gender;
           if (qrData.dateOfBirth) g.dateOfBirth = qrData.dateOfBirth;
           if (qrData.address) g.address = qrData.address;
@@ -885,13 +901,12 @@ const CheckIn = () => {
           type: 'success'
         });
       } else {
-        // Fallback to AI OCR if QR is not present (e.g. Front side of PVC card, or glare)
+        // Clear QR scanning state immediately before starting AI OCR fallback
+        setScanningQr({ index: null, side: null });
         setScanningOcr({ index: guestIdx, side: sideName });
         try {
-          const curGuest = guestsRef.current[guestIdx] || guests[guestIdx] || {};
-          const fullImg = getFullImageUrl(imageSrc);
           const ocrRes = await axios.post(`${API}/api/ocr/scan-id`, {
-            imageUrl: fullImg,
+            imageUrl: preferredLocalSrc,
             side: sideName,
             hostelId,
             idProofType: curGuest.idProofType || 'Aadhaar'
@@ -934,13 +949,13 @@ const CheckIn = () => {
         }
 
         toast({
-          message: res?.message || 'No readable Aadhaar QR code found in this photo. Please make sure the side with the QR code is clearly visible and not blurry.',
+          message: 'Could not read QR or text from this photo. Please ensure the ID photo is clear and well-lit.',
           type: 'error'
         });
       }
     } catch (err) {
       console.warn('QR scan error:', err);
-      toast({ message: 'Error reading QR code from image.', type: 'error' });
+      toast({ message: 'Error reading ID image.', type: 'error' });
     } finally {
       setScanningQr({ index: null, side: null });
     }

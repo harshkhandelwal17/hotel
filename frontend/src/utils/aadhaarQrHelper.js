@@ -2,9 +2,6 @@ import jsQR from 'jsqr';
 import * as pako from 'pako';
 import {
   QRCodeReader,
-  BrowserQRCodeReader,
-  BarcodeFormat,
-  DecodeHintType,
   RGBLuminanceSource,
   BinaryBitmap,
   HybridBinarizer,
@@ -207,108 +204,133 @@ export function parseAadhaarQrData(rawData, binaryData = null) {
   // --------------------------------------------------------------------------
   // 2. SECURE QR CODE FORMAT (UIDAI 2048-bit digitally signed e-Aadhaar & PVC)
   // --------------------------------------------------------------------------
-  let byteStream = null;
+  const candidateStreams = [];
+
+  // IMPORTANT: Numeric UIDAI Secure QR is a huge Base-10 integer string representing a gzip byte array.
+  // In jsQR/ZXing, `binaryData` is just the ASCII bytes of the decimal digits, so ALWAYS try BigInt conversion FIRST!
+  if (/^\d+$/.test(text) && text.length > 80) {
+    const fromHex = parseBigIntToByteArray(text);
+    if (fromHex && fromHex.length > 20) candidateStreams.push(fromHex);
+    const fromShift = bigIntToBytes(text);
+    if (fromShift && fromShift.length > 20) candidateStreams.push(fromShift);
+  }
 
   if (binaryData && binaryData.length > 50) {
-    byteStream = new Uint8Array(binaryData);
+    candidateStreams.push(new Uint8Array(binaryData));
   }
 
-  if (!byteStream && /^\d+$/.test(text) && text.length > 100) {
-    byteStream = parseBigIntToByteArray(text) || bigIntToBytes(text);
-  }
-
-  // If byteStream is available, decompress using pako
-  if (byteStream) {
-    let decompressed = null;
-
+  let decompressed = null;
+  for (const byteStream of candidateStreams) {
     try {
-      decompressed = pako.inflate(byteStream);
+      decompressed = pako.ungzip(byteStream);
     } catch {
       try {
-        decompressed = pako.inflateRaw(byteStream);
+        decompressed = pako.inflate(byteStream);
       } catch {
         try {
-          decompressed = pako.ungzip(byteStream);
+          decompressed = pako.inflateRaw(byteStream);
         } catch {
           for (let offset = 1; offset < 10; offset++) {
             try {
               decompressed = pako.inflate(byteStream.subarray(offset));
-              break;
+              if (decompressed && decompressed.length > 20) break;
             } catch (_) {}
           }
         }
       }
     }
+    if (decompressed && decompressed.length > 20) break;
+  }
 
-    if (decompressed && decompressed.length > 0) {
-      try {
-        const fields = [];
-        let currentField = [];
-        let photoBytes = null;
+  if (decompressed && decompressed.length > 0) {
+    try {
+      const fields = [];
+      let currentField = [];
+      let photoBytes = null;
 
-        for (let i = 0; i < decompressed.length; i++) {
-          const byte = decompressed[i];
-          if (byte === 255) {
-            if (fields.length === 15) {
-              fields.push(new Uint8Array(currentField));
-              currentField = [];
-              const remaining = decompressed.subarray(i + 1);
-              if (remaining.length > 256) {
-                photoBytes = remaining.subarray(0, remaining.length - 256);
-              } else {
-                photoBytes = remaining;
-              }
-              break;
+      // Read up to 18 0xFF-delimited text fields (supports both legacy 16-field and V2-V5 17-field headers)
+      for (let i = 0; i < decompressed.length; i++) {
+        const byte = decompressed[i];
+        if (byte === 255) {
+          fields.push(new Uint8Array(currentField));
+          currentField = [];
+          if (fields.length >= 17) {
+            const remaining = decompressed.subarray(i + 1);
+            if (remaining.length > 256) {
+              photoBytes = remaining.subarray(0, remaining.length - 256);
             } else {
-              fields.push(new Uint8Array(currentField));
-              currentField = [];
+              photoBytes = remaining;
             }
-          } else {
-            currentField.push(byte);
+            break;
+          }
+        } else {
+          currentField.push(byte);
+        }
+      }
+
+      if (fields.length >= 5) {
+        const decoder = new TextDecoder('iso-8859-1');
+        const textFields = fields.map(f => decoder.decode(f).trim());
+
+        // Auto-detect field offset:
+        // Legacy Secure QR: [0:ind, 1:refId, 2:name, 3:dob, 4:gender, 5:co, 6:dist, 7:lm, 8:house, 9:loc, 10:pc, 11:po, 12:state, 13:street, 14:subdist, 15:vtc]
+        // V2/V3/V4/V5 QR:  [0:'V2', 1:ind, 2:refId, 3:name, 4:dob, 5:gender, 6:co, 7:dist, 8:lm, 9:house, 10:loc, 11:pc, 12:po, 13:state, 14:street, 15:subdist, 16:vtc]
+        let genderIdx = 4;
+        if (/^V\d/i.test(textFields[0])) {
+          genderIdx = 5;
+        } else {
+          for (let idx = 3; idx <= 6 && idx < textFields.length; idx++) {
+            if (/^(M|F|T|MALE|FEMALE|TRANSGENDER)$/i.test(textFields[idx])) {
+              genderIdx = idx;
+              break;
+            }
           }
         }
 
-        if (fields.length > 0) {
-          const decoder = new TextDecoder('utf-8', { fatal: false });
-          const textFields = fields.map(f => decoder.decode(f).trim());
+        const refId = textFields[genderIdx - 3] || '';
+        const name = textFields[genderIdx - 2] || '';
+        const dob = normalizeDateOfBirth(textFields[genderIdx - 1]);
+        const gender = normalizeGender(textFields[genderIdx]);
+        const co = textFields[genderIdx + 1] || '';
+        const dist = textFields[genderIdx + 2] || '';
+        const lm = textFields[genderIdx + 3] || '';
+        const house = textFields[genderIdx + 4] || '';
+        const loc = textFields[genderIdx + 5] || '';
+        const pc = textFields[genderIdx + 6] || '';
+        const po = textFields[genderIdx + 7] || '';
+        const state = textFields[genderIdx + 8] || '';
+        const street = textFields[genderIdx + 9] || '';
+        const subdist = textFields[genderIdx + 10] || '';
+        const vtc = textFields[genderIdx + 11] || '';
 
-          const refId = textFields[1] || '';
-          const name = textFields[2] || '';
-          const dob = normalizeDateOfBirth(textFields[3]);
-          const gender = normalizeGender(textFields[4]);
-          const co = textFields[5] || '';
-          const dist = textFields[6] || '';
-          const lm = textFields[7] || '';
-          const house = textFields[8] || '';
-          const loc = textFields[9] || '';
-          const pc = textFields[10] || '';
-          const po = textFields[11] || '';
-          const state = textFields[12] || '';
-          const street = textFields[13] || '';
-          const subdist = textFields[14] || '';
-          const vtc = textFields[15] || '';
+        let aadhaarNumber = '';
+        const refMatch = refId.match(/^(\d{4})/);
+        if (refMatch) {
+          aadhaarNumber = `XXXX XXXX ${refMatch[1]}`;
+        }
 
-          let aadhaarNumber = '';
-          const refMatch = refId.match(/^(\d{4})/);
-          if (refMatch) {
-            aadhaarNumber = `XXXX XXXX ${refMatch[1]}`;
-          }
+        const addressParts = [co, house, street, lm, loc, vtc, po, dist, subdist, state, pc && /^\d{6}$/.test(pc) ? `PIN: ${pc}` : '']
+          .filter(Boolean)
+          .filter((item, index, self) => self.indexOf(item) === index);
 
-          const addressParts = [co, house, street, lm, loc, vtc, po, dist, subdist, state, pc ? `PIN: ${pc}` : '']
-            .filter(Boolean)
-            .filter((item, index, self) => self.indexOf(item) === index);
+        const fullAddress = addressParts.join(', ');
 
-          const fullAddress = addressParts.join(', ');
-
-          let photoBase64 = null;
-          if (photoBytes && photoBytes.length > 50 && photoBytes[0] === 0xFF && photoBytes[1] === 0xD8) {
-            let binary = '';
-            for (let i = 0; i < photoBytes.length; i++) {
-              binary += String.fromCharCode(photoBytes[i]);
+        let photoBase64 = null;
+        if (photoBytes && photoBytes.length > 50) {
+          // Find JPEG SOI (0xFF 0xD8) or JP2 signature if present
+          for (let k = 0; k < Math.min(photoBytes.length - 2, 32); k++) {
+            if (photoBytes[k] === 0xFF && photoBytes[k + 1] === 0xD8) {
+              let binary = '';
+              for (let i = k; i < photoBytes.length; i++) {
+                binary += String.fromCharCode(photoBytes[i]);
+              }
+              photoBase64 = 'data:image/jpeg;base64,' + btoa(binary);
+              break;
             }
-            photoBase64 = 'data:image/jpeg;base64,' + btoa(binary);
           }
+        }
 
+        if (name) {
           return {
             success: true,
             verified: true,
@@ -328,9 +350,9 @@ export function parseAadhaarQrData(rawData, binaryData = null) {
             rawType: 'SECURE_V2'
           };
         }
-      } catch (err) {
-        console.warn('[AadhaarQR] Error parsing decompressed stream:', err);
       }
+    } catch (err) {
+      console.warn('[AadhaarQR] Error parsing decompressed stream:', err);
     }
   }
 
@@ -360,67 +382,63 @@ export function parseAadhaarQrData(rawData, binaryData = null) {
 }
 
 // ============================================================================
-// DUAL-ENGINE IMAGE SCANNER (ZXing HybridBinarizer + jsQR Multi-Angle)
+// FAST MULTI-ENGINE IMAGE SCANNER (Native BarcodeDetector + ZXing + jsQR)
 // ============================================================================
 
 /**
- * Loads an image safely without CORS taint issues
+ * Loads an image safely without CORS taint issues (with strict timeout)
  */
 async function loadSafeImage(src) {
-  // If already a File or Blob, create local object URL directly
+  const loadImgWithTimeout = (url, crossOrigin = null, cleanupFn = () => {}) => {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        cleanupFn();
+        reject(new Error('Image load timed out'));
+      }, 3000);
+      const img = new Image();
+      if (crossOrigin) img.crossOrigin = crossOrigin;
+      img.onload = () => {
+        clearTimeout(timer);
+        resolve({ img, cleanup: cleanupFn });
+      };
+      img.onerror = () => {
+        clearTimeout(timer);
+        cleanupFn();
+        reject(new Error('Failed to load image'));
+      };
+      img.src = url;
+    });
+  };
+
   if (src instanceof Blob || src instanceof File) {
     const objectUrl = URL.createObjectURL(src);
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => resolve({ img, cleanup: () => URL.revokeObjectURL(objectUrl) });
-      img.onerror = () => reject(new Error('Failed to load image from file blob'));
-      img.src = objectUrl;
-    });
+    return loadImgWithTimeout(objectUrl, null, () => URL.revokeObjectURL(objectUrl));
   }
 
   if (typeof src === 'string') {
-    // If it's a data: URL or blob: URL
     if (src.startsWith('data:') || src.startsWith('blob:')) {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve({ img, cleanup: () => {} });
-        img.onerror = () => reject(new Error('Failed to load data URL image'));
-        img.src = src;
-      });
+      return loadImgWithTimeout(src, null);
     }
 
-    // If HTTP URL: Fetch as Blob first to bypass canvas tainting completely!
     try {
-      const res = await fetch(src, { mode: 'cors' });
+      const res = await fetch(src, { mode: 'cors', signal: AbortSignal.timeout(2500) });
       if (res.ok) {
         const blob = await res.blob();
         const objectUrl = URL.createObjectURL(blob);
-        return new Promise((resolve, reject) => {
-          const img = new Image();
-          img.onload = () => resolve({ img, cleanup: () => URL.revokeObjectURL(objectUrl) });
-          img.onerror = () => reject(new Error('Failed to load fetched blob image'));
-          img.src = objectUrl;
-        });
+        return loadImgWithTimeout(objectUrl, null, () => URL.revokeObjectURL(objectUrl));
       }
     } catch (fetchErr) {
-      console.warn('[AadhaarQR] Fetch image blob failed, falling back to crossOrigin Image:', fetchErr);
+      console.warn('[AadhaarQR] Fetch image blob failed:', fetchErr.message);
     }
 
-    // Direct image tag fallback
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = 'Anonymous';
-      img.onload = () => resolve({ img, cleanup: () => {} });
-      img.onerror = () => reject(new Error('Failed to load image URL'));
-      img.src = src;
-    });
+    return loadImgWithTimeout(src, 'Anonymous');
   }
 
   throw new Error('Invalid image source');
 }
 
 /**
- * Decodes QR code from canvas using ZXing MultiFormatReader
+ * Decodes QR code from canvas using synchronous ZXing QRCodeReader
  */
 function decodeZxing(canvas, useGlobalHistogram = false) {
   try {
@@ -447,7 +465,7 @@ function decodeZxing(canvas, useGlobalHistogram = false) {
     if (result) {
       return {
         text: result.getText(),
-        rawBytes: result.getRawBytes()
+        rawBytes: result.getRawBytes ? result.getRawBytes() : null
       };
     }
   } catch (_) {
@@ -459,22 +477,11 @@ function decodeZxing(canvas, useGlobalHistogram = false) {
 /**
  * Decodes QR code from canvas using jsQR
  */
-function decodeJsQR(canvas, enhanceContrast = false) {
+function decodeJsQR(canvas) {
   try {
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return null;
-    let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-    if (enhanceContrast) {
-      const d = imageData.data;
-      for (let i = 0; i < d.length; i += 4) {
-        const avg = (d[i] + d[i + 1] + d[i + 2]) / 3;
-        const val = avg > 128 ? 255 : 0;
-        d[i] = val;
-        d[i + 1] = val;
-        d[i + 2] = val;
-      }
-    }
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
     const code = jsQR(imageData.data, imageData.width, imageData.height, {
       inversionAttempts: 'attemptBoth'
@@ -491,9 +498,31 @@ function decodeJsQR(canvas, enhanceContrast = false) {
 }
 
 /**
- * Scans an image for Aadhaar QR code with multi-engine, multi-angle, and sub-crop passes
+ * Try hardware-accelerated Native Browser BarcodeDetector if supported (Chrome/macOS/Android/Edge)
+ */
+async function tryNativeBarcodeDetector(sourceElement) {
+  if (typeof window === 'undefined' || !('BarcodeDetector' in window)) return null;
+  try {
+    const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+    const barcodes = await Promise.race([
+      detector.detect(sourceElement),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('BarcodeDetector timeout')), 800))
+    ]);
+    if (Array.isArray(barcodes) && barcodes.length > 0) {
+      for (const b of barcodes) {
+        if (b.rawValue) {
+          return { text: b.rawValue, rawBytes: null };
+        }
+      }
+    }
+  } catch (_) {}
+  return null;
+}
+
+/**
+ * Scans an image for Aadhaar QR code with strict timeout and zero main-thread freeze
  * @param {File|Blob|string} imageSource
- * @returns {Promise<{ success: boolean, data?: object, error?: string }>}
+ * @returns {Promise<{ success: boolean, data?: object, error?: string, message?: string }>}
  */
 export async function scanAadhaarQrFromImage(imageSource) {
   let loaded = null;
@@ -508,144 +537,70 @@ export async function scanAadhaarQrFromImage(imageSource) {
       return { success: false, error: 'INVALID_IMAGE_DIMENSIONS', message: 'Image has 0 dimensions' };
     }
 
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-
-    if (!ctx) {
-      return { success: false, error: 'CANVAS_UNAVAILABLE', message: 'Canvas 2D unavailable' };
-    }
-
-    // Helper: Draws image with rotation and optional crop
-    const setupCanvas = (rotationDeg = 0, scale = 1, cropRect = null) => {
-      let sw = originalW;
-      let sh = originalH;
-      let sx = 0;
-      let sy = 0;
-
-      if (cropRect) {
-        sx = Math.round(cropRect.x * originalW);
-        sy = Math.round(cropRect.y * originalH);
-        sw = Math.round(cropRect.w * originalW);
-        sh = Math.round(cropRect.h * originalH);
-      }
-
-      let dw = Math.round(sw * scale);
-      let dh = Math.round(sh * scale);
-
-      // Max dimension safeguard (avoid 16K memory exhaustion)
-      if (dw > 2400 || dh > 2400) {
-        const factor = Math.min(2400 / dw, 2400 / dh);
-        dw = Math.round(dw * factor);
-        dh = Math.round(dh * factor);
-      }
-
-      if (rotationDeg === 90 || rotationDeg === 270) {
-        canvas.width = dh;
-        canvas.height = dw;
-      } else {
-        canvas.width = dw;
-        canvas.height = dh;
-      }
-
-      ctx.save();
-      if (rotationDeg === 90) {
-        ctx.translate(canvas.width, 0);
-        ctx.rotate((90 * Math.PI) / 180);
-      } else if (rotationDeg === 180) {
-        ctx.translate(canvas.width, canvas.height);
-        ctx.rotate((180 * Math.PI) / 180);
-      } else if (rotationDeg === 270) {
-        ctx.translate(0, canvas.height);
-        ctx.rotate((270 * Math.PI) / 180);
-      }
-
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, dw, dh);
-      ctx.restore();
-    };
-
-    // Helper to run both ZXing and jsQR on the current canvas state
-    const tryDecodeCanvas = () => {
-      // 1. ZXing HybridBinarizer (best with shadows/glare)
-      let found = decodeZxing(canvas, false);
-      if (found) return found;
-
-      // 2. jsQR (attempt both normal and inverted)
-      found = decodeJsQR(canvas, false);
-      if (found) return found;
-
-      // 3. ZXing GlobalHistogram
-      found = decodeZxing(canvas, true);
-      if (found) return found;
-
-      // 4. jsQR with contrast enhancement
-      found = decodeJsQR(canvas, true);
-      if (found) return found;
-
-      return null;
-    };
-
     let rawQr = null;
 
     // ========================================================================
-    // PASS 0: Fast BrowserQRCodeReader directly on the loaded HTMLImageElement
+    // PASS 0: Hardware-Accelerated Native Browser BarcodeDetector (~10ms)
     // ========================================================================
-    try {
-      const codeReader = new BrowserQRCodeReader();
-      const zxRes = await codeReader.decodeFromImageElement(img);
-      if (zxRes) {
-        rawQr = {
-          text: zxRes.getText(),
-          rawBytes: zxRes.getRawBytes ? zxRes.getRawBytes() : null
-        };
-      }
-    } catch (_) {
-      // Proceed to multi-pass canvas if not decoded immediately
-    }
+    rawQr = await tryNativeBarcodeDetector(img);
 
-    // ========================================================================
-    // PASS 1: Full image at original scale + standard 0° orientation
-    // ========================================================================
-    if (!rawQr) {
-      setupCanvas(0, 1.0, null);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    if (!rawQr && ctx) {
+      const setupCropCanvas = (cropRect = null, maxDim = 1200) => {
+        let sx = 0, sy = 0, sw = originalW, sh = originalH;
+        if (cropRect) {
+          sx = Math.round(cropRect.x * originalW);
+          sy = Math.round(cropRect.y * originalH);
+          sw = Math.round(cropRect.w * originalW);
+          sh = Math.round(cropRect.h * originalH);
+        }
+        let dw = sw;
+        let dh = sh;
+        if (dw > maxDim || dh > maxDim) {
+          const factor = Math.min(maxDim / dw, maxDim / dh);
+          dw = Math.max(1, Math.round(dw * factor));
+          dh = Math.max(1, Math.round(dh * factor));
+        } else if (cropRect && Math.max(dw, dh) < 900) {
+          // Upscale small cropped QR region slightly for sharper module grid
+          const factor = Math.min(2.0, 900 / Math.max(dw, dh));
+          dw = Math.round(dw * factor);
+          dh = Math.round(dh * factor);
+        }
+        canvas.width = dw;
+        canvas.height = dh;
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, dw, dh);
+      };
+
+      const tryDecodeCanvas = () => {
+        let found = decodeZxing(canvas, false);
+        if (found) return found;
+        found = decodeJsQR(canvas);
+        if (found) return found;
+        found = decodeZxing(canvas, true);
+        if (found) return found;
+        return null;
+      };
+
+      // PASS 1: Full image at fast 1200px resolution (2D QR finder patterns are 360° orientation-invariant)
+      setupCropCanvas(null, 1200);
       rawQr = tryDecodeCanvas();
-    }
 
-    // ========================================================================
-    // PASS 2: Rotations (90°, 270°, 180°) for sideways/portrait phone camera shots
-    // ========================================================================
-    if (!rawQr) {
-      for (const rot of [90, 270, 180]) {
-        setupCanvas(rot, 1.0, null);
-        rawQr = tryDecodeCanvas();
-        if (rawQr) break;
-      }
-    }
+      // PASS 2: Sub-quadrants where Aadhaar QR codes reside (if full image had small QR)
+      if (!rawQr) {
+        const quadrants = [
+          { x: 0.35, y: 0.35, w: 0.65, h: 0.65 }, // bottom-right
+          { x: 0, y: 0.35, w: 0.65, h: 0.65 },    // bottom-left
+          { x: 0, y: 0.3, w: 1, h: 0.7 },         // bottom-half
+          { x: 0.3, y: 0, w: 0.7, h: 1 }          // right-half
+        ];
 
-    // ========================================================================
-    // PASS 3: Sub-quadrants (Where Aadhaar QR codes typically reside)
-    // - Bottom half (PVC back, letter bottom)
-    // - Right half (e-Aadhaar)
-    // - Left half (PVC back left)
-    // - Center 75%
-    // ========================================================================
-    if (!rawQr) {
-      const quadrants = [
-        { name: 'bottom-half', x: 0, y: 0.35, w: 1, h: 0.65 },
-        { name: 'right-half', x: 0.35, y: 0, w: 0.65, h: 1 },
-        { name: 'bottom-right', x: 0.35, y: 0.35, w: 0.65, h: 0.65 },
-        { name: 'bottom-left', x: 0, y: 0.35, w: 0.65, h: 0.65 },
-        { name: 'center', x: 0.12, y: 0.12, w: 0.76, h: 0.76 }
-      ];
-
-      for (const q of quadrants) {
-        setupCanvas(0, 1.2, q);
-        rawQr = tryDecodeCanvas();
-        if (rawQr) break;
-
-        // Try 90° on bottom-right and bottom-half
-        if (q.name === 'bottom-half' || q.name === 'bottom-right') {
-          setupCanvas(90, 1.2, q);
-          rawQr = tryDecodeCanvas();
+        for (const q of quadrants) {
+          // Yield to UI thread so browser never freezes
+          await new Promise(r => setTimeout(r, 0));
+          setupCropCanvas(q, 1100);
+          rawQr = await tryNativeBarcodeDetector(canvas) || tryDecodeCanvas();
           if (rawQr) break;
         }
       }
@@ -655,7 +610,7 @@ export async function scanAadhaarQrFromImage(imageSource) {
       return {
         success: false,
         error: 'NO_QR_FOUND',
-        message: 'No readable Aadhaar QR code found in this photo. Please make sure the side with the QR code is uploaded and clearly visible.'
+        message: 'No readable Aadhaar QR code found in this photo.'
       };
     }
 

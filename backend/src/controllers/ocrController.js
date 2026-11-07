@@ -46,14 +46,11 @@ exports.scanIdCard = async (req, res, next) => {
 
     // 2. Resolve Hostel + ownership check
     const { assertHostelAccess, userId } = require('../utils/hostelAccess');
-    let targetHostelId = hostelId || req.user.assignedHostel;
+    const cleanHostelId = (hostelId && hostelId !== 'all' && hostelId !== '[object Object]') ? hostelId : null;
+    let targetHostelId = cleanHostelId || req.user.assignedHostel;
     if (!targetHostelId && req.user.role === 'admin') {
       const myHostels = await Hostel.find({ owner: userId(req.user) });
       if (myHostels.length > 0) targetHostelId = myHostels[0]._id;
-    }
-
-    if (!targetHostelId && req.user.role !== 'superadmin') {
-      return res.status(400).json({ success: false, message: 'Property context required for AI scanning' });
     }
 
     if (targetHostelId && req.user.role !== 'superadmin') {
@@ -67,11 +64,7 @@ exports.scanIdCard = async (req, res, next) => {
     // 3. Check if property has AI OCR explicitly disabled (Superadmin bypasses)
     if (req.user.role !== 'superadmin' && targetHostelId) {
       const hostel = await Hostel.findById(targetHostelId);
-      if (!hostel) {
-        return res.status(404).json({ success: false, message: 'Property not found' });
-      }
-
-      if (hostel.aiOcrEnabled === false) {
+      if (hostel && hostel.aiOcrEnabled === false) {
         return res.status(403).json({
           success: false,
           code: 'AI_OCR_DISABLED',
@@ -132,58 +125,46 @@ exports.scanIdCard = async (req, res, next) => {
       }
     }
 
-    // 6. Fast, concise prompts optimized for token speed and accuracy
-    let prompt = '';
-    if (side === 'front') {
-      prompt = `Extract Indian ${idProofType} front details as JSON:
+    // 6. Unified high-accuracy prompt that extracts all visible ID details regardless of side
+    const prompt = `Extract all visible Indian ${idProofType} card details from this image as JSON:
 {
-  "fullName": "Full name in English title case (e.g. Rahul Sharma)",
-  "idProofNumber": "ID number with standard spaces (e.g. 1234 5678 9012 for Aadhaar)",
-  "gender": "Male or Female or Other",
-  "dateOfBirth": "DD/MM/YYYY or YYYY",
-  "fatherName": "Father or husband name if present, else empty string"
+  "fullName": "Full name of the cardholder in English title case (e.g. Rahul Sharma) if visible, else empty string",
+  "idProofNumber": "12-digit Aadhaar number (e.g. 1234 5678 9012) or ID number if visible, else empty string",
+  "gender": "Male or Female or Other if visible, else empty string",
+  "dateOfBirth": "DD/MM/YYYY or YYYY if visible, else empty string",
+  "address": "Complete clean residential address formatted as single comma-separated line (House No, Street, City, State - PINCODE) if visible, else empty string",
+  "pincode": "6-digit postal PIN code if visible, else empty string",
+  "fatherName": "Father/husband/care-of name (S/O, D/O, W/O, C/O) if visible, else empty string"
 }
 Return ONLY valid JSON.`;
-    } else {
-      prompt = `Extract Indian ${idProofType} back address details as JSON:
-{
-  "address": "Complete clean residential address formatted as single comma-separated line (e.g., House No, Street, City, State - PINCODE)",
-  "pincode": "6-digit postal PIN code (e.g. 452010)",
-  "careOf": "Care of (C/O, S/O, D/O, W/O) person name if present, else empty string"
-}
-Return ONLY valid JSON.`;
-    }
 
     // 7. Helper to clean and normalize extracted JSON
     const cleanOcrOutput = (data) => {
       if (!data || typeof data !== 'object') return {};
-      if (side === 'front') {
-        if (data.idProofNumber) {
-          const digitsOnly = String(data.idProofNumber).replace(/[^0-9]/g, '');
-          if (digitsOnly.length === 12) {
-            data.idProofNumber = `${digitsOnly.slice(0, 4)} ${digitsOnly.slice(4, 8)} ${digitsOnly.slice(8, 12)}`;
-          }
+      if (data.idProofNumber) {
+        const digitsOnly = String(data.idProofNumber).replace(/[^0-9]/g, '');
+        if (digitsOnly.length === 12) {
+          data.idProofNumber = `${digitsOnly.slice(0, 4)} ${digitsOnly.slice(4, 8)} ${digitsOnly.slice(8, 12)}`;
         }
-        if (data.gender) {
-          const g = String(data.gender).toLowerCase();
-          if (g.includes('fe') || g.includes('महिला')) data.gender = 'Female';
-          else if (g.includes('ma') || g.includes('पुरुष')) data.gender = 'Male';
-          else data.gender = 'Other';
-        }
-        if (data.dateOfBirth) {
-          data.dateOfBirth = String(data.dateOfBirth).replace(/^(DOB|Date of Birth|Birth):?\s*/i, '').trim();
-        }
-        if (data.fullName) {
-          data.fullName = String(data.fullName).replace(/^(Name|Full Name):?\s*/i, '').trim();
-        }
-      } else {
-        if (data.pincode) {
-          const m = String(data.pincode).match(/\b\d{6}\b/);
-          if (m) data.pincode = m[0];
-        }
-        if (data.address) {
-          data.address = String(data.address).replace(/^(Address|Permanent Address):?\s*/i, '').trim();
-        }
+      }
+      if (data.gender) {
+        const g = String(data.gender).toLowerCase();
+        if (g.includes('fe') || g.includes('महिला')) data.gender = 'Female';
+        else if (g.includes('ma') || g.includes('पुरुष')) data.gender = 'Male';
+        else if (g.trim()) data.gender = 'Other';
+      }
+      if (data.dateOfBirth) {
+        data.dateOfBirth = String(data.dateOfBirth).replace(/^(DOB|Date of Birth|Birth):?\s*/i, '').trim();
+      }
+      if (data.fullName) {
+        data.fullName = String(data.fullName).replace(/^(Name|Full Name):?\s*/i, '').trim();
+      }
+      if (data.pincode) {
+        const m = String(data.pincode).match(/\b\d{6}\b/);
+        if (m) data.pincode = m[0];
+      }
+      if (data.address) {
+        data.address = String(data.address).replace(/^(Address|Permanent Address):?\s*/i, '').trim();
       }
       return data;
     };
@@ -211,13 +192,13 @@ Return ONLY valid JSON.`;
     let lastErrorText = '';
 
     // 8. PRIMARY ENGINE: Google Gemini Vision AI
-    // Highest accuracy for Indian Aadhaar and Hindi/English documents
+    // Official v1beta production models in priority order
     const candidateModels = [
-      'gemini-3.5-flash-lite',   // 500 RPD free ⭐ (primary high-quota model)
-      'gemini-3.1-flash-lite',   // 500 RPD free ⭐ (secondary high-quota model)
-      'gemini-3-flash',          // 20 RPD fallback
-      'gemini-3.5-flash',        // 20 RPD fallback
-      'gemini-3.7-flash',        // 20 RPD last resort
+      'gemini-2.5-flash',
+      'gemini-2.5-flash-lite',
+      'gemini-2.0-flash',
+      'gemini-2.0-flash-lite',
+      'gemini-flash-latest'
     ];
 
     const geminiPayload = {
@@ -236,7 +217,7 @@ Return ONLY valid JSON.`;
       ],
       generationConfig: {
         temperature: 0.1,
-        maxOutputTokens: 300,
+        maxOutputTokens: 350,
         responseMimeType: "application/json"
       }
     };
@@ -245,12 +226,11 @@ Return ONLY valid JSON.`;
       for (const modelName of candidateModels) {
         try {
           const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-          // 12-second timeout per model for fast failover
           const response = await fetch(geminiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(geminiPayload),
-            signal: AbortSignal.timeout(12000)
+            signal: AbortSignal.timeout(8000)
           });
 
           if (response.ok) {
@@ -263,7 +243,6 @@ Return ONLY valid JSON.`;
           } else {
             lastErrorText = await response.text();
             console.warn(`[OCR] Gemini ${modelName} (${response.status}):`, lastErrorText.slice(0, 120));
-            // Immediately continue to next model on 429, 404, 500, 503
           }
         } catch (err) {
           lastErrorText = err.message;
@@ -272,8 +251,7 @@ Return ONLY valid JSON.`;
       }
     }
 
-    // 9. SECONDARY ENGINE (FALLBACK): Groq Vision (Llama 3.2 Vision on LPU)
-    // Runs when Gemini has 429 quota exhaustion or timeouts
+    // 9. SECONDARY ENGINE (FALLBACK): Groq Vision (Llama 4 Scout / Maverick on LPU)
     let groqApiKey = process.env.GROQ_API_KEY;
     if (!groqApiKey) {
       try {
@@ -283,8 +261,11 @@ Return ONLY valid JSON.`;
     }
 
     if (!extractedData && groqApiKey) {
-      console.log('[OCR] 🔄 Falling back to Groq Llama 3.2 Vision engine...');
-      const groqModels = ['llama-3.2-11b-vision-preview', 'llama-3.2-90b-vision-preview'];
+      console.log('[OCR] 🔄 Falling back to Groq Llama Vision engine...');
+      const groqModels = [
+        'meta-llama/llama-4-scout-17b-16e-instruct',
+        'meta-llama/llama-4-maverick-17b-128e-instruct'
+      ];
       for (const gModel of groqModels) {
         try {
           const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -310,10 +291,10 @@ Return ONLY valid JSON.`;
                 }
               ],
               temperature: 0.1,
-              max_tokens: 300,
+              max_tokens: 350,
               response_format: { type: 'json_object' }
             }),
-            signal: AbortSignal.timeout(10000)
+            signal: AbortSignal.timeout(8000)
           });
 
           if (groqRes.ok) {
