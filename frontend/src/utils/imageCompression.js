@@ -14,9 +14,9 @@ export const compressImage = (file) => {
       let width = image.width;
       let height = image.height;
       
-      // Standard 1600px max dimensions ensures high-density Aadhaar QR codes and fine text remain readable
-      const MAX_WIDTH = 1600;
-      const MAX_HEIGHT = 1600;
+      // 2000px max dimensions + 0.85 quality ensures high-density Aadhaar QR code dots remain crisp
+      const MAX_WIDTH = 2000;
+      const MAX_HEIGHT = 2000;
       
       if (width > height) {
         if (width > MAX_WIDTH) {
@@ -49,7 +49,7 @@ export const compressImage = (file) => {
           lastModified: Date.now(),
         });
         resolve(newFile);
-      }, 'image/jpeg', 0.6); // 60% quality to ensure < 200KB sizes
+      }, 'image/jpeg', 0.85);
     };
     
     image.onerror = (err) => {

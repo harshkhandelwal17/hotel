@@ -44,7 +44,45 @@ exports.scanIdCard = async (req, res, next) => {
       });
     }
 
-    // 2. Verify AI API Keys (Gemini or Groq)
+    // 2. Resolve Hostel + ownership check
+    const { assertHostelAccess, userId } = require('../utils/hostelAccess');
+    const cleanHostelId = (hostelId && hostelId !== 'all' && hostelId !== '[object Object]') ? hostelId : null;
+    let targetHostelId = cleanHostelId || req.user.assignedHostel;
+    if (!targetHostelId && req.user.role === 'admin') {
+      const myHostels = await Hostel.find({ owner: userId(req.user) });
+      if (myHostels.length > 0) targetHostelId = myHostels[0]._id;
+    }
+
+    if (!targetHostelId && req.user.role !== 'superadmin') {
+      return res.status(400).json({ success: false, message: 'Property context required for AI scanning' });
+    }
+
+    if (targetHostelId && req.user.role !== 'superadmin') {
+      try {
+        await assertHostelAccess(req.user, targetHostelId);
+      } catch (accessErr) {
+        return res.status(403).json({ success: false, message: accessErr.message });
+      }
+    }
+
+    // 3. Check if property has AI OCR enabled (Superadmin bypasses)
+    if (req.user.role !== 'superadmin' && targetHostelId) {
+      const hostel = await Hostel.findById(targetHostelId);
+      if (!hostel) {
+        return res.status(404).json({ success: false, message: 'Property not found' });
+      }
+
+      if (!hostel.aiOcrEnabled) {
+        return res.status(403).json({
+          success: false,
+          code: 'AI_OCR_DISABLED',
+          message: `AI Scanner is not enabled for ${hostel.name}. Please contact Super Admin to activate AI features.`,
+          aiOcrEnabled: false
+        });
+      }
+    }
+
+    // 4. Verify AI API Keys (Gemini or Groq)
     let apiKey = process.env.GEMINI_API_KEY;
     let groqApiKey = process.env.GROQ_API_KEY;
     if (!apiKey || !groqApiKey) {

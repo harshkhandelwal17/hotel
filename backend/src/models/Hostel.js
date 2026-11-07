@@ -32,7 +32,7 @@ const hostelSchema = new mongoose.Schema({
   },
   aiOcrEnabled: {
     type: Boolean,
-    default: true
+    default: false
   },
   laundryEnabled: {
     type: Boolean,
