@@ -617,11 +617,14 @@ function applyUnsharpAndNormalize(canvas) {
 }
 
 /**
- * Scans an image for Aadhaar QR code with strict timeout and zero main-thread freeze
+ * Scans an image for Aadhaar QR code with fast multi-pass detection
  * @param {File|Blob|string} imageSource
+ * @param {object} options
+ * @param {string} options.side - 'front' | 'back' | 'auto' (front skips useless multi-angle search)
  * @returns {Promise<{ success: boolean, data?: object, error?: string, message?: string }>}
  */
-export async function scanAadhaarQrFromImage(imageSource) {
+export async function scanAadhaarQrFromImage(imageSource, options = {}) {
+  const side = options.side || 'auto';
   let loaded = null;
   try {
     loaded = await loadSafeImage(imageSource);
@@ -637,7 +640,7 @@ export async function scanAadhaarQrFromImage(imageSource) {
     let rawQr = null;
 
     // ========================================================================
-    // PASS 0: Hardware-Accelerated Native Browser BarcodeDetector (~10ms)
+    // PASS 0: Fast Hardware-Accelerated Native Browser BarcodeDetector (~10ms)
     // ========================================================================
     rawQr = await tryNativeBarcodeDetector(img);
 
@@ -645,9 +648,7 @@ export async function scanAadhaarQrFromImage(imageSource) {
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
     if (!rawQr && ctx) {
-      // IMPORTANT: Aadhaar Secure QR is a Version 25-40 QR (up to 177x177 modules, ~4500 digits).
-      // It needs >= 3px per module. NEVER downscale phone photos below native resolution!
-      const MAX_SIDE = 4200;
+      const MAX_SIDE = 3800;
 
       const drawRegion = (region, scale, angleDeg = 0) => {
         const sx = Math.round(region.x * originalW);
@@ -692,39 +693,46 @@ export async function scanAadhaarQrFromImage(imageSource) {
 
       const FULL = { x: 0, y: 0, w: 1, h: 1 };
       const isPortrait = originalH > originalW * 1.1;
-      const regions = isPortrait
-        ? [
-            FULL,
-            { x: 0.15, y: 0.45, w: 0.75, h: 0.52 }, // bottom-center QR on portrait card
-            { x: 0.15, y: 0.03, w: 0.75, h: 0.52 }, // top-center QR on portrait card
-            { x: 0.35, y: 0.25, w: 0.65, h: 0.75 },
-            { x: 0, y: 0.25, w: 0.65, h: 0.75 }
-          ]
-        : [
-            FULL,
-            { x: 0.38, y: 0.15, w: 0.60, h: 0.75 }, // right side QR on landscape card
-            { x: 0.02, y: 0.15, w: 0.60, h: 0.75 }, // left side QR on landscape card
-            { x: 0.25, y: 0.35, w: 0.75, h: 0.65 },
-            { x: 0.2, y: 0.2, w: 0.6, h: 0.6 }
-          ];
 
-      // 1. Multi-scale pass at 0 deg + primary rotation (270/90 for portrait photos)
-      const primaryAngles = isPortrait ? [270, 90, 0] : [0, 270, 90];
-      const scales = [1, 1.5, 0.75, 2.2];
+      // OPTIMIZATION: Front side of Aadhaar never has a dense QR.
+      // So on front side, run only 1 fast native check (FULL scale 1) and exit in ~80ms.
+      // Back side gets the deep multi-scale + multi-rotation QR scan.
+      if (side === 'front') {
+        if (drawRegion(FULL, 1, 0)) {
+          rawQr = tryDecodeCanvas(false);
+        }
+      } else {
+        const regions = isPortrait
+          ? [
+              FULL,
+              { x: 0.15, y: 0.45, w: 0.75, h: 0.52 }, // bottom-center QR on portrait card
+              { x: 0.15, y: 0.03, w: 0.75, h: 0.52 }, // top-center QR on portrait card
+              { x: 0.35, y: 0.25, w: 0.65, h: 0.75 }
+            ]
+          : [
+              FULL,
+              { x: 0.38, y: 0.15, w: 0.60, h: 0.75 }, // right side QR on landscape card
+              { x: 0.02, y: 0.15, w: 0.60, h: 0.75 }, // left side QR on landscape card
+              { x: 0.25, y: 0.35, w: 0.75, h: 0.65 }
+            ];
 
-      outer:
-      for (const scale of scales) {
-        for (const region of regions) {
-          if (scale > 1.5 && region === FULL && Math.max(originalW, originalH) * scale > 2600) continue;
-          const anglesForRegion = scale === 1 || scale === 1.5 ? primaryAngles : [primaryAngles[0]];
-          for (const angle of anglesForRegion) {
-            await new Promise(resolve => setTimeout(resolve, 0));
-            if (!drawRegion(region, scale, angle)) continue;
-            rawQr = tryDecodeCanvas(scale >= 1.5 && region !== FULL);
-            if (!rawQr && angle !== 0 && region !== FULL) {
-              rawQr = await tryNativeBarcodeDetector(canvas);
+        const primaryAngles = isPortrait ? [270, 90, 0] : [0, 270, 90];
+        const scales = [1, 1.4, 0.75];
+
+        outer:
+        for (const scale of scales) {
+          for (const region of regions) {
+            if (scale > 1 && region === FULL && Math.max(originalW, originalH) * scale > 2400) continue;
+            const anglesForRegion = (scale === 1) ? primaryAngles : [primaryAngles[0]];
+            for (const angle of anglesForRegion) {
+              await new Promise(resolve => setTimeout(resolve, 0));
+              if (!drawRegion(region, scale, angle)) continue;
+              rawQr = tryDecodeCanvas(scale > 1 && region !== FULL);
+              if (!rawQr && angle !== 0 && region !== FULL) {
+                rawQr = await tryNativeBarcodeDetector(canvas);
+              }
+              if (rawQr) break outer;
             }
-            if (rawQr) break outer;
           }
         }
       }
