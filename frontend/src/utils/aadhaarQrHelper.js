@@ -736,7 +736,7 @@ export async function scanAadhaarQrFromImage(imageSource, options = {}) {
         return true;
       };
 
-      const tryDecodeCanvas = (withEnhance = false) => {
+      const tryDecodeCanvas = (withEnhance = true) => {
         let hit = decodeZxing(canvas, false) || decodeJsQR(canvas, false) || decodeZxing(canvas, true);
         if (!hit && withEnhance) {
           applyUnsharpAndNormalize(canvas);
@@ -765,28 +765,29 @@ export async function scanAadhaarQrFromImage(imageSource, options = {}) {
               FULL,
               { x: 0.15, y: 0.45, w: 0.75, h: 0.52 }, // bottom-center QR on portrait card
               { x: 0.15, y: 0.03, w: 0.75, h: 0.52 }, // top-center QR on portrait card
+              { x: 0.25, y: 0.50, w: 0.65, h: 0.48 }, // tight bottom QR crop
               { x: 0.35, y: 0.25, w: 0.65, h: 0.75 }
             ]
           : [
               FULL,
               { x: 0.38, y: 0.15, w: 0.60, h: 0.75 }, // right side QR on landscape card
+              { x: 0.50, y: 0.15, w: 0.50, h: 0.75 }, // tight right side QR crop
               { x: 0.02, y: 0.15, w: 0.60, h: 0.75 }, // left side QR on landscape card
               { x: 0.25, y: 0.35, w: 0.75, h: 0.65 }
             ];
 
-        const primaryAngles = isPortrait ? [270, 90, 0] : [0, 270, 90];
-        const scales = [1, 1.4, 0.75];
+        const primaryAngles = isPortrait ? [270, 90, 0, 180] : [0, 270, 90, 180];
+        const scales = [1, 1.5, 2.0, 0.75];
 
         outer:
         for (const scale of scales) {
           for (const region of regions) {
-            if (scale > 1 && region === FULL && Math.max(originalW, originalH) * scale > 2400) continue;
-            const anglesForRegion = (scale === 1) ? primaryAngles : [primaryAngles[0]];
-            for (const angle of anglesForRegion) {
+            if (scale > 1.5 && region === FULL && Math.max(originalW, originalH) * scale > 3200) continue;
+            for (const angle of primaryAngles) {
               await new Promise(resolve => setTimeout(resolve, 0));
               if (!drawRegion(region, scale, angle)) continue;
-              rawQr = tryDecodeCanvas(scale > 1 && region !== FULL);
-              if (!rawQr && angle !== 0 && region !== FULL) {
+              rawQr = tryDecodeCanvas(true);
+              if (!rawQr && angle !== 0) {
                 rawQr = await tryNativeBarcodeDetector(canvas);
               }
               if (rawQr) break outer;
@@ -797,18 +798,12 @@ export async function scanAadhaarQrFromImage(imageSource, options = {}) {
     }
 
     if (!rawQr) {
-      const longSide = Math.max(originalW, originalH);
-      // Aadhaar Secure QR needs ~500px for the QR alone; a card fills ~1/3 of the frame,
-      // so photos under ~1800px (e.g. WhatsApp-forwarded/compressed) usually cannot be decoded.
-      const tooSmall = longSide < 1800;
       console.info(`[AadhaarQR] No QR decoded. Image ${originalW}x${originalH}px, nativeDetector=${'BarcodeDetector' in window}`);
       return {
         success: false,
-        error: tooSmall ? 'IMAGE_TOO_SMALL' : 'NO_QR_FOUND',
+        error: 'NO_QR_FOUND',
         imageSize: `${originalW}x${originalH}`,
-        message: tooSmall
-          ? `Photo is too small (${originalW}x${originalH}px) - Aadhaar QR is very dense. Use the original camera photo (not WhatsApp/compressed) and keep the QR side close and flat.`
-          : `QR not readable in this photo (${originalW}x${originalH}px). Move closer so the QR fills more of the frame, avoid glare/shadow, and keep the card flat.`
+        message: 'Could not read Aadhaar QR code from this photo. Please hold the camera slightly closer to the QR code and ensure good lighting without reflection.'
       };
     }
 
