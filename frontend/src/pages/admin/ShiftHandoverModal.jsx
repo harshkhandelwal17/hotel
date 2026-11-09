@@ -113,42 +113,42 @@ export default function ShiftHandoverModal({
           {/* Cash Drawer & Net Handover KPI Banner */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 print:grid-cols-3">
             {/* NET CASH IN DRAWER (Final Handover Figure) */}
-            <div className="p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-300 print:bg-white print:border-emerald-600">
-              <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-wider text-emerald-800">
+            <div className="p-4 rounded-2xl bg-white border border-gray-200 shadow-2xs print:bg-white print:border-gray-800">
+              <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-gray-700">
                 <span className="flex items-center gap-1.5"><Banknote size={16} className="text-emerald-600" /> Net Cash in Drawer</span>
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 font-bold text-[10px] rounded">Drawer</span>
               </div>
               <p className="text-2xl sm:text-3xl font-black text-emerald-700 mt-1">₹{netCashInDrawer.toLocaleString('en-IN')}</p>
-              <div className="text-[10px] text-emerald-800 font-bold mt-1 space-y-0.5">
-                <p>Gross Cash In: ₹{cashTotal.toLocaleString('en-IN')}</p>
-                <p className="text-red-600 font-black">- Cash Expenses: ₹{cashExpense.toLocaleString('en-IN')}</p>
-                <p className="text-gray-600 font-medium">(= Actual Cash to Handover)</p>
+              <div className="text-[10px] text-gray-600 font-medium mt-1 space-y-0.5">
+                <p>Gross Cash In: <span className="font-bold text-gray-900">₹{cashTotal.toLocaleString('en-IN')}</span></p>
+                <p className="text-rose-600 font-semibold">- Cash Expenses: ₹{cashExpense.toLocaleString('en-IN')}</p>
+                <p className="text-gray-500 font-medium">(= Actual Physical Cash to Handover)</p>
               </div>
             </div>
 
             {/* UPI / Digital Collection */}
-            <div className="p-4 rounded-2xl bg-purple-50 border-2 border-purple-200 print:bg-white print:border-purple-600">
-              <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-purple-800">
-                <Smartphone size={16} className="text-purple-600" />
-                <span>UPI / Bank (डिजिटल)</span>
+            <div className="p-4 rounded-2xl bg-white border border-gray-200 shadow-2xs print:bg-white print:border-gray-800">
+              <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-gray-700">
+                <span className="flex items-center gap-1.5"><Smartphone size={16} className="text-blue-600" /> UPI Direct (डिजिटल)</span>
+                <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 font-bold text-[10px] rounded">Bank</span>
               </div>
-              <p className="text-2xl sm:text-3xl font-black text-purple-700 mt-1">₹{upiTotal.toLocaleString('en-IN')}</p>
-              <div className="text-[10px] text-purple-700 font-bold mt-1 space-y-0.5">
+              <p className="text-2xl sm:text-3xl font-black text-blue-700 mt-1">₹{upiTotal.toLocaleString('en-IN')}</p>
+              <div className="text-[10px] text-gray-600 font-medium mt-1 space-y-0.5">
                 <p>Direct Bank Deposit (QR / POS)</p>
-                {upiExpense > 0 && <p className="text-red-500 font-bold">- UPI Expenses: ₹{upiExpense.toLocaleString('en-IN')}</p>}
+                {upiExpense > 0 && <p className="text-rose-600 font-semibold">- UPI Expenses: ₹{upiExpense.toLocaleString('en-IN')}</p>}
               </div>
             </div>
 
             {/* Total Net Revenue Position */}
-            <div className="p-4 rounded-2xl bg-gray-900 text-white print:bg-white print:text-black print:border-2 print:border-gray-800">
-              <p className="text-[11px] font-black uppercase tracking-wider text-gray-400 print:text-gray-600">
+            <div className="p-4 rounded-2xl bg-gray-900 text-white print:bg-white print:text-black print:border print:border-gray-800 shadow-sm">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 print:text-gray-600">
                 Net Operating Revenue
               </p>
-              <p className="text-2xl sm:text-3xl font-black text-amber-400 print:text-gray-900 mt-1">
+              <p className="text-2xl sm:text-3xl font-black text-white print:text-gray-900 mt-1">
                 ₹{(totalCollected - totalExpenses).toLocaleString('en-IN')}
               </p>
               <p className="text-[10px] text-gray-400 print:text-gray-600 font-medium mt-1">
-                Total Collections (₹{totalCollected.toLocaleString('en-IN')}) minus all expenses
+                Total Collections (₹{totalCollected.toLocaleString('en-IN')}) minus expenses
               </p>
             </div>
           </div>

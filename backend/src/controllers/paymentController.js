@@ -122,7 +122,7 @@ exports.getPayments = async (req, res, next) => {
       .populate('hostel', 'name').populate('createdBy', 'name role')
       .populate({
         path: 'stay',
-        select: 'checkInDate expectedCheckOutDate room durationOption',
+        select: 'checkInDate expectedCheckOutDate room durationOption occupants coGuests bookingSource bookingNumber totalAmount status',
         populate: { path: 'room', select: 'roomNumber roomType' }
       })
       .sort('-paymentDate')
