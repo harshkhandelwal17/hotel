@@ -562,13 +562,14 @@ async function tryNativeBarcodeDetector(sourceElement) {
 }
 
 /**
- * Applies percentile contrast normalization + 3x3 Unsharp Mask to recover blurred/laminated QR modules
+ * Applies percentile contrast normalization + 3x3 Unsharp Mask + Local Adaptive Binarization
+ * specifically designed to neutralize lamination glare and shadows on Aadhaar QR codes.
  */
 function applyUnsharpAndNormalize(canvas) {
   try {
     const w = canvas.width;
     const h = canvas.height;
-    if (w * h > 2200 * 2200) return;
+    if (w * h > 2400 * 2400) return;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
     const imgData = ctx.getImageData(0, 0, w, h);
@@ -607,6 +608,59 @@ function applyUnsharpAndNormalize(canvas) {
         let val = 5 * norm[i] - norm[i - w] - norm[i + w] - norm[i - 1] - norm[i + 1];
         val = val < 0 ? 0 : val > 255 ? 255 : val;
         const idx = i * 4;
+        d[idx] = val;
+        d[idx + 1] = val;
+        d[idx + 2] = val;
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+  } catch (_) {}
+}
+
+/**
+ * Local adaptive windowed thresholding to eliminate uneven lighting and plastic lamination reflections
+ */
+function applyAdaptiveThreshold(canvas, blockSize = 25, c = 7) {
+  try {
+    const w = canvas.width;
+    const h = canvas.height;
+    if (w * h > 2000 * 2000) return;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return;
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const d = imgData.data;
+
+    // Integral image for O(1) local window mean calculation
+    const integral = new Uint32Array((w + 1) * (h + 1));
+    for (let y = 0; y < h; y++) {
+      let rowSum = 0;
+      const yOffset = (y + 1) * (w + 1);
+      const prevYOffset = y * (w + 1);
+      const imgRowOffset = y * w * 4;
+      for (let x = 0; x < w; x++) {
+        const idx = imgRowOffset + x * 4;
+        const lum = (d[idx] * 306 + d[idx + 1] * 601 + d[idx + 2] * 117) >> 10;
+        rowSum += lum;
+        integral[yOffset + (x + 1)] = integral[prevYOffset + (x + 1)] + rowSum;
+      }
+    }
+
+    const r = Math.floor(blockSize / 2);
+    for (let y = 0; y < h; y++) {
+      const y0 = Math.max(0, y - r);
+      const y1 = Math.min(h, y + r + 1);
+      const rowY0 = y0 * (w + 1);
+      const rowY1 = y1 * (w + 1);
+      const imgRow = y * w * 4;
+      for (let x = 0; x < w; x++) {
+        const x0 = Math.max(0, x - r);
+        const x1 = Math.min(w, x + r + 1);
+        const count = (x1 - x0) * (y1 - y0);
+        const sum = integral[rowY1 + x1] - integral[rowY0 + x1] - integral[rowY1 + x0] + integral[rowY0 + x0];
+        const mean = sum / count;
+        const idx = imgRow + x * 4;
+        const lum = (d[idx] * 306 + d[idx + 1] * 601 + d[idx + 2] * 117) >> 10;
+        const val = lum < (mean - c) ? 0 : 255;
         d[idx] = val;
         d[idx + 1] = val;
         d[idx + 2] = val;
@@ -682,11 +736,15 @@ export async function scanAadhaarQrFromImage(imageSource, options = {}) {
         return true;
       };
 
-      const tryDecodeCanvas = (withSharpen = false) => {
+      const tryDecodeCanvas = (withEnhance = false) => {
         let hit = decodeZxing(canvas, false) || decodeJsQR(canvas, false) || decodeZxing(canvas, true);
-        if (!hit && withSharpen) {
+        if (!hit && withEnhance) {
           applyUnsharpAndNormalize(canvas);
           hit = decodeZxing(canvas, false) || decodeJsQR(canvas, false) || decodeZxing(canvas, true);
+          if (!hit) {
+            applyAdaptiveThreshold(canvas, 29, 6);
+            hit = decodeZxing(canvas, false) || decodeJsQR(canvas, false) || decodeZxing(canvas, true);
+          }
         }
         return hit || null;
       };

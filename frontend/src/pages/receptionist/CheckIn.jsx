@@ -645,34 +645,73 @@ const CheckIn = () => {
     if (!file) return;
 
     originalIdFilesRef.current[`${index}-${side}`] = file;
+
+    // Helper: Safely apply extracted Aadhaar QR details into guest profile
+    const applyQrData = (qrData) => {
+      setGuests(prev => {
+        const updated = [...prev];
+        const g = { ...updated[index] };
+        if (qrData.fullName) g.fullName = qrData.fullName;
+        if (qrData.idProofNumber) {
+          const isMasked = String(qrData.idProofNumber).includes('X');
+          const hasFull12 = /^\d{4}\s?\d{4}\s?\d{4}$/.test(String(g.idProofNumber || '').trim());
+          if (!isMasked || !hasFull12) {
+            g.idProofNumber = qrData.idProofNumber;
+          }
+        }
+        if (qrData.gender) g.gender = qrData.gender;
+        if (qrData.dateOfBirth) g.dateOfBirth = qrData.dateOfBirth;
+        if (qrData.address) g.address = qrData.address;
+        g.idProofType = 'Aadhaar';
+        g.isAadhaarVerified = true;
+        g.aadhaarQrType = qrData.qrType || 'UIDAI Secure QR';
+        updated[index] = g;
+        return updated;
+      });
+    };
+
+    // =========================================================
+    // STEP 1: PARALLEL INSTANT QR SCAN ON UNCOMPRESSED FILE
+    // Runs concurrently with compression & cloud upload (0ms UI wait!)
+    // =========================================================
+    setScanningQr({ index, side });
+    const qrScanPromise = scanAadhaarQrFromImage(file, { side })
+      .catch((err) => {
+        console.log('[CheckIn] Local QR scan notice:', err?.message);
+        return null;
+      });
+
+    // Handle early QR completion without waiting for cloud upload
+    qrScanPromise.then((qrRes) => {
+      if (qrRes && qrRes.success && qrRes.data) {
+        applyQrData(qrRes.data);
+        toast({
+          message: `🛡️ Verified Aadhaar QR Detected! Auto-filled details for ${qrRes.data.fullName}.`,
+          type: 'success'
+        });
+      }
+    }).finally(() => {
+      setScanningQr({ index: null, side: null });
+    });
+
+    // =========================================================
+    // STEP 2: CLOUD UPLOAD & BACKEND STORAGE
+    // =========================================================
     setUploadingImage(true);
 
     try {
-      const compressedFile =
-        await compressImage(file);
-
+      const compressedFile = await compressImage(file);
       const formData = new FormData();
+      formData.append('image', compressedFile);
 
-      formData.append(
-        'image',
-        compressedFile
-      );
-
-      const res = await axios.post(
-        `${API}/api/upload`,
-        formData,
-        {
-          headers: {
-            'Content-Type':
-              'multipart/form-data'
-          }
-        }
-      );
+      const res = await axios.post(`${API}/api/upload`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
 
       const uploadedUrl = res.data.url;
       const resolvedUrl = getFullImageUrl(uploadedUrl);
 
-      // Convert compressedFile to a local data URL for instant CORS-free re-scanning & 0ms backend OCR
+      // Local Data URL for fast instant re-scans without re-downloading
       const localDataUrl = await new Promise((resolve) => {
         const reader = new FileReader();
         reader.onloadend = () => resolve(reader.result || '');
@@ -691,55 +730,12 @@ const CheckIn = () => {
       });
       setUploadingImage(false);
 
-      toast({
-        message: 'Image uploaded! Scanning ID details...',
-        type: 'success'
-      });
+      // Check if early QR scan succeeded
+      const qrRes = await qrScanPromise;
+      const qrProcessed = Boolean(qrRes && qrRes.success && qrRes.data);
 
       // =========================================================
-      // 1. INSTANT LOCAL AADHAAR SECURE QR SCANNER (100% Free & Genuine Check)
-      // =========================================================
-      let qrProcessed = false;
-      setScanningQr({ index, side });
-      try {
-        const qrRes = await scanAadhaarQrFromImage(file, { side });
-        if (qrRes && qrRes.success && qrRes.data) {
-          const qrData = qrRes.data;
-          setGuests(prev => {
-            const updated = [...prev];
-            const g = { ...updated[index] };
-            if (qrData.fullName) g.fullName = qrData.fullName;
-            if (qrData.idProofNumber) {
-              const isMasked = String(qrData.idProofNumber).includes('X');
-              const hasFull12 = /^\d{4}\s?\d{4}\s?\d{4}$/.test(String(g.idProofNumber || '').trim());
-              if (!isMasked || !hasFull12) {
-                g.idProofNumber = qrData.idProofNumber;
-              }
-            }
-            if (qrData.gender) g.gender = qrData.gender;
-            if (qrData.dateOfBirth) g.dateOfBirth = qrData.dateOfBirth;
-            if (qrData.address) g.address = qrData.address;
-            g.idProofType = 'Aadhaar';
-            g.isAadhaarVerified = true;
-            g.aadhaarQrType = qrData.qrType || 'UIDAI Secure QR';
-            updated[index] = g;
-            return updated;
-          });
-
-          qrProcessed = true;
-          toast({
-            message: `🛡️ Verified Aadhaar QR Detected! Auto-filled details for ${qrData.fullName}.`,
-            type: 'success'
-          });
-        }
-      } catch (qrScanErr) {
-        console.log('No QR detected in image:', qrScanErr);
-      } finally {
-        setScanningQr({ index: null, side: null });
-      }
-
-      // =========================================================
-      // 2. AI VISION OCR SCANNING (Only if enabled by Super Admin)
+      // STEP 3: OPTIONAL AI VISION OCR (Only when enabled by Super Admin)
       // =========================================================
       if (!qrProcessed && aiOcrEnabled) {
         setScanningOcr({ index, side });
@@ -793,10 +789,8 @@ const CheckIn = () => {
           }
         } catch (ocrErr) {
           const isAiDisabled = ocrErr?.response?.data?.code === 'AI_OCR_DISABLED';
-          if (isAiDisabled) {
-            console.log('AI OCR is not enabled for this property by Super Admin.');
-          } else {
-            console.warn('AI OCR scan notice:', ocrErr?.response?.data?.message || ocrErr.message);
+          if (!isAiDisabled) {
+            console.warn('[CheckIn] AI OCR notice:', ocrErr?.response?.data?.message || ocrErr.message);
           }
         } finally {
           setScanningOcr({ index: null, side: null });
