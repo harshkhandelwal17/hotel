@@ -1,7 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { format } from 'date-fns';
-import { X, Printer, Banknote, Smartphone, CreditCard, BookOpen, Wallet, CheckCircle, Clock, Building } from 'lucide-react';
+import { X, Printer, Banknote, Smartphone, CreditCard, BookOpen, Wallet, CheckCircle, Clock, Building, TrendingDown, Receipt } from 'lucide-react';
 
 export default function ShiftHandoverModal({
   isOpen,
@@ -9,6 +9,7 @@ export default function ShiftHandoverModal({
   windowLabel = '',
   stats = {},
   payments = [],
+  expenses = [],
   staffBreakdown = [],
   hostelName = 'All Properties'
 }) {
@@ -24,6 +25,14 @@ export default function ShiftHandoverModal({
   const khataTotal = stats.khataTotal || 0;
   const walletTotal = stats.walletTotal || 0;
   const totalCollected = stats.totalCollected || 0;
+
+  const cashExpense = stats.cashExpense || 0;
+  const upiExpense = stats.upiExpense || 0;
+  const totalExpenses = stats.totalExpenses || 0;
+  const netCashInDrawer = stats.netCashInDrawer !== undefined ? stats.netCashInDrawer : (cashTotal - cashExpense);
+
+  const bookingsCount = stats.bookingsCount || 0;
+  const totalGuestsHeadcount = stats.totalGuestsHeadcount || 0;
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto print:p-0 print:bg-white print:static print:z-auto" onClick={onClose}>
@@ -42,7 +51,7 @@ export default function ShiftHandoverModal({
                 Shift Handover & Financial Voucher
               </h2>
               <p className="text-xs text-gray-400 font-medium">
-                Cash drawer tally & payment collection report
+                Cash drawer tally, daily expenses, & payment collection report
               </p>
             </div>
           </div>
@@ -71,7 +80,7 @@ export default function ShiftHandoverModal({
               <Building size={13} /> {hostelName}
             </div>
             <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">
-              Shift Handover & Cash Collection Report
+              Shift Handover & Financial Summary
             </h1>
             <p className="text-xs font-bold text-gray-500 mt-1 flex items-center justify-center gap-1.5">
               <Clock size={13} /> Period: <span className="text-gray-900 font-black">{windowLabel || 'All Time'}</span>
@@ -81,92 +90,137 @@ export default function ShiftHandoverModal({
             </p>
           </div>
 
-          {/* Cash Drawer & Collection KPI Banner */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 print:grid-cols-3">
-            {/* Cash in Hand */}
-            <div className="p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-200 print:bg-white print:border-emerald-600">
-              <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-emerald-800">
-                <Banknote size={15} className="text-emerald-600" />
-                <span>Cash in Hand (नकद)</span>
-              </div>
-              <p className="text-2xl font-black text-emerald-700 mt-1">₹{cashTotal.toLocaleString('en-IN')}</p>
-              <p className="text-[10px] text-emerald-600/80 font-bold mt-0.5">Physical cash in drawer</p>
+          {/* Operational Metrics Banner: Bookings, Headcount, Payments */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 print:grid-cols-4 text-center">
+            <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 print:bg-white">
+              <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">Bookings / Stays</p>
+              <p className="text-xl font-black text-gray-900 mt-0.5">{bookingsCount}</p>
             </div>
-
-            {/* UPI / Online */}
-            <div className="p-4 rounded-2xl bg-purple-50 border-2 border-purple-200 print:bg-white print:border-purple-600">
-              <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-purple-800">
-                <Smartphone size={15} className="text-purple-600" />
-                <span>UPI / Online (डिजिटल)</span>
-              </div>
-              <p className="text-2xl font-black text-purple-700 mt-1">₹{upiTotal.toLocaleString('en-IN')}</p>
-              <p className="text-[10px] text-purple-600/80 font-bold mt-0.5">Bank / QR Code receipts</p>
+            <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 print:bg-white">
+              <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">Total Head Count</p>
+              <p className="text-xl font-black text-indigo-700 mt-0.5">{totalGuestsHeadcount} Guests</p>
             </div>
-
-            {/* Total Inflow */}
-            <div className="p-4 rounded-2xl bg-gray-900 text-white border-2 border-gray-900 print:bg-white print:text-black print:border-black">
-              <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-amber-400 print:text-black">
-                <CheckCircle size={15} />
-                <span>Total Collected</span>
-              </div>
-              <p className="text-2xl font-black mt-1">₹{totalCollected.toLocaleString('en-IN')}</p>
-              <p className="text-[10px] text-gray-400 font-bold mt-0.5 print:text-gray-600">Gross revenue inflow</p>
+            <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 print:bg-white">
+              <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">Total Collection</p>
+              <p className="text-xl font-black text-emerald-700 mt-0.5">₹{totalCollected.toLocaleString('en-IN')}</p>
             </div>
-
-            {/* Card / Bank */}
-            {cardTotal > 0 && (
-              <div className="p-3.5 rounded-2xl bg-blue-50 border border-blue-200">
-                <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-blue-800">
-                  <CreditCard size={14} className="text-blue-600" />
-                  <span>Card / POS Machine</span>
-                </div>
-                <p className="text-xl font-black text-blue-700 mt-1">₹{cardTotal.toLocaleString('en-IN')}</p>
-              </div>
-            )}
-
-            {/* Khata Credit */}
-            {khataTotal > 0 && (
-              <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200">
-                <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-amber-800">
-                  <BookOpen size={14} className="text-amber-600" />
-                  <span>Billed to Khata (उधार)</span>
-                </div>
-                <p className="text-xl font-black text-amber-800 mt-1">₹{khataTotal.toLocaleString('en-IN')}</p>
-              </div>
-            )}
-
-            {/* Wallet Advance Used */}
-            {walletTotal > 0 && (
-              <div className="p-3.5 rounded-2xl bg-teal-50 border border-teal-200">
-                <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-teal-800">
-                  <Wallet size={14} className="text-teal-600" />
-                  <span>Wallet Advance Used</span>
-                </div>
-                <p className="text-xl font-black text-teal-800 mt-1">₹{walletTotal.toLocaleString('en-IN')}</p>
-              </div>
-            )}
+            <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 print:bg-white">
+              <p className="text-[10px] font-black uppercase tracking-wider text-red-600">Total Expenses</p>
+              <p className="text-xl font-black text-red-600 mt-0.5">-₹{totalExpenses.toLocaleString('en-IN')}</p>
+            </div>
           </div>
 
-          {/* Staff-wise Collection Breakdown */}
+          {/* Cash Drawer & Net Handover KPI Banner */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 print:grid-cols-3">
+            {/* NET CASH IN DRAWER (Final Handover Figure) */}
+            <div className="p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-300 print:bg-white print:border-emerald-600">
+              <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-wider text-emerald-800">
+                <span className="flex items-center gap-1.5"><Banknote size={16} className="text-emerald-600" /> Net Cash in Drawer</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              </div>
+              <p className="text-2xl sm:text-3xl font-black text-emerald-700 mt-1">₹{netCashInDrawer.toLocaleString('en-IN')}</p>
+              <div className="text-[10px] text-emerald-800 font-bold mt-1 space-y-0.5">
+                <p>Gross Cash In: ₹{cashTotal.toLocaleString('en-IN')}</p>
+                <p className="text-red-600 font-black">- Cash Expenses: ₹{cashExpense.toLocaleString('en-IN')}</p>
+                <p className="text-gray-600 font-medium">(= Actual Cash to Handover)</p>
+              </div>
+            </div>
+
+            {/* UPI / Digital Collection */}
+            <div className="p-4 rounded-2xl bg-purple-50 border-2 border-purple-200 print:bg-white print:border-purple-600">
+              <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-purple-800">
+                <Smartphone size={16} className="text-purple-600" />
+                <span>UPI / Bank (डिजिटल)</span>
+              </div>
+              <p className="text-2xl sm:text-3xl font-black text-purple-700 mt-1">₹{upiTotal.toLocaleString('en-IN')}</p>
+              <div className="text-[10px] text-purple-700 font-bold mt-1 space-y-0.5">
+                <p>Direct Bank Deposit (QR / POS)</p>
+                {upiExpense > 0 && <p className="text-red-500 font-bold">- UPI Expenses: ₹{upiExpense.toLocaleString('en-IN')}</p>}
+              </div>
+            </div>
+
+            {/* Total Net Revenue Position */}
+            <div className="p-4 rounded-2xl bg-gray-900 text-white print:bg-white print:text-black print:border-2 print:border-gray-800">
+              <p className="text-[11px] font-black uppercase tracking-wider text-gray-400 print:text-gray-600">
+                Net Operating Revenue
+              </p>
+              <p className="text-2xl sm:text-3xl font-black text-amber-400 print:text-gray-900 mt-1">
+                ₹{(totalCollected - totalExpenses).toLocaleString('en-IN')}
+              </p>
+              <p className="text-[10px] text-gray-400 print:text-gray-600 font-medium mt-1">
+                Total Collections (₹{totalCollected.toLocaleString('en-IN')}) minus all expenses
+              </p>
+            </div>
+          </div>
+
+          {/* Daily Expenses Breakdown Section */}
+          {expenses && expenses.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-black uppercase tracking-wider text-red-700 flex items-center gap-1.5">
+                  <TrendingDown size={14} /> Recorded Expenses in Period ({expenses.length})
+                </h3>
+                <span className="text-xs font-black text-red-600">Total: -₹{totalExpenses.toLocaleString('en-IN')}</span>
+              </div>
+              <div className="border border-red-100 rounded-2xl overflow-hidden">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-red-50/60 border-b border-red-100 text-[10px] font-black text-red-800 uppercase">
+                    <tr>
+                      <th className="py-2 px-3">Date / Time</th>
+                      <th className="py-2 px-3">Expense Title</th>
+                      <th className="py-2 px-3">Category</th>
+                      <th className="py-2 px-3">Method</th>
+                      <th className="py-2 px-3 text-right">Amount</th>
+                      <th className="py-2 px-3">Added By</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 text-[11px]">
+                    {expenses.slice(0, 30).map((exp, idx) => (
+                      <tr key={exp._id || idx} className="hover:bg-red-50/20">
+                        <td className="py-1.5 px-3 font-mono text-gray-600 whitespace-nowrap">
+                          {format(new Date(exp.expenseDate || exp.createdAt), 'dd MMM, hh:mm a')}
+                        </td>
+                        <td className="py-1.5 px-3 font-bold text-gray-900">{exp.title}</td>
+                        <td className="py-1.5 px-3 text-gray-500">{exp.category}</td>
+                        <td className="py-1.5 px-3">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            exp.paymentMethod === 'Cash' ? 'bg-amber-100 text-amber-800' : 'bg-purple-100 text-purple-800'
+                          }`}>
+                            {exp.paymentMethod}
+                          </span>
+                        </td>
+                        <td className="py-1.5 px-3 text-right font-black text-red-600 font-mono">
+                          -₹{Number(exp.amount).toLocaleString('en-IN')}
+                        </td>
+                        <td className="py-1.5 px-3 text-gray-500">{exp.createdBy?.name || 'Staff'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Staff Breakdown Table (if multiple staff) */}
           {staffBreakdown && staffBreakdown.length > 0 && (
             <div className="space-y-2">
               <h3 className="text-xs font-black uppercase tracking-wider text-gray-600">
-                Staff / Receptionist Cash Handover Tally
+                Staff-Wise Collections ({staffBreakdown.length} Receptionists)
               </h3>
               <div className="border border-gray-200 rounded-2xl overflow-hidden">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-gray-100/80 border-b border-gray-200 font-black text-gray-700 uppercase tracking-wider text-[10px]">
                     <tr>
-                      <th className="py-2.5 px-4">Staff Member</th>
-                      <th className="py-2.5 px-4">Role</th>
-                      <th className="py-2.5 px-4 text-right">Cash Collected</th>
-                      <th className="py-2.5 px-4 text-right">UPI Collected</th>
-                      <th className="py-2.5 px-4 text-right">Total Handed Over</th>
+                      <th className="py-2 px-4">Staff Name</th>
+                      <th className="py-2 px-4">Role</th>
+                      <th className="py-2 px-4 text-right">Cash In</th>
+                      <th className="py-2 px-4 text-right">UPI In</th>
+                      <th className="py-2 px-4 text-right">Total In</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100 font-bold text-gray-800">
-                    {staffBreakdown.map((s) => (
-                      <tr key={s.id} className="hover:bg-gray-50/60">
+                  <tbody className="divide-y divide-gray-100 text-[11px]">
+                    {staffBreakdown.map((s, idx) => (
+                      <tr key={s.id || idx} className="hover:bg-gray-50/60">
                         <td className="py-2.5 px-4 font-black">{s.name}</td>
                         <td className="py-2.5 px-4 text-gray-500 capitalize">{s.role}</td>
                         <td className="py-2.5 px-4 text-right font-black text-emerald-700">₹{(s.cash || 0).toLocaleString('en-IN')}</td>
@@ -250,50 +304,29 @@ export default function ShiftHandoverModal({
             )}
           </div>
 
-          {/* Verification & Signature Section (Crucial for Cash drawer shift change) */}
+          {/* Verification & Signature Section */}
           <div className="pt-8 border-t-2 border-dashed border-gray-300 grid grid-cols-2 gap-8 text-xs font-bold text-gray-700">
             <div>
               <p className="text-[10px] font-black uppercase tracking-wider text-gray-400 mb-8">
-                Physical Cash Drawer Handed Over By:
+                Physical Cash Handed Over By:
               </p>
               <div className="border-t border-gray-400 pt-1.5 flex justify-between items-center">
                 <span>Staff / Receptionist Signature</span>
-                <span className="text-gray-400 font-normal">Date & Time</span>
+                <span className="text-gray-400 text-[10px]">Date: ___/___/___</span>
               </div>
             </div>
 
             <div>
               <p className="text-[10px] font-black uppercase tracking-wider text-gray-400 mb-8">
-                Cash Count Verified & Received By:
+                Cash Received & Verified By:
               </p>
               <div className="border-t border-gray-400 pt-1.5 flex justify-between items-center">
-                <span>Manager / Owner Signature</span>
-                <span className="text-gray-400 font-normal">Cash Tally Matched ✓</span>
+                <span>Next Shift / Admin Signature</span>
+                <span className="text-gray-400 text-[10px]">Amount: ₹{netCashInDrawer.toLocaleString('en-IN')}</span>
               </div>
             </div>
           </div>
 
-        </div>
-
-        {/* Modal Footer (Hidden on print) */}
-        <div className="p-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between shrink-0 print:hidden">
-          <span className="text-xs text-gray-500 font-medium">
-            Cash Drawer Total to count: <strong className="text-emerald-700 font-black">₹{cashTotal.toLocaleString('en-IN')}</strong>
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold text-xs rounded-xl transition-colors cursor-pointer"
-            >
-              Close
-            </button>
-            <button
-              onClick={handlePrint}
-              className="px-5 py-2 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-transform active:scale-95 cursor-pointer shadow-md flex items-center gap-1.5"
-            >
-              <Printer size={15} /> Print Shift Handover
-            </button>
-          </div>
         </div>
       </div>
     </div>,

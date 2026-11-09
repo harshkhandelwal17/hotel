@@ -1,22 +1,27 @@
 import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth, parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
-import { Search, Download, TrendingUp, PieChart, Users, Receipt, ArrowRight, ShieldCheck, Trash, Shirt, BookOpen, Wallet, Share2, Clock, Banknote, CheckCircle, Building, Sparkles } from 'lucide-react';
+import { Search, Download, TrendingUp, TrendingDown, PieChart, Users, Receipt, ArrowRight, ShieldCheck, Trash, Shirt, BookOpen, Wallet, Share2, Clock, Banknote, CheckCircle, Building, Sparkles, PlusCircle } from 'lucide-react';
 import { useOutletContext, Link } from 'react-router-dom';
 import PoliceReportModal from './PoliceReportModal';
 import ShiftHandoverModal from './ShiftHandoverModal';
+import ExpenseModal from './ExpenseModal';
+import { useToast } from '../../components/ui/Toast';
 
 const Reports = () => {
+  const toast = useToast();
   const [stays, setStays] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [expenses, setExpenses] = useState([]);
   const [laundryOrders, setLaundryOrders] = useState([]);
   const [hostels, setHostels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showPoliceModal, setShowPoliceModal] = useState(false);
   const [showHandoverModal, setShowHandoverModal] = useState(false);
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
   
-  // Tabs
-  const [activeTab, setActiveTab] = useState('bookings'); // bookings, transactions, laundry, khata
+  // Tabs: bookings, transactions, expenses, laundry, khata
+  const [activeTab, setActiveTab] = useState('bookings');
 
   // Khata Summary
   const [khataSummary, setKhataSummary] = useState({
@@ -39,6 +44,9 @@ const Reports = () => {
   const { globalProperty } = useOutletContext() || { globalProperty: 'all' };
   const [hostelFilter, setHostelFilter] = useState(globalProperty || 'all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState('all');
+  const [expenseCategoryFilter, setExpenseCategoryFilter] = useState('all');
+  const [staffFilter, setStaffFilter] = useState('all');
 
   useEffect(() => {
     if (globalProperty) setHostelFilter(globalProperty);
@@ -47,16 +55,18 @@ const Reports = () => {
   async function fetchData() {
     try {
       setLoading(true);
-      const [staysRes, hostelsRes, paymentsRes, laundryRes, khataRes] = await Promise.all([
+      const [staysRes, hostelsRes, paymentsRes, expensesRes, laundryRes, khataRes] = await Promise.all([
         axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/stays'),
         axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/hostels'),
         axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/payments'),
+        axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/expenses').catch(() => ({ data: { data: [] } })),
         axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/laundry').catch(() => ({ data: { data: [] } })),
         axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/guests/khata/summary').catch(() => ({ data: { data: { totalMarketDue: 0, totalAdvanceHeld: 0, netBalance: 0, customers: [] } } }))
       ]);
-      setStays(staysRes.data.data);
-      setHostels(hostelsRes.data.data);
-      setPayments(paymentsRes.data.data);
+      setStays(staysRes.data.data || []);
+      setHostels(hostelsRes.data.data || []);
+      setPayments(paymentsRes.data.data || []);
+      setExpenses(expensesRes?.data?.data || []);
       setLaundryOrders(laundryRes?.data?.data || []);
       if (khataRes?.data?.data) {
         setKhataSummary(khataRes.data.data);
@@ -71,9 +81,6 @@ const Reports = () => {
   useEffect(() => {
     fetchData();
   }, []);
-
-  const [paymentMethodFilter, setPaymentMethodFilter] = useState('all');
-  const [staffFilter, setStaffFilter] = useState('all');
 
   // Extract list of all staff / receptionists who handled stays or payments
   const staffList = useMemo(() => {
@@ -188,12 +195,10 @@ const Reports = () => {
   // Filter Stays
   const filteredStays = useMemo(() => {
     return stays.filter(stay => {
-      // 1. Property Filter
       if (hostelFilter !== 'all' && stay.hostel?._id !== hostelFilter && stay.hostel !== hostelFilter) {
         return false;
       }
       
-      // 2. Search Filter
       const searchStr = searchQuery.toLowerCase();
       if (searchStr && !stay.guest?.fullName?.toLowerCase().includes(searchStr) && 
           !stay.room?.roomNumber?.toLowerCase().includes(searchStr) &&
@@ -201,13 +206,11 @@ const Reports = () => {
         return false;
       }
 
-      // 3. Date & Time Filter (Based on check-in date/time)
       if (activeDateTimeRange) {
         const date = new Date(stay.checkInDate);
         if (date < activeDateTimeRange.start || date > activeDateTimeRange.end) return false;
       }
 
-      // 4. Staff Filter
       if (staffFilter !== 'all') {
         const creatorId = stay.createdBy?._id || (typeof stay.createdBy === 'string' ? stay.createdBy : null);
         if (creatorId !== staffFilter) return false;
@@ -220,12 +223,10 @@ const Reports = () => {
   // Filter Payments
   const filteredPayments = useMemo(() => {
     return payments.filter(payment => {
-      // 1. Property Filter
       if (hostelFilter !== 'all' && payment.hostel?._id !== hostelFilter && payment.hostel !== hostelFilter) {
         return false;
       }
       
-      // 2. Search Filter
       const searchStr = searchQuery.toLowerCase();
       if (searchStr && !payment.guest?.fullName?.toLowerCase().includes(searchStr) && 
           !payment.stay?.room?.roomNumber?.toLowerCase().includes(searchStr) &&
@@ -233,19 +234,16 @@ const Reports = () => {
         return false;
       }
 
-      // 3. Payment Method Filter
       if (paymentMethodFilter !== 'all') {
         const method = (payment.paymentMethod || '').toLowerCase();
         if (method !== paymentMethodFilter.toLowerCase()) return false;
       }
 
-      // 4. Date & Time Filter (Based on payment timestamp)
       if (activeDateTimeRange) {
         const date = new Date(payment.paymentDate);
         if (date < activeDateTimeRange.start || date > activeDateTimeRange.end) return false;
       }
 
-      // 5. Staff / Receptionist Filter
       if (staffFilter !== 'all') {
         const creatorId = payment.createdBy?._id || (typeof payment.createdBy === 'string' ? payment.createdBy : null);
         if (creatorId !== staffFilter) return false;
@@ -255,15 +253,45 @@ const Reports = () => {
     }).sort((a, b) => new Date(b.paymentDate) - new Date(a.paymentDate));
   }, [payments, hostelFilter, searchQuery, paymentMethodFilter, activeDateTimeRange, staffFilter]);
 
+  // Filter Expenses
+  const filteredExpenses = useMemo(() => {
+    return expenses.filter(exp => {
+      if (hostelFilter !== 'all' && exp.hostel?._id !== hostelFilter && exp.hostel !== hostelFilter) {
+        return false;
+      }
+
+      const searchStr = searchQuery.toLowerCase();
+      if (searchStr && !exp.title?.toLowerCase().includes(searchStr) &&
+          !exp.category?.toLowerCase().includes(searchStr) &&
+          !exp.notes?.toLowerCase().includes(searchStr)) {
+        return false;
+      }
+
+      if (expenseCategoryFilter !== 'all') {
+        if (exp.category !== expenseCategoryFilter) return false;
+      }
+
+      if (paymentMethodFilter !== 'all') {
+        const method = (exp.paymentMethod || 'Cash').toLowerCase();
+        if (method !== paymentMethodFilter.toLowerCase()) return false;
+      }
+
+      if (activeDateTimeRange) {
+        const date = new Date(exp.expenseDate || exp.createdAt);
+        if (date < activeDateTimeRange.start || date > activeDateTimeRange.end) return false;
+      }
+
+      return true;
+    }).sort((a, b) => new Date(b.expenseDate || b.createdAt) - new Date(a.expenseDate || a.createdAt));
+  }, [expenses, hostelFilter, searchQuery, expenseCategoryFilter, paymentMethodFilter, activeDateTimeRange]);
+
   // Filter Laundry Orders
   const filteredLaundryOrders = useMemo(() => {
     return laundryOrders.filter(order => {
-      // 1. Property Filter
       if (hostelFilter !== 'all' && order.hostel?._id !== hostelFilter && order.hostel !== hostelFilter) {
         return false;
       }
       
-      // 2. Search Filter
       const searchStr = searchQuery.toLowerCase();
       if (searchStr && 
           !order.orderNumber?.toLowerCase().includes(searchStr) && 
@@ -272,7 +300,6 @@ const Reports = () => {
         return false;
       }
 
-      // 3. Date & Time Filter (Based on sentDate or createdAt)
       if (activeDateTimeRange) {
         const date = new Date(order.sentDate || order.createdAt);
         if (date < activeDateTimeRange.start || date > activeDateTimeRange.end) return false;
@@ -282,14 +309,18 @@ const Reports = () => {
     }).sort((a, b) => new Date(b.sentDate || b.createdAt) - new Date(a.sentDate || a.createdAt));
   }, [laundryOrders, hostelFilter, searchQuery, activeDateTimeRange]);
 
-  // Calculate Financial Stats
+  // Comprehensive Financial & Operational Stats
   const stats = useMemo(() => {
     let grossBooking = 0;
     let totalCommission = 0;
+    let totalOccupantsHeadcount = 0;
     
     filteredStays.forEach(stay => {
       grossBooking += (stay.totalAmount || 0);
       totalCommission += (stay.commissionAmount || 0);
+      const occupants = Number(stay.occupants) || 1;
+      const coGuestsCount = Array.isArray(stay.coGuests) ? stay.coGuests.length : 0;
+      totalOccupantsHeadcount += Math.max(occupants, coGuestsCount + 1);
     });
 
     let totalLaundryBilled = 0;
@@ -306,8 +337,20 @@ const Reports = () => {
       totalPiecesMissing += (order.totalPiecesMissing || 0);
     });
 
-    // Net Profit = Gross Bookings - Broker Commissions - Laundry Expenses
-    const netProfit = grossBooking - totalCommission - totalLaundryExpense;
+    // Expenses Calculation
+    let totalExpenses = 0;
+    let cashExpense = 0;
+    let upiExpense = 0;
+    let cardExpense = 0;
+
+    filteredExpenses.forEach(exp => {
+      const amt = Number(exp.amount) || 0;
+      totalExpenses += amt;
+      const m = (exp.paymentMethod || 'Cash').toLowerCase();
+      if (m === 'cash') cashExpense += amt;
+      else if (m === 'upi') upiExpense += amt;
+      else cardExpense += amt;
+    });
 
     let totalCollected = 0;
     let cashTotal = 0;
@@ -354,15 +397,28 @@ const Reports = () => {
     });
 
     const staffBreakdown = Object.values(staffCollectionMap).sort((a, b) => b.total - a.total);
+
+    // CRITICAL: Net Cash In Drawer = Total Cash Collected - Cash Expenses
+    const netCashInDrawer = cashTotal - cashExpense;
+
+    // Net Profit = Gross Bookings - Broker Commissions - Laundry Expenses - Daily Expenses
+    const netProfit = grossBooking - totalCommission - totalLaundryExpense - totalExpenses;
     
     return {
       grossBooking,
+      bookingsCount: filteredStays.length,
+      totalGuestsHeadcount: totalOccupantsHeadcount,
       totalCommission,
       totalLaundryExpense,
       totalLaundryBilled,
       pendingLaundryDue,
       totalPiecesSent,
       totalPiecesMissing,
+      totalExpenses,
+      cashExpense,
+      upiExpense,
+      cardExpense,
+      netCashInDrawer,
       netProfit,
       totalCollected,
       cashTotal,
@@ -372,7 +428,7 @@ const Reports = () => {
       khataTotal,
       staffBreakdown
     };
-  }, [filteredStays, filteredPayments, filteredLaundryOrders]);
+  }, [filteredStays, filteredPayments, filteredExpenses, filteredLaundryOrders]);
 
   const filteredKhataCustomers = useMemo(() => {
     let list = khataSummary.customers || [];
@@ -395,43 +451,94 @@ const Reports = () => {
     return list;
   }, [khataSummary, hostelFilter, khataTypeFilter, searchQuery]);
 
+  // Comprehensive Detailed CSV Export with Summary Dashboard on Top
   const downloadCSV = () => {
+    const periodLabel = activeDateTimeRange?.label || (dateFilter === 'all' ? 'All Time' : dateFilter);
+    const hostelLabel = hostels.find(h => h._id === hostelFilter)?.name || (hostelFilter === 'all' ? 'All Properties' : 'Hotel Property');
+    
     let csvContent = "";
+
+    // 1. EXECUTIVE SUMMARY BLOCK AT THE TOP OF EXCEL/CSV
+    const summaryBlock = [
+      `"=== HOTEL FINANCIAL & OPERATIONAL REPORT ==="`,
+      `"Property","${hostelLabel}"`,
+      `"Period","${periodLabel}"`,
+      `"Report Generated On","${format(new Date(), 'dd MMM yyyy, hh:mm a')}"`,
+      `""`,
+      `"--- KEY METRICS & REVENUE SUMMARY ---"`,
+      `"Total Bookings Count",${stats.bookingsCount}`,
+      `"Total Guests Headcount",${stats.totalGuestsHeadcount}`,
+      `"Gross Booking Value",${stats.grossBooking}`,
+      `"Broker Commissions Paid",${stats.totalCommission}`,
+      `"Total Expenses Deducted",${stats.totalExpenses}`,
+      `"Net Operating Profit",${stats.netProfit}`,
+      `""`,
+      `"--- CASH DRAWER & COLLECTION TALLY ---"`,
+      `"Gross Cash Inflow",${stats.cashTotal}`,
+      `"Cash Expenses Outflow",-${stats.cashExpense}`,
+      `"NET CASH IN HAND (DRAWER HANDOVER)",${stats.netCashInDrawer}`,
+      `"UPI / Bank Digital Collections",${stats.upiTotal}`,
+      `"Card / POS Collections",${stats.cardTotal}`,
+      `"Wallet / Khata Collections",${stats.walletTotal + stats.khataTotal}`,
+      `"TOTAL GROSS COLLECTIONS",${stats.totalCollected}`,
+      `""`,
+      `"============================================================"`,
+      `""`
+    ].join('\n');
+
     if (activeTab === 'bookings') {
-      const headers = ['Check-In Date', 'Guest Name', 'Room No', 'Booking Amount', 'Broker Name', 'Commission Paid', 'Laundry Cost Deducted', 'Net Profit', 'Total Collected', 'Status'];
+      const headers = ['Check-In Date', 'Guest Name', 'Headcount', 'Room No', 'Booking Amount', 'Broker Name', 'Commission Paid', 'Laundry Expense', 'Net Profit', 'Total Collected', 'Status'];
       const csvData = filteredStays.map(stay => {
         const net = (stay.totalAmount || 0) - (stay.commissionAmount || 0);
-        return `"${format(new Date(stay.checkInDate), 'dd MMM yyyy')}","${stay.guest?.fullName || 'N/A'}","${stay.room?.roomNumber || 'N/A'}",${stay.totalAmount || 0},"${stay.commissionTo || ''}",${stay.commissionAmount || 0},0,${net},${stay.paidAmount || 0},"${stay.status}"`;
+        const occupants = stay.occupants || (Array.isArray(stay.coGuests) ? stay.coGuests.length + 1 : 1);
+        return `"${format(new Date(stay.checkInDate), 'dd MMM yyyy')}","${stay.guest?.fullName || 'N/A'}",${occupants},"${stay.room?.roomNumber || 'N/A'}",${stay.totalAmount || 0},"${stay.commissionTo || ''}",${stay.commissionAmount || 0},0,${net},${stay.paidAmount || 0},"${stay.status}"`;
       });
-      csvContent = [headers.join(','), ...csvData].join('\n');
+      csvContent = `${summaryBlock}\n"--- BOOKING LEDGER ENTRIES ---"\n` + [headers.join(','), ...csvData].join('\n');
     } else if (activeTab === 'transactions') {
-      const headers = ['Date', 'Guest Name', 'Room No', 'Amount', 'Method', 'Note', 'Collected By'];
+      const headers = ['Date & Time', 'Guest Name', 'Room No', 'Amount', 'Payment Method', 'Collected By', 'Note / Remark'];
       const csvData = filteredPayments.map(p => {
-        return `"${format(new Date(p.paymentDate), 'dd MMM yyyy hh:mm a')}","${p.guest?.fullName || 'N/A'}","${p.stay?.room?.roomNumber || 'N/A'}",${p.amount},"${p.paymentMethod}","${p.note || ''}","${p.createdBy?.name || 'Unknown'}"`;
+        return `"${format(new Date(p.paymentDate), 'dd MMM yyyy hh:mm a')}","${p.guest?.fullName || 'N/A'}","${p.stay?.room?.roomNumber || 'N/A'}",${p.amount},"${p.paymentMethod}","${p.createdBy?.name || 'Reception Staff'}","${(p.note || '').replace(/"/g, '""')}"`;
       });
-      csvContent = [headers.join(','), ...csvData].join('\n');
+      csvContent = `${summaryBlock}\n"--- CASH FLOW / PAYMENT RECEIPTS ---"\n` + [headers.join(','), ...csvData].join('\n');
+    } else if (activeTab === 'expenses') {
+      const headers = ['Expense Date', 'Expense Title', 'Category', 'Payment Method', 'Amount Deducted', 'Recorded By', 'Notes'];
+      const csvData = filteredExpenses.map(e => {
+        return `"${format(new Date(e.expenseDate || e.createdAt), 'dd MMM yyyy')}","${e.title || ''}","${e.category || ''}","${e.paymentMethod || 'Cash'}",${e.amount || 0},"${e.createdBy?.name || 'Staff'}","${(e.notes || '').replace(/"/g, '""')}"`;
+      });
+      csvContent = `${summaryBlock}\n"--- DAILY EXPENSES DEDUCTION REGISTER ---"\n` + [headers.join(','), ...csvData].join('\n');
     } else if (activeTab === 'laundry') {
       const headers = ['Order Number', 'Date Sent', 'Vendor Name', 'Vendor Phone', 'Pieces Sent', 'Pieces Received', 'Pieces Missing', 'Total Bill', 'Paid (Expense)', 'Due Amount', 'Payment Status', 'Status'];
       const csvData = filteredLaundryOrders.map(o => {
         const due = Math.max(0, (o.totalAmount || 0) - (o.paidAmount || 0));
         return `"${o.orderNumber || ''}","${format(new Date(o.sentDate || o.createdAt), 'dd MMM yyyy')}","${o.vendorName || ''}","${o.vendorPhone || ''}",${o.totalPiecesSent || 0},${o.totalPiecesReceived || 0},${o.totalPiecesMissing || 0},${o.totalAmount || 0},${o.paidAmount || 0},${due},"${o.paymentStatus || ''}","${o.status || ''}"`;
       });
-      csvContent = [headers.join(','), ...csvData].join('\n');
+      csvContent = `${summaryBlock}\n"--- LAUNDRY EXPENSE & LINEN LOG ---"\n` + [headers.join(','), ...csvData].join('\n');
     } else if (activeTab === 'khata') {
       const headers = ['Guest Name', 'Mobile Number', 'ID Proof', 'Account Status', 'Due Amount (Receivable)', 'Advance Amount (Held)', 'Net Balance'];
       const csvData = (khataSummary.customers || []).map(c => {
         return `"${c.fullName || ''}","${c.mobileNumber || ''}","${c.idProofType || ''} ${c.idProofNumber || ''}","${c.status || ''}",${c.dueAmount || 0},${c.advanceAmount || 0},${c.ledgerBalance || 0}`;
       });
-      csvContent = [headers.join(','), ...csvData].join('\n');
+      csvContent = `${summaryBlock}\n"--- KHATA & CREDIT LEDGER ---"\n` + [headers.join(','), ...csvData].join('\n');
     }
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.setAttribute('download', `${activeTab}_report_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+    link.setAttribute('download', `Finance_Report_${activeTab}_${format(new Date(), 'yyyy-MM-dd')}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleDeleteExpense = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this expense? It will be restored to your revenue.")) return;
+    try {
+      await axios.delete(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/expenses/${id}`);
+      setExpenses(prev => prev.filter(e => e._id !== id));
+      toast({ message: 'Expense deleted successfully', type: 'info' });
+    } catch (err) {
+      toast({ message: 'Failed to delete expense', type: 'error' });
+    }
   };
 
   const handleDeleteStay = async (stayId) => {
@@ -460,9 +567,17 @@ const Reports = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
           <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Financial & Profit Analytics</h1>
-          <p className="text-sm text-gray-500 mt-1 font-medium">Track Bookings, Commissions, and real Cash Flow.</p>
+          <p className="text-sm text-gray-500 mt-1 font-medium">Track Bookings, Headcount, Daily Expenses, and Cash Drawer.</p>
         </div>
         <div className="flex flex-wrap sm:flex-nowrap gap-2 w-full sm:w-auto">
+          {/* Add Daily Expense Button */}
+          <button 
+            onClick={() => setShowExpenseModal(true)} 
+            className="flex-1 sm:flex-none justify-center px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-black text-sm rounded-xl transition-all shadow-sm flex items-center gap-2 active:scale-95 cursor-pointer"
+            title="Add Daily Hotel Expense (Deducted from Cash Revenue)"
+          >
+            <PlusCircle size={16} /> Add Expense
+          </button>
           <button 
             onClick={() => setShowHandoverModal(true)} 
             className="flex-1 sm:flex-none justify-center px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-gray-950 font-black text-sm rounded-xl transition-all shadow-sm flex items-center gap-2 active:scale-95 cursor-pointer"
@@ -478,21 +593,25 @@ const Reports = () => {
             <ShieldCheck size={16} /> Police Report
           </button>
           <button onClick={downloadCSV} className="flex-1 sm:flex-none justify-center px-5 sm:px-6 py-2.5 bg-black text-white rounded-xl font-bold text-sm hover:bg-gray-800 transition-colors shadow-sm flex items-center gap-2 active:scale-95">
-            <Download size={16} /> Export CSV
+            <Download size={16} /> Export Detailed Report
           </button>
         </div>
       </div>
 
+      {/* Tabs */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-        <div className="flex gap-2 p-1 bg-gray-100 rounded-xl w-full sm:w-fit">
+        <div className="flex flex-wrap gap-2 p-1 bg-gray-100 rounded-xl w-full sm:w-fit">
           <button onClick={() => setActiveTab('bookings')} className={`flex-1 sm:flex-none px-4 sm:px-5 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all text-center ${activeTab === 'bookings' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}>
-            Booking Ledger
+            Booking Ledger ({filteredStays.length})
           </button>
           <button onClick={() => setActiveTab('transactions')} className={`flex-1 sm:flex-none px-4 sm:px-5 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all text-center ${activeTab === 'transactions' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}>
-            Cash Flow / Payments
+            Cash Flow / Payments ({filteredPayments.length})
+          </button>
+          <button onClick={() => setActiveTab('expenses')} className={`flex-1 sm:flex-none px-4 sm:px-5 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all text-center flex items-center justify-center gap-1.5 ${activeTab === 'expenses' ? 'bg-white shadow-sm text-red-600 font-black' : 'text-gray-500 hover:text-gray-900'}`}>
+            <TrendingDown size={15} /> Daily Expenses ({filteredExpenses.length})
           </button>
           <button onClick={() => setActiveTab('laundry')} className={`flex-1 sm:flex-none px-4 sm:px-5 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all text-center flex items-center justify-center gap-1.5 ${activeTab === 'laundry' ? 'bg-white shadow-sm text-indigo-700' : 'text-gray-500 hover:text-gray-900'}`}>
-            <Shirt size={15} /> Laundry Expenses
+            <Shirt size={15} /> Laundry ({filteredLaundryOrders.length})
           </button>
           <button onClick={() => setActiveTab('khata')} className={`flex-1 sm:flex-none px-4 sm:px-5 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all text-center flex items-center justify-center gap-1.5 ${activeTab === 'khata' ? 'bg-white shadow-sm text-amber-700 font-black' : 'text-gray-500 hover:text-gray-900'}`}>
             <BookOpen size={15} /> Khata & Credit (उधार / जमा)
@@ -505,64 +624,99 @@ const Reports = () => {
         )}
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Cards Banner */}
       {activeTab === 'bookings' ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm hover:border-black transition-colors">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
+            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Bookings & Headcount</p>
+            <div className="flex items-center gap-2 mt-1">
+              <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><Receipt size={18} /></div>
+              <div>
+                <h2 className="text-xl font-black text-gray-900">{stats.bookingsCount} Stays</h2>
+                <p className="text-[10px] font-bold text-indigo-600">{stats.totalGuestsHeadcount} Total Guests</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
             <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Gross Bookings</p>
-            <div className="flex items-center gap-3 mt-2">
-              <div className="p-2.5 bg-blue-50 text-blue-600 rounded-lg"><Receipt size={20} /></div>
-              <h2 className="text-2xl font-black text-gray-900">₹{stats.grossBooking.toLocaleString()}</h2>
+            <div className="flex items-center gap-2 mt-1">
+              <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg"><Banknote size={18} /></div>
+              <h2 className="text-xl font-black text-gray-900">₹{stats.grossBooking.toLocaleString('en-IN')}</h2>
             </div>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm hover:border-black transition-colors">
-            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Total Commission (Broker)</p>
-            <div className="flex items-center gap-3 mt-2">
-              <div className="p-2.5 bg-red-50 text-red-600 rounded-lg"><Users size={20} /></div>
-              <h2 className="text-2xl font-black text-gray-900">₹{stats.totalCommission.toLocaleString()}</h2>
+          <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
+            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Broker Commission</p>
+            <div className="flex items-center gap-2 mt-1">
+              <div className="p-2 bg-red-50 text-red-600 rounded-lg"><Users size={18} /></div>
+              <h2 className="text-xl font-black text-gray-900">₹{stats.totalCommission.toLocaleString('en-IN')}</h2>
             </div>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm hover:border-black transition-colors">
-            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Laundry Expenses (Paid)</p>
-            <div className="flex items-center gap-3 mt-2">
-              <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-lg"><Shirt size={20} /></div>
+          <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
+            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Expenses (Daily+Laundry)</p>
+            <div className="flex items-center gap-2 mt-1">
+              <div className="p-2 bg-red-50 text-red-600 rounded-lg"><TrendingDown size={18} /></div>
               <div>
-                <h2 className="text-2xl font-black text-indigo-700">-₹{stats.totalLaundryExpense.toLocaleString()}</h2>
-                {stats.pendingLaundryDue > 0 && (
-                  <p className="text-[10px] text-amber-600 font-bold mt-0.5">Due: ₹{stats.pendingLaundryDue.toLocaleString()}</p>
-                )}
+                <h2 className="text-xl font-black text-red-600">-₹{(stats.totalExpenses + stats.totalLaundryExpense).toLocaleString('en-IN')}</h2>
+                <p className="text-[9px] text-gray-400 font-medium">Daily ₹{stats.totalExpenses} | Laundry ₹{stats.totalLaundryExpense}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-gray-900 p-5 rounded-2xl border border-black shadow-lg transform hover:scale-[1.02] transition-transform">
+          <div className="bg-gray-900 p-4 rounded-2xl border border-black shadow-lg">
             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Final Net Profit</p>
-            <div className="flex items-center gap-3 mt-2">
-              <div className="p-2.5 bg-white/10 text-green-400 rounded-lg"><PieChart size={20} /></div>
+            <div className="flex items-center gap-2 mt-1">
+              <div className="p-2 bg-white/10 text-green-400 rounded-lg"><PieChart size={18} /></div>
               <div>
-                <h2 className="text-2xl font-black text-white">₹{stats.netProfit.toLocaleString()}</h2>
-                <p className="text-[9px] text-gray-400 font-medium">After Commission & Laundry</p>
+                <h2 className="text-xl font-black text-white">₹{stats.netProfit.toLocaleString('en-IN')}</h2>
+                <p className="text-[9px] text-gray-400 font-medium">After Commission & Expenses</p>
               </div>
             </div>
+          </div>
+        </div>
+      ) : activeTab === 'expenses' ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-red-50 p-5 rounded-2xl border border-red-200 shadow-sm">
+            <p className="text-[10px] font-black text-red-600 uppercase tracking-widest">Total Daily Expenses</p>
+            <div className="mt-2 text-2xl font-black text-red-700">₹{stats.totalExpenses.toLocaleString('en-IN')}</div>
+            <p className="text-[10px] text-red-500 font-bold mt-1">{filteredExpenses.length} Expenses Recorded in Period</p>
+          </div>
+
+          <div className="bg-amber-50 p-5 rounded-2xl border border-amber-200 shadow-sm">
+            <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Cash Expenses (Paid from Drawer)</p>
+            <div className="mt-2 text-2xl font-black text-amber-800">₹{stats.cashExpense.toLocaleString('en-IN')}</div>
+            <p className="text-[10px] text-amber-600 font-bold mt-1">Auto-deducted from Cash In Hand</p>
+          </div>
+
+          <div className="bg-purple-50 p-5 rounded-2xl border border-purple-200 shadow-sm">
+            <p className="text-[10px] font-black text-purple-700 uppercase tracking-widest">UPI / Online Expenses</p>
+            <div className="mt-2 text-2xl font-black text-purple-800">₹{stats.upiExpense.toLocaleString('en-IN')}</div>
+            <p className="text-[10px] text-purple-600 font-bold mt-1">Paid directly via bank/QR</p>
+          </div>
+
+          <div className="bg-gray-900 p-5 rounded-2xl border border-black shadow-lg">
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Net Cash Remaining in Drawer</p>
+            <div className="mt-2 text-2xl font-black text-emerald-400">₹{stats.netCashInDrawer.toLocaleString('en-IN')}</div>
+            <p className="text-[10px] text-gray-400 mt-1">Cash In (₹{stats.cashTotal}) - Cash Exp (₹{stats.cashExpense})</p>
           </div>
         </div>
       ) : activeTab === 'laundry' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm hover:border-black transition-colors">
             <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Total Laundry Billed</p>
-            <div className="mt-2 text-2xl font-black text-gray-900">₹{stats.totalLaundryBilled.toLocaleString()}</div>
+            <div className="mt-2 text-2xl font-black text-gray-900">₹{stats.totalLaundryBilled.toLocaleString('en-IN')}</div>
             <p className="text-[10px] text-gray-400 mt-1">From all dispatched batches</p>
           </div>
           <div className="bg-indigo-50 p-5 rounded-2xl border border-indigo-200 shadow-sm transition-colors">
             <p className="text-[10px] font-black text-indigo-700 uppercase tracking-widest">Paid Out (Net Expense)</p>
-            <div className="mt-2 text-2xl font-black text-indigo-800">₹{stats.totalLaundryExpense.toLocaleString()}</div>
+            <div className="mt-2 text-2xl font-black text-indigo-800">₹{stats.totalLaundryExpense.toLocaleString('en-IN')}</div>
             <p className="text-[10px] text-indigo-600 mt-1">Deducted from hotel profit</p>
           </div>
           <div className="bg-amber-50 p-5 rounded-2xl border border-amber-200 shadow-sm transition-colors">
             <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Pending Vendor Bills (Due)</p>
-            <div className="mt-2 text-2xl font-black text-amber-800">₹{stats.pendingLaundryDue.toLocaleString()}</div>
+            <div className="mt-2 text-2xl font-black text-amber-800">₹{stats.pendingLaundryDue.toLocaleString('en-IN')}</div>
             <p className="text-[10px] text-amber-600 mt-1">Unpaid to dhobi/vendor</p>
           </div>
           <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm hover:border-black transition-colors">
@@ -580,7 +734,7 @@ const Reports = () => {
             <div className="flex items-center gap-3 mt-2">
               <div className="p-2.5 bg-red-100 text-red-700 rounded-lg"><BookOpen size={20} /></div>
               <div>
-                <h2 className="text-2xl font-black text-red-700">₹{khataSummary.totalMarketDue.toLocaleString()}</h2>
+                <h2 className="text-2xl font-black text-red-700">₹{khataSummary.totalMarketDue.toLocaleString('en-IN')}</h2>
                 <p className="text-[10px] text-red-500 font-bold mt-0.5">{khataSummary.dueGuestsCount} Guests owe payment</p>
               </div>
             </div>
@@ -591,7 +745,7 @@ const Reports = () => {
             <div className="flex items-center gap-3 mt-2">
               <div className="p-2.5 bg-emerald-100 text-emerald-700 rounded-lg"><Wallet size={20} /></div>
               <div>
-                <h2 className="text-2xl font-black text-emerald-700">₹{khataSummary.totalAdvanceHeld.toLocaleString()}</h2>
+                <h2 className="text-2xl font-black text-emerald-700">₹{khataSummary.totalAdvanceHeld.toLocaleString('en-IN')}</h2>
                 <p className="text-[10px] text-emerald-600 font-bold mt-0.5">{khataSummary.advanceGuestsCount} Guests with advance</p>
               </div>
             </div>
@@ -601,7 +755,7 @@ const Reports = () => {
             <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Net Khata Position</p>
             <div className="mt-2 text-2xl font-black text-gray-900">
               <span className={khataSummary.netBalance >= 0 ? 'text-emerald-600' : 'text-red-600'}>
-                {khataSummary.netBalance >= 0 ? `+₹${khataSummary.netBalance.toLocaleString()}` : `-₹${Math.abs(khataSummary.netBalance).toLocaleString()}`}
+                {khataSummary.netBalance >= 0 ? `+₹${khataSummary.netBalance.toLocaleString('en-IN')}` : `-₹${Math.abs(khataSummary.netBalance).toLocaleString('en-IN')}`}
               </span>
             </div>
             <p className="text-[10px] text-gray-400 mt-1">Advance held minus market credit</p>
@@ -616,22 +770,51 @@ const Reports = () => {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-          <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm hover:border-black transition-colors">
-            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Cash</p>
-            <div className="mt-2 text-xl font-black text-gray-900">₹{stats.cashTotal.toLocaleString()}</div>
+        /* TRANSACTIONS / CASH FLOW BANNER - INCLUDING NET CASH IN DRAWER AFTER EXPENSE */
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          {/* NET CASH IN DRAWER (The real physical amount to count) */}
+          <div className="bg-emerald-50 p-4 rounded-2xl border-2 border-emerald-300 shadow-sm">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-black text-emerald-800 uppercase tracking-widest">Net Cash in Drawer</p>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            </div>
+            <div className="mt-1 text-2xl font-black text-emerald-700">₹{stats.netCashInDrawer.toLocaleString('en-IN')}</div>
+            <p className="text-[10px] text-emerald-700 font-bold mt-0.5">
+              Cash In: ₹{stats.cashTotal} | <span className="text-red-600">Exp: -₹{stats.cashExpense}</span>
+            </p>
           </div>
-          <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm hover:border-black transition-colors">
-            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">UPI</p>
-            <div className="mt-2 text-xl font-black text-gray-900">₹{stats.upiTotal.toLocaleString()}</div>
+
+          {/* UPI */}
+          <div className="bg-purple-50 p-4 rounded-2xl border border-purple-200 shadow-sm">
+            <p className="text-[10px] font-black text-purple-800 uppercase tracking-widest">UPI Direct (Bank)</p>
+            <div className="mt-1 text-2xl font-black text-purple-700">₹{stats.upiTotal.toLocaleString('en-IN')}</div>
+            <p className="text-[10px] text-purple-600 font-medium mt-0.5">GooglePay / PhonePe / QR</p>
           </div>
-          <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm hover:border-black transition-colors">
-            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Card/Other</p>
-            <div className="mt-2 text-xl font-black text-gray-900">₹{stats.cardTotal.toLocaleString()}</div>
+
+          {/* Card / Other */}
+          <div className="bg-blue-50 p-4 rounded-2xl border border-blue-200 shadow-sm">
+            <p className="text-[10px] font-black text-blue-800 uppercase tracking-widest">Card / POS</p>
+            <div className="mt-1 text-2xl font-black text-blue-700">₹{stats.cardTotal.toLocaleString('en-IN')}</div>
+            <p className="text-[10px] text-blue-600 font-medium mt-0.5">Credit / Debit Machine</p>
           </div>
-          <div className="bg-green-600 p-5 rounded-2xl border border-green-700 shadow-lg transform hover:scale-[1.02] transition-transform">
-            <p className="text-[10px] font-black text-green-200 uppercase tracking-widest">Total Collected</p>
-            <div className="mt-2 text-xl font-black text-white">₹{stats.totalCollected.toLocaleString()}</div>
+
+          {/* Wallet / Khata */}
+          <div className="bg-amber-50 p-4 rounded-2xl border border-amber-200 shadow-sm">
+            <p className="text-[10px] font-black text-amber-800 uppercase tracking-widest">Wallet / Khata</p>
+            <div className="mt-1 text-2xl font-black text-amber-700">₹{(stats.walletTotal + stats.khataTotal).toLocaleString('en-IN')}</div>
+            <p className="text-[10px] text-amber-600 font-medium mt-0.5">Advance & Ledger Credit</p>
+          </div>
+
+          {/* Total Collections */}
+          <div className="bg-gray-900 p-4 rounded-2xl border border-black shadow-lg text-white">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Collected</p>
+              <span className="text-[10px] font-bold text-amber-400">{filteredPayments.length} txns</span>
+            </div>
+            <div className="mt-1 text-2xl font-black text-white">₹{stats.totalCollected.toLocaleString('en-IN')}</div>
+            <p className="text-[10px] text-gray-400 font-medium mt-0.5">
+              Net Rev: <span className="text-green-400 font-bold">₹{(stats.totalCollected - stats.totalExpenses).toLocaleString('en-IN')}</span>
+            </p>
           </div>
         </div>
       )}
@@ -640,8 +823,13 @@ const Reports = () => {
       <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col md:flex-row gap-3">
         <div className="relative flex-1 min-w-[200px]">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400"><Search size={16} /></div>
-          <input type="text" placeholder={activeTab === 'laundry' ? "Search Vendor, Order #..." : activeTab === 'khata' ? "Search Customer Name, Mobile, ID..." : "Search Guest, Room..."} value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-black outline-none transition-all" />
+          <input 
+            type="text" 
+            placeholder={activeTab === 'expenses' ? "Search Expense Title, Category, Notes..." : activeTab === 'laundry' ? "Search Vendor, Order #..." : activeTab === 'khata' ? "Search Customer Name, Mobile, ID..." : "Search Guest, Room..."} 
+            value={searchQuery} 
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-black outline-none transition-all" 
+          />
         </div>
         
         {activeTab !== 'khata' && (
@@ -651,7 +839,7 @@ const Reports = () => {
             <option value="yesterday">Yesterday</option>
             <option value="week">This Week</option>
             <option value="month">This Month</option>
-            <option value="custom">Custom Date</option>
+            <option value="custom">Custom Date & Time</option>
           </select>
         )}
 
@@ -663,15 +851,34 @@ const Reports = () => {
           </select>
         )}
 
-        {activeTab === 'transactions' && (
+        {(activeTab === 'transactions' || activeTab === 'expenses') && (
           <select value={paymentMethodFilter} onChange={e => setPaymentMethodFilter(e.target.value)} className="w-full md:w-48 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-black outline-none appearance-none">
-            <option value="all">All Methods</option>
+            <option value="all">All Payment Methods</option>
             <option value="Cash">Cash (कैश)</option>
-            <option value="UPI">UPI (GooglePay/PhonePe/Paytm)</option>
-            <option value="Card">Card / POS Machine</option>
-            <option value="Wallet">Wallet / Advance Credit</option>
-            <option value="Khata">Khata (उधार)</option>
-            <option value="Bank">Bank Transfer / NEFT</option>
+            <option value="UPI">UPI (GooglePay/PhonePe)</option>
+            <option value="Card">Card / POS</option>
+            {activeTab === 'transactions' && (
+              <>
+                <option value="Wallet">Wallet / Advance</option>
+                <option value="Khata">Khata (उधार)</option>
+                <option value="Bank">Bank Transfer</option>
+              </>
+            )}
+          </select>
+        )}
+
+        {activeTab === 'expenses' && (
+          <select value={expenseCategoryFilter} onChange={e => setExpenseCategoryFilter(e.target.value)} className="w-full md:w-48 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-black outline-none appearance-none">
+            <option value="all">All Categories</option>
+            <option value="Food & Groceries">Food & Groceries</option>
+            <option value="Cleaning & Housekeeping">Cleaning & Housekeeping</option>
+            <option value="Maintenance & Repairs">Maintenance & Repairs</option>
+            <option value="Electricity & Utility">Electricity & Utility</option>
+            <option value="Staff Salary / Advance">Staff Salary / Advance</option>
+            <option value="Water Supply">Water Supply</option>
+            <option value="Internet & Software">Internet & Software</option>
+            <option value="Miscellaneous">Miscellaneous</option>
+            <option value="Other">Other</option>
           </select>
         )}
 
@@ -709,35 +916,35 @@ const Reports = () => {
             <button
               type="button"
               onClick={() => applyShiftPreset('morning')}
-              className="px-3 py-1.5 bg-white hover:bg-amber-100 text-gray-800 border border-gray-200 hover:border-amber-300 rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95"
+              className="px-3 py-1.5 bg-white hover:bg-amber-100 text-gray-800 border border-gray-200 hover:border-amber-300 rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
             >
               ☀️ Morning (08:00 AM – 04:00 PM)
             </button>
             <button
               type="button"
               onClick={() => applyShiftPreset('evening')}
-              className="px-3 py-1.5 bg-white hover:bg-amber-100 text-gray-800 border border-gray-200 hover:border-amber-300 rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95"
+              className="px-3 py-1.5 bg-white hover:bg-amber-100 text-gray-800 border border-gray-200 hover:border-amber-300 rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
             >
               🌆 Evening (04:00 PM – 11:59 PM)
             </button>
             <button
               type="button"
               onClick={() => applyShiftPreset('night')}
-              className="px-3 py-1.5 bg-white hover:bg-amber-100 text-gray-800 border border-gray-200 hover:border-amber-300 rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95"
+              className="px-3 py-1.5 bg-white hover:bg-amber-100 text-gray-800 border border-gray-200 hover:border-amber-300 rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
             >
               🌙 Night Shift (11:00 PM – 08:00 AM)
             </button>
             <button
               type="button"
               onClick={() => applyShiftPreset('hotel24')}
-              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95"
+              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
             >
               🏨 Hotel 24h (12:00 PM – 12:00 PM)
             </button>
             <button
               type="button"
               onClick={() => applyShiftPreset('todayFull')}
-              className="px-3 py-1.5 bg-white hover:bg-gray-100 text-gray-700 border border-gray-200 rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95"
+              className="px-3 py-1.5 bg-white hover:bg-gray-100 text-gray-700 border border-gray-200 rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
             >
               ⏰ Today Full Day (00:00 – 23:59)
             </button>
@@ -745,16 +952,15 @@ const Reports = () => {
               <button
                 type="button"
                 onClick={() => applyShiftPreset('clear')}
-                className="px-2.5 py-1.5 text-red-600 hover:bg-red-50 rounded-xl text-xs font-bold transition-colors ml-auto"
+                className="px-2.5 py-1.5 text-red-600 hover:bg-red-50 rounded-xl text-xs font-bold transition-colors ml-auto cursor-pointer"
               >
                 Reset Times
               </button>
             )}
           </div>
 
-          {/* Exact Date & Time Inputs */}
+          {/* Date & Time Inputs */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Start Date & Time */}
             <div className="p-3 bg-white rounded-2xl border border-gray-200 shadow-2xs space-y-2">
               <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Start Date & Time (से)
@@ -776,7 +982,6 @@ const Reports = () => {
               </div>
             </div>
 
-            {/* End Date & Time */}
             <div className="p-3 bg-white rounded-2xl border border-gray-200 shadow-2xs space-y-2">
               <span className="text-[10px] font-black uppercase tracking-widest text-red-700 flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-red-500"></span> End Date & Time (तक)
@@ -799,7 +1004,6 @@ const Reports = () => {
             </div>
           </div>
 
-          {/* Active Range Preview Label */}
           {activeDateTimeRange?.label && (
             <div className="flex items-center justify-between text-xs bg-white px-4 py-2 rounded-xl border border-gray-200 font-bold text-gray-700">
               <span className="flex items-center gap-2">
@@ -811,106 +1015,64 @@ const Reports = () => {
         </div>
       )}
 
-      {/* Cash Flow Drawer & Shift Handover Summary (Transactions Tab) */}
-      {activeTab === 'transactions' && (
-        <div className="space-y-4 mb-2">
-          {/* Drawer Status Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            <div className="bg-gray-900 p-4 rounded-2xl shadow-sm text-white">
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Collected</p>
-              <p className="text-2xl font-black text-white mt-1">₹{stats.totalCollected.toLocaleString('en-IN')}</p>
-              <p className="text-[10px] text-gray-400 mt-1 font-medium">{filteredPayments.length} Payments recorded</p>
+      {/* Staff-wise Collection Breakdown (Transactions Tab) */}
+      {activeTab === 'transactions' && stats.staffBreakdown && stats.staffBreakdown.length > 0 && (
+        <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-xs">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
+            <div>
+              <h3 className="text-sm font-black text-gray-900 uppercase tracking-wide flex items-center gap-2">
+                <Users size={16} className="text-amber-600" /> Staff-Wise Collection & Shift Handover Tally
+              </h3>
+              <p className="text-xs text-gray-500 font-medium mt-0.5">
+                Breakdown of physical cash and digital collections per receptionist in this time window
+              </p>
             </div>
-
-            <div className="bg-emerald-50 p-4 rounded-2xl shadow-sm border border-emerald-200">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] font-black text-emerald-800 uppercase tracking-widest">Cash In Hand (Drawer)</p>
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              </div>
-              <p className="text-2xl font-black text-emerald-700 mt-1">₹{stats.cashTotal.toLocaleString('en-IN')}</p>
-              <p className="text-[10px] text-emerald-600 mt-1 font-bold">Physical cash to handover</p>
-            </div>
-
-            <div className="bg-purple-50 p-4 rounded-2xl shadow-sm border border-purple-200">
-              <p className="text-[10px] font-black text-purple-800 uppercase tracking-widest">UPI Direct (Bank)</p>
-              <p className="text-2xl font-black text-purple-700 mt-1">₹{stats.upiTotal.toLocaleString('en-IN')}</p>
-              <p className="text-[10px] text-purple-600 mt-1 font-medium">GPay / PhonePe / QR</p>
-            </div>
-
-            <div className="bg-blue-50 p-4 rounded-2xl shadow-sm border border-blue-200">
-              <p className="text-[10px] font-black text-blue-800 uppercase tracking-widest">Card / POS</p>
-              <p className="text-2xl font-black text-blue-700 mt-1">₹{stats.cardTotal.toLocaleString('en-IN')}</p>
-              <p className="text-[10px] text-blue-600 mt-1 font-medium">Credit/Debit machine</p>
-            </div>
-
-            <div className="bg-amber-50 p-4 rounded-2xl shadow-sm border border-amber-200">
-              <p className="text-[10px] font-black text-amber-800 uppercase tracking-widest">Wallet / Khata</p>
-              <p className="text-2xl font-black text-amber-700 mt-1">₹{(stats.walletTotal + stats.khataTotal).toLocaleString('en-IN')}</p>
-              <p className="text-[10px] text-amber-600 mt-1 font-medium">Pre-deposit / Ledger</p>
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowHandoverModal(true)}
+              className="px-4 py-2 bg-gray-900 hover:bg-black text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-xs"
+            >
+              <Banknote size={14} className="text-amber-400" /> Print Shift Handover Voucher
+            </button>
           </div>
 
-          {/* Staff-wise Collection Breakdown & Shift Verification Banner */}
-          {stats.staffBreakdown && stats.staffBreakdown.length > 0 && (
-            <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-xs">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
-                <div>
-                  <h3 className="text-sm font-black text-gray-900 uppercase tracking-wide flex items-center gap-2">
-                    <Users size={16} className="text-amber-600" /> Staff-Wise Collection & Shift Handover Tally
-                  </h3>
-                  <p className="text-xs text-gray-500 font-medium mt-0.5">
-                    Breakdown of physical cash and digital collections per receptionist in this time window
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowHandoverModal(true)}
-                  className="px-4 py-2 bg-gray-900 hover:bg-black text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-xs"
-                >
-                  <Banknote size={14} className="text-amber-400" /> Print Shift Handover Voucher
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-3">
-                {stats.staffBreakdown.map((staff, idx) => (
-                  <div key={staff.id || idx} className="p-3.5 bg-gray-50 rounded-2xl border border-gray-200/80 hover:border-gray-300 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-black text-white font-black text-xs flex items-center justify-center">
-                          {staff.name?.charAt(0) || 'S'}
-                        </div>
-                        <div>
-                          <p className="text-xs font-black text-gray-900 leading-tight">{staff.name}</p>
-                          <p className="text-[10px] text-gray-400 capitalize">{staff.role}</p>
-                        </div>
-                      </div>
-                      <span className="text-xs font-black text-gray-900">₹{staff.total.toLocaleString('en-IN')}</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-3">
+            {stats.staffBreakdown.map((staff, idx) => (
+              <div key={staff.id || idx} className="p-3.5 bg-gray-50 rounded-2xl border border-gray-200/80 hover:border-gray-300 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-black text-white font-black text-xs flex items-center justify-center">
+                      {staff.name?.charAt(0) || 'S'}
                     </div>
-
-                    <div className="grid grid-cols-3 gap-1.5 mt-3 pt-2 border-t border-gray-200/60 text-center">
-                      <div className="bg-emerald-100/60 p-1.5 rounded-lg">
-                        <p className="text-[9px] font-black text-emerald-800 uppercase">Cash</p>
-                        <p className="text-xs font-black text-emerald-900 mt-0.5">₹{staff.cash.toLocaleString('en-IN')}</p>
-                      </div>
-                      <div className="bg-purple-100/60 p-1.5 rounded-lg">
-                        <p className="text-[9px] font-black text-purple-800 uppercase">UPI</p>
-                        <p className="text-xs font-black text-purple-900 mt-0.5">₹{staff.upi.toLocaleString('en-IN')}</p>
-                      </div>
-                      <div className="bg-blue-100/60 p-1.5 rounded-lg">
-                        <p className="text-[9px] font-black text-blue-800 uppercase">Card/Other</p>
-                        <p className="text-xs font-black text-blue-900 mt-0.5">₹{(staff.card + staff.other).toLocaleString('en-IN')}</p>
-                      </div>
+                    <div>
+                      <p className="text-xs font-black text-gray-900 leading-tight">{staff.name}</p>
+                      <p className="text-[10px] text-gray-400 capitalize">{staff.role}</p>
                     </div>
                   </div>
-                ))}
+                  <span className="text-xs font-black text-gray-900">₹{staff.total.toLocaleString('en-IN')}</span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-1.5 mt-3 pt-2 border-t border-gray-200/60 text-center">
+                  <div className="bg-emerald-100/60 p-1.5 rounded-lg">
+                    <p className="text-[9px] font-black text-emerald-800 uppercase">Cash</p>
+                    <p className="text-xs font-black text-emerald-900 mt-0.5">₹{staff.cash.toLocaleString('en-IN')}</p>
+                  </div>
+                  <div className="bg-purple-100/60 p-1.5 rounded-lg">
+                    <p className="text-[9px] font-black text-purple-800 uppercase">UPI</p>
+                    <p className="text-xs font-black text-purple-900 mt-0.5">₹{staff.upi.toLocaleString('en-IN')}</p>
+                  </div>
+                  <div className="bg-blue-100/60 p-1.5 rounded-lg">
+                    <p className="text-[9px] font-black text-blue-800 uppercase">Card/Other</p>
+                    <p className="text-xs font-black text-blue-900 mt-0.5">₹{(staff.card + staff.other).toLocaleString('en-IN')}</p>
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Data Table */}
-
+      {/* Main Data Tables */}
       <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           {activeTab === 'bookings' ? (
@@ -919,6 +1081,7 @@ const Reports = () => {
                 <tr>
                   <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest">Date & Room</th>
                   <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest">Guest Details</th>
+                  <th className="px-6 py-4 font-black text-xs text-indigo-700 uppercase tracking-widest text-center">Head Count</th>
                   <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest text-right">Gross Booked</th>
                   <th className="px-6 py-4 font-black text-xs text-orange-400 uppercase tracking-widest text-right">Commission</th>
                   <th className="px-6 py-4 font-black text-xs text-green-600 uppercase tracking-widest text-right">Net Profit</th>
@@ -929,13 +1092,14 @@ const Reports = () => {
               <tbody className="divide-y divide-gray-100">
                 {filteredStays.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="px-6 py-12 text-center text-gray-500 font-medium">
+                    <td colSpan="8" className="px-6 py-12 text-center text-gray-500 font-medium">
                       No bookings found for the selected filters.
                     </td>
                   </tr>
                 ) : (
                   filteredStays.map(stay => {
                     const net = (stay.totalAmount || 0) - (stay.commissionAmount || 0);
+                    const occupants = stay.occupants || (Array.isArray(stay.coGuests) ? stay.coGuests.length + 1 : 1);
                     return (
                       <tr key={stay._id} className="hover:bg-gray-50/80 transition-colors">
                         <td className="px-6 py-4">
@@ -951,34 +1115,44 @@ const Reports = () => {
                         </td>
                         <td className="px-6 py-4">
                           <p className="font-bold text-gray-900">{stay.guest?.fullName}</p>
-                          <p className="text-xs font-semibold text-gray-500 mt-0.5">{stay.guest?.mobileNumber}</p>
+                          <p className="text-xs font-bold text-gray-500 mt-0.5">{stay.guest?.mobileNumber}</p>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-black">
+                            {occupants} {occupants === 1 ? 'Guest' : 'Guests'}
+                          </span>
                         </td>
                         <td className="px-6 py-4 text-right">
                           <p className="font-black text-gray-900">₹{stay.totalAmount}</p>
+                          <p className="text-xs font-bold text-gray-500 mt-0.5">Paid: ₹{stay.paidAmount || 0}</p>
                         </td>
                         <td className="px-6 py-4 text-right">
-                          {stay.commissionAmount > 0 ? (
-                            <div>
-                              <p className="font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded inline-block">-₹{stay.commissionAmount}</p>
-                              <p className="text-[10px] font-bold text-gray-400 uppercase mt-1">To: {stay.commissionTo}</p>
-                            </div>
-                          ) : <span className="text-gray-300">-</span>}
+                          <p className="font-black text-orange-500">₹{stay.commissionAmount || 0}</p>
+                          {stay.commissionTo && <p className="text-[10px] text-gray-400 mt-0.5">{stay.commissionTo}</p>}
                         </td>
-                        <td className="px-6 py-4 text-right">
-                          <p className="font-black text-green-600 bg-green-50 px-3 py-1 rounded inline-block">₹{net}</p>
+                        <td className="px-6 py-4 text-right font-black text-green-600">
+                          ₹{net}
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-lg ${stay.status === 'Checked Out' ? 'bg-gray-100 text-gray-600' : 'bg-blue-100 text-blue-700'}`}>
+                          <span className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-lg ${
+                            stay.status === 'Active' ? 'bg-green-50 text-green-700 border border-green-200' :
+                            stay.status === 'Checked Out' ? 'bg-gray-100 text-gray-700' :
+                            'bg-yellow-50 text-yellow-700 border border-yellow-200'
+                          }`}>
                             {stay.status}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <button onClick={() => handleDeleteStay(stay._id)} className="text-red-500 hover:text-red-700 p-2 transition-colors" title="Delete Stay">
+                          <button
+                            onClick={() => handleDeleteStay(stay._id)}
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                            title="Delete Stay"
+                          >
                             <Trash size={16} />
                           </button>
                         </td>
                       </tr>
-                    )
+                    );
                   })
                 )}
               </tbody>
@@ -989,10 +1163,10 @@ const Reports = () => {
                 <tr>
                   <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest">Date & Time</th>
                   <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest">Guest & Room</th>
-                  <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest">Amount</th>
+                  <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest text-right">Amount</th>
                   <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest">Method</th>
                   <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest">Collected By</th>
-                  <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest">Note</th>
+                  <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest">Remark / Note</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -1013,7 +1187,7 @@ const Reports = () => {
                         <p className="font-bold text-gray-900">{p.guest?.fullName}</p>
                         <p className="text-xs font-bold text-indigo-600 mt-0.5">Room {p.stay?.room?.roomNumber}</p>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 text-right">
                         <p className="font-black text-green-600">₹{p.amount}</p>
                       </td>
                       <td className="px-6 py-4">
@@ -1032,6 +1206,73 @@ const Reports = () => {
                       </td>
                       <td className="px-6 py-4">
                         <p className="text-xs text-gray-500 max-w-[150px] truncate">{p.note || '-'}</p>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          ) : activeTab === 'expenses' ? (
+            /* DAILY EXPENSES TABLE */
+            <table className="w-full text-left text-sm whitespace-nowrap">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest">Date</th>
+                  <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest">Expense Title</th>
+                  <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest">Category</th>
+                  <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest">Paid Via</th>
+                  <th className="px-6 py-4 font-black text-xs text-red-600 uppercase tracking-widest text-right">Amount Deducted</th>
+                  <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest">Recorded By</th>
+                  <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredExpenses.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="px-6 py-12 text-center text-gray-500 font-medium">
+                      No expenses recorded for this period. Click "Add Expense" to record daily grocery, maintenance, or staff payouts.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredExpenses.map(exp => (
+                    <tr key={exp._id} className="hover:bg-red-50/20 transition-colors">
+                      <td className="px-6 py-4">
+                        <p className="font-bold text-gray-900">{format(new Date(exp.expenseDate || exp.createdAt), 'dd MMM yyyy')}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{format(new Date(exp.expenseDate || exp.createdAt), 'hh:mm a')}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="font-black text-gray-900">{exp.title}</p>
+                        {exp.notes && <p className="text-xs text-gray-500 max-w-[200px] truncate">{exp.notes}</p>}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="px-2.5 py-1 bg-gray-100 text-gray-700 rounded-lg text-xs font-bold">
+                          {exp.category}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg border ${
+                          exp.paymentMethod === 'Cash' ? 'bg-amber-50 text-amber-800 border-amber-200' :
+                          exp.paymentMethod === 'UPI' ? 'bg-purple-50 text-purple-800 border-purple-200' :
+                          'bg-blue-50 text-blue-800 border-blue-200'
+                        }`}>
+                          {exp.paymentMethod}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <p className="font-black text-red-600 text-base font-mono">-₹{exp.amount}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="font-bold text-gray-700 text-xs">{exp.createdBy?.name || 'Staff'}</p>
+                        <p className="text-[10px] text-gray-400 capitalize">{exp.createdBy?.role}</p>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <button
+                          onClick={() => handleDeleteExpense(exp._id)}
+                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                          title="Delete Expense"
+                        >
+                          <Trash size={16} />
+                        </button>
                       </td>
                     </tr>
                   ))
@@ -1237,8 +1478,20 @@ const Reports = () => {
         windowLabel={activeDateTimeRange?.label || (dateFilter === 'all' ? 'All Time' : dateFilter)}
         stats={stats}
         payments={filteredPayments}
+        expenses={filteredExpenses}
         staffBreakdown={stats.staffBreakdown || []}
         hostelName={hostels.find(h => h._id === hostelFilter)?.name || (hostelFilter === 'all' ? 'All Properties' : 'Hotel Property')}
+      />
+
+      {/* Daily Expense Modal */}
+      <ExpenseModal
+        isOpen={showExpenseModal}
+        onClose={() => setShowExpenseModal(false)}
+        hostels={hostels}
+        defaultHostel={hostelFilter}
+        onExpenseAdded={(newExp) => {
+          setExpenses(prev => [newExp, ...prev]);
+        }}
       />
     </div>
   );

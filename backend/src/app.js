@@ -38,6 +38,7 @@ const superAdminRoutes = require('./routes/superAdminRoutes');
 const ocrRoutes = require('./routes/ocrRoutes');
 const whatsappRoutes = require('./routes/whatsappRoutes');
 const laundryRoutes = require('./routes/laundryRoutes');
+const expenseRoutes = require('./routes/expenseRoutes');
 const path = require('path');
 
 app.use('/api/auth', authRoutes);
@@ -46,6 +47,7 @@ app.use('/api/rooms', roomRoutes);
 app.use('/api/guests', guestRoutes);
 app.use('/api/stays', stayRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/expenses', expenseRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/upload', uploadRoutes);
