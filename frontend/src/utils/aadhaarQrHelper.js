@@ -648,10 +648,18 @@ export async function scanAadhaarQrFromImage(imageSource) {
     }
 
     if (!rawQr) {
+      const longSide = Math.max(originalW, originalH);
+      // Aadhaar Secure QR needs ~500px for the QR alone; a card fills ~1/3 of the frame,
+      // so photos under ~1800px (e.g. WhatsApp-forwarded/compressed) usually cannot be decoded.
+      const tooSmall = longSide < 1800;
+      console.info(`[AadhaarQR] No QR decoded. Image ${originalW}x${originalH}px, nativeDetector=${'BarcodeDetector' in window}`);
       return {
         success: false,
-        error: 'NO_QR_FOUND',
-        message: 'No readable Aadhaar QR code found in this photo. Please make sure the side with the QR code is clearly visible.'
+        error: tooSmall ? 'IMAGE_TOO_SMALL' : 'NO_QR_FOUND',
+        imageSize: `${originalW}x${originalH}`,
+        message: tooSmall
+          ? `Photo is too small (${originalW}x${originalH}px) - Aadhaar QR is very dense. Use the original camera photo (not WhatsApp/compressed) and keep the QR side close and flat.`
+          : `QR not readable in this photo (${originalW}x${originalH}px). Move closer so the QR fills more of the frame, avoid glare/shadow, and keep the card flat.`
       };
     }
 
