@@ -1,6 +1,7 @@
 const LaundryOrder = require('../models/LaundryOrder');
 const Hostel = require('../models/Hostel');
 const Stay = require('../models/Stay');
+const Expense = require('../models/Expense');
 const { getHostelFilter, userCanAccessHostel, assertHostelAccess } = require('../utils/hostelAccess');
 const mongoose = require('mongoose');
 
@@ -377,6 +378,21 @@ exports.createLaundryOrder = async (req, res, next) => {
       dispatchedBy: req.user._id
     });
 
+    // Auto-sync paid amount to Daily Expense register so Cash in Drawer reconciles
+    if (paid > 0) {
+      await Expense.create({
+        hostel: hostelId,
+        title: `Laundry: ${vendorName.trim()} (#${orderNumber})`,
+        category: 'Laundry Expense',
+        amount: paid,
+        paymentMethod: paymentMethod || 'Cash',
+        expenseDate: sentDate ? new Date(sentDate) : new Date(),
+        notes: `Laundry advance/dispatch payment for order #${orderNumber}${notes ? ` - ${notes.trim()}` : ''}`,
+        laundryOrder: order._id,
+        createdBy: req.user._id
+      }).catch(err => console.error('Failed to create synced Expense for laundry dispatch:', err));
+    }
+
     // Auto-remember vendor & rates for next dispatches
     if (hostel) {
       if (!hostel.laundrySettings) hostel.laundrySettings = {};
@@ -461,8 +477,11 @@ exports.receiveLaundryOrder = async (req, res, next) => {
       order.totalAmount = Math.max(0, Number(totalAmount) || 0);
     }
 
+    let incrementalPaid = 0;
     if (paidAmount !== undefined && paidAmount !== '') {
+      const prevPaid = Number(order.paidAmount) || 0;
       const paid = Math.max(0, Number(paidAmount) || 0);
+      incrementalPaid = Math.max(0, paid - prevPaid);
       order.paidAmount = paid;
       if (paid >= order.totalAmount && order.totalAmount > 0) {
         order.paymentStatus = 'Paid';
@@ -480,6 +499,21 @@ exports.receiveLaundryOrder = async (req, res, next) => {
     if (notes !== undefined) order.notes = notes;
 
     await order.save();
+
+    // If additional payment was made upon receiving laundry, sync incremental amount to daily Expense
+    if (incrementalPaid > 0) {
+      await Expense.create({
+        hostel: order.hostel,
+        title: `Laundry: ${order.vendorName} (#${order.orderNumber})`,
+        category: 'Laundry Expense',
+        amount: incrementalPaid,
+        paymentMethod: paymentMethod || order.paymentMethod || 'Cash',
+        expenseDate: receivedDate ? new Date(receivedDate) : new Date(),
+        notes: `Laundry received payment settlement for order #${order.orderNumber}${notes ? ` - ${notes}` : ''}`,
+        laundryOrder: order._id,
+        createdBy: req.user._id
+      }).catch(err => console.error('Failed to create synced Expense on laundry receive:', err));
+    }
 
     const populated = await LaundryOrder.findById(order._id)
       .populate('hostel', 'name address laundryEnabled upiId upiPayeeName')
@@ -535,6 +569,19 @@ exports.recordLaundryPayment = async (req, res, next) => {
     if (notes) order.notes = (order.notes ? order.notes + ' • ' : '') + notes;
 
     await order.save();
+
+    // Auto-sync payment to Daily Expense ledger so Cash in Drawer reconciles
+    await Expense.create({
+      hostel: order.hostel,
+      title: `Laundry: ${order.vendorName} (#${order.orderNumber})`,
+      category: 'Laundry Expense',
+      amount: payAmt,
+      paymentMethod: paymentMethod || order.paymentMethod || 'Cash',
+      expenseDate: new Date(),
+      notes: `Laundry payment for order #${order.orderNumber}${notes ? ` - ${notes}` : ''}`,
+      laundryOrder: order._id,
+      createdBy: req.user._id
+    }).catch(err => console.error('Failed to create synced Expense on laundry payment:', err));
 
     res.status(200).json({
       success: true,
@@ -603,8 +650,12 @@ exports.updateLaundryOrder = async (req, res, next) => {
       order.totalAmount = Math.max(0, Number(totalAmount) || 0);
     }
 
+    let incrementalPaid = 0;
     if (paidAmount !== undefined && paidAmount !== '') {
-      order.paidAmount = Math.max(0, Number(paidAmount) || 0);
+      const prevPaid = Number(order.paidAmount) || 0;
+      const newPaid = Math.max(0, Number(paidAmount) || 0);
+      incrementalPaid = Math.max(0, newPaid - prevPaid);
+      order.paidAmount = newPaid;
     }
 
     if (paymentStatus) {
@@ -623,6 +674,20 @@ exports.updateLaundryOrder = async (req, res, next) => {
     if (notes !== undefined) order.notes = notes;
 
     await order.save();
+
+    if (incrementalPaid > 0) {
+      await Expense.create({
+        hostel: order.hostel,
+        title: `Laundry: ${order.vendorName} (#${order.orderNumber})`,
+        category: 'Laundry Expense',
+        amount: incrementalPaid,
+        paymentMethod: paymentMethod || order.paymentMethod || 'Cash',
+        expenseDate: new Date(),
+        notes: `Laundry payment adjustment for order #${order.orderNumber}${notes ? ` - ${notes}` : ''}`,
+        laundryOrder: order._id,
+        createdBy: req.user._id
+      }).catch(err => console.error('Failed to create synced Expense on laundry update:', err));
+    }
 
     const populated = await LaundryOrder.findById(order._id)
       .populate('hostel', 'name address laundryEnabled upiId upiPayeeName')
@@ -655,6 +720,9 @@ exports.deleteLaundryOrder = async (req, res, next) => {
     if (!(await userCanAccessHostel(req.user, order.hostel))) {
       return res.status(403).json({ success: false, message: 'Not authorized for this property' });
     }
+
+    // Clean up any synced expense records associated with this laundry order
+    await Expense.deleteMany({ laundryOrder: order._id }).catch(err => console.error('Failed to delete associated expenses for laundry order:', err));
 
     await LaundryOrder.findByIdAndDelete(req.params.id);
 
@@ -820,6 +888,20 @@ exports.settleVendorLumpSum = async (req, res, next) => {
     }
 
     const totalAllocated = numAmount - remainingToAllocate;
+
+    // Auto-sync lump-sum laundry settlement into Daily Expense ledger
+    if (totalAllocated > 0) {
+      await Expense.create({
+        hostel: hostelId,
+        title: `Laundry Settlement: ${cleanVendor}`,
+        category: 'Laundry Expense',
+        amount: totalAllocated,
+        paymentMethod: paymentMethod || 'Cash',
+        expenseDate: new Date(),
+        notes: `Lump-sum laundry payment to ${cleanVendor} across ${settledBatchesCount} batch(es)${notes ? ` - ${notes}` : ''}`,
+        createdBy: req.user._id
+      }).catch(err => console.error('Failed to create synced Expense on lump-sum settlement:', err));
+    }
 
     res.status(200).json({
       success: true,

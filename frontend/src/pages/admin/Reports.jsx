@@ -368,6 +368,10 @@ const Reports = () => {
     let upiExpense = 0;
     let cardExpense = 0;
 
+    let syncedLaundryExpensesTotal = 0;
+    let syncedLaundryCashExpense = 0;
+    let syncedLaundryUpiExpense = 0;
+
     filteredExpenses.forEach(exp => {
       const amt = Number(exp.amount) || 0;
       totalExpenses += amt;
@@ -375,7 +379,33 @@ const Reports = () => {
       if (m === 'cash') cashExpense += amt;
       else if (m === 'upi') upiExpense += amt;
       else cardExpense += amt;
+
+      // Track synced laundry expenses so we never double count with LaundryOrders
+      if (exp.laundryOrder || exp.category === 'Laundry Expense') {
+        syncedLaundryExpensesTotal += amt;
+        if (m === 'cash') syncedLaundryCashExpense += amt;
+        else if (m === 'upi') syncedLaundryUpiExpense += amt;
+      }
     });
+
+    // Bridge any legacy laundry orders that do not yet have an Expense document
+    const unsyncedLaundryExpense = Math.max(0, totalLaundryExpense - syncedLaundryExpensesTotal);
+    let legacyUnsyncedCash = 0;
+    let legacyUnsyncedUpi = 0;
+    if (unsyncedLaundryExpense > 0) {
+      filteredLaundryOrders.forEach(order => {
+        const paid = Number(order.paidAmount) || 0;
+        const m = (order.paymentMethod || 'Cash').toLowerCase();
+        if (m === 'cash') legacyUnsyncedCash += paid;
+        else if (m === 'upi') legacyUnsyncedUpi += paid;
+      });
+      legacyUnsyncedCash = Math.min(legacyUnsyncedCash, unsyncedLaundryExpense);
+      legacyUnsyncedUpi = Math.min(legacyUnsyncedUpi, Math.max(0, unsyncedLaundryExpense - legacyUnsyncedCash));
+    }
+
+    const unifiedTotalExpenses = totalExpenses + unsyncedLaundryExpense;
+    const unifiedCashExpense = cashExpense + legacyUnsyncedCash;
+    const unifiedUpiExpense = upiExpense + legacyUnsyncedUpi;
 
     let totalCollected = 0;
     let cashTotal = 0;
@@ -423,11 +453,11 @@ const Reports = () => {
 
     const staffBreakdown = Object.values(staffCollectionMap).sort((a, b) => b.total - a.total);
 
-    // CRITICAL: Net Cash In Drawer = Total Cash Collected - Cash Expenses
-    const netCashInDrawer = cashTotal - cashExpense;
+    // CRITICAL: Reconciled Net Cash In Hand (Drawer Handover) = Total Cash Collected - Total Cash Expenses (including cash paid for laundry)
+    const netCashInDrawer = cashTotal - unifiedCashExpense;
 
-    // Net Profit = Gross Bookings - Broker Commissions - Laundry Expenses - Daily Expenses
-    const netProfit = grossBooking - totalCommission - totalLaundryExpense - totalExpenses;
+    // Net Profit = Gross Bookings - Broker Commissions - Total Operational Expenses (including laundry without double deduction)
+    const netProfit = grossBooking - totalCommission - unifiedTotalExpenses;
     
     return {
       grossBooking,
@@ -439,9 +469,9 @@ const Reports = () => {
       pendingLaundryDue,
       totalPiecesSent,
       totalPiecesMissing,
-      totalExpenses,
-      cashExpense,
-      upiExpense,
+      totalExpenses: unifiedTotalExpenses,
+      cashExpense: unifiedCashExpense,
+      upiExpense: unifiedUpiExpense,
       cardExpense,
       netCashInDrawer,
       netProfit,
@@ -639,68 +669,68 @@ const Reports = () => {
       </div>
 
       {/* 5-Metric Executive Overview (Consistently visible for instant financial reconciliation) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-3.5">
         {/* 1. Bookings & Headcount */}
-        <div className="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs">
+        <div className="bg-white p-3 sm:p-4 rounded-2xl border border-gray-200/90 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Bookings & Headcount</span>
-            <span className="p-1.5 bg-gray-100 text-gray-600 rounded-lg"><Users size={14} /></span>
+            <span className="text-[10px] sm:text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Bookings & Headcount</span>
+            <span className="p-1 sm:p-1.5 bg-gray-100 text-gray-600 rounded-lg"><Users size={13} /></span>
           </div>
-          <div className="mt-2">
-            <h2 className="text-2xl font-black text-gray-900 tracking-tight">{stats.bookingsCount} <span className="text-sm font-semibold text-gray-500">Bookings</span></h2>
-            <p className="text-xs font-semibold text-indigo-600 mt-1">{stats.totalGuestsHeadcount} Total Guests Accommodated</p>
+          <div className="mt-1.5 sm:mt-2">
+            <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">{stats.bookingsCount} <span className="text-xs sm:text-sm font-semibold text-gray-500">Bookings</span></h2>
+            <p className="text-[11px] sm:text-xs font-semibold text-indigo-600 mt-0.5 sm:mt-1 truncate">{stats.totalGuestsHeadcount} Total Guests Accommodated</p>
           </div>
         </div>
 
         {/* 2. Reconciled Cash In Drawer */}
-        <div className="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs">
+        <div className="bg-white p-3 sm:p-4 rounded-2xl border border-gray-200/90 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Net Cash in Drawer</span>
-            <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-md border border-emerald-200/60">Drawer</span>
+            <span className="text-[10px] sm:text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Net Cash in Drawer</span>
+            <span className="px-1.5 sm:px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[9px] sm:text-[10px] font-bold rounded-md border border-emerald-200/60">Drawer</span>
           </div>
-          <div className="mt-2">
-            <h2 className="text-2xl font-black text-emerald-700 tracking-tight">₹{stats.netCashInDrawer.toLocaleString('en-IN')}</h2>
-            <p className="text-xs text-gray-500 mt-1 font-medium">
-              Cash In: <span className="font-semibold text-gray-800">₹{stats.cashTotal.toLocaleString('en-IN')}</span> | Exp: <span className="font-semibold text-rose-600">-₹{stats.cashExpense.toLocaleString('en-IN')}</span>
+          <div className="mt-1.5 sm:mt-2">
+            <h2 className="text-xl sm:text-2xl font-black text-emerald-700 tracking-tight">₹{stats.netCashInDrawer.toLocaleString('en-IN')}</h2>
+            <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1 font-medium truncate">
+              In: <span className="font-semibold text-gray-800">₹{stats.cashTotal.toLocaleString('en-IN')}</span> | Exp: <span className="font-semibold text-rose-600">-₹{stats.cashExpense.toLocaleString('en-IN')}</span>
             </p>
           </div>
         </div>
 
         {/* 3. UPI Direct */}
-        <div className="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs">
+        <div className="bg-white p-3 sm:p-4 rounded-2xl border border-gray-200/90 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">UPI / Bank Direct</span>
-            <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-bold rounded-md border border-blue-200/60">Online</span>
+            <span className="text-[10px] sm:text-[11px] font-semibold text-gray-500 uppercase tracking-wider">UPI / Bank Direct</span>
+            <span className="px-1.5 sm:px-2 py-0.5 bg-blue-50 text-blue-700 text-[9px] sm:text-[10px] font-bold rounded-md border border-blue-200/60">Online</span>
           </div>
-          <div className="mt-2">
-            <h2 className="text-2xl font-black text-blue-700 tracking-tight">₹{stats.upiTotal.toLocaleString('en-IN')}</h2>
-            <p className="text-xs text-gray-500 mt-1 font-medium">Direct Bank QR / Payment Links</p>
+          <div className="mt-1.5 sm:mt-2">
+            <h2 className="text-xl sm:text-2xl font-black text-blue-700 tracking-tight">₹{stats.upiTotal.toLocaleString('en-IN')}</h2>
+            <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1 font-medium truncate">Direct Bank QR / Payment Links</p>
           </div>
         </div>
 
         {/* 4. Daily Operating Expenses */}
-        <div className="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs">
+        <div className="bg-white p-3 sm:p-4 rounded-2xl border border-gray-200/90 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Daily Expenses</span>
-            <span className="px-2 py-0.5 bg-rose-50 text-rose-700 text-[10px] font-bold rounded-md border border-rose-200/60">Deducted</span>
+            <span className="text-[10px] sm:text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Daily Expenses</span>
+            <span className="px-1.5 sm:px-2 py-0.5 bg-rose-50 text-rose-700 text-[9px] sm:text-[10px] font-bold rounded-md border border-rose-200/60">Deducted</span>
           </div>
-          <div className="mt-2">
-            <h2 className="text-2xl font-black text-rose-600 tracking-tight">-₹{stats.totalExpenses.toLocaleString('en-IN')}</h2>
-            <p className="text-xs text-gray-500 mt-1 font-medium">
+          <div className="mt-1.5 sm:mt-2">
+            <h2 className="text-xl sm:text-2xl font-black text-rose-600 tracking-tight">-₹{stats.totalExpenses.toLocaleString('en-IN')}</h2>
+            <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1 font-medium truncate">
               Cash: <span className="font-semibold text-gray-800">₹{stats.cashExpense.toLocaleString('en-IN')}</span> | Online: <span className="font-semibold text-gray-800">₹{stats.upiExpense.toLocaleString('en-IN')}</span>
             </p>
           </div>
         </div>
 
         {/* 5. Net Revenue */}
-        <div className="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs">
+        <div className="col-span-2 lg:col-span-1 bg-white p-3 sm:p-4 rounded-2xl border border-gray-200/90 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Net Operating Revenue</span>
-            <span className="p-1.5 bg-gray-100 text-gray-600 rounded-lg"><PieChart size={14} /></span>
+            <span className="text-[10px] sm:text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Net Operating Revenue</span>
+            <span className="p-1 sm:p-1.5 bg-gray-100 text-gray-600 rounded-lg"><PieChart size={13} /></span>
           </div>
-          <div className="mt-2">
-            <h2 className="text-2xl font-black text-gray-900 tracking-tight">₹{(stats.totalCollected - stats.totalExpenses).toLocaleString('en-IN')}</h2>
-            <p className="text-xs text-gray-500 mt-1 font-medium">
+          <div className="mt-1.5 sm:mt-2">
+            <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">₹{(stats.totalCollected - stats.totalExpenses).toLocaleString('en-IN')}</h2>
+            <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1 font-medium truncate">
               Total Collections: ₹{stats.totalCollected.toLocaleString('en-IN')}
             </p>
           </div>

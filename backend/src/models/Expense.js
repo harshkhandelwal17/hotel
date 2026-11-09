@@ -48,6 +48,10 @@ const expenseSchema = new mongoose.Schema({
   receiptUrl: {
     type: String
   },
+  laundryOrder: {
+    type: mongoose.Schema.ObjectId,
+    ref: 'LaundryOrder'
+  },
   createdBy: {
     type: mongoose.Schema.ObjectId,
     ref: 'User',
