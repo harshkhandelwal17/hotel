@@ -37,7 +37,7 @@ import {
 import { format, isPast } from 'date-fns';
 import { useToast } from '../../components/ui/Toast';
 import { compressImage } from '../../utils/imageCompression';
-import { extractAddressFromBackId } from '../../utils/idOcr';
+import { extractAddressFromBackId, scanIdCardLocally } from '../../utils/idOcr';
 import { scanAadhaarQrFromImage, validateAadhaarNumber } from '../../utils/aadhaarQrHelper';
 import { apiCache } from '../../utils/apiCache';
 import GuestRegistrationCardModal from '../../components/reception/GuestRegistrationCardModal';
@@ -740,8 +740,9 @@ const CheckIn = () => {
       }
 
       // =========================================================
-      // 2. AI VISION OCR SCANNING (Gemini / Groq Vision Fallback)
+      // 2. AI VISION OCR SCANNING (If enabled by Super Admin)
       // =========================================================
+      let aiProcessed = false;
       if (!qrProcessed && aiOcrEnabled) {
         setScanningOcr({ index, side });
         try {
@@ -785,6 +786,7 @@ const CheckIn = () => {
               return updated;
             });
 
+            aiProcessed = true;
             toast({
               message: filled.length > 0
                 ? `✨ Auto-Filled: ${filled.join(' | ')}`
@@ -799,37 +801,58 @@ const CheckIn = () => {
           } else {
             console.warn('AI OCR scan notice:', ocrErr?.response?.data?.message || ocrErr.message);
           }
-
-          // Graceful Fallback for Back ID if AI is disabled or encounters issue
-          if (side === 'back') {
-            extractAddressFromBackId(uploadedUrl).then((address) => {
-              if (address) {
-                setGuests(prev => {
-                  const updated = [...prev];
-                  updated[index] = { ...updated[index], address: address };
-                  return updated;
-                });
-                toast({
-                  message: 'Address extracted from ID. Please verify.',
-                  type: 'success'
-                });
-              }
-            });
-          }
         } finally {
           setScanningOcr({ index: null, side: null });
         }
-      } else if (side === 'back' && !qrProcessed) {
-        // AI disabled: standard address extraction for back ID
-        extractAddressFromBackId(uploadedUrl).then((address) => {
-          if (address) {
+      }
+
+      // =========================================================
+      // 3. 100% FREE LOCAL SMART ID SCANNER (Works when aiOcrEnabled is false or QR is blurry)
+      // =========================================================
+      if (!qrProcessed && !aiProcessed) {
+        setScanningOcr({ index, side });
+        try {
+          const localRes = await scanIdCardLocally(file || localDataUrl || uploadedUrl, side);
+          if (localRes && localRes.success) {
+            const filled = [];
             setGuests(prev => {
               const updated = [...prev];
-              updated[index] = { ...updated[index], address: address };
+              const g = { ...updated[index] };
+              if (localRes.fullName && (side === 'front' || !g.fullName)) {
+                g.fullName = localRes.fullName;
+                filled.push(localRes.fullName);
+              }
+              if (localRes.idProofNumber && (!g.idProofNumber || String(g.idProofNumber).includes('X'))) {
+                g.idProofNumber = localRes.idProofNumber;
+                filled.push(localRes.idProofNumber);
+              }
+              if (localRes.gender && (side === 'front' || !g.gender)) {
+                g.gender = localRes.gender;
+              }
+              if (localRes.dateOfBirth && (side === 'front' || !g.dateOfBirth)) {
+                g.dateOfBirth = localRes.dateOfBirth;
+              }
+              if (localRes.address && (side === 'back' || !g.address)) {
+                g.address = localRes.address;
+                filled.push('Address');
+              }
+              g.idProofType = 'Aadhaar';
+              updated[index] = g;
               return updated;
             });
+
+            if (filled.length > 0) {
+              toast({
+                message: `✨ Auto-Filled from ID: ${filled.join(' | ')}`,
+                type: 'success'
+              });
+            }
           }
-        });
+        } catch (localErr) {
+          console.warn('Local ID scan notice:', localErr);
+        } finally {
+          setScanningOcr({ index: null, side: null });
+        }
       }
 
     } catch (err) {
@@ -954,8 +977,56 @@ const CheckIn = () => {
           }
         }
 
+        // 100% Free Local Smart Card Fallback (when QR is blurry/compressed and AI OCR is disabled)
+        setScanningOcr({ index: guestIdx, side: sideName });
+        try {
+          const localRes = await scanIdCardLocally(originalFile || preferredLocalSrc, sideName);
+          if (localRes && localRes.success) {
+            const filledFields = [];
+            setGuests(prev => {
+              const updated = [...prev];
+              const g = { ...updated[guestIdx] };
+              if (localRes.fullName && (sideName === 'front' || !g.fullName)) {
+                g.fullName = localRes.fullName;
+                filledFields.push('Name');
+              }
+              if (localRes.idProofNumber && (!g.idProofNumber || String(g.idProofNumber).includes('X'))) {
+                g.idProofNumber = localRes.idProofNumber;
+                filledFields.push(`Aadhaar (${localRes.idProofNumber})`);
+              }
+              if (localRes.gender && (sideName === 'front' || !g.gender)) {
+                g.gender = localRes.gender;
+                filledFields.push('Gender');
+              }
+              if (localRes.dateOfBirth && (sideName === 'front' || !g.dateOfBirth)) {
+                g.dateOfBirth = localRes.dateOfBirth;
+                filledFields.push('DOB');
+              }
+              if (localRes.address && (sideName === 'back' || !g.address)) {
+                g.address = localRes.address;
+                filledFields.push('Address');
+              }
+              g.idProofType = 'Aadhaar';
+              updated[guestIdx] = g;
+              return updated;
+            });
+
+            toast({
+              message: filledFields.length > 0
+                ? `✨ Aadhaar Card Scanned! Auto-filled: ${filledFields.join(', ')}`
+                : '✨ Aadhaar card details verified!',
+              type: 'success'
+            });
+            return;
+          }
+        } catch (localScanErr) {
+          console.warn('Local fallback scan error:', localScanErr);
+        } finally {
+          setScanningOcr({ index: null, side: null });
+        }
+
         toast({
-          message: res?.message || 'No readable Aadhaar QR code found in this photo. Please make sure the side with the QR code is clearly visible.',
+          message: res?.message || 'No readable Aadhaar QR or text found in this photo. Please make sure the card is clearly visible.',
           type: 'error'
         });
       }
@@ -1091,7 +1162,8 @@ const CheckIn = () => {
         setScanningQr({ index: null, side: null });
       }
 
-      // 2. Run AI OCR scan as fallback
+      // 2. Run AI OCR scan as fallback (if enabled for property)
+      let aiProcessed = false;
       if (!qrProcessed && aiOcrEnabled) {
         setScanningOcr({ index, side });
         try {
@@ -1105,6 +1177,7 @@ const CheckIn = () => {
 
           if (ocrRes.data && ocrRes.data.success && ocrRes.data.data) {
             const aiData = ocrRes.data.data;
+            aiProcessed = true;
             if (side === 'front') {
               setGuests(prev => {
                 const updated = [...prev];
@@ -1134,30 +1207,38 @@ const CheckIn = () => {
             }
           }
         } catch (ocrErr) {
-          if (side === 'back') {
-            extractAddressFromBackId(imageUrl).then((address) => {
-              if (address) {
-                setGuests(prev => {
-                  const updated = [...prev];
-                  updated[index] = { ...updated[index], address };
-                  return updated;
-                });
-              }
-            });
-          }
+          console.warn('WhatsApp AI OCR fallback notice:', ocrErr?.message);
         } finally {
           setScanningOcr({ index: null, side: null });
         }
-      } else if (side === 'back' && !qrProcessed) {
-        extractAddressFromBackId(imageUrl).then((address) => {
-          if (address) {
+      }
+
+      // 3. 100% Free Local Smart Card Scanner Fallback
+      if (!qrProcessed && !aiProcessed) {
+        setScanningOcr({ index, side });
+        try {
+          const localRes = await scanIdCardLocally(resolvedUrl, side);
+          if (localRes && localRes.success) {
             setGuests(prev => {
               const updated = [...prev];
-              updated[index] = { ...updated[index], address };
+              const g = { ...updated[index] };
+              if (localRes.fullName && (side === 'front' || !g.fullName)) g.fullName = localRes.fullName;
+              if (localRes.idProofNumber && (!g.idProofNumber || String(g.idProofNumber).includes('X'))) {
+                g.idProofNumber = localRes.idProofNumber;
+              }
+              if (localRes.gender && (side === 'front' || !g.gender)) g.gender = localRes.gender;
+              if (localRes.dateOfBirth && (side === 'front' || !g.dateOfBirth)) g.dateOfBirth = localRes.dateOfBirth;
+              if (localRes.address && (side === 'back' || !g.address)) g.address = localRes.address;
+              g.idProofType = 'Aadhaar';
+              updated[index] = g;
               return updated;
             });
+            toast({ message: '✨ Auto-Filled Details from WhatsApp Image!', type: 'success' });
           }
-        });
+        } catch (_) {
+        } finally {
+          setScanningOcr({ index: null, side: null });
+        }
       }
     } catch (err) {
       console.error('Failed to attach WhatsApp image:', err);
