@@ -113,6 +113,17 @@ exports.updateExpense = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Expense not found' });
     }
 
+    if (req.user.role === 'admin') {
+      const owned = await Hostel.findOne({ _id: expense.hostel, owner: req.user.id });
+      if (!owned) {
+        return res.status(403).json({ success: false, message: 'Not authorized to modify expense for this property' });
+      }
+    } else if (req.user.role !== 'superadmin') {
+      if (expense.hostel.toString() !== (req.user.assignedHostel ? req.user.assignedHostel.toString() : '')) {
+        return res.status(403).json({ success: false, message: 'Not authorized for this property' });
+      }
+    }
+
     const { title, amount, category, paymentMethod, expenseDate, notes, receiptUrl } = req.body;
 
     if (title !== undefined) expense.title = title.trim();
@@ -146,6 +157,17 @@ exports.deleteExpense = async (req, res, next) => {
     const expense = await Expense.findById(req.params.id);
     if (!expense) {
       return res.status(404).json({ success: false, message: 'Expense not found' });
+    }
+
+    if (req.user.role === 'admin') {
+      const owned = await Hostel.findOne({ _id: expense.hostel, owner: req.user.id });
+      if (!owned) {
+        return res.status(403).json({ success: false, message: 'Not authorized to delete expense for this property' });
+      }
+    } else if (req.user.role !== 'superadmin') {
+      if (expense.hostel.toString() !== (req.user.assignedHostel ? req.user.assignedHostel.toString() : '')) {
+        return res.status(403).json({ success: false, message: 'Not authorized for this property' });
+      }
     }
 
     await expense.deleteOne();

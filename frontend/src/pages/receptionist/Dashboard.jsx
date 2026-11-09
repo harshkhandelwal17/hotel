@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback, useContext } from 'react';
 import { useOutletContext, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { format, isPast } from 'date-fns';
-import { Users, BedDouble, CalendarCheck, Clock, CreditCard, ChevronRight, AlertTriangle, PlusCircle, RefreshCw, Download, Phone, ShieldCheck } from 'lucide-react';
+import { Users, BedDouble, CalendarCheck, Clock, CreditCard, ChevronRight, AlertTriangle, PlusCircle, RefreshCw, Download, Phone, ShieldCheck, TrendingDown } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 import PoliceReportModal from '../admin/PoliceReportModal';
+import ExpenseModal from '../admin/ExpenseModal';
 import { apiCache } from '../../utils/apiCache';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
@@ -31,6 +32,8 @@ const ReceptionistDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showPoliceModal, setShowPoliceModal] = useState(false);
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [hostels, setHostels] = useState([]);
   const [now, setNow] = useState(new Date());
   const { globalProperty } = useOutletContext() || { globalProperty: 'all' };
 
@@ -55,12 +58,15 @@ const ReceptionistDashboard = () => {
     try {
       const propQuery = globalProperty !== 'all' ? `?hostel=${globalProperty}` : '';
       const ampQuery = globalProperty !== 'all' ? `&hostel=${globalProperty}` : '';
-      const [statsRes, staysRes] = await Promise.all([
+      const [statsRes, staysRes, hostelsRes] = await Promise.all([
         axios.get(`${API}/api/reports/dashboard${propQuery}`),
-        axios.get(`${API}/api/stays?status=Active${ampQuery}`)
+        axios.get(`${API}/api/stays?status=Active${ampQuery}`),
+        axios.get(`${API}/api/hostels`).catch(() => ({ data: { data: [] } }))
       ]);
       const newStats = statsRes.data.data;
       const newStays = staysRes.data.data || [];
+      const hostelList = hostelsRes.data?.data || [];
+      setHostels(hostelList);
       apiCache.set(cacheKey, { stats: newStats, stays: newStays });
       apiCache.set(`stays_active_${globalProperty}`, newStays);
       setStats(newStats);
@@ -116,11 +122,20 @@ const ReceptionistDashboard = () => {
         <div className="flex gap-2.5 sm:gap-3 flex-wrap items-center">
           <button 
             type="button"
+            onClick={() => setShowExpenseModal(true)} 
+            className="px-3.5 py-2.5 bg-white hover:bg-gray-50 text-gray-800 border border-gray-200 rounded-xl font-bold text-xs shadow-2xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+            title="Record Daily Counter Cash / Hotel Expense"
+          >
+            <TrendingDown size={15} className="text-rose-500" />
+            <span>Add Expense</span>
+          </button>
+          <button 
+            type="button"
             onClick={() => setShowPoliceModal(true)} 
-            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black uppercase tracking-wider text-xs shadow-md transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+            className="px-3.5 py-2.5 bg-white hover:bg-gray-50 text-gray-800 border border-gray-200 rounded-xl font-bold text-xs shadow-2xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
             title="Generate Official Police Verification Report"
           >
-            <ShieldCheck size={16} />
+            <ShieldCheck size={15} className="text-gray-600" />
             <span>Police Report</span>
           </button>
           <button onClick={() => fetchDashboardData(true)} className={`p-2.5 text-gray-500 hover:text-black bg-white border border-gray-200 rounded-xl transition-all ${refreshing ? 'animate-spin' : 'hover:border-gray-400'}`}>
@@ -296,6 +311,15 @@ const ReceptionistDashboard = () => {
         isOpen={showPoliceModal}
         onClose={() => setShowPoliceModal(false)}
         defaultHostel={globalProperty}
+      />
+
+      {/* Quick Daily Expense Modal */}
+      <ExpenseModal
+        isOpen={showExpenseModal}
+        onClose={() => setShowExpenseModal(false)}
+        hostels={hostels}
+        defaultHostel={globalProperty !== 'all' ? globalProperty : (user?.assignedHostel || '')}
+        onExpenseAdded={() => fetchDashboardData(true)}
       />
     </div>
   );
