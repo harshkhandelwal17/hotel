@@ -1,9 +1,11 @@
 import React, { useContext, useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
-import { Home, Users, Bed, LogOut, Bell, PlusCircle, Building, CreditCard, BarChart3, Hexagon, ShieldCheck, Menu, X, ShieldAlert, LayoutGrid, Volume2, VolumeX, Phone, BellRing, ChevronDown, Shirt } from 'lucide-react';
+import { Home, Users, Bed, LogOut, Bell, PlusCircle, Building, CreditCard, BarChart3, Hexagon, ShieldCheck, Menu, X, ShieldAlert, LayoutGrid, Volume2, VolumeX, Phone, BellRing, ChevronDown, Shirt, Keyboard, Search } from 'lucide-react';
 import GlobalSearch from '../common/GlobalSearch';
+import CommandPalette from '../common/CommandPalette';
+import ShortcutsModal from '../common/ShortcutsModal';
 import soundAlert from '../../utils/soundAlert';
 import PoliceReportModal from '../../pages/admin/PoliceReportModal';
 import { apiCache, prefetchRoute } from '../../utils/apiCache';
@@ -11,12 +13,17 @@ import { apiCache, prefetchRoute } from '../../utils/apiCache';
 const AppLayout = ({ children }) => {
   const { user, logout } = useContext(AuthContext);
   const location = useLocation();
+  const navigate = useNavigate();
   const [hostels, setHostels] = useState([]);
   const [globalProperty, setGlobalProperty] = useState(localStorage.getItem('adminGlobalProperty') || 'all');
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showPoliceModal, setShowPoliceModal] = useState(false);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [showShortcutsModal, setShowShortcutsModal] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const isMac = typeof window !== 'undefined' && navigator.platform?.toUpperCase().indexOf('MAC') >= 0;
 
   const fetchHostels = () => {
     if (!user) return;
@@ -43,6 +50,69 @@ const AppLayout = ({ children }) => {
     window.addEventListener('propertyChanged', fetchHostels);
     return () => window.removeEventListener('propertyChanged', fetchHostels);
   }, [user]);
+
+  // Global Keyboard Shortcuts (⌘K / Ctrl+K, single-key navigation & cheatsheet)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      // 1. Toggle Command Palette with Cmd+K or Ctrl+K (works anywhere!)
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setShowCommandPalette(prev => !prev);
+        return;
+      }
+
+      // 2. Escape closes open menus/modals
+      if (e.key === 'Escape') {
+        if (showCommandPalette) setShowCommandPalette(false);
+        if (showShortcutsModal) setShowShortcutsModal(false);
+        return;
+      }
+
+      // Check if user is typing in an input / textarea / select
+      const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable;
+      if (isInput || showCommandPalette || showShortcutsModal) return;
+
+      // 3. Question mark (?) opens shortcuts guide
+      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        e.preventDefault();
+        setShowShortcutsModal(true);
+        return;
+      }
+
+      // 4. Standalone single-letter navigation
+      if (!e.metaKey && !e.ctrlKey && !e.altKey) {
+        const k = e.key.toLowerCase();
+        if (k === 'n') {
+          e.preventDefault();
+          navigate('/checkin');
+        } else if (k === 'o') {
+          e.preventDefault();
+          navigate('/checkouts');
+        } else if (k === 'r') {
+          e.preventDefault();
+          navigate('/rooms');
+        } else if (k === 'd') {
+          e.preventDefault();
+          navigate('/dashboard');
+        } else if (k === 'p') {
+          e.preventDefault();
+          navigate('/payments');
+        } else if (k === 'l') {
+          e.preventDefault();
+          navigate('/laundry');
+        } else if (k === 'f') {
+          e.preventDefault();
+          navigate('/admin/reports');
+        } else if (k === 'g') {
+          e.preventDefault();
+          navigate('/guests');
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [showCommandPalette, showShortcutsModal, navigate]);
 
   const [isAlertMuted, setIsAlertMuted] = useState(soundAlert.getMuteState());
 
@@ -342,15 +412,36 @@ const AppLayout = ({ children }) => {
               </nav>
             </div>
             
-            {/* Search Bar */}
-            <div className="hidden lg:flex items-center justify-center shrink-1 min-w-0">
-              <div className="w-32 lg:w-44 xl:w-56 focus-within:w-60 transition-all duration-300">
-                <GlobalSearch />
-              </div>
+            {/* Command Palette Trigger */}
+            <div className="hidden md:flex items-center justify-center shrink-1 min-w-0">
+              <button
+                type="button"
+                onClick={() => setShowCommandPalette(true)}
+                className="flex items-center justify-between gap-2.5 w-36 lg:w-48 xl:w-56 px-3 py-1.5 bg-gray-50 hover:bg-gray-100/90 border border-gray-200/90 hover:border-gray-300 rounded-xl text-xs font-semibold text-gray-500 hover:text-gray-900 transition-all shadow-2xs group cursor-pointer"
+                title="Search guests, rooms, bookings or run commands (⌘K / Ctrl+K)"
+              >
+                <span className="flex items-center gap-2 truncate">
+                  <Search size={14} className="text-gray-400 group-hover:text-black transition-colors" />
+                  <span className="truncate">Search or command...</span>
+                </span>
+                <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 bg-white border border-gray-200 rounded text-[10px] font-mono font-black text-gray-400 group-hover:text-black shadow-2xs">
+                  {isMac ? '⌘K' : 'Ctrl+K'}
+                </kbd>
+              </button>
             </div>
             
             {/* Profile & Actions */}
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              {/* Keyboard Shortcuts Guide Pill */}
+              <button
+                type="button"
+                onClick={() => setShowShortcutsModal(true)}
+                className="hidden sm:flex items-center justify-center p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-all cursor-pointer"
+                title="Keyboard Shortcuts Cheatsheet (?)"
+              >
+                <Keyboard size={18} />
+              </button>
+
               {/* Official Police Verification Report Button for Staff / Receptionists / Admin */}
               {user && user.role !== 'superadmin' && (
                 <button
@@ -554,7 +645,22 @@ const AppLayout = ({ children }) => {
             
             <div className="px-4 pt-4 pb-2">
               <div className="mb-4">
-                <GlobalSearch onResultClick={() => setIsMobileMenuOpen(false)} />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    setShowCommandPalette(true);
+                  }}
+                  className="w-full flex items-center justify-between px-3.5 py-2.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 active:scale-95 transition-all"
+                >
+                  <span className="flex items-center gap-2">
+                    <Search size={15} className="text-gray-500" />
+                    <span>Search or Commands</span>
+                  </span>
+                  <span className="text-[10px] bg-white border border-gray-200 px-1.5 py-0.5 rounded font-mono font-black text-gray-500">
+                    {isMac ? '⌘K' : 'Ctrl+K'}
+                  </span>
+                </button>
               </div>
               {user?.role === 'admin' && (
                 <select 
@@ -652,6 +758,22 @@ const AppLayout = ({ children }) => {
         isOpen={showPoliceModal}
         onClose={() => setShowPoliceModal(false)}
         defaultHostel={globalProperty}
+      />
+
+      {/* Global Command Palette (⌘K / Ctrl+K) */}
+      <CommandPalette
+        isOpen={showCommandPalette}
+        onClose={() => setShowCommandPalette(false)}
+        onOpenPoliceReport={() => setShowPoliceModal(true)}
+        onOpenShortcuts={() => setShowShortcutsModal(true)}
+        user={user}
+        globalProperty={globalProperty}
+      />
+
+      {/* Keyboard Shortcuts Cheatsheet Modal (?) */}
+      <ShortcutsModal
+        isOpen={showShortcutsModal}
+        onClose={() => setShowShortcutsModal(false)}
       />
       
     </div>
