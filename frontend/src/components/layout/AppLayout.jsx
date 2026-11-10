@@ -455,6 +455,19 @@ const AppLayout = ({ children }) => {
                 </kbd>
               </button>
 
+              {/* Daily Official Police Verification Report Button */}
+              {user && user.role !== 'superadmin' && (
+                <button
+                  type="button"
+                  onClick={() => setShowPoliceModal(true)}
+                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-2xs transition-all active:scale-95 cursor-pointer shrink-0"
+                  title={isHindi ? "दैनिक पुलिस सत्यापन रिपोर्ट तैयार करें" : "Generate Daily Police Verification Report"}
+                >
+                  <ShieldCheck size={14} className="stroke-[2.5]" />
+                  <span className="hidden sm:inline">{t('nav.policeReport', 'Police Report')}</span>
+                </button>
+              )}
+
               {/* Property Selector for Multi-Property Admins */}
               {user?.role === 'admin' && (
                 <select 

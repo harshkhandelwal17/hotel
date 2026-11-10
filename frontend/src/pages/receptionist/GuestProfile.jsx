@@ -331,7 +331,7 @@ const GuestProfile = () => {
               </div>
               <div>
                 <h2 className="text-sm font-black text-gray-900 uppercase tracking-wider">
-                  Current In-House Stay
+                  {t('profile.currentInHouseStay', 'Current In-House Stay')}
                 </h2>
                 <p className="text-[11px] font-bold text-gray-500">
                   Room {activeStay.room?.roomNumber} • Booking #{activeStay.bookingNumber || 'Direct'}
@@ -342,48 +342,48 @@ const GuestProfile = () => {
             <div className="flex flex-wrap items-center gap-2">
               <button 
                 onClick={() => { setSelectedStay(activeStay); setExtendModalOpen(true); }}
-                className="px-3.5 py-2 bg-white hover:bg-gray-100 text-gray-800 font-bold text-xs uppercase tracking-wider border border-gray-200 rounded-xl transition-all active:scale-95"
+                className="px-3.5 py-2 bg-white hover:bg-gray-100 text-gray-800 font-bold text-xs uppercase tracking-wider border border-gray-200 rounded-xl transition-all active:scale-95 cursor-pointer"
               >
-                Extend Stay
+                {t('checkout.extendStay', 'Extend Stay')}
               </button>
               <button 
                 onClick={() => setSelectedGrcStay(activeStay)}
-                className="px-3.5 py-2 bg-white hover:bg-gray-100 text-gray-800 font-bold text-xs uppercase tracking-wider border border-gray-200 rounded-xl transition-all shadow-2xs active:scale-95 flex items-center gap-1.5"
+                className="px-3.5 py-2 bg-white hover:bg-gray-100 text-gray-800 font-bold text-xs uppercase tracking-wider border border-gray-200 rounded-xl transition-all shadow-2xs active:scale-95 flex items-center gap-1.5 cursor-pointer"
                 title="Print Guest Registration Card (GRC)"
               >
                 <FileText size={14} className="text-gray-500" /> Print GRC
               </button>
               <button 
                 onClick={() => handlePrint(activeStay)}
-                className="px-4 py-2 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-sm active:scale-95 flex items-center gap-1.5"
+                className="px-4 py-2 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-sm active:scale-95 flex items-center gap-1.5 cursor-pointer"
               >
-                <Printer size={14} /> Print Bill
+                <Printer size={14} /> {isHindi ? 'बिल प्रिंट करें' : 'Print Bill'}
               </button>
             </div>
           </div>
           
           <div className="p-6 sm:p-7 grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             <div className="bg-gray-50/70 p-4 rounded-2xl border border-gray-100">
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Room Occupancy</p>
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{isHindi ? 'कमरा व अतिथि संख्या' : 'Room Occupancy'}</p>
               <p className="font-black text-gray-900 text-xl">Room {activeStay.room?.roomNumber}</p>
               <p className="text-xs font-bold text-gray-500 mt-1">{activeStay.occupants > 1 ? `${activeStay.occupants} Guests Accommodated` : `1 Guest`}</p>
             </div>
 
             <div className="bg-gray-50/70 p-4 rounded-2xl border border-gray-100">
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Check-in Time</p>
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{isHindi ? 'चेक-इन समय' : 'Check-in Time'}</p>
               <p className="font-bold text-gray-900 text-sm leading-tight">{format(new Date(activeStay.checkInDate), 'dd MMM yyyy')}</p>
               <p className="text-xs font-bold text-gray-500 mt-0.5">{format(new Date(activeStay.checkInDate), 'hh:mm a')}</p>
             </div>
 
             <div className="bg-gray-50/70 p-4 rounded-2xl border border-gray-100">
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Expected Checkout</p>
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{t('dashboard.expectedCheckout', 'Expected Checkout')}</p>
               <p className="font-bold text-gray-900 text-sm leading-tight">{format(new Date(activeStay.expectedCheckOutDate), 'dd MMM yyyy')}</p>
               <p className="text-xs font-bold text-gray-500 mt-0.5">{format(new Date(activeStay.expectedCheckOutDate), 'hh:mm a')}</p>
             </div>
 
             <div className={`p-4 rounded-2xl border ${activeStay.totalAmount - activeStay.paidAmount > 0 ? 'bg-rose-50/70 border-rose-100' : 'bg-emerald-50/70 border-emerald-100'}`}>
               <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${activeStay.totalAmount - activeStay.paidAmount > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
-                {activeStay.totalAmount - activeStay.paidAmount > 0 ? 'Balance Pending' : 'Paid in Full'}
+                {activeStay.totalAmount - activeStay.paidAmount > 0 ? (isHindi ? 'बकाया राशि' : 'Balance Pending') : (isHindi ? 'पूर्ण भुगतान प्राप्त' : 'Paid in Full')}
               </p>
               <p className={`font-black text-2xl ${activeStay.totalAmount - activeStay.paidAmount > 0 ? 'text-rose-700' : 'text-emerald-800'}`}>
                 ₹{activeStay.totalAmount - activeStay.paidAmount}
@@ -393,7 +393,7 @@ const GuestProfile = () => {
             
             {activeStay.coGuests && activeStay.coGuests.filter(cg => cg._id !== guest._id).length > 0 && (
               <div className="col-span-2 lg:col-span-4 pt-1">
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2.5">Accompanying Co-Guests</p>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2.5">{isHindi ? 'साथ आए अन्य अतिथि' : 'Accompanying Co-Guests'}</p>
                 <div className="flex flex-wrap gap-2.5">
                   {activeStay.coGuests.filter(cg => cg._id !== guest._id).map(cg => (
                     <Link 
