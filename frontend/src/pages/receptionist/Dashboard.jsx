@@ -142,7 +142,7 @@ const ReceptionistDashboard = () => {
 
   if (loading) {
     return (
-      <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300 max-w-7xl mx-auto pb-12 px-2 sm:px-4">
+      <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300 w-full mx-auto pb-12">
         <div className="h-10 w-64 bg-gray-200 rounded-xl animate-pulse" />
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
           {[...Array(6)].map((_, i) => <SkeletonCard key={i} />)}
@@ -156,7 +156,7 @@ const ReceptionistDashboard = () => {
   const occupancyRate = stats ? Math.round((stats.occupiedRooms / (totalRooms || 1)) * 100) : 0;
 
   return (
-    <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300 max-w-7xl mx-auto pb-12 px-2 sm:px-4">
+    <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300 w-full mx-auto pb-12">
       
       {/* ─── Top Greeting & Live Action Header ─── */}
       <div className="bg-white p-6 sm:p-7 rounded-3xl border border-gray-200/80 shadow-2xs flex flex-col lg:flex-row lg:items-center justify-between gap-5">

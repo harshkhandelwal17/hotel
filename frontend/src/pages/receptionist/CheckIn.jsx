@@ -1744,7 +1744,7 @@ const CheckIn = () => {
   // =========================================================
 
   return (
-    <div className={`mx-auto pb-44 md:pb-12 animate-in fade-in duration-500 transition-all ${waSyncEnabled && step === 2 ? 'max-w-[1500px] px-2 sm:px-4' : 'max-w-7xl px-3 sm:px-6'}`}>
+    <div className="w-full mx-auto pb-44 md:pb-12 animate-in fade-in duration-500 transition-all">
 
       {/* HEADER */}
 

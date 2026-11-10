@@ -43,7 +43,7 @@ const GuestDirectory = () => {
   };
 
   return (
-    <div className="max-w-screen-xl mx-auto animate-in fade-in duration-500">
+    <div className="w-full mx-auto animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">

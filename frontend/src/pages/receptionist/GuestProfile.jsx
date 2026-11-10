@@ -211,7 +211,7 @@ const GuestProfile = () => {
   const historyStays = guest.stays?.filter(s => s._id !== activeStay?._id) || [];
 
   return (
-    <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300 max-w-6xl mx-auto pb-12 px-3 sm:px-6">
+    <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300 w-full mx-auto pb-12">
       
       {/* ─── Profile Header (Clean Executive Standard) ─── */}
       <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-xs border border-gray-200/80 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
