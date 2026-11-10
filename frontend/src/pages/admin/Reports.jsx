@@ -671,69 +671,114 @@ const Reports = () => {
       {/* 5-Metric Executive Overview (Consistently visible for instant financial reconciliation) */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-3.5">
         {/* 1. Bookings & Headcount */}
-        <div className="bg-white p-3 sm:p-4 rounded-2xl border border-gray-200/90 shadow-2xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] sm:text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Bookings & Headcount</span>
-            <span className="p-1 sm:p-1.5 bg-gray-100 text-gray-600 rounded-lg"><Users size={13} /></span>
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-gray-200/90 shadow-2xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-wider">Bookings & Guests</span>
+              <span className="p-1 sm:p-1.5 bg-gray-100 text-gray-600 rounded-lg"><Users size={13} /></span>
+            </div>
+            <div className="mt-1.5 sm:mt-2">
+              <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
+                {stats.bookingsCount} <span className="text-xs sm:text-sm font-semibold text-gray-500">Bookings</span>
+              </h2>
+            </div>
           </div>
-          <div className="mt-1.5 sm:mt-2">
-            <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">{stats.bookingsCount} <span className="text-xs sm:text-sm font-semibold text-gray-500">Bookings</span></h2>
-            <p className="text-[11px] sm:text-xs font-semibold text-indigo-600 mt-0.5 sm:mt-1 truncate">{stats.totalGuestsHeadcount} Total Guests Accommodated</p>
+          <p className="text-[11px] sm:text-xs font-semibold text-indigo-600 mt-2 truncate">
+            {stats.totalGuestsHeadcount} Total Guests Accommodated
+          </p>
+        </div>
+
+        {/* 2. Total Revenue (Collections) */}
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-gray-200/90 shadow-2xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-wider">Total Revenue</span>
+              <span className="px-1.5 sm:px-2 py-0.5 bg-blue-50 text-blue-700 text-[9px] sm:text-[10px] font-bold rounded-md border border-blue-200/60">Gross</span>
+            </div>
+            <div className="mt-1.5 sm:mt-2">
+              <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
+                ₹{stats.totalCollected.toLocaleString('en-IN')}
+              </h2>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 mt-2 text-[10px] sm:text-[11px] font-bold flex-wrap">
+            <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-800 rounded border border-emerald-200/60">
+              Cash ₹{stats.cashTotal.toLocaleString('en-IN')}
+            </span>
+            <span className="px-1.5 py-0.5 bg-blue-50 text-blue-800 rounded border border-blue-200/60">
+              UPI ₹{stats.upiTotal.toLocaleString('en-IN')}
+            </span>
+            <span className="px-1.5 py-0.5 bg-purple-50 text-purple-800 rounded border border-purple-200/60">
+              Card ₹{stats.cardTotal.toLocaleString('en-IN')}
+            </span>
           </div>
         </div>
 
-        {/* 2. Reconciled Cash In Drawer */}
-        <div className="bg-white p-3 sm:p-4 rounded-2xl border border-gray-200/90 shadow-2xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] sm:text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Net Cash in Drawer</span>
-            <span className="px-1.5 sm:px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[9px] sm:text-[10px] font-bold rounded-md border border-emerald-200/60">Drawer</span>
+        {/* 3. Total Expenses */}
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-gray-200/90 shadow-2xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-wider">Total Expenses</span>
+              <span className="px-1.5 sm:px-2 py-0.5 bg-rose-50 text-rose-700 text-[9px] sm:text-[10px] font-bold rounded-md border border-rose-200/60">Deducted</span>
+            </div>
+            <div className="mt-1.5 sm:mt-2">
+              <h2 className="text-xl sm:text-2xl font-black text-rose-600 tracking-tight">
+                -₹{stats.totalExpenses.toLocaleString('en-IN')}
+              </h2>
+            </div>
           </div>
-          <div className="mt-1.5 sm:mt-2">
-            <h2 className="text-xl sm:text-2xl font-black text-emerald-700 tracking-tight">₹{stats.netCashInDrawer.toLocaleString('en-IN')}</h2>
-            <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1 font-medium truncate">
-              In: <span className="font-semibold text-gray-800">₹{stats.cashTotal.toLocaleString('en-IN')}</span> | Exp: <span className="font-semibold text-rose-600">-₹{stats.cashExpense.toLocaleString('en-IN')}</span>
-            </p>
-          </div>
-        </div>
-
-        {/* 3. UPI Direct */}
-        <div className="bg-white p-3 sm:p-4 rounded-2xl border border-gray-200/90 shadow-2xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] sm:text-[11px] font-semibold text-gray-500 uppercase tracking-wider">UPI / Bank Direct</span>
-            <span className="px-1.5 sm:px-2 py-0.5 bg-blue-50 text-blue-700 text-[9px] sm:text-[10px] font-bold rounded-md border border-blue-200/60">Online</span>
-          </div>
-          <div className="mt-1.5 sm:mt-2">
-            <h2 className="text-xl sm:text-2xl font-black text-blue-700 tracking-tight">₹{stats.upiTotal.toLocaleString('en-IN')}</h2>
-            <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1 font-medium truncate">Direct Bank QR / Payment Links</p>
+          <div className="flex items-center gap-1.5 mt-2 text-[10px] sm:text-[11px] font-bold flex-wrap">
+            <span className="px-1.5 py-0.5 bg-gray-50 text-gray-700 rounded border border-gray-200/60">
+              Cash: <span className="text-rose-600">-₹{stats.cashExpense.toLocaleString('en-IN')}</span>
+            </span>
+            <span className="px-1.5 py-0.5 bg-gray-50 text-gray-700 rounded border border-gray-200/60">
+              Online: <span className="text-rose-600">-₹{stats.upiExpense.toLocaleString('en-IN')}</span>
+            </span>
           </div>
         </div>
 
-        {/* 4. Daily Operating Expenses */}
-        <div className="bg-white p-3 sm:p-4 rounded-2xl border border-gray-200/90 shadow-2xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] sm:text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Daily Expenses</span>
-            <span className="px-1.5 sm:px-2 py-0.5 bg-rose-50 text-rose-700 text-[9px] sm:text-[10px] font-bold rounded-md border border-rose-200/60">Deducted</span>
+        {/* 4. Total Net Profit */}
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-gray-200/90 shadow-2xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-wider">Total Net Profit</span>
+              <span className={`px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-bold rounded-md border ${
+                (stats.totalCollected - stats.totalExpenses) >= 0 
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200/60' 
+                  : 'bg-rose-50 text-rose-700 border-rose-200/60'
+              }`}>
+                {(stats.totalCollected - stats.totalExpenses) >= 0 ? 'Profit' : 'Loss'}
+              </span>
+            </div>
+            <div className="mt-1.5 sm:mt-2">
+              <h2 className={`text-xl sm:text-2xl font-black tracking-tight ${
+                (stats.totalCollected - stats.totalExpenses) >= 0 ? 'text-emerald-700' : 'text-rose-600'
+              }`}>
+                ₹{(stats.totalCollected - stats.totalExpenses).toLocaleString('en-IN')}
+              </h2>
+            </div>
           </div>
-          <div className="mt-1.5 sm:mt-2">
-            <h2 className="text-xl sm:text-2xl font-black text-rose-600 tracking-tight">-₹{stats.totalExpenses.toLocaleString('en-IN')}</h2>
-            <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1 font-medium truncate">
-              Cash: <span className="font-semibold text-gray-800">₹{stats.cashExpense.toLocaleString('en-IN')}</span> | Online: <span className="font-semibold text-gray-800">₹{stats.upiExpense.toLocaleString('en-IN')}</span>
-            </p>
-          </div>
+          <p className="text-[11px] sm:text-xs text-gray-500 mt-2 font-medium truncate">
+            Revenue ₹{stats.totalCollected.toLocaleString('en-IN')} - Exp ₹{stats.totalExpenses.toLocaleString('en-IN')}
+          </p>
         </div>
 
-        {/* 5. Net Revenue */}
-        <div className="col-span-2 lg:col-span-1 bg-white p-3 sm:p-4 rounded-2xl border border-gray-200/90 shadow-2xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] sm:text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Net Operating Revenue</span>
-            <span className="p-1 sm:p-1.5 bg-gray-100 text-gray-600 rounded-lg"><PieChart size={13} /></span>
+        {/* 5. Net Cash in Drawer */}
+        <div className="col-span-2 lg:col-span-1 bg-white p-3.5 sm:p-4 rounded-2xl border border-gray-200/90 shadow-2xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-wider">Net Cash in Drawer</span>
+              <span className="px-1.5 sm:px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[9px] sm:text-[10px] font-bold rounded-md border border-emerald-200/60">Drawer</span>
+            </div>
+            <div className="mt-1.5 sm:mt-2">
+              <h2 className="text-xl sm:text-2xl font-black text-emerald-700 tracking-tight">
+                ₹{stats.netCashInDrawer.toLocaleString('en-IN')}
+              </h2>
+            </div>
           </div>
-          <div className="mt-1.5 sm:mt-2">
-            <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">₹{(stats.totalCollected - stats.totalExpenses).toLocaleString('en-IN')}</h2>
-            <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1 font-medium truncate">
-              Total Collections: ₹{stats.totalCollected.toLocaleString('en-IN')}
-            </p>
-          </div>
+          <p className="text-[11px] sm:text-xs text-gray-500 mt-2 font-medium truncate">
+            Cash In ₹{stats.cashTotal.toLocaleString('en-IN')} | Paid -₹{stats.cashExpense.toLocaleString('en-IN')}
+          </p>
         </div>
       </div>
 
