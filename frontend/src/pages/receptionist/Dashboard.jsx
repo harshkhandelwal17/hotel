@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useContext } from 'react';
 import { useOutletContext, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { format, isPast } from 'date-fns';
-import { Users, BedDouble, CalendarCheck, Clock, CreditCard, ChevronRight, AlertTriangle, PlusCircle, RefreshCw, Download, Phone, ShieldCheck, TrendingDown } from 'lucide-react';
+import { Users, BedDouble, CalendarCheck, Clock, CreditCard, ChevronRight, AlertTriangle, PlusCircle, RefreshCw, Download, Phone, ShieldCheck, TrendingDown, Banknote } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 import PoliceReportModal from '../admin/PoliceReportModal';
 import ExpenseModal from '../admin/ExpenseModal';
@@ -98,8 +98,8 @@ const ReceptionistDashboard = () => {
     return (
       <div className="space-y-8">
         <div className="h-10 w-64 bg-gray-200 rounded-xl animate-pulse" />
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => <SkeletonCard key={i} />)}
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
+          {[...Array(6)].map((_, i) => <SkeletonCard key={i} />)}
         </div>
         <div className="h-80 bg-gray-200 rounded-2xl animate-pulse" />
       </div>
@@ -164,14 +164,14 @@ const ReceptionistDashboard = () => {
       )}
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 group hover:border-blue-200 hover:shadow-md transition-all">
-          <div className="flex justify-between items-start mb-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
+        <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-gray-100 group hover:border-blue-200 hover:shadow-md transition-all">
+          <div className="flex justify-between items-start mb-3 sm:mb-4">
             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Occupied</span>
             <div className="p-2 bg-blue-50 text-blue-600 rounded-xl group-hover:scale-110 transition-transform"><BedDouble size={16} /></div>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-black text-gray-900">{stats?.occupiedRooms || 0}</span>
+            <span className="text-3xl sm:text-4xl font-black text-gray-900">{stats?.occupiedRooms || 0}</span>
             <span className="text-xs font-bold text-gray-400">/ {totalRooms}</span>
           </div>
           <div className="mt-3">
@@ -182,52 +182,66 @@ const ReceptionistDashboard = () => {
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 group hover:border-green-200 hover:shadow-md transition-all">
-          <div className="flex justify-between items-start mb-4">
+        <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-gray-100 group hover:border-green-200 hover:shadow-md transition-all">
+          <div className="flex justify-between items-start mb-3 sm:mb-4">
             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Available</span>
             <div className="p-2 bg-green-50 text-green-600 rounded-xl group-hover:scale-110 transition-transform"><CalendarCheck size={16} /></div>
           </div>
           <div className="flex items-baseline">
-            <span className="text-4xl font-black text-green-600">{stats?.availableRooms || 0}</span>
+            <span className="text-3xl sm:text-4xl font-black text-green-600">{stats?.availableRooms || 0}</span>
             <span className="text-xs font-bold text-gray-400 ml-2">rooms free</span>
           </div>
-          <p className="text-[10px] text-green-600 font-bold mt-4">Ready to check-in</p>
+          <p className="text-[10px] text-green-600 font-bold mt-3 sm:mt-4">Ready to check-in</p>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 group hover:border-blue-200 hover:shadow-md transition-all">
-          <div className="flex justify-between items-start mb-4">
+        <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-gray-100 group hover:border-blue-200 hover:shadow-md transition-all">
+          <div className="flex justify-between items-start mb-3 sm:mb-4">
             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Check-Ins Today</span>
             <div className="p-2 bg-blue-50 text-blue-600 rounded-xl group-hover:scale-110 transition-transform"><Users size={16} /></div>
           </div>
           <div className="flex items-baseline">
-            <span className="text-4xl font-black text-gray-900">{stats?.checkinsToday || 0}</span>
+            <span className="text-3xl sm:text-4xl font-black text-gray-900">{stats?.checkinsToday || 0}</span>
             <span className="text-xs font-bold text-gray-400 ml-2">today</span>
           </div>
-          <p className="text-[10px] text-blue-500 font-bold mt-4">Total bookings today</p>
+          <p className="text-[10px] text-blue-500 font-bold mt-3 sm:mt-4">Total bookings today</p>
         </div>
 
-        <Link to="/checkouts" className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 group hover:border-orange-200 hover:shadow-md transition-all block">
-          <div className="flex justify-between items-start mb-4">
+        <Link to="/checkouts" className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-gray-100 group hover:border-orange-200 hover:shadow-md transition-all block">
+          <div className="flex justify-between items-start mb-3 sm:mb-4">
             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Checkouts</span>
             <div className="p-2 bg-orange-50 text-orange-600 rounded-xl group-hover:scale-110 transition-transform"><Clock size={16} /></div>
           </div>
           <div className="flex items-baseline">
-            <span className="text-4xl font-black text-gray-900">{stats?.checkoutsToday || 0}</span>
+            <span className="text-3xl sm:text-4xl font-black text-gray-900">{stats?.checkoutsToday || 0}</span>
             <span className="text-xs font-bold text-gray-400 ml-2">today</span>
           </div>
-          <p className="text-[10px] text-orange-500 font-bold mt-4 flex items-center gap-1">Process now <ChevronRight size={10}/></p>
+          <p className="text-[10px] text-orange-500 font-bold mt-3 sm:mt-4 flex items-center gap-1">Process now <ChevronRight size={10}/></p>
         </Link>
 
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 group hover:border-purple-200 hover:shadow-md transition-all">
-          <div className="flex justify-between items-start mb-4">
+        <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-gray-100 group hover:border-purple-200 hover:shadow-md transition-all">
+          <div className="flex justify-between items-start mb-3 sm:mb-4">
             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Pending Dues</span>
             <div className="p-2 bg-purple-50 text-purple-600 rounded-xl group-hover:scale-110 transition-transform"><CreditCard size={16} /></div>
           </div>
           <div className="flex items-baseline">
-            <span className="text-3xl font-black text-gray-900">₹{(stats?.pendingPayments || 0).toLocaleString('en-IN')}</span>
+            <span className="text-2xl sm:text-3xl font-black text-gray-900">₹{(stats?.pendingPayments || 0).toLocaleString('en-IN')}</span>
           </div>
-          <p className="text-[10px] text-gray-400 font-bold mt-4">Uncollected balance</p>
+          <p className="text-[10px] text-gray-400 font-bold mt-3 sm:mt-4">Uncollected balance</p>
         </div>
+
+        <Link to="/reports" className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-gray-100 group hover:border-emerald-200 hover:shadow-md transition-all block">
+          <div className="flex justify-between items-start mb-3 sm:mb-4">
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Net Cash in Drawer</span>
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl group-hover:scale-110 transition-transform"><Banknote size={16} /></div>
+          </div>
+          <div className="flex items-baseline">
+            <span className="text-2xl sm:text-3xl font-black text-emerald-700">₹{(stats?.todayNetCashInDrawer || 0).toLocaleString('en-IN')}</span>
+          </div>
+          <p className="text-[10px] text-gray-400 font-bold mt-3 sm:mt-4 flex items-center justify-between">
+            <span>In: ₹{(stats?.todayCashCollected || 0).toLocaleString('en-IN')}</span>
+            <span className="text-rose-600">Exp: -₹{(stats?.todayCashExpense || 0).toLocaleString('en-IN')}</span>
+          </p>
+        </Link>
       </div>
 
       {/* Active Stays */}

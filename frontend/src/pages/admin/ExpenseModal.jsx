@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { X, Plus, Banknote, Tag, Calendar, FileText, Building, AlertCircle } from 'lucide-react';
 import { useToast } from '../../components/ui/Toast';
+import { apiCache } from '../../utils/apiCache';
 
 const CATEGORIES = [
   'Food & Groceries',
@@ -56,6 +57,7 @@ export default function ExpenseModal({ isOpen, onClose, onExpenseAdded, hostels 
       );
       if (res.data?.success) {
         toast({ message: `₹${amt} expense added successfully!`, type: 'success' });
+        apiCache.invalidate();
         if (onExpenseAdded) onExpenseAdded(res.data.data);
         onClose();
       }

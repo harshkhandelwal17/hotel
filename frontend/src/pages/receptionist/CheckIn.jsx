@@ -673,26 +673,44 @@ const CheckIn = () => {
     // =========================================================
     // STEP 1: PARALLEL INSTANT QR SCAN ON UNCOMPRESSED FILE
     // Runs concurrently with compression & cloud upload (0ms UI wait!)
+    // Back side holds the official Aadhaar QR; front side is uploaded instantly.
     // =========================================================
-    setScanningQr({ index, side });
-    const qrScanPromise = scanAadhaarQrFromImage(file, { side })
-      .catch((err) => {
-        console.log('[CheckIn] Local QR scan notice:', err?.message);
-        return null;
-      });
-
-    // Handle early QR completion without waiting for cloud upload
-    qrScanPromise.then((qrRes) => {
-      if (qrRes && qrRes.success && qrRes.data) {
-        applyQrData(qrRes.data);
-        toast({
-          message: `🛡️ Verified Aadhaar QR Detected! Auto-filled details for ${qrRes.data.fullName}.`,
-          type: 'success'
+    let qrScanPromise = Promise.resolve(null);
+    if (side === 'back') {
+      setScanningQr({ index, side: 'back' });
+      qrScanPromise = scanAadhaarQrFromImage(file, { side: 'back' })
+        .catch((err) => {
+          console.log('[CheckIn] Local QR scan notice:', err?.message);
+          return null;
         });
-      }
-    }).finally(() => {
-      setScanningQr({ index: null, side: null });
-    });
+
+      qrScanPromise.then((qrRes) => {
+        if (qrRes && qrRes.success && qrRes.data) {
+          applyQrData(qrRes.data);
+          toast({
+            message: `🛡️ Verified Aadhaar QR Detected! Auto-filled details for ${qrRes.data.fullName}.`,
+            type: 'success'
+          });
+        }
+      }).finally(() => {
+        setScanningQr({ index: null, side: null });
+      });
+    } else {
+      // Front side: Do not block receptionist with "Scanning QR..." since Aadhaar QR is on back.
+      // Perform a silent background check in case it's a full-sheet e-Aadhaar.
+      qrScanPromise = scanAadhaarQrFromImage(file, { side: 'front' })
+        .then((qrRes) => {
+          if (qrRes && qrRes.success && qrRes.data) {
+            applyQrData(qrRes.data);
+            toast({
+              message: `🛡️ Verified Aadhaar QR Detected! Auto-filled details for ${qrRes.data.fullName}.`,
+              type: 'success'
+            });
+          }
+          return qrRes;
+        })
+        .catch(() => null);
+    }
 
     // =========================================================
     // STEP 2: CLOUD UPLOAD & BACKEND STORAGE
