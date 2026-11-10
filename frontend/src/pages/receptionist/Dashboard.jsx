@@ -156,38 +156,33 @@ const ReceptionistDashboard = () => {
   const occupancyRate = stats ? Math.round((stats.occupiedRooms / (totalRooms || 1)) * 100) : 0;
 
   return (
-    <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300 w-full mx-auto pb-12">
+    <div className="space-y-5 sm:space-y-6 animate-in fade-in duration-300 w-full mx-auto pb-12">
       
-      {/* ─── Top Greeting & Live Action Header ─── */}
-      <div className="bg-white p-6 sm:p-7 rounded-3xl border border-gray-200/80 shadow-2xs flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+      {/* ─── Compact Executive Greeting Bar ─── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 pb-1">
         <div>
-          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-            <span className="text-[10px] font-black uppercase tracking-wider bg-gray-100 text-gray-700 px-2.5 py-0.5 rounded-md border border-gray-200">
-              {format(now, 'EEEE, MMMM do, yyyy')}
-            </span>
-            <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-800 px-2.5 py-0.5 rounded-md border border-emerald-200 flex items-center gap-1">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="text-xl sm:text-2xl font-black text-gray-950 tracking-tight flex items-center gap-1.5">
+              <span>Good {now.getHours() < 12 ? 'Morning' : now.getHours() < 17 ? 'Afternoon' : 'Evening'}</span>
+              <span className="text-gray-400 font-bold">, {user?.name || 'Reception'}</span>
+              <span>👋</span>
+            </h1>
+            <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-md border border-emerald-200/80 flex items-center gap-1 shadow-2xs">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Live Operations
+              {stats?.occupiedRooms || 0}/{totalRooms} Rooms ({occupancyRate}% Capacity)
             </span>
           </div>
-          
-          <h1 className="text-2xl sm:text-3xl font-black text-gray-950 tracking-tight flex items-center gap-2">
-            <span>Good {now.getHours() < 12 ? 'Morning' : now.getHours() < 17 ? 'Afternoon' : 'Evening'}</span>
-            <span className="text-gray-400 font-bold text-xl sm:text-2xl">, {user?.name || 'Reception'}</span>
-            <span className="inline-block text-xl">👋</span>
-          </h1>
-          
-          <p className="text-xs sm:text-sm text-gray-500 mt-1 font-medium">
-            {format(now, 'hh:mm a')} • <span className="text-gray-900 font-bold">{stats?.occupiedRooms || 0}</span> of {totalRooms} rooms occupied ({occupancyRate}% Capacity)
+          <p className="text-xs text-gray-400 font-semibold mt-0.5">
+            {format(now, 'EEEE, MMMM do, yyyy')} • {format(now, 'hh:mm a')}
           </p>
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
+        <div className="flex items-center gap-2 shrink-0">
           <button 
             type="button"
             onClick={() => setShowExpenseModal(true)} 
-            className="px-3.5 py-2.5 bg-white hover:bg-gray-50 text-gray-800 border border-gray-200 hover:border-gray-300 rounded-xl font-bold text-xs shadow-2xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+            className="px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-800 border border-gray-200 hover:border-gray-300 rounded-xl font-bold text-xs shadow-2xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
             title="Record Counter Cash or Daily Operating Expense"
           >
             <TrendingDown size={14} className="text-rose-500" />
@@ -196,18 +191,8 @@ const ReceptionistDashboard = () => {
 
           <button 
             type="button"
-            onClick={() => setShowPoliceModal(true)} 
-            className="px-3.5 py-2.5 bg-white hover:bg-gray-50 text-gray-800 border border-gray-200 hover:border-gray-300 rounded-xl font-bold text-xs shadow-2xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
-            title="Generate Official Police Verification Report"
-          >
-            <ShieldCheck size={14} className="text-gray-600" />
-            <span>Police Report</span>
-          </button>
-
-          <button 
-            type="button"
             onClick={() => fetchDashboardData(true)} 
-            className={`p-2.5 text-gray-600 hover:text-black bg-white hover:bg-gray-50 border border-gray-200 rounded-xl shadow-2xs transition-all cursor-pointer ${refreshing ? 'animate-spin' : 'hover:border-gray-300'}`}
+            className={`p-2 text-gray-600 hover:text-black bg-white hover:bg-gray-50 border border-gray-200 rounded-xl shadow-2xs transition-all cursor-pointer ${refreshing ? 'animate-spin' : 'hover:border-gray-300'}`}
             title="Refresh dashboard metrics"
           >
             <RefreshCw size={15} />
@@ -215,9 +200,9 @@ const ReceptionistDashboard = () => {
 
           <Link 
             to="/checkin" 
-            className="px-5 py-2.5 bg-black hover:bg-gray-800 text-white rounded-xl font-black uppercase tracking-wider text-xs shadow-sm transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+            className="px-4 py-2 bg-black hover:bg-gray-800 text-white rounded-xl font-black uppercase tracking-wider text-xs shadow-sm transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
           >
-            <PlusCircle size={15} />
+            <PlusCircle size={14} />
             <span>Check-In</span>
           </Link>
         </div>
@@ -225,36 +210,32 @@ const ReceptionistDashboard = () => {
 
       {/* ─── Urgent Overdue Checkout Banner ─── */}
       {overdueStays.length > 0 && (
-        <div className="bg-red-50/90 border border-red-200 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs">
-          <div className="flex items-start sm:items-center gap-3.5">
-            <div className="w-10 h-10 bg-red-600 text-white rounded-xl flex items-center justify-center shrink-0 shadow-xs">
-              <AlertTriangle size={20} className="animate-pulse" />
+        <div className="bg-red-50/90 border border-red-200 rounded-2xl p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 bg-red-600 text-white rounded-xl flex items-center justify-center shrink-0 shadow-2xs">
+              <AlertTriangle size={16} className="animate-pulse" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs sm:text-sm font-black text-red-950 uppercase tracking-wide">
+                <span className="text-xs font-black text-red-950 uppercase tracking-wide">
                   {overdueStays.length} Checkout{overdueStays.length > 1 ? 's' : ''} Overdue
                 </span>
-                <span className="text-[10px] font-black bg-red-600 text-white px-2 py-0.5 rounded uppercase tracking-wider">
+                <span className="text-[9px] font-black bg-red-600 text-white px-1.5 py-0.2 rounded uppercase tracking-wider">
                   Action Required
                 </span>
               </div>
-              <p className="text-xs text-red-800 font-semibold mt-1 flex items-center gap-1.5 flex-wrap">
-                Rooms: {overdueStays.map(s => (
-                  <span key={s._id} className="bg-white/80 text-red-900 px-2 py-0.5 rounded border border-red-200 font-black">
-                    Room {s.room?.roomNumber} ({s.guest?.fullName})
-                  </span>
-                ))}
+              <p className="text-xs text-red-800 font-medium mt-0.5 truncate">
+                Rooms: {overdueStays.map(s => `Room ${s.room?.roomNumber} (${s.guest?.fullName || 'Guest'})`).join(' • ')}
               </p>
             </div>
           </div>
 
           <Link 
             to="/checkouts" 
-            className="self-start md:self-auto px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
+            className="self-start sm:self-auto px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
           >
             <span>Process Checkouts</span>
-            <ChevronRight size={14} />
+            <ChevronRight size={13} />
           </Link>
         </div>
       )}
