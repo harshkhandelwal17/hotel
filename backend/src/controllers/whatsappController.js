@@ -132,6 +132,15 @@ exports.getRecentMedia = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Hostel context required' });
     }
 
+    // If WhatsApp is disconnected for this property and not explicitly requested to show archives,
+    // return an empty list so logged-out WhatsApp never leaks old media into active intake
+    const hostel = await Hostel.findById(hostelId).select('whatsappStatus whatsappSyncEnabled');
+    if (!hostel || hostel.whatsappStatus !== 'connected' || !hostel.whatsappSyncEnabled) {
+      if (req.query.includeDisconnected !== 'true') {
+        return res.status(200).json({ success: true, count: 0, data: [] });
+      }
+    }
+
     const since = new Date(Date.now() - 72 * 60 * 60 * 1000);
     const media = await WhatsAppMedia.find({
       hostel: hostelId,
@@ -170,9 +179,8 @@ exports.markMediaUsed = async (req, res, next) => {
 
 exports.cleanupUnused = async (req, res, next) => {
   try {
-    // Only admin / superadmin may trigger cleanup
-    if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
-      return res.status(403).json({ success: false, message: 'Not authorized to run media cleanup' });
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
     }
 
     const { cleanupUnusedMedia } = require('../services/mediaCleanupService');
@@ -180,7 +188,6 @@ exports.cleanupUnused = async (req, res, next) => {
 
     let hostelId = null;
     if (req.user.role === 'superadmin') {
-      // Superadmin may optionally scope; default is global
       hostelId = req.body?.hostelId || req.query?.hostelId || null;
       if (hostelId === 'all') hostelId = null;
     } else {

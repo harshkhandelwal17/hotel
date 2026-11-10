@@ -8,6 +8,16 @@ import ShiftHandoverModal from './ShiftHandoverModal';
 import ExpenseModal from './ExpenseModal';
 import { useToast } from '../../components/ui/Toast';
 
+const safeFormat = (dateVal, formatStr, fallback = 'N/A') => {
+  if (!dateVal) return fallback;
+  try {
+    const d = new Date(dateVal);
+    return isNaN(d.getTime()) ? fallback : format(d, formatStr);
+  } catch (_) {
+    return fallback;
+  }
+};
+
 const Reports = () => {
   const toast = useToast();
   const [stays, setStays] = useState([]);
@@ -56,23 +66,23 @@ const Reports = () => {
     try {
       setLoading(true);
       const [staysRes, hostelsRes, paymentsRes, expensesRes, laundryRes, khataRes] = await Promise.all([
-        axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/stays'),
-        axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/hostels'),
-        axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/payments'),
+        axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/stays').catch(() => ({ data: { data: [] } })),
+        axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/hostels').catch(() => ({ data: { data: [] } })),
+        axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/payments').catch(() => ({ data: { data: [] } })),
         axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/expenses').catch(() => ({ data: { data: [] } })),
         axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/laundry').catch(() => ({ data: { data: [] } })),
         axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/guests/khata/summary').catch(() => ({ data: { data: { totalMarketDue: 0, totalAdvanceHeld: 0, netBalance: 0, customers: [] } } }))
       ]);
-      setStays(staysRes.data.data || []);
-      setHostels(hostelsRes.data.data || []);
-      setPayments(paymentsRes.data.data || []);
+      setStays(staysRes?.data?.data || []);
+      setHostels(hostelsRes?.data?.data || []);
+      setPayments(paymentsRes?.data?.data || []);
       setExpenses(expensesRes?.data?.data || []);
       setLaundryOrders(laundryRes?.data?.data || []);
       if (khataRes?.data?.data) {
         setKhataSummary(khataRes.data.data);
       }
     } catch (err) {
-      console.error(err);
+      console.error('Reports fetch error:', err);
     } finally {
       setLoading(false);
     }
@@ -199,10 +209,11 @@ const Reports = () => {
         return false;
       }
       
-      const searchStr = searchQuery.toLowerCase();
-      if (searchStr && !stay.guest?.fullName?.toLowerCase().includes(searchStr) && 
-          !stay.room?.roomNumber?.toLowerCase().includes(searchStr) &&
-          !stay.commissionTo?.toLowerCase().includes(searchStr)) {
+      const searchStr = (searchQuery || '').toLowerCase();
+      if (searchStr && 
+          !String(stay.guest?.fullName || '').toLowerCase().includes(searchStr) && 
+          !String(stay.room?.roomNumber || '').toLowerCase().includes(searchStr) &&
+          !String(stay.commissionTo || '').toLowerCase().includes(searchStr)) {
         return false;
       }
 
@@ -227,10 +238,11 @@ const Reports = () => {
         return false;
       }
       
-      const searchStr = searchQuery.toLowerCase();
-      if (searchStr && !payment.guest?.fullName?.toLowerCase().includes(searchStr) && 
-          !payment.stay?.room?.roomNumber?.toLowerCase().includes(searchStr) &&
-          !payment.paymentMethod?.toLowerCase().includes(searchStr)) {
+      const searchStr = (searchQuery || '').toLowerCase();
+      if (searchStr && 
+          !String(payment.guest?.fullName || '').toLowerCase().includes(searchStr) && 
+          !String(payment.stay?.room?.roomNumber || '').toLowerCase().includes(searchStr) &&
+          !String(payment.paymentMethod || '').toLowerCase().includes(searchStr)) {
         return false;
       }
 
@@ -550,8 +562,8 @@ const Reports = () => {
         const net = (stay.totalAmount || 0) - (stay.commissionAmount || 0);
         const occupants = stay.occupants || (Array.isArray(stay.coGuests) ? stay.coGuests.length + 1 : 1);
         const bNum = stay.bookingNumber || 'Direct';
-        const checkOut = stay.expectedCheckOutDate ? format(new Date(stay.expectedCheckOutDate), 'dd MMM yyyy') : 'N/A';
-        return `"${bNum}","${format(new Date(stay.checkInDate), 'dd MMM yyyy')}","${checkOut}","${(stay.guest?.fullName || 'N/A').replace(/"/g, '""')}",${occupants},"${stay.room?.roomNumber || 'N/A'}",${stay.totalAmount || 0},"${(stay.commissionTo || '').replace(/"/g, '""')}",${stay.commissionAmount || 0},${net},${stay.paidAmount || 0},"${stay.status}"`;
+        const checkOut = stay.expectedCheckOutDate ? safeFormat(stay.expectedCheckOutDate, 'dd MMM yyyy') : 'N/A';
+        return `"${bNum}","${safeFormat(stay.checkInDate, 'dd MMM yyyy')}","${checkOut}","${(stay.guest?.fullName || 'N/A').replace(/"/g, '""')}",${occupants},"${stay.room?.roomNumber || 'N/A'}",${stay.totalAmount || 0},"${(stay.commissionTo || '').replace(/"/g, '""')}",${stay.commissionAmount || 0},${net},${stay.paidAmount || 0},"${stay.status}"`;
       });
       csvContent = `${summaryBlock}\n"--- BOOKING LEDGER ENTRIES (${filteredStays.length} Stays) ---"\n` + [headers.join(','), ...csvData].join('\n');
     } else if (activeTab === 'transactions' || activeTab === 'expenses') {
@@ -560,13 +572,13 @@ const Reports = () => {
         const bNum = p.stay?.bookingNumber || 'Direct';
         const rNum = p.stay?.room?.roomNumber || 'N/A';
         const occupants = p.stay?.occupants || 1;
-        return `"${format(new Date(p.paymentDate), 'dd MMM yyyy hh:mm a')}","${bNum}","${rNum}","${(p.guest?.fullName || 'N/A').replace(/"/g, '""')}",${occupants},"${p.paymentMethod || 'Cash'}",${p.amount || 0},"${(p.createdBy?.name || 'Reception Staff').replace(/"/g, '""')}","${(p.note || '').replace(/"/g, '""')}"`;
+        return `"${safeFormat(p.paymentDate, 'dd MMM yyyy hh:mm a')}","${bNum}","${rNum}","${(p.guest?.fullName || 'N/A').replace(/"/g, '""')}",${occupants},"${p.paymentMethod || 'Cash'}",${p.amount || 0},"${(p.createdBy?.name || 'Reception Staff').replace(/"/g, '""')}","${(p.note || '').replace(/"/g, '""')}"`;
       });
 
       const expenseHeaders = ['Expense Date & Time', 'Expense Title', 'Category', 'Paid Via', 'Amount (INR)', 'Deducted From Drawer?', 'Recorded By', 'Notes'];
       const expenseData = filteredExpenses.map(e => {
         const isCash = (e.paymentMethod || 'Cash').toLowerCase() === 'cash';
-        return `"${format(new Date(e.expenseDate || e.createdAt), 'dd MMM yyyy hh:mm a')}","${(e.title || '').replace(/"/g, '""')}","${(e.category || '').replace(/"/g, '""')}","${e.paymentMethod || 'Cash'}",${e.amount || 0},"${isCash ? 'YES (Cash Drawer)' : 'NO (Bank/Online)'}","${(e.createdBy?.name || 'Staff').replace(/"/g, '""')}","${(e.notes || '').replace(/"/g, '""')}"`;
+        return `"${safeFormat(e.expenseDate || e.createdAt, 'dd MMM yyyy hh:mm a')}","${(e.title || '').replace(/"/g, '""')}","${(e.category || '').replace(/"/g, '""')}","${e.paymentMethod || 'Cash'}",${e.amount || 0},"${isCash ? 'YES (Cash Drawer)' : 'NO (Bank/Online)'}","${(e.createdBy?.name || 'Staff').replace(/"/g, '""')}","${(e.notes || '').replace(/"/g, '""')}"`;
       });
 
       csvContent = `${summaryBlock}\n"--- CASH FLOW & PAYMENT RECEIPTS (${filteredPayments.length} Transactions) ---"\n` + 
@@ -577,7 +589,7 @@ const Reports = () => {
       const headers = ['Order Number', 'Date Sent', 'Vendor Name', 'Vendor Phone', 'Pieces Sent', 'Pieces Received', 'Pieces Missing', 'Total Bill', 'Paid (Expense)', 'Due Amount', 'Payment Status', 'Status'];
       const csvData = filteredLaundryOrders.map(o => {
         const due = Math.max(0, (o.totalAmount || 0) - (o.paidAmount || 0));
-        return `"${o.orderNumber || ''}","${format(new Date(o.sentDate || o.createdAt), 'dd MMM yyyy')}","${o.vendorName || ''}","${o.vendorPhone || ''}",${o.totalPiecesSent || 0},${o.totalPiecesReceived || 0},${o.totalPiecesMissing || 0},${o.totalAmount || 0},${o.paidAmount || 0},${due},"${o.paymentStatus || ''}","${o.status || ''}"`;
+        return `"${o.orderNumber || ''}","${safeFormat(o.sentDate || o.createdAt, 'dd MMM yyyy')}","${o.vendorName || ''}","${o.vendorPhone || ''}",${o.totalPiecesSent || 0},${o.totalPiecesReceived || 0},${o.totalPiecesMissing || 0},${o.totalAmount || 0},${o.paidAmount || 0},${due},"${o.paymentStatus || ''}","${o.status || ''}"`;
       });
       csvContent = `${summaryBlock}\n"--- LAUNDRY EXPENSE & LINEN LOG ---"\n` + [headers.join(','), ...csvData].join('\n');
     } else if (activeTab === 'khata') {
@@ -1164,7 +1176,7 @@ const Reports = () => {
                     return (
                       <tr key={stay._id} className="hover:bg-gray-50/80 transition-colors">
                         <td className="px-6 py-4">
-                          <p className="font-bold text-gray-900">{format(new Date(stay.checkInDate), 'dd MMM yyyy')}</p>
+                          <p className="font-bold text-gray-900">{safeFormat(stay.checkInDate, 'dd MMM yyyy')}</p>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             <span className="text-xs font-bold text-indigo-600">Room {stay.room?.roomNumber}</span>
                             {stay.createdBy?.name && (
@@ -1242,8 +1254,8 @@ const Reports = () => {
                   filteredPayments.map(p => (
                     <tr key={p._id} className="hover:bg-gray-50/70 transition-colors">
                       <td className="px-6 py-4">
-                        <p className="font-semibold text-gray-900">{format(new Date(p.paymentDate), 'dd MMM yyyy')}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{format(new Date(p.paymentDate), 'hh:mm a')}</p>
+                        <p className="font-semibold text-gray-900">{safeFormat(p.paymentDate, 'dd MMM yyyy')}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{safeFormat(p.paymentDate, 'hh:mm a')}</p>
                       </td>
                       <td className="px-6 py-4">
                         <p className="font-bold text-gray-900">{p.guest?.fullName || 'N/A'}</p>
@@ -1321,8 +1333,8 @@ const Reports = () => {
                     filteredExpenses.map(exp => (
                       <tr key={exp._id} className="hover:bg-gray-50/70 transition-colors">
                         <td className="px-6 py-4">
-                          <p className="font-semibold text-gray-900">{format(new Date(exp.expenseDate || exp.createdAt), 'dd MMM yyyy')}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">{format(new Date(exp.expenseDate || exp.createdAt), 'hh:mm a')}</p>
+                          <p className="font-semibold text-gray-900">{safeFormat(exp.expenseDate || exp.createdAt, 'dd MMM yyyy')}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">{safeFormat(exp.expenseDate || exp.createdAt, 'hh:mm a')}</p>
                         </td>
                         <td className="px-6 py-4">
                           <p className="font-bold text-gray-900">{exp.title}</p>
@@ -1392,7 +1404,7 @@ const Reports = () => {
                       <tr key={order._id} className="hover:bg-gray-50/80 transition-colors">
                         <td className="px-6 py-4">
                           <p className="font-mono font-bold text-gray-900">{order.orderNumber}</p>
-                          <p className="text-xs text-gray-500 mt-0.5">{format(new Date(order.sentDate || order.createdAt), 'dd MMM yyyy')}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">{safeFormat(order.sentDate || order.createdAt, 'dd MMM yyyy')}</p>
                         </td>
                         <td className="px-6 py-4">
                           <p className="font-bold text-gray-900">{order.vendorName}</p>

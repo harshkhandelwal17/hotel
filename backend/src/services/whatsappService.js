@@ -432,15 +432,16 @@ const startHostelWhatsApp = async (hostelId) => {
 
         if (isRestart) {
           // Normal WhatsApp protocol pairing restart right after phone scans QR or pair-success
-          console.log(`[WhatsApp] 🔄 Post-pairing restart (515) for Hostel ${hostelId}. Reconnecting in 600ms...`);
+          console.log(`[WhatsApp] 🔄 Post-pairing restart (515) for Hostel ${hostelId}. Reconnecting in 400ms...`);
           qrCodes.delete(hostelId);
+          pairingStates.set(hostelId, true);
 
           setTimeout(() => {
             if (explicitlyDisconnected.has(hostelId)) return;
             startHostelWhatsApp(hostelId).catch((err) => {
               console.error(`[WhatsApp] Reconnection after 515 failed:`, err);
             });
-          }, 600);
+          }, 400);
         } else if (isLoggedOut || isForbidden) {
           console.log(`[WhatsApp] Hostel ${hostelId} was logged out from device.`);
           qrCodes.delete(hostelId);
@@ -569,7 +570,7 @@ const getHostelWhatsAppStatus = async (hostelId) => {
   const isPairing = !!pairingStates.get(hostelId);
 
   // Auto-resume socket if saved credentials exist and in-memory socket is not currently active
-  if (!activeSock && hasCreds && hostel.whatsappSyncEnabled && hostel.whatsappStatus === 'connected' && !isPairing) {
+  if (!activeSock && hasCreds && hostel.whatsappSyncEnabled && (hostel.whatsappStatus === 'connected' || isPairing)) {
     console.log(`[WhatsApp] Auto-resuming saved WhatsApp session for Hostel ${hostelId}...`);
     try {
       startHostelWhatsApp(hostelId).catch((err) => {
@@ -588,7 +589,7 @@ const getHostelWhatsAppStatus = async (hostelId) => {
   let status = 'disconnected';
   if (isConnected) {
     status = 'connected';
-  } else if (isPairing || qrCodes.has(hostelId) || (activeSock && !activeSock.ws?.isClosed)) {
+  } else if (isPairing || qrCodes.has(hostelId) || connectingPromises.has(hostelId) || (activeSock && !activeSock.ws?.isClosed)) {
     status = 'connecting';
   }
 
@@ -602,7 +603,7 @@ const getHostelWhatsAppStatus = async (hostelId) => {
     status,
     pairing: isPairing,
     phone: (status === 'connected') ? (hostel.whatsappPhone || (activeSock?.user?.id ? activeSock.user.id.split(':')[0].split('@')[0] : '')) : '',
-    qr: (status === 'connected') ? null : (qrCodes.get(hostelId) || null)
+    qr: (status === 'connected' || isPairing) ? null : (qrCodes.get(hostelId) || null)
   };
 };
 
@@ -664,6 +665,12 @@ const disconnectHostelWhatsApp = async (hostelId) => {
     whatsappPhone: '',
     whatsappLastActive: null
   });
+
+  // 5. Clean up unused/unattached incoming photos so disconnected WhatsApp leaves no ghost media
+  try {
+    const { cleanupUnusedMedia } = require('./mediaCleanupService');
+    await cleanupUnusedMedia({ olderThanHours: 0, forceAllUnused: true, hostelId }).catch(() => {});
+  } catch (_) {}
 
   console.log(`[WhatsApp] 🔌 Hostel ${hostelId} completely disconnected and session wiped.`);
   return { success: true, status: 'disconnected' };

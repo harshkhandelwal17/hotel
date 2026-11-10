@@ -387,7 +387,7 @@ const CheckIn = () => {
     checkWaStatus();
     let pollTimer;
     if (waModalOpen || waStatus === 'connecting' || waPairing) {
-      pollTimer = setInterval(checkWaStatus, 2000);
+      pollTimer = setInterval(checkWaStatus, 1200);
     }
     return () => {
       isMounted = false;
@@ -434,11 +434,14 @@ const CheckIn = () => {
     }
   }, [activeHostel, selectedRoomDetails]);
 
-
-
-  // Poll incoming WhatsApp photos when on Step 2
+  // Poll incoming WhatsApp photos when on Step 2 and WhatsApp is actively connected
   useEffect(() => {
-    if (!hostelId || !waSyncEnabled || step !== 2) return;
+    if (!hostelId || !waSyncEnabled || step !== 2 || waStatus !== 'connected') {
+      if (waStatus !== 'connected') {
+        setWaRecentMedia([]);
+      }
+      return;
+    }
 
     let isMounted = true;
     const fetchWaMedia = async () => {
@@ -451,12 +454,12 @@ const CheckIn = () => {
     };
 
     fetchWaMedia();
-    const interval = setInterval(fetchWaMedia, 3000);
+    const interval = setInterval(fetchWaMedia, 2500);
     return () => {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [hostelId, waSyncEnabled, step]);
+  }, [hostelId, waSyncEnabled, step, waStatus]);
 
   // =========================================================
   // DYNAMIC OCCUPANTS
@@ -1199,8 +1202,11 @@ const CheckIn = () => {
       setWaQr(null);
       setWaPairing(false);
       setWaPairingCode('');
+      setWaRecentMedia([]);
+      setWaPickerOpen(false);
+      setWaPreviewImage(null);
       setWaConnectTab('code');
-      toast({ message: 'WhatsApp disconnected successfully', type: 'info' });
+      toast({ message: 'WhatsApp disconnected successfully. Media cleared.', type: 'info' });
     } catch (err) {
       toast({ message: err.response?.data?.message || 'Failed to disconnect WhatsApp', type: 'error' });
     } finally {
@@ -1232,21 +1238,22 @@ const CheckIn = () => {
   const [cleaningWaMedia, setCleaningWaMedia] = useState(false);
 
   const handleCleanupUnusedWaMedia = async () => {
-    if (!window.confirm('Are you sure you want to delete all unused WhatsApp photos from Cloudflare storage? Any ID photos already saved to checked-in guests will remain completely safe.')) {
+    if (!window.confirm('Are you sure you want to delete all unused WhatsApp photos? Any ID photos already saved to checked-in guests will remain completely safe.')) {
       return;
     }
     setCleaningWaMedia(true);
     try {
-      const res = await axios.post(`${API}/api/whatsapp/cleanup-unused`, { forceAll: true });
+      const res = await axios.post(`${API}/api/whatsapp/cleanup-unused`, { forceAll: true, hostelId });
       if (res.data?.success) {
+        setWaRecentMedia([]);
         toast({
-          message: `Cleaned up! Removed unused photos from Cloudflare storage.`,
+          message: `Cleaned up! Removed ${res.data.data?.deletedDbCount || 0} unused photos.`,
           type: 'success'
         });
         await handleRefreshWaMedia();
       }
-    } catch (_) {
-      toast({ message: 'Failed to clean unused photos', type: 'error' });
+    } catch (err) {
+      toast({ message: err.response?.data?.message || 'Failed to clean unused photos', type: 'error' });
     } finally {
       setCleaningWaMedia(false);
     }

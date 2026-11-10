@@ -65,8 +65,8 @@ function App() {
             </Route>
           </Route>
 
-          {/* Hotel Admin only */}
-          <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+          {/* Hotel Admin and Superadmin */}
+          <Route element={<ProtectedRoute allowedRoles={['admin', 'superadmin']} />}>
             <Route element={<AppLayout />}>
               <Route path="/admin/hostels" element={<ManageHostels />} />
               <Route path="/admin/rooms" element={<ManageRooms />} />
