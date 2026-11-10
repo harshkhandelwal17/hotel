@@ -1297,9 +1297,17 @@ const CheckIn = () => {
       // 2. PRIMARY GUEST
       // =====================================================
 
-      const pGuestRaw = { ...guests[0], hostel: hostelId };
-      // Strip internal-only fields
-      const { isSearching: _ps, ...pGuest } = pGuestRaw;
+      const sanitizeGuestPayload = (rawGuest) => {
+        const {
+          isSearching: _ps,
+          localFrontDataUrl: _lf,
+          localBackDataUrl: _lb,
+          ...clean
+        } = rawGuest;
+        return clean;
+      };
+
+      const pGuest = sanitizeGuestPayload({ ...guests[0], hostel: hostelId });
 
       let pGuestId = pGuest._id || null;
 
@@ -1333,7 +1341,7 @@ const CheckIn = () => {
 
         // Only process co-guest that has a name
         if (cg.fullName && cg.fullName.trim() !== '') {
-          const { isSearching: _cs, ...coGuest } = { ...cg, hostel: hostelId };
+          const coGuest = sanitizeGuestPayload({ ...cg, hostel: hostelId });
 
           let cgId = coGuest._id || null;
 
