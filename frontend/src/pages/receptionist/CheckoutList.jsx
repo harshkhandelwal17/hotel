@@ -7,8 +7,10 @@ import StayManageModal from './StayManageModal';
 import { Users, Clock, Download, AlertTriangle, Search, ChevronRight, Phone, ShieldCheck } from 'lucide-react';
 import PoliceReportModal from '../admin/PoliceReportModal';
 import { apiCache } from '../../utils/apiCache';
+import { useLanguage } from '../../context/LanguageContext';
 
 const CheckoutList = () => {
+  const { t, isHindi } = useLanguage();
   const [stays, setStays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedStay, setSelectedStay] = useState(null);
@@ -138,8 +140,8 @@ const CheckoutList = () => {
       <div className="flex flex-col gap-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">In-House Guests</h1>
-            <p className="text-gray-500 font-medium mt-1">Tap a guest to add charges, take payment, change room, extend stay or check out.</p>
+            <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">{t('checkout.title', 'In-House Guests')}</h1>
+            <p className="text-gray-500 font-medium mt-1">{t('checkout.subtitle', 'Tap a guest to add charges, take payment, change room, extend stay or check out.')}</p>
           </div>
           <div className="flex flex-wrap sm:flex-nowrap gap-2 w-full sm:w-auto">
             <button 
@@ -148,10 +150,10 @@ const CheckoutList = () => {
               className="flex-1 sm:flex-none justify-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm transition-colors shadow-sm flex items-center gap-2 active:scale-95 cursor-pointer"
               title="Generate Official Police Verification Report"
             >
-              <ShieldCheck size={16} /> Police Report
+              <ShieldCheck size={16} /> {t('nav.policeReport', 'Police Report')}
             </button>
             <button onClick={downloadCSV} className="flex-1 sm:flex-none justify-center px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-bold text-sm hover:bg-gray-50 flex items-center gap-2 shadow-sm">
-              <Download size={16} /> Export CSV
+              <Download size={16} /> {t('common.export', 'Export')} CSV
             </button>
           </div>
         </div>
@@ -163,7 +165,7 @@ const CheckoutList = () => {
           </div>
           <input
             type="text"
-            placeholder="Search by Room No. (e.g. 101) or Guest Name..."
+            placeholder={isHindi ? "कमरा नंबर या अतिथि के नाम से खोजें..." : "Search by Room No. (e.g. 101) or Guest Name..."}
             className="w-full pl-12 pr-4 py-4 bg-white border-2 border-gray-200 rounded-2xl text-lg font-bold text-gray-900 placeholder-gray-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black shadow-sm transition-all"
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -174,9 +176,9 @@ const CheckoutList = () => {
       {/* Filter Tabs */}
       <div className="flex flex-wrap gap-2">
         {[
-          { key: 'all', label: `All (${stays.length})` },
-          { key: 'overdue', label: `Overdue (${overdueCt})`, warn: overdueCt > 0 },
-          { key: 'today', label: `Checkout Today (${todayCt})`, warn: todayCt > 0 },
+          { key: 'all', label: `${t('common.all', 'All')} (${stays.length})` },
+          { key: 'overdue', label: `${t('common.overdue', 'Overdue')} (${overdueCt})`, warn: overdueCt > 0 },
+          { key: 'today', label: `${t('common.dueToday', 'Checkout Today')} (${todayCt})`, warn: todayCt > 0 },
         ].map(tab => (
           <button
             key={tab.key}

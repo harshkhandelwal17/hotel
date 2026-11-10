@@ -2,16 +2,19 @@ import React, { useContext, useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
-import { Home, Users, Bed, LogOut, Bell, PlusCircle, Building, CreditCard, BarChart3, Hexagon, ShieldCheck, Menu, X, ShieldAlert, LayoutGrid, Volume2, VolumeX, Phone, BellRing, ChevronDown, Shirt, Keyboard, Search } from 'lucide-react';
+import { Home, Users, Bed, LogOut, Bell, PlusCircle, Building, CreditCard, BarChart3, Hexagon, ShieldCheck, Menu, X, ShieldAlert, LayoutGrid, Volume2, VolumeX, Phone, BellRing, ChevronDown, Shirt, Keyboard, Search, Globe } from 'lucide-react';
 import GlobalSearch from '../common/GlobalSearch';
 import CommandPalette from '../common/CommandPalette';
 import ShortcutsModal from '../common/ShortcutsModal';
+import LanguageSettingsModal from '../common/LanguageSettingsModal';
 import soundAlert from '../../utils/soundAlert';
 import PoliceReportModal from '../../pages/admin/PoliceReportModal';
 import { apiCache, prefetchRoute } from '../../utils/apiCache';
+import { useLanguage } from '../../context/LanguageContext';
 
 const AppLayout = ({ children }) => {
   const { user, logout } = useContext(AuthContext);
+  const { t, isHindi } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
   const [hostels, setHostels] = useState([]);
@@ -21,6 +24,7 @@ const AppLayout = ({ children }) => {
   const [showPoliceModal, setShowPoliceModal] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
+  const [showLangModal, setShowLangModal] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const isMac = typeof window !== 'undefined' && navigator.platform?.toUpperCase().indexOf('MAC') >= 0;
@@ -264,10 +268,10 @@ const AppLayout = ({ children }) => {
   }, [location.pathname]);
 
   const adminMenuItems = [
-    { name: 'Financials & Reports', desc: 'Revenue, collections & PDF', path: '/admin/reports', icon: BarChart3, color: 'text-emerald-600' },
-    { name: 'Properties', desc: 'Manage hotel branches', path: '/admin/hostels', icon: Building, color: 'text-blue-600' },
-    { name: 'Staff Management', desc: 'Receptionist logins & access', path: '/admin/staff', icon: ShieldCheck, color: 'text-purple-600' },
-    { name: 'Manage Rooms', desc: 'Room setup, pricing & types', path: '/admin/rooms', icon: Bed, color: 'text-amber-600' },
+    { name: t('nav.financialReports', 'Financials & Reports'), desc: isHindi ? 'रेवेन्यू, कलेक्शन व रिपोर्ट्स' : 'Revenue, collections & PDF', path: '/admin/reports', icon: BarChart3, color: 'text-emerald-600' },
+    { name: t('nav.propertySettings', 'Properties'), desc: isHindi ? 'होटल ब्रांचेस मैनेज करें' : 'Manage hotel branches', path: '/admin/hostels', icon: Building, color: 'text-blue-600' },
+    { name: t('nav.manageStaff', 'Staff Management'), desc: isHindi ? 'रिसेप्शनिस्ट लॉगिन व राइट्स' : 'Receptionist logins & access', path: '/admin/staff', icon: ShieldCheck, color: 'text-purple-600' },
+    { name: t('nav.manageRooms', 'Manage Rooms'), desc: isHindi ? 'कमरे, किराया व टाइप सेटअप' : 'Room setup, pricing & types', path: '/admin/rooms', icon: Bed, color: 'text-amber-600' },
   ];
 
   const isAdminRouteActive = adminMenuItems.some(item => location.pathname.startsWith(item.path));
@@ -276,15 +280,15 @@ const AppLayout = ({ children }) => {
   
   if (user?.role === 'superadmin') {
     navItems = [
-      { name: 'Super Admin', path: '/superadmin', icon: ShieldAlert }
+      { id: 'superadmin', name: t('nav.superadmin', 'Super Admin'), path: '/superadmin', icon: ShieldAlert }
     ];
   } else {
     navItems = [
-      { name: 'Dashboard', path: '/dashboard', icon: Home },
-      { name: 'Stays', path: '/checkouts', icon: Bed },
-      { name: 'Rooms', path: '/rooms', icon: LayoutGrid },
-      { name: 'History', path: '/guests', icon: Users },
-      { name: 'Payments', path: '/payments', icon: CreditCard },
+      { id: 'dashboard', name: t('nav.dashboard', 'Dashboard'), path: '/dashboard', icon: Home },
+      { id: 'stays', name: t('nav.stays', 'Stays'), path: '/checkouts', icon: Bed },
+      { id: 'rooms', name: t('nav.rooms', 'Rooms'), path: '/rooms', icon: LayoutGrid },
+      { id: 'history', name: t('nav.history', 'History'), path: '/guests', icon: Users },
+      { id: 'payments', name: t('nav.payments', 'Payments'), path: '/payments', icon: CreditCard },
     ];
 
     const isLaundryEnabledForUser = user?.role === 'superadmin' ||
@@ -292,18 +296,18 @@ const AppLayout = ({ children }) => {
         (globalProperty !== 'all' ? Boolean(activeHostel?.laundryEnabled) : hostels.some(h => h.laundryEnabled)));
 
     if (isLaundryEnabledForUser) {
-      navItems.push({ name: 'Laundry', path: '/laundry', icon: Shirt });
+      navItems.push({ id: 'laundry', name: t('nav.laundry', 'Laundry'), path: '/laundry', icon: Shirt });
     }
     
     if (user?.role === 'admin') {
-      navItems.push({ name: 'Financials', path: '/admin/reports', icon: BarChart3 });
-      navItems.push({ name: 'Properties', path: '/admin/hostels', icon: Building });
-      navItems.push({ name: 'Staff', path: '/admin/staff', icon: ShieldCheck });
-      navItems.push({ name: 'Manage Rooms', path: '/admin/rooms', icon: Bed });
+      navItems.push({ id: 'reports', name: t('nav.financialReports', 'Financials'), path: '/admin/reports', icon: BarChart3 });
+      navItems.push({ id: 'hostels', name: t('nav.propertySettings', 'Properties'), path: '/admin/hostels', icon: Building });
+      navItems.push({ id: 'staff', name: t('nav.manageStaff', 'Staff'), path: '/admin/staff', icon: ShieldCheck });
+      navItems.push({ id: 'rooms_admin', name: t('nav.manageRooms', 'Manage Rooms'), path: '/admin/rooms', icon: Bed });
     }
   }
 
-  const primaryNavItems = user?.role === 'superadmin' ? navItems : navItems.filter(item => ['Dashboard', 'Stays', 'Rooms', 'History', 'Payments', 'Laundry'].includes(item.name));
+  const primaryNavItems = user?.role === 'superadmin' ? navItems : navItems.filter(item => ['dashboard', 'stays', 'rooms', 'history', 'payments', 'laundry'].includes(item.id));
 
   const handleReturnToSuperAdmin = () => {
     const saToken = localStorage.getItem('superAdminToken');
@@ -406,6 +410,22 @@ const AppLayout = ({ children }) => {
                             </Link>
                           );
                         })}
+
+                        <div className="border-t border-gray-100 mt-1 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => { setIsAdminMenuOpen(false); setShowLangModal(true); }}
+                            className="w-full flex items-center gap-3 px-3.5 py-2.5 transition-colors text-gray-700 hover:bg-gray-50 font-bold text-left cursor-pointer"
+                          >
+                            <div className="p-1.5 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600">
+                              <Globe className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs leading-tight">{isHindi ? 'भाषा सेटिंग्स' : 'Language Settings'}</p>
+                              <p className="text-[10px] text-gray-400 font-normal truncate mt-0.5">{isHindi ? 'English / हिंदी बदलें' : 'Switch English & Hindi'}</p>
+                            </div>
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -413,41 +433,38 @@ const AppLayout = ({ children }) => {
               </nav>
             </div>
             
-            {/* Command Palette Trigger */}
-            <div className="hidden md:flex 2xl:hidden items-center shrink-0">
-              <button
-                type="button"
-                onClick={() => setShowCommandPalette(true)}
-                className="p-2 text-gray-500 hover:text-black hover:bg-gray-100 rounded-xl transition-all cursor-pointer border border-gray-200 shadow-2xs"
-                title="Search or command (⌘K / Ctrl+K)"
-              >
-                <Search size={15} />
-              </button>
-            </div>
-            <div className="hidden 2xl:flex items-center justify-center shrink-1 min-w-0">
-              <button
-                type="button"
-                onClick={() => setShowCommandPalette(true)}
-                className="flex items-center justify-between gap-2.5 w-44 2xl:w-56 px-3 py-1.5 bg-gray-50 hover:bg-gray-100/90 border border-gray-200/90 hover:border-gray-300 rounded-xl text-xs font-semibold text-gray-500 hover:text-gray-900 transition-all shadow-2xs group cursor-pointer"
-                title="Search guests, rooms, bookings or run commands (⌘K / Ctrl+K)"
-              >
-                <span className="flex items-center gap-2 truncate">
-                  <Search size={14} className="text-gray-400 group-hover:text-black transition-colors" />
-                  <span className="truncate">Search or command...</span>
-                </span>
-                <kbd className="inline-flex items-center px-1.5 py-0.5 bg-white border border-gray-200 rounded text-[10px] font-mono font-black text-gray-400 group-hover:text-black shadow-2xs">
-                  {isMac ? '⌘K' : 'Ctrl+K'}
-                </kbd>
-              </button>
-            </div>
-            
             {/* Profile & Actions */}
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              {/* Command Palette Trigger */}
+              <button
+                type="button"
+                onClick={() => setShowCommandPalette(true)}
+                className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100/90 border border-gray-200/90 hover:border-gray-300 rounded-xl text-xs font-semibold text-gray-600 hover:text-gray-950 transition-all shadow-2xs group cursor-pointer shrink-0"
+                title={isHindi ? "सर्च या कमांड (⌘K / Ctrl+K)" : "Search or command (⌘K / Ctrl+K)"}
+              >
+                <Search size={14} className="text-gray-400 group-hover:text-black transition-colors" />
+                <span className="hidden xl:inline text-xs font-bold text-gray-500 group-hover:text-black">{t('common.search', 'Search')}</span>
+                <kbd className="inline-flex items-center px-1.5 py-0.5 bg-white border border-gray-200 rounded text-[9px] font-mono font-black text-gray-400 group-hover:text-black shadow-2xs">
+                  {isMac ? '⌘K' : '^K'}
+                </kbd>
+              </button>
+
+              {/* Language Selector Button */}
+              <button
+                type="button"
+                onClick={() => setShowLangModal(true)}
+                className="px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200/90 hover:border-gray-300 rounded-xl text-xs font-black text-gray-800 transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer shrink-0"
+                title={isHindi ? "भाषा सेटिंग्स (Language Settings)" : "Language Settings / भाषा बदलें"}
+              >
+                <Globe size={13} className="text-indigo-600" />
+                <span className="font-bold">{isHindi ? 'हिंदी' : 'EN'}</span>
+              </button>
+
               {/* Keyboard Shortcuts Guide Pill */}
               <button
                 type="button"
                 onClick={() => setShowShortcutsModal(true)}
-                className="hidden xl:flex items-center justify-center p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-all cursor-pointer shrink-0"
+                className="hidden 2xl:flex items-center justify-center p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-all cursor-pointer shrink-0"
                 title="Keyboard Shortcuts Cheatsheet (?)"
               >
                 <Keyboard size={16} />
@@ -711,6 +728,23 @@ const AppLayout = ({ children }) => {
                   </Link>
                 );
               })}
+
+              {/* Mobile Language Switcher */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setIsMobileMenuOpen(false); setShowLangModal(true); }}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-xl text-sm font-bold text-gray-800 border border-gray-200 transition-colors"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Globe size={18} className="text-indigo-600" />
+                    <span>{isHindi ? 'भाषा सेटिंग्स' : 'Language Settings'}</span>
+                  </div>
+                  <span className="text-xs font-black px-2 py-0.5 rounded-full bg-white text-gray-900 border border-gray-200">
+                    {isHindi ? 'हिंदी' : 'English'}
+                  </span>
+                </button>
+              </div>
             </nav>
             
             <div className="p-5 border-t border-gray-100 flex items-center justify-between bg-gray-50">
@@ -785,6 +819,12 @@ const AppLayout = ({ children }) => {
       <ShortcutsModal
         isOpen={showShortcutsModal}
         onClose={() => setShowShortcutsModal(false)}
+      />
+
+      {/* Language Settings Modal */}
+      <LanguageSettingsModal
+        isOpen={showLangModal}
+        onClose={() => setShowLangModal(false)}
       />
       
     </div>

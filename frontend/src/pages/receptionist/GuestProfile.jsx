@@ -7,10 +7,12 @@ import { printInvoice } from '../../utils/invoice';
 import ExtendStayModal from './ExtendStayModal';
 import ShiftRoomModal from './ShiftRoomModal';
 import GuestRegistrationCardModal from '../../components/reception/GuestRegistrationCardModal';
+import { useLanguage } from '../../context/LanguageContext';
 
 const GuestProfile = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { t, isHindi } = useLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState(tabParam === 'khata' ? 'khata' : 'history');
@@ -424,7 +426,7 @@ const GuestProfile = () => {
             }`}
           >
             <Clock size={15} />
-            <span>Stay History</span>
+            <span>{t('profile.stayHistory', 'Stay History')}</span>
             <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
               activeTab === 'history' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
             }`}>
@@ -442,7 +444,7 @@ const GuestProfile = () => {
             }`}
           >
             <BookOpen size={15} />
-            <span>Khata & Passbook</span>
+            <span>{t('profile.khataPassbook', 'Khata & Passbook')}</span>
             {Number(guest.ledgerBalance) !== 0 ? (
               <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
                 Number(guest.ledgerBalance) > 0
@@ -462,26 +464,6 @@ const GuestProfile = () => {
             )}
           </button>
         </div>
-
-        {/* Quick action buttons if Khata tab is active */}
-        {activeTab === 'khata' && (
-          <div className="flex items-center gap-2 px-1">
-            <button
-              onClick={() => { setDepositModalOpen(true); setFormAmount(''); setFormNotes(''); setLedgerActionError(''); }}
-              className="px-3.5 py-2 bg-black hover:bg-gray-800 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
-            >
-              <PlusCircle size={13} />
-              <span>+ Advance</span>
-            </button>
-            <button
-              onClick={() => { setPaymentModalOpen(true); setFormAmount(''); setFormNotes(''); setLedgerActionError(''); }}
-              className="px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
-            >
-              <ArrowDownLeft size={13} />
-              <span>Wasool</span>
-            </button>
-          </div>
-        )}
       </div>
 
       {/* ─── Stay History Tab Content ─── */}
@@ -605,10 +587,10 @@ const GuestProfile = () => {
               </div>
               <div>
                 <h2 className="text-base font-black uppercase tracking-wider">
-                  Khata & Advance Passbook
+                  {t('profile.khataPassbook', 'Khata & Advance Passbook')}
                 </h2>
                 <p className="text-xs text-gray-400 font-medium">
-                  Wallet deposit & credit ledger for {guest.fullName}
+                  {t('profile.ledgerTransactions', 'Wallet deposit & credit ledger')} • {guest.fullName}
                 </p>
               </div>
             </div>
@@ -619,14 +601,14 @@ const GuestProfile = () => {
                 onClick={() => { setFormAmount(''); setFormNotes(''); setLedgerActionError(''); setDepositModalOpen(true); }}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-transform active:scale-95 cursor-pointer"
               >
-                <PlusCircle size={14} /> + Advance Jama
+                <PlusCircle size={14} /> {t('profile.addAdvance', '+ Advance Jama')}
               </button>
               <button
                 type="button"
                 onClick={() => { setFormAmount(''); setFormNotes(''); setLedgerActionError(''); setPaymentModalOpen(true); }}
                 className="px-4 py-2 bg-white hover:bg-gray-100 text-gray-950 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-transform active:scale-95 cursor-pointer"
               >
-                <ArrowDownLeft size={14} /> Wasool Karein
+                <ArrowDownLeft size={14} /> {t('profile.wasoolDue', 'Wasool Karein')}
               </button>
               {getWhatsAppStatementUrl() && (
                 <a
@@ -645,7 +627,7 @@ const GuestProfile = () => {
                 className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-colors print:hidden cursor-pointer"
                 title="Print Passbook Statement"
               >
-                <Printer size={13} /> Print
+                <Printer size={13} /> {t('common.print', 'Print')}
               </button>
             </div>
           </div>
@@ -653,8 +635,10 @@ const GuestProfile = () => {
           {/* Balance KPI Banner */}
           <div className="p-6 bg-gray-50/70 border-b border-gray-100 grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
-              <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Current Ledger Status</span>
-              <div className="mt-1 flex items-baseline gap-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                {isHindi ? 'वर्तमान लेजर स्थिति' : 'Current Ledger Status'}
+              </span>
+              <div className="mt-1 flex items-baseline gap-2 flex-wrap">
                 <span className={`text-2xl font-black ${
                   Number(guest.ledgerBalance) > 0 ? 'text-emerald-600' : Number(guest.ledgerBalance) < 0 ? 'text-red-600' : 'text-gray-900'
                 }`}>
@@ -672,23 +656,27 @@ const GuestProfile = () => {
                     : 'bg-gray-100 text-gray-700'
                 }`}>
                   {Number(guest.ledgerBalance) > 0
-                    ? 'Advance / Wallet (जमा)'
+                    ? (isHindi ? 'अग्रिम जमा (Advance Wallet)' : 'Advance / Wallet (जमा)')
                     : Number(guest.ledgerBalance) < 0
-                    ? 'Pending Due / Udhaar (उधार बाकी)'
-                    : 'All Cleared (चुकता)'}
+                    ? (isHindi ? 'बकाया उधार (Pending Due)' : 'Pending Due / Udhaar (उधार बाकी)')
+                    : (isHindi ? 'खाता चुकता (Cleared)' : 'All Cleared (चुकता)')}
                 </span>
               </div>
             </div>
 
             <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
-              <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Total Recorded Entries</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                {isHindi ? 'कुल दर्ज लेनदेन' : 'Total Recorded Entries'}
+              </span>
               <div className="mt-1 text-2xl font-black text-gray-900">
-                {ledgerEntries.length} Transactions
+                {ledgerEntries.length} {isHindi ? 'एंट्रीज' : 'Transactions'}
               </div>
             </div>
 
             <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
-              <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Primary Contact</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                {t('profile.primaryContact', 'Primary Contact')}
+              </span>
               <div className="mt-1 text-sm font-bold text-gray-800 truncate">
                 {guest.mobileNumber || 'No mobile'} {guest.idProofNumber ? `• ${guest.idProofType}: ${guest.idProofNumber}` : ''}
               </div>
@@ -697,24 +685,24 @@ const GuestProfile = () => {
 
           {/* Passbook Table with Sticky Header and Scrollable Body */}
           {ledgerLoading ? (
-            <div className="p-8 text-center text-gray-400 text-sm font-medium">Loading passbook entries...</div>
+            <div className="p-8 text-center text-gray-400 text-sm font-medium">{t('common.loading', 'Loading passbook entries...')}</div>
           ) : ledgerEntries.length === 0 ? (
             <div className="p-10 text-center text-gray-400 font-medium text-sm">
-              <p>No ledger transactions recorded yet for this guest.</p>
-              <p className="text-xs text-gray-400 mt-1">Use "+ Advance Jama Karein" to add deposit, or check in/out with Wallet or Khata.</p>
+              <p>{t('profile.noLedgerEntries', 'No ledger transactions recorded yet for this guest.')}</p>
+              <p className="text-xs text-gray-400 mt-1">{isHindi ? 'नया डिपॉजिट जोड़ने के लिए "+ एडवांस जमा" पर क्लिक करें।' : 'Use "+ Advance Jama" to add deposit, or record payments with Wallet or Khata.'}</p>
             </div>
           ) : (
             <div className="overflow-x-auto max-h-[560px] overflow-y-auto">
               <table className="w-full text-left border-collapse">
                 <thead className="sticky top-0 bg-gray-50/95 backdrop-blur-xs z-10">
                   <tr className="border-b border-gray-200 text-[10px] font-black uppercase tracking-wider text-gray-500">
-                    <th className="py-3 px-5">Date</th>
-                    <th className="py-3 px-4">Type</th>
-                    <th className="py-3 px-4">Description / Details</th>
-                    <th className="py-3 px-4">Mode</th>
-                    <th className="py-3 px-4 text-right">Amount</th>
-                    <th className="py-3 px-5 text-right">Balance After</th>
-                    <th className="py-3 px-4">Staff</th>
+                    <th className="py-3 px-5">{t('common.date', 'Date')}</th>
+                    <th className="py-3 px-4">{t('common.status', 'Type')}</th>
+                    <th className="py-3 px-4">{isHindi ? 'विवरण' : 'Description / Details'}</th>
+                    <th className="py-3 px-4">{isHindi ? 'माध्यम' : 'Mode'}</th>
+                    <th className="py-3 px-4 text-right">{t('common.amount', 'Amount')}</th>
+                    <th className="py-3 px-5 text-right">{isHindi ? 'शेष खाता' : 'Balance After'}</th>
+                    <th className="py-3 px-4">{isHindi ? 'स्टाफ' : 'Staff'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 text-xs font-semibold text-gray-800">
@@ -759,7 +747,9 @@ const GuestProfile = () => {
                         </td>
                         <td className="py-3 px-5 text-right whitespace-nowrap font-black font-mono">
                           <span className={entry.balanceAfter > 0 ? 'text-emerald-700' : entry.balanceAfter < 0 ? 'text-red-700' : 'text-gray-900'}>
-                            ₹{entry.balanceAfter.toLocaleString('en-IN')}
+                            {entry.balanceAfter < 0
+                              ? `-₹${Math.abs(entry.balanceAfter).toLocaleString('en-IN')}`
+                              : `₹${Number(entry.balanceAfter || 0).toLocaleString('en-IN')}`}
                           </span>
                         </td>
                         <td className="py-3 px-4 whitespace-nowrap text-gray-400 text-[11px]">

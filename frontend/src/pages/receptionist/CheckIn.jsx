@@ -43,6 +43,7 @@ import GuestRegistrationCardModal from '../../components/reception/GuestRegistra
 import { getFullImageUrl } from '../../utils/imageUrl';
 import DynamicUpiQr from '../../components/DynamicUpiQr';
 import PaymentMethodSelector, { validateSplitPayment, buildSplitPayments } from '../../components/common/PaymentMethodSelector';
+import { useLanguage } from '../../context/LanguageContext';
 
 const API =
   import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
@@ -65,6 +66,7 @@ const toDateTimeLocal = (d) => {
 };
 
 const CheckIn = () => {
+  const { t, isHindi } = useLanguage();
   const loadState = (key, defaultVal) => {
     try {
       const saved = sessionStorage.getItem(key);
@@ -1751,14 +1753,14 @@ const CheckIn = () => {
       <div className="mb-8">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-black text-gray-900 tracking-tight">
-            Express Check-In
+            {isHindi ? 'एक्सप्रेस चेक-इन' : 'Express Check-In'}
           </h1>
           <button 
             onClick={resetForm}
             className="px-4 py-2 bg-red-50 text-red-600 rounded-xl font-bold text-xs hover:bg-red-100 transition-colors flex items-center gap-2"
           >
             <RefreshCw size={14} />
-            RESET FORM
+            {isHindi ? 'फॉर्म रीसेट' : 'RESET FORM'}
           </button>
         </div>
 
@@ -1780,7 +1782,7 @@ const CheckIn = () => {
                   : 'text-gray-400'
               }`}
             >
-              1. Stay Details
+              {isHindi ? '1. कमरा व स्टे चयन' : '1. Stay & Room Details'}
             </span>
           </div>
 
@@ -1800,7 +1802,7 @@ const CheckIn = () => {
                   : 'text-gray-400'
               }`}
             >
-              2. Guest Identity
+              {isHindi ? '2. अतिथि विवरण व पहचान पत्र' : '2. Guest Identity & Verification'}
             </span>
           </div>
 

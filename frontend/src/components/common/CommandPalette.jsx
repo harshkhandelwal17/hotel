@@ -20,9 +20,11 @@ import {
   Sparkles,
   Phone,
   Bed,
-  CreditCard
+  CreditCard,
+  Globe
 } from 'lucide-react';
 import { apiCache } from '../../utils/apiCache';
+import { useLanguage } from '../../context/LanguageContext';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
 
@@ -34,6 +36,7 @@ export default function CommandPalette({
   user,
   globalProperty = 'all'
 }) {
+  const { toggleLanguage, isHindi } = useLanguage();
   const [query, setQuery] = useState('');
   const [guestResults, setGuestResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -148,8 +151,18 @@ export default function CommandPalette({
       perform: () => {
         if (onOpenShortcuts) onOpenShortcuts();
       }
+    },
+    {
+      id: 'action-language',
+      type: 'action',
+      title: isHindi ? 'Switch to English (अंग्रेज़ी)' : 'हिंदी भाषा में बदलें (Switch to Hindi)',
+      subtitle: isHindi ? 'Change display language to English' : 'पूरे सॉफ्टवेयर की भाषा हिंदी करें',
+      icon: Globe,
+      color: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+      keywords: ['language', 'hindi', 'english', 'bhasha', 'translate', 'हिंदी', 'भाषा'],
+      perform: () => toggleLanguage()
     }
-  ], [navigate, onOpenPoliceReport, onOpenShortcuts]);
+  ], [navigate, onOpenPoliceReport, onOpenShortcuts, isHindi, toggleLanguage]);
 
   // Filter actions by query
   const filteredActions = useMemo(() => {

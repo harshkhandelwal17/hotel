@@ -26,6 +26,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import PoliceReportModal from '../admin/PoliceReportModal';
 import ExpenseModal from '../admin/ExpenseModal';
 import { apiCache } from '../../utils/apiCache';
@@ -42,6 +43,7 @@ const SkeletonCard = () => (
 
 const ReceptionistDashboard = () => {
   const { user } = useContext(AuthContext);
+  const { t, isHindi } = useLanguage();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -155,6 +157,13 @@ const ReceptionistDashboard = () => {
   const totalRooms = stats?.totalRooms || ((stats?.occupiedRooms || 0) + (stats?.availableRooms || 0));
   const occupancyRate = stats ? Math.round((stats.occupiedRooms / (totalRooms || 1)) * 100) : 0;
 
+  const getGreeting = () => {
+    const hour = now.getHours();
+    if (hour < 12) return t('dashboard.greetingMorning', 'Good Morning');
+    if (hour < 17) return t('dashboard.greetingAfternoon', 'Good Afternoon');
+    return t('dashboard.greetingEvening', 'Good Evening');
+  };
+
   return (
     <div className="space-y-5 sm:space-y-6 animate-in fade-in duration-300 w-full mx-auto pb-12">
       
@@ -163,13 +172,13 @@ const ReceptionistDashboard = () => {
         <div>
           <div className="flex items-center gap-2.5 flex-wrap">
             <h1 className="text-xl sm:text-2xl font-black text-gray-950 tracking-tight flex items-center gap-1.5">
-              <span>Good {now.getHours() < 12 ? 'Morning' : now.getHours() < 17 ? 'Afternoon' : 'Evening'}</span>
+              <span>{getGreeting()}</span>
               <span className="text-gray-400 font-bold">, {user?.name || 'Reception'}</span>
               <span>👋</span>
             </h1>
             <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-md border border-emerald-200/80 flex items-center gap-1 shadow-2xs">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              {stats?.occupiedRooms || 0}/{totalRooms} Rooms ({occupancyRate}% Capacity)
+              {stats?.occupiedRooms || 0}/{totalRooms} {t('dashboard.occupiedSummary', 'rooms occupied')} ({occupancyRate}% {t('dashboard.capacity', 'Capacity')})
             </span>
           </div>
           <p className="text-xs text-gray-400 font-semibold mt-0.5">
@@ -186,14 +195,14 @@ const ReceptionistDashboard = () => {
             title="Record Counter Cash or Daily Operating Expense"
           >
             <TrendingDown size={14} className="text-rose-500" />
-            <span>Add Expense</span>
+            <span>{t('dashboard.addExpense', 'Add Expense')}</span>
           </button>
 
           <button 
             type="button"
             onClick={() => fetchDashboardData(true)} 
             className={`p-2 text-gray-600 hover:text-black bg-white hover:bg-gray-50 border border-gray-200 rounded-xl shadow-2xs transition-all cursor-pointer ${refreshing ? 'animate-spin' : 'hover:border-gray-300'}`}
-            title="Refresh dashboard metrics"
+            title={t('common.refresh', 'Refresh')}
           >
             <RefreshCw size={15} />
           </button>
@@ -203,7 +212,7 @@ const ReceptionistDashboard = () => {
             className="px-4 py-2 bg-black hover:bg-gray-800 text-white rounded-xl font-black uppercase tracking-wider text-xs shadow-sm transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
           >
             <PlusCircle size={14} />
-            <span>Check-In</span>
+            <span>{t('dashboard.checkIn', 'Check-In')}</span>
           </Link>
         </div>
       </div>
@@ -218,10 +227,10 @@ const ReceptionistDashboard = () => {
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs font-black text-red-950 uppercase tracking-wide">
-                  {overdueStays.length} Checkout{overdueStays.length > 1 ? 's' : ''} Overdue
+                  {overdueStays.length} {t('dashboard.overdueBanner', 'Checkout(s) Overdue')}
                 </span>
                 <span className="text-[9px] font-black bg-red-600 text-white px-1.5 py-0.2 rounded uppercase tracking-wider">
-                  Action Required
+                  {t('common.actionRequired', 'Action Required')}
                 </span>
               </div>
               <p className="text-xs text-red-800 font-medium mt-0.5 truncate">
@@ -234,7 +243,7 @@ const ReceptionistDashboard = () => {
             to="/checkouts" 
             className="self-start sm:self-auto px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
           >
-            <span>Process Checkouts</span>
+            <span>{t('dashboard.processCheckouts', 'Process Checkouts')}</span>
             <ChevronRight size={13} />
           </Link>
         </div>
@@ -247,7 +256,7 @@ const ReceptionistDashboard = () => {
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-200/80 shadow-2xs flex flex-col justify-between hover:border-gray-400 transition-colors">
           <div>
             <div className="flex justify-between items-center mb-2.5">
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Occupied</span>
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">{t('dashboard.occupiedTitle', 'Occupied')}</span>
               <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center text-gray-700">
                 <BedDouble size={14} />
               </div>
@@ -261,7 +270,7 @@ const ReceptionistDashboard = () => {
             <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
               <div className="bg-black h-1.5 rounded-full transition-all duration-700" style={{ width: `${occupancyRate}%` }} />
             </div>
-            <p className="text-[10px] text-gray-500 font-bold mt-1.5">{occupancyRate}% Occupancy</p>
+            <p className="text-[10px] text-gray-500 font-bold mt-1.5">{occupancyRate}% {t('dashboard.capacity', 'Occupancy')}</p>
           </div>
         </div>
 
@@ -269,34 +278,34 @@ const ReceptionistDashboard = () => {
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-200/80 shadow-2xs flex flex-col justify-between hover:border-emerald-300 transition-colors">
           <div>
             <div className="flex justify-between items-center mb-2.5">
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Available</span>
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">{t('dashboard.availableTitle', 'Available')}</span>
               <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-100">
                 <CalendarCheck size={14} />
               </div>
             </div>
             <div className="flex items-baseline gap-1.5">
               <span className="text-2xl sm:text-3xl font-black text-emerald-700">{stats?.availableRooms || 0}</span>
-              <span className="text-xs font-bold text-gray-400">rooms free</span>
+              <span className="text-xs font-bold text-gray-400">{t('dashboard.roomsFree', 'rooms free')}</span>
             </div>
           </div>
-          <p className="text-[10px] text-emerald-700 font-bold mt-3.5">Ready for check-in</p>
+          <p className="text-[10px] text-emerald-700 font-bold mt-3.5">{t('dashboard.readyToCheckIn', 'Ready for check-in')}</p>
         </div>
 
         {/* 3. Check-Ins Today */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-200/80 shadow-2xs flex flex-col justify-between hover:border-gray-400 transition-colors">
           <div>
             <div className="flex justify-between items-center mb-2.5">
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Check-Ins</span>
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">{t('dashboard.checkinsToday', 'Check-Ins')}</span>
               <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center text-gray-700">
                 <Users size={14} />
               </div>
             </div>
             <div className="flex items-baseline gap-1.5">
               <span className="text-2xl sm:text-3xl font-black text-gray-950">{stats?.checkinsToday || 0}</span>
-              <span className="text-xs font-bold text-gray-400">arrivals</span>
+              <span className="text-xs font-bold text-gray-400">{t('dashboard.arrivals', 'arrivals')}</span>
             </div>
           </div>
-          <p className="text-[10px] text-gray-500 font-bold mt-3.5">Recorded today</p>
+          <p className="text-[10px] text-gray-500 font-bold mt-3.5">{t('dashboard.recordedToday', 'Recorded today')}</p>
         </div>
 
         {/* 4. Checkouts Today */}
@@ -306,18 +315,18 @@ const ReceptionistDashboard = () => {
         >
           <div>
             <div className="flex justify-between items-center mb-2.5">
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Checkouts</span>
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">{t('dashboard.checkoutsToday', 'Checkouts')}</span>
               <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center text-gray-700 group-hover:bg-black group-hover:text-white transition-colors">
                 <Clock size={14} />
               </div>
             </div>
             <div className="flex items-baseline gap-1.5">
               <span className="text-2xl sm:text-3xl font-black text-gray-950">{stats?.checkoutsToday || 0}</span>
-              <span className="text-xs font-bold text-gray-400">today</span>
+              <span className="text-xs font-bold text-gray-400">{t('common.dueToday', 'today')}</span>
             </div>
           </div>
           <p className="text-[10px] text-gray-600 font-bold mt-3.5 flex items-center gap-1 group-hover:text-black">
-            <span>Process departures</span>
+            <span>{t('dashboard.processDepartures', 'Process departures')}</span>
             <ChevronRight size={11} />
           </p>
         </Link>
@@ -326,7 +335,7 @@ const ReceptionistDashboard = () => {
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-200/80 shadow-2xs flex flex-col justify-between hover:border-rose-200 transition-colors">
           <div>
             <div className="flex justify-between items-center mb-2.5">
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Pending Dues</span>
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">{t('dashboard.pendingDues', 'Pending Dues')}</span>
               <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center text-gray-700">
                 <CreditCard size={14} />
               </div>
@@ -337,7 +346,7 @@ const ReceptionistDashboard = () => {
               </span>
             </div>
           </div>
-          <p className="text-[10px] text-gray-500 font-bold mt-3.5">Uncollected guest balance</p>
+          <p className="text-[10px] text-gray-500 font-bold mt-3.5">{t('dashboard.uncollectedBalance', 'Uncollected guest balance')}</p>
         </div>
 
         {/* 6. Net Cash in Drawer */}
@@ -347,7 +356,7 @@ const ReceptionistDashboard = () => {
         >
           <div>
             <div className="flex justify-between items-center mb-2.5">
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Drawer Cash</span>
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">{t('dashboard.drawerCash', 'Drawer Cash')}</span>
               <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-100 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
                 <Banknote size={14} />
               </div>
@@ -359,8 +368,8 @@ const ReceptionistDashboard = () => {
             </div>
           </div>
           <div className="text-[10px] text-gray-500 font-bold mt-3.5 flex items-center justify-between">
-            <span>In: ₹{(stats?.todayCashCollected || 0).toLocaleString('en-IN')}</span>
-            <span className="text-rose-600">Exp: -₹{(stats?.todayCashExpense || 0).toLocaleString('en-IN')}</span>
+            <span>{t('dashboard.cashIn', 'In')}: ₹{(stats?.todayCashCollected || 0).toLocaleString('en-IN')}</span>
+            <span className="text-rose-600">{t('dashboard.cashExp', 'Exp')}: -₹{(stats?.todayCashExpense || 0).toLocaleString('en-IN')}</span>
           </div>
         </Link>
       </div>
@@ -372,13 +381,13 @@ const ReceptionistDashboard = () => {
         <div className="p-5 sm:p-6 border-b border-gray-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
             <h2 className="text-base sm:text-lg font-black text-gray-950 uppercase tracking-wider flex items-center gap-2">
-              <span>In-House Guests & Stays</span>
+              <span>{t('dashboard.inHouseTitle', 'In-House Guests & Stays')}</span>
               <span className="text-xs bg-gray-100 text-gray-700 px-2.5 py-0.5 rounded-full font-bold">
-                {recentStays.length} Active
+                {recentStays.length} {t('common.active', 'Active')}
               </span>
             </h2>
             <p className="text-xs text-gray-500 font-medium mt-0.5">
-              Real-time room occupancy, checkout schedule, and folio balances
+              {t('dashboard.inHouseSubtitle', 'Real-time room occupancy, checkout schedule, and folio balances')}
             </p>
           </div>
 
@@ -393,7 +402,7 @@ const ReceptionistDashboard = () => {
                   activeFilterTab === 'all' ? 'bg-white text-gray-950 shadow-2xs font-black' : 'text-gray-500 hover:text-black'
                 }`}
               >
-                All ({recentStays.length})
+                {t('common.all', 'All')} ({recentStays.length})
               </button>
               <button
                 type="button"
@@ -402,7 +411,7 @@ const ReceptionistDashboard = () => {
                   activeFilterTab === 'overdue' ? 'bg-white text-red-600 shadow-2xs font-black' : 'text-gray-500 hover:text-red-600'
                 }`}
               >
-                <span>Overdue</span>
+                <span>{t('common.overdue', 'Overdue')}</span>
                 {overdueStays.length > 0 && (
                   <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-red-100 text-red-800 font-black">
                     {overdueStays.length}
@@ -416,7 +425,7 @@ const ReceptionistDashboard = () => {
                   activeFilterTab === 'dueToday' ? 'bg-white text-gray-950 shadow-2xs font-black' : 'text-gray-500 hover:text-black'
                 }`}
               >
-                Due Today ({dueTodayStays.length})
+                {t('common.dueToday', 'Due Today')} ({dueTodayStays.length})
               </button>
             </div>
 
@@ -425,7 +434,7 @@ const ReceptionistDashboard = () => {
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search guest or room..."
+                placeholder={t('dashboard.searchGuestOrRoom', 'Search guest or room...')}
                 value={guestSearch}
                 onChange={(e) => setGuestSearch(e.target.value)}
                 className="w-full sm:w-48 pl-9 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 placeholder-gray-400 focus:outline-hidden focus:bg-white focus:border-black transition-all"
@@ -474,15 +483,15 @@ const ReceptionistDashboard = () => {
 
                         {isOverdue ? (
                           <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-red-100 text-red-800 border border-red-200">
-                            Overdue
+                            {t('common.overdue', 'Overdue')}
                           </span>
                         ) : isTodayCheckout ? (
                           <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-200">
-                            Due Today
+                            {t('common.dueToday', 'Due Today')}
                           </span>
                         ) : (
                           <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-gray-100 text-gray-700">
-                            Active
+                            {t('common.active', 'Active')}
                           </span>
                         )}
                       </div>
@@ -492,7 +501,7 @@ const ReceptionistDashboard = () => {
                           <span className="text-gray-600 font-mono">{stay.guest.mobileNumber}</span>
                         )}
                         <span className="text-gray-300">•</span>
-                        <span>{stay.occupants || 1} {Number(stay.occupants) > 1 ? 'Guests' : 'Guest'}</span>
+                        <span>{stay.occupants || 1} {Number(stay.occupants) > 1 ? t('common.guests', 'Guests') : t('common.guest', 'Guest')}</span>
                         {stay.bookingNumber && (
                           <>
                             <span className="text-gray-300">•</span>
@@ -508,7 +517,7 @@ const ReceptionistDashboard = () => {
                     
                     {/* Schedule */}
                     <div className="text-left md:text-right">
-                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Expected Checkout</p>
+                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{t('dashboard.expectedCheckout', 'Expected Checkout')}</p>
                       <p className={`text-xs font-black mt-0.5 ${isOverdue ? 'text-red-600' : 'text-gray-900'}`}>
                         {format(new Date(stay.expectedCheckOutDate), 'dd MMM, hh:mm a')}
                       </p>
@@ -519,17 +528,17 @@ const ReceptionistDashboard = () => {
 
                     {/* Folio Balance */}
                     <div className="text-left md:text-right min-w-[90px]">
-                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Folio</p>
+                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{t('dashboard.folio', 'Folio')}</p>
                       {balance > 0 ? (
                         <p className="text-xs font-black text-red-600 mt-0.5">
-                          ₹{balance.toLocaleString('en-IN')} Due
+                          ₹{balance.toLocaleString('en-IN')} {t('common.pending', 'Due')}
                         </p>
                       ) : (
                         <p className="text-xs font-black text-emerald-700 mt-0.5 flex md:justify-end items-center gap-1">
-                          <CheckCircle2 size={11} /> Paid
+                          <CheckCircle2 size={11} /> {t('common.paid', 'Paid')}
                         </p>
                       )}
-                      <p className="text-[10px] text-gray-400 font-medium">Total ₹{Number(stay.totalAmount || 0).toLocaleString('en-IN')}</p>
+                      <p className="text-[10px] text-gray-400 font-medium">{t('common.total', 'Total')} ₹{Number(stay.totalAmount || 0).toLocaleString('en-IN')}</p>
                     </div>
 
                     {/* Actions */}
@@ -565,7 +574,7 @@ const ReceptionistDashboard = () => {
                           className="px-3 py-2 bg-white hover:bg-gray-100 text-gray-900 border border-gray-200 rounded-xl font-bold text-xs transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
                           title="Open full guest profile"
                         >
-                          <span>Profile</span>
+                          <span>{t('dashboard.profile', 'Profile')}</span>
                         </Link>
                       )}
 
@@ -578,7 +587,7 @@ const ReceptionistDashboard = () => {
                             : 'bg-black hover:bg-gray-800'
                         }`}
                       >
-                        {isOverdue ? 'Urgent' : 'Manage'}
+                        {isOverdue ? t('dashboard.urgent', 'Urgent') : t('dashboard.manage', 'Manage')}
                       </Link>
                     </div>
                   </div>
@@ -592,10 +601,12 @@ const ReceptionistDashboard = () => {
               <Users size={26} />
             </div>
             <h3 className="text-base font-black text-gray-900">
-              {guestSearch ? 'No matching in-house guests' : 'No in-house guests currently'}
+              {guestSearch ? (isHindi ? 'कोई मेल खाता अतिथि नहीं मिला' : 'No matching in-house guests') : (isHindi ? 'वर्तमान में कोई इन-हाउस अतिथि नहीं है' : 'No in-house guests currently')}
             </h3>
             <p className="text-xs text-gray-500 mt-1 font-medium">
-              {guestSearch ? `No stays found matching "${guestSearch}". Try a different name or room.` : 'Rooms are vacant and ready for new reservations.'}
+              {guestSearch 
+                ? (isHindi ? `"${guestSearch}" से मिलता-जुलता कोई रिकॉर्ड नहीं मिला।` : `No stays found matching "${guestSearch}". Try a different name or room.`)
+                : (isHindi ? 'सभी कमरे खाली हैं और नए चेक-इन के लिए तैयार हैं।' : 'Rooms are vacant and ready for new reservations.')}
             </p>
             {!guestSearch && (
               <Link 
@@ -603,7 +614,7 @@ const ReceptionistDashboard = () => {
                 className="mt-4 inline-flex items-center gap-2 bg-black text-white px-5 py-2.5 rounded-xl font-black uppercase tracking-wider text-xs shadow-sm hover:bg-gray-800 transition-all active:scale-95"
               >
                 <PlusCircle size={15} />
-                <span>Start Check-In</span>
+                <span>{t('dashboard.checkIn', 'Start Check-In')}</span>
               </Link>
             )}
           </div>
@@ -612,9 +623,9 @@ const ReceptionistDashboard = () => {
         {/* Card Footer */}
         {recentStays.length > 0 && (
           <div className="p-4 bg-gray-50/70 border-t border-gray-100 flex items-center justify-between text-xs font-bold text-gray-500">
-            <span>Showing {filteredStays.length} of {recentStays.length} active stays</span>
+            <span>{isHindi ? `कुल ${recentStays.length} में से ${filteredStays.length} सक्रिय स्टे दिखाए जा रहे हैं` : `Showing ${filteredStays.length} of ${recentStays.length} active stays`}</span>
             <Link to="/checkouts" className="text-gray-900 hover:underline flex items-center gap-1 font-black">
-              <span>View All Checkouts & Folios</span>
+              <span>{isHindi ? 'सभी चेकआउट व फोलियो देखें' : 'View All Checkouts & Folios'}</span>
               <ChevronRight size={13} />
             </Link>
           </div>

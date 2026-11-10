@@ -26,6 +26,7 @@ const Laundry = lazy(() => import('./pages/receptionist/Laundry'));
 const SuperAdminDashboard = lazy(() => import('./pages/admin/SuperAdminDashboard'));
 
 import { ToastProvider } from './components/ui/Toast';
+import { LanguageProvider } from './context/LanguageContext';
 
 // Role-aware root redirect component
 const RootRedirect = () => {
@@ -45,8 +46,9 @@ const RootRedirect = () => {
 function App() {
   return (
     <AuthProvider>
-      <ToastProvider>
-      <Router>
+      <LanguageProvider>
+        <ToastProvider>
+        <Router>
         <Suspense fallback={<div className="flex items-center justify-center h-screen w-screen"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
           <Routes>
           <Route path="/login" element={<Login />} />
@@ -89,6 +91,7 @@ function App() {
         </Suspense>
       </Router>
       </ToastProvider>
+      </LanguageProvider>
     </AuthProvider>
   );
 }
