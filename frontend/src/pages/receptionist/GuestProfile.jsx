@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link, useSearchParams } from 'react-router-dom';
+import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { format } from 'date-fns';
-import { User, Phone, CheckCircle, Clock, Printer, FileText, Wallet, BookOpen, Share2, PlusCircle, ArrowDownLeft, ArrowUpRight, X, AlertCircle } from 'lucide-react';
+import { User, Phone, CheckCircle, Clock, Printer, FileText, Wallet, BookOpen, Share2, PlusCircle, ArrowDownLeft, ArrowUpRight, X, AlertCircle, UserPlus, Sparkles, Building, Bed } from 'lucide-react';
 import { printInvoice } from '../../utils/invoice';
 import ExtendStayModal from './ExtendStayModal';
 import ShiftRoomModal from './ShiftRoomModal';
@@ -10,6 +10,7 @@ import GuestRegistrationCardModal from '../../components/reception/GuestRegistra
 
 const GuestProfile = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState(tabParam === 'khata' ? 'khata' : 'history');
@@ -155,48 +156,123 @@ const GuestProfile = () => {
     }
   };
 
-  if (loading) return <div>Loading...</div>;
-  if (!guest) return <div>Guest not found</div>;
+  const handleStartBookingForGuest = () => {
+    if (!guest) return;
+    // Collect unique past co-guests who accompanied this guest
+    const companionsMap = new Map();
+    (guest.stays || []).forEach(stay => {
+      if (stay.guest && stay.guest._id && stay.guest._id !== guest._id) {
+        companionsMap.set(stay.guest._id, stay.guest);
+      }
+      if (Array.isArray(stay.coGuests)) {
+        stay.coGuests.forEach(cg => {
+          if (cg && cg._id && cg._id !== guest._id) {
+            companionsMap.set(cg._id, cg);
+          }
+        });
+      }
+    });
 
+    const prefillPayload = {
+      _id: guest._id,
+      fullName: guest.fullName,
+      mobileNumber: guest.mobileNumber,
+      idProofType: guest.idProofType,
+      idProofNumber: guest.idProofNumber,
+      idProofImage: guest.idProofImage,
+      idProofImageBack: guest.idProofImageBack,
+      gender: guest.gender,
+      dateOfBirth: guest.dateOfBirth,
+      address: guest.address,
+      frequentCompanions: Array.from(companionsMap.values())
+    };
+
+    // Clean any prior pending checkin data so this booking opens at Step 1 with clean room selection
+    sessionStorage.removeItem('checkin_stayInfo');
+    sessionStorage.removeItem('checkin_guests');
+    sessionStorage.setItem('checkin_step', '1');
+    sessionStorage.setItem('checkin_prefill_guest', JSON.stringify(prefillPayload));
+    navigate('/checkin', { state: { prefillGuest: prefillPayload } });
+  };
+
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-[50vh]">
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-black"></div>
+    </div>
+  );
+  if (!guest) return (
+    <div className="text-center py-16">
+      <h3 className="text-lg font-black text-gray-900">Guest not found</h3>
+      <Link to="/guests" className="text-xs font-bold text-black underline mt-2 inline-block">Return to Guest Directory</Link>
+    </div>
+  );
 
   const activeStay = guest.stays?.find(s => ['Active', 'Upcoming', 'Checkout Due', 'Overdue'].includes(s.status));
-  const historyStays = guest.stays?.filter(s => s._id !== activeStay?._id);
+  const historyStays = guest.stays?.filter(s => s._id !== activeStay?._id) || [];
 
   return (
-    <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-500 max-w-6xl mx-auto pb-10">
+    <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300 max-w-6xl mx-auto pb-12 px-3 sm:px-6">
       
-      {/* ─── Profile Header ─── */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-        <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-6">
-          <div className="w-20 h-20 bg-gradient-to-tr from-gray-900 to-black rounded-2xl flex items-center justify-center text-white shadow-lg">
-            <User size={36} />
+      {/* ─── Profile Header (Clean Executive Standard) ─── */}
+      <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-xs border border-gray-200/80 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-5">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-950 text-white rounded-2xl flex items-center justify-center font-black text-2xl shadow-sm shrink-0">
+            {guest.fullName ? guest.fullName.charAt(0).toUpperCase() : <User size={30} />}
           </div>
           <div>
-            <h1 className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight">{guest.fullName}</h1>
-            <div className="flex flex-wrap items-center text-gray-500 mt-2 gap-3">
-              <span className="flex items-center text-sm font-bold bg-gray-50 px-3 py-1 rounded-lg border border-gray-200">
-                <Phone size={16} className="mr-2 text-gray-400" />
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl sm:text-3xl font-black text-gray-950 tracking-tight">
+                {guest.fullName}
+              </h1>
+              {activeStay ? (
+                <span className="px-3 py-1 inline-flex text-[11px] font-black uppercase tracking-wider rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  Active In Room {activeStay.room?.roomNumber}
+                </span>
+              ) : (
+                <span className="px-2.5 py-1 inline-flex text-[10px] font-black uppercase tracking-widest rounded-xl bg-gray-100 text-gray-600 border border-gray-200">
+                  Past Guest
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center text-gray-600 mt-2.5 gap-2 sm:gap-3 text-xs font-bold">
+              <span className="flex items-center bg-gray-50 px-3 py-1 rounded-xl border border-gray-200">
+                <Phone size={13} className="mr-1.5 text-gray-400" />
                 {guest.mobileNumber}
               </span>
               {guest.idProofNumber && (
-                <span className="flex items-center text-xs font-black uppercase tracking-widest bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg border border-blue-200">
+                <span className="flex items-center bg-gray-50 text-gray-700 px-3 py-1 rounded-xl border border-gray-200">
                   {guest.idProofType}: {guest.idProofNumber}
+                </span>
+              )}
+              {guest.address && (
+                <span className="text-gray-400 font-medium truncate max-w-xs">
+                  • {guest.address}
                 </span>
               )}
             </div>
             
             {(guest.idProofImage || guest.idProofImageBack) && (
-              <div className="mt-4 flex flex-wrap gap-3">
+              <div className="mt-3.5 flex flex-wrap gap-2">
                 {guest.idProofImage && (
-                  <a href={(guest.idProofImage?.startsWith('http') ? guest.idProofImage : `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}${guest.idProofImage}`)} target="_blank" rel="noreferrer" 
-                     className="text-[10px] text-indigo-700 font-black uppercase tracking-widest hover:text-indigo-900 bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100 transition-colors flex items-center gap-2">
-                    <span className="text-sm">🔍</span> VIEW ID FRONT
+                  <a 
+                    href={(guest.idProofImage?.startsWith('http') ? guest.idProofImage : `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}${guest.idProofImage}`)} 
+                    target="_blank" 
+                    rel="noreferrer" 
+                    className="text-[10px] text-gray-700 hover:text-black font-black uppercase tracking-wider bg-white hover:bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-200 transition-colors flex items-center gap-1.5 shadow-2xs"
+                  >
+                    <span>ID Front</span>
                   </a>
                 )}
                 {guest.idProofImageBack && (
-                  <a href={(guest.idProofImageBack?.startsWith('http') ? guest.idProofImageBack : `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}${guest.idProofImageBack}`)} target="_blank" rel="noreferrer" 
-                     className="text-[10px] text-indigo-700 font-black uppercase tracking-widest hover:text-indigo-900 bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100 transition-colors flex items-center gap-2">
-                    <span className="text-sm">🔍</span> VIEW ID BACK
+                  <a 
+                    href={(guest.idProofImageBack?.startsWith('http') ? guest.idProofImageBack : `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}${guest.idProofImageBack}`)} 
+                    target="_blank" 
+                    rel="noreferrer" 
+                    className="text-[10px] text-gray-700 hover:text-black font-black uppercase tracking-wider bg-white hover:bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-200 transition-colors flex items-center gap-1.5 shadow-2xs"
+                  >
+                    <span>ID Back</span>
                   </a>
                 )}
               </div>
@@ -204,136 +280,128 @@ const GuestProfile = () => {
           </div>
         </div>
         
-        <div className="flex-shrink-0 flex flex-wrap items-center gap-2">
+        {/* Right Actions & Balance */}
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-gray-100">
+          {/* PRIMARY: Book Room for this Guest */}
+          <button
+            type="button"
+            onClick={handleStartBookingForGuest}
+            className="w-full sm:w-auto px-5 py-2.5 bg-black hover:bg-gray-800 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer"
+            title="Start a new reservation / check-in with this guest auto-filled"
+          >
+            <UserPlus size={15} />
+            <span>Book Room / Check-In</span>
+          </button>
+
           {Number(guest.ledgerBalance) > 0 && (
             <button
               type="button"
               onClick={() => handleTabChange('khata')}
-              className="px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer"
+              className="w-full sm:w-auto px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
               title="Click to view Advance Wallet Passbook"
             >
               <Wallet size={15} className="text-emerald-600" />
               <span>Wallet: ₹{Number(guest.ledgerBalance).toLocaleString('en-IN')}</span>
             </button>
           )}
+
           {Number(guest.ledgerBalance) < 0 && (
             <button
               type="button"
               onClick={() => handleTabChange('khata')}
-              className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-800 border border-red-200 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer animate-pulse hover:animate-none"
+              className="w-full sm:w-auto px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
               title="Click to view Khata Passbook & Settle Due"
             >
-              <BookOpen size={15} className="text-red-600" />
+              <BookOpen size={15} className="text-rose-600" />
               <span>Khata Due: ₹{Math.abs(Number(guest.ledgerBalance)).toLocaleString('en-IN')}</span>
             </button>
-          )}
-          {activeStay ? (
-            <span className="px-4 py-2 inline-flex text-xs uppercase tracking-widest font-black rounded-xl bg-green-500 text-white shadow-md items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-white animate-pulse"></span> Active Guest
-            </span>
-          ) : (
-            <span className="px-4 py-2 inline-flex text-xs uppercase tracking-widest font-black rounded-xl bg-gray-100 text-gray-500 border border-gray-200">
-              Inactive
-            </span>
           )}
         </div>
       </div>
 
-      {/* ─── Active Stay ─── */}
+      {/* ─── Active Stay Card (Refined & Clean) ─── */}
       {activeStay && (
-        <div className="bg-white rounded-3xl shadow-sm border border-blue-200 overflow-hidden">
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 sm:px-8 py-5 border-b border-blue-100 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-            <h2 className="text-xl font-black text-blue-900 flex items-center uppercase tracking-tight">
-              <CheckCircle size={24} className="mr-3 text-blue-600" /> Current Stay
-            </h2>
-            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+        <div className="bg-white rounded-3xl shadow-xs border border-gray-200/80 overflow-hidden">
+          <div className="bg-gray-50/70 px-6 sm:px-8 py-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-gray-900 text-white flex items-center justify-center">
+                <Bed size={16} />
+              </div>
+              <div>
+                <h2 className="text-sm font-black text-gray-900 uppercase tracking-wider">
+                  Current In-House Stay
+                </h2>
+                <p className="text-[11px] font-bold text-gray-500">
+                  Room {activeStay.room?.roomNumber} • Booking #{activeStay.bookingNumber || 'Direct'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
               <button 
                 onClick={() => { setSelectedStay(activeStay); setExtendModalOpen(true); }}
-                className="w-full sm:w-auto bg-white text-blue-700 font-black uppercase tracking-widest text-xs border-2 border-blue-200 px-5 py-2.5 rounded-xl hover:bg-blue-100 transition-all active:scale-95"
+                className="px-3.5 py-2 bg-white hover:bg-gray-100 text-gray-800 font-bold text-xs uppercase tracking-wider border border-gray-200 rounded-xl transition-all active:scale-95"
               >
                 Extend Stay
               </button>
               <button 
                 onClick={() => setSelectedGrcStay(activeStay)}
-                className="w-full sm:w-auto bg-indigo-600 text-white font-black uppercase tracking-widest text-xs px-5 py-2.5 rounded-xl hover:bg-indigo-700 transition-all shadow-md active:scale-95 flex items-center justify-center gap-2"
+                className="px-3.5 py-2 bg-white hover:bg-gray-100 text-gray-800 font-bold text-xs uppercase tracking-wider border border-gray-200 rounded-xl transition-all shadow-2xs active:scale-95 flex items-center gap-1.5"
                 title="Print Guest Registration Card (GRC)"
               >
-                <FileText size={16} /> Print GRC
+                <FileText size={14} className="text-gray-500" /> Print GRC
               </button>
               <button 
                 onClick={() => handlePrint(activeStay)}
-                className="w-full sm:w-auto bg-blue-600 text-white font-black uppercase tracking-widest text-xs px-5 py-2.5 rounded-xl hover:bg-blue-700 transition-all shadow-md active:scale-95 flex items-center justify-center gap-2"
+                className="px-4 py-2 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-sm active:scale-95 flex items-center gap-1.5"
               >
-                <Printer size={16} /> Print Bill
+                <Printer size={14} /> Print Bill
               </button>
             </div>
           </div>
           
-          <div className="p-6 sm:p-8 grid grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
-            <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Room</p>
-              <div className="flex items-center gap-2">
-                <p className="font-black text-gray-900 text-xl">{activeStay.room?.roomNumber}</p>
-                {((typeof activeStay.guest === 'object' ? activeStay.guest?._id : activeStay.guest) !== guest._id) && (
-                  <span className="bg-purple-100 text-purple-800 text-[9px] px-2 py-0.5 rounded-lg font-black uppercase tracking-widest border border-purple-200">Co-Guest</span>
-                )}
-              </div>
-              <p className="text-xs font-bold text-gray-500 mt-1">{activeStay.occupants > 1 ? `${activeStay.occupants} Guests` : `1 Guest`}</p>
-              {((typeof activeStay.guest === 'object' ? activeStay.guest?._id : activeStay.guest) !== guest._id) && (
-                 <Link to={`/guests/${typeof activeStay.guest === 'object' ? activeStay.guest._id : activeStay.guest}`} className="inline-block text-[10px] font-bold text-purple-700 hover:text-purple-900 hover:underline mt-1 bg-purple-50 px-2 py-1 rounded-md border border-purple-100 transition-colors">
-                   Primary: {activeStay.guest?.fullName || 'Unknown'}
-                 </Link>
-              )}
+          <div className="p-6 sm:p-7 grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            <div className="bg-gray-50/70 p-4 rounded-2xl border border-gray-100">
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Room Occupancy</p>
+              <p className="font-black text-gray-900 text-xl">Room {activeStay.room?.roomNumber}</p>
+              <p className="text-xs font-bold text-gray-500 mt-1">{activeStay.occupants > 1 ? `${activeStay.occupants} Guests Accommodated` : `1 Guest`}</p>
             </div>
-            <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Check-in</p>
+
+            <div className="bg-gray-50/70 p-4 rounded-2xl border border-gray-100">
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Check-in Time</p>
               <p className="font-bold text-gray-900 text-sm leading-tight">{format(new Date(activeStay.checkInDate), 'dd MMM yyyy')}</p>
               <p className="text-xs font-bold text-gray-500 mt-0.5">{format(new Date(activeStay.checkInDate), 'hh:mm a')}</p>
             </div>
-            <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+
+            <div className="bg-gray-50/70 p-4 rounded-2xl border border-gray-100">
               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Expected Checkout</p>
               <p className="font-bold text-gray-900 text-sm leading-tight">{format(new Date(activeStay.expectedCheckOutDate), 'dd MMM yyyy')}</p>
               <p className="text-xs font-bold text-gray-500 mt-0.5">{format(new Date(activeStay.expectedCheckOutDate), 'hh:mm a')}</p>
             </div>
-            <div className={`p-4 rounded-2xl border ${activeStay.totalAmount - activeStay.paidAmount > 0 ? 'bg-red-50 border-red-100' : 'bg-green-50 border-green-100'}`}>
-              <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${activeStay.totalAmount - activeStay.paidAmount > 0 ? 'text-red-500' : 'text-green-600'}`}>Balance Due</p>
-              <p className={`font-black text-2xl ${activeStay.totalAmount - activeStay.paidAmount > 0 ? 'text-red-600' : 'text-green-700'}`}>
+
+            <div className={`p-4 rounded-2xl border ${activeStay.totalAmount - activeStay.paidAmount > 0 ? 'bg-rose-50/70 border-rose-100' : 'bg-emerald-50/70 border-emerald-100'}`}>
+              <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${activeStay.totalAmount - activeStay.paidAmount > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
+                {activeStay.totalAmount - activeStay.paidAmount > 0 ? 'Balance Pending' : 'Paid in Full'}
+              </p>
+              <p className={`font-black text-2xl ${activeStay.totalAmount - activeStay.paidAmount > 0 ? 'text-rose-700' : 'text-emerald-800'}`}>
                 ₹{activeStay.totalAmount - activeStay.paidAmount}
               </p>
-              <p className="text-xs font-bold text-gray-500 mt-1">Total: ₹{activeStay.totalAmount}</p>
+              <p className="text-xs font-bold text-gray-500 mt-0.5">Total Bill: ₹{activeStay.totalAmount}</p>
             </div>
             
             {activeStay.coGuests && activeStay.coGuests.filter(cg => cg._id !== guest._id).length > 0 && (
-              <div className="col-span-2 lg:col-span-4 mt-2">
-                <p className="text-xs font-black text-gray-500 uppercase tracking-widest mb-3">Co-Guests</p>
-                <div className="flex flex-wrap gap-3">
+              <div className="col-span-2 lg:col-span-4 pt-1">
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2.5">Accompanying Co-Guests</p>
+                <div className="flex flex-wrap gap-2.5">
                   {activeStay.coGuests.filter(cg => cg._id !== guest._id).map(cg => (
-                    <Link to={`/guests/${cg._id}`} key={cg._id} className="bg-white border-2 border-gray-100 hover:border-indigo-300 hover:shadow-md hover:bg-indigo-50/30 transition-all px-4 py-2 rounded-xl text-sm text-gray-800 font-bold flex flex-col sm:flex-row sm:items-center gap-2 shadow-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center"><User size={12} className="text-indigo-600"/></div>
-                        {cg.fullName} <span className="text-gray-400 font-medium">({cg.mobileNumber})</span>
-                      </div>
-                      <div className="flex items-center gap-2 sm:ml-2">
-                        {cg.idProofType && cg.idProofNumber && (
-                           <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 bg-gray-100 px-2 py-1 rounded-md border border-gray-200">
-                             {cg.idProofType}: {cg.idProofNumber}
-                           </span>
-                        )}
-                        {cg.idProofImage && (
-                          <a href={(cg.idProofImage?.startsWith('http') ? cg.idProofImage : `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}${cg.idProofImage}`)} target="_blank" rel="noreferrer" 
-                             onClick={(e) => e.stopPropagation()}
-                             className="text-[10px] uppercase tracking-wider font-black bg-indigo-100 text-indigo-700 px-2 py-1 rounded-md hover:bg-indigo-200 border border-indigo-200 transition-colors">
-                            View Front
-                          </a>
-                        )}
-                        {cg.idProofImageBack && (
-                          <a href={(cg.idProofImageBack?.startsWith('http') ? cg.idProofImageBack : `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}${cg.idProofImageBack}`)} target="_blank" rel="noreferrer" 
-                             onClick={(e) => e.stopPropagation()}
-                             className="text-[10px] uppercase tracking-wider font-black bg-indigo-100 text-indigo-700 px-2 py-1 rounded-md hover:bg-indigo-200 border border-indigo-200 transition-colors">
-                            View Back
-                          </a>
-                        )}
-                      </div>
+                    <Link 
+                      to={`/guests/${cg._id}`} 
+                      key={cg._id} 
+                      className="bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-all px-3.5 py-2 rounded-xl text-xs text-gray-800 font-bold flex items-center gap-2"
+                    >
+                      <User size={13} className="text-gray-400" />
+                      <span>{cg.fullName}</span>
+                      {cg.mobileNumber && <span className="text-gray-400 font-normal">({cg.mobileNumber})</span>}
                     </Link>
                   ))}
                 </div>
@@ -343,22 +411,22 @@ const GuestProfile = () => {
         </div>
       )}
 
-      {/* ─── TAB NAVIGATION BAR ─── */}
-      <div className="bg-white p-2 rounded-2xl border border-gray-200 shadow-xs flex flex-wrap items-center justify-between gap-3 print:hidden">
-        <div className="flex flex-wrap items-center gap-2">
+      {/* ─── TAB NAVIGATION (Clean Monochrome Standard) ─── */}
+      <div className="bg-white p-1.5 rounded-2xl border border-gray-200/90 shadow-2xs flex flex-wrap items-center justify-between gap-3 print:hidden">
+        <div className="flex flex-wrap items-center gap-1.5">
           <button
             type="button"
             onClick={() => handleTabChange('history')}
-            className={`px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
+            className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'history'
-                ? 'bg-black text-white shadow-md'
+                ? 'bg-black text-white shadow-sm'
                 : 'text-gray-600 hover:text-black hover:bg-gray-100'
             }`}
           >
-            <Clock size={16} />
+            <Clock size={15} />
             <span>Stay History</span>
-            <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
-              activeTab === 'history' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-700'
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+              activeTab === 'history' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
             }`}>
               {historyStays.length}
             </span>
@@ -367,27 +435,27 @@ const GuestProfile = () => {
           <button
             type="button"
             onClick={() => handleTabChange('khata')}
-            className={`px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
+            className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'khata'
-                ? 'bg-amber-500 text-gray-950 shadow-md font-black'
+                ? 'bg-black text-white shadow-sm'
                 : 'text-gray-600 hover:text-black hover:bg-gray-100'
             }`}
           >
-            <BookOpen size={16} />
+            <BookOpen size={15} />
             <span>Khata & Passbook</span>
             {Number(guest.ledgerBalance) !== 0 ? (
-              <span className={`text-[11px] px-2 py-0.5 rounded-full font-black ${
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
                 Number(guest.ledgerBalance) > 0
-                  ? activeTab === 'khata' ? 'bg-black text-emerald-400' : 'bg-emerald-100 text-emerald-800'
-                  : activeTab === 'khata' ? 'bg-black text-red-300' : 'bg-red-100 text-red-800'
+                  ? activeTab === 'khata' ? 'bg-emerald-400 text-gray-950' : 'bg-emerald-100 text-emerald-800'
+                  : activeTab === 'khata' ? 'bg-rose-400 text-gray-950' : 'bg-rose-100 text-rose-800'
               }`}>
                 {Number(guest.ledgerBalance) > 0
                   ? `+₹${Number(guest.ledgerBalance).toLocaleString('en-IN')}`
                   : `-₹${Math.abs(Number(guest.ledgerBalance)).toLocaleString('en-IN')}`}
               </span>
             ) : (
-              <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
-                activeTab === 'khata' ? 'bg-black/15 text-gray-950' : 'bg-gray-200 text-gray-700'
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                activeTab === 'khata' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
               }`}>
                 {ledgerEntries.length}
               </span>
@@ -399,18 +467,18 @@ const GuestProfile = () => {
         {activeTab === 'khata' && (
           <div className="flex items-center gap-2 px-1">
             <button
-              type="button"
-              onClick={() => { setFormAmount(''); setFormNotes(''); setLedgerActionError(''); setDepositModalOpen(true); }}
-              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1 shadow-sm transition-transform active:scale-95 cursor-pointer"
+              onClick={() => { setDepositModalOpen(true); setFormAmount(''); setFormNotes(''); setLedgerActionError(''); }}
+              className="px-3.5 py-2 bg-black hover:bg-gray-800 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
             >
-              <PlusCircle size={13} /> + Advance
+              <PlusCircle size={13} />
+              <span>+ Advance</span>
             </button>
             <button
-              type="button"
-              onClick={() => { setFormAmount(''); setFormNotes(''); setLedgerActionError(''); setPaymentModalOpen(true); }}
-              className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-gray-950 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1 shadow-sm transition-transform active:scale-95 cursor-pointer"
+              onClick={() => { setPaymentModalOpen(true); setFormAmount(''); setFormNotes(''); setLedgerActionError(''); }}
+              className="px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
             >
-              <ArrowDownLeft size={13} /> 💰 Wasool
+              <ArrowDownLeft size={13} />
+              <span>Wasool</span>
             </button>
           </div>
         )}
@@ -418,12 +486,12 @@ const GuestProfile = () => {
 
       {/* ─── Stay History Tab Content ─── */}
       <div className={activeTab === 'history' ? 'block' : 'hidden print:block'}>
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="px-6 sm:px-8 py-5 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-            <h2 className="text-lg font-black text-gray-900 flex items-center uppercase tracking-tight">
-              <Clock size={20} className="mr-2 text-gray-400" /> Past Stay History
+        <div className="bg-white rounded-3xl shadow-xs border border-gray-200/80 overflow-hidden">
+          <div className="px-6 sm:px-8 py-4 border-b border-gray-100 bg-gray-50/70 flex items-center justify-between">
+            <h2 className="text-xs font-black text-gray-900 flex items-center uppercase tracking-wider">
+              <Clock size={16} className="mr-2 text-gray-400" /> Past Stay History
             </h2>
-            <span className="text-xs font-bold text-gray-500 bg-gray-200/60 px-3 py-1 rounded-full">
+            <span className="text-[11px] font-bold text-gray-500 bg-gray-200/60 px-3 py-1 rounded-full">
               {historyStays.length} {historyStays.length === 1 ? 'Stay' : 'Stays'} Recorded
             </span>
           </div>
@@ -431,19 +499,19 @@ const GuestProfile = () => {
           {(!historyStays || historyStays.length === 0) ? (
             <div className="p-12 text-center text-gray-400 font-medium">
               <Clock size={32} className="mx-auto mb-2 opacity-30" />
-              <p>No past stays found for this guest.</p>
+              <p className="text-xs font-bold text-gray-500">No past stays found for this guest.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full text-left whitespace-nowrap">
-                <thead className="bg-white border-b-2 border-gray-100">
+                <thead className="bg-white border-b border-gray-100">
                   <tr>
-                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Room</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Check-in</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Checkout</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Bill</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Actions</th>
+                    <th className="px-6 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Room</th>
+                    <th className="px-6 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Check-in</th>
+                    <th className="px-6 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Checkout</th>
+                    <th className="px-6 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Bill</th>
+                    <th className="px-6 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+                    <th className="px-6 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-50">
@@ -453,27 +521,25 @@ const GuestProfile = () => {
                     <tr key={stay._id} className="hover:bg-gray-50/50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
-                          <p className="font-black text-gray-900 text-base">{stay.room?.roomNumber || 'N/A'}</p>
+                          <p className="font-black text-gray-900 text-sm">{stay.room?.roomNumber || 'N/A'}</p>
                           {!isPrimary && (
-                            <span className="bg-purple-100 text-purple-800 text-[9px] px-2 py-0.5 rounded border border-purple-200 font-black uppercase tracking-widest">Co-Guest</span>
+                            <span className="bg-gray-100 text-gray-700 text-[9px] px-2 py-0.5 rounded border border-gray-200 font-black uppercase tracking-widest">Co-Guest</span>
                           )}
                         </div>
-                        <p className="text-xs font-bold text-gray-500 mt-0.5">{stay.occupants} Guests</p>
+                        <p className="text-[11px] font-bold text-gray-400 mt-0.5">{stay.occupants} Guests</p>
                         
                         {!isPrimary && stay.guest?._id ? (
-                          <Link to={`/guests/${stay.guest._id}`} className="inline-block text-[10px] font-bold text-purple-700 hover:text-purple-900 hover:underline mt-1 bg-purple-50 px-2 py-0.5 rounded border border-purple-100">
+                          <Link to={`/guests/${stay.guest._id}`} className="inline-block text-[10px] font-bold text-gray-700 hover:text-black hover:underline mt-1 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
                             Primary: {stay.guest?.fullName || 'Unknown'}
                           </Link>
-                        ) : !isPrimary && (
-                          <p className="text-[10px] font-bold text-purple-600 mt-1">Primary: Unknown</p>
-                        )}
+                        ) : null}
                         
                         {stay.coGuests && stay.coGuests.filter(cg => cg._id !== guest._id).length > 0 && (
                           <div className="mt-2 flex flex-col gap-1">
                             <p className="text-[9px] font-black uppercase text-gray-400 tracking-wider">With:</p>
                             <div className="flex flex-wrap gap-1">
                               {stay.coGuests.filter(cg => cg._id !== guest._id).map(cg => (
-                                <Link to={`/guests/${cg._id}`} key={cg._id} className="text-[9px] font-bold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-900 px-2 py-1 rounded-md border border-indigo-100 transition-colors">
+                                <Link to={`/guests/${cg._id}`} key={cg._id} className="text-[9px] font-bold bg-gray-50 text-gray-700 hover:bg-gray-100 hover:text-black px-2 py-0.5 rounded border border-gray-200 transition-colors">
                                   {cg.fullName || 'Unknown'}
                                 </Link>
                               ))}
@@ -482,39 +548,39 @@ const GuestProfile = () => {
                         )}
                       </td>
                       <td className="px-6 py-4">
-                        <p className="font-bold text-gray-900 text-sm">{format(new Date(stay.checkInDate), 'dd MMM yyyy')}</p>
-                        <p className="text-xs font-bold text-gray-400 mt-0.5">{format(new Date(stay.checkInDate), 'hh:mm a')}</p>
+                        <p className="font-bold text-gray-900 text-xs">{format(new Date(stay.checkInDate), 'dd MMM yyyy')}</p>
+                        <p className="text-[11px] text-gray-400 mt-0.5">{format(new Date(stay.checkInDate), 'hh:mm a')}</p>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="font-bold text-gray-900 text-sm">{stay.actualCheckOutDate ? format(new Date(stay.actualCheckOutDate), 'dd MMM yyyy') : format(new Date(stay.expectedCheckOutDate), 'dd MMM yyyy')}</p>
-                        <p className="text-xs font-bold text-gray-400 mt-0.5">{stay.actualCheckOutDate ? format(new Date(stay.actualCheckOutDate), 'hh:mm a') : format(new Date(stay.expectedCheckOutDate), 'hh:mm a')}</p>
+                        <p className="font-bold text-gray-900 text-xs">{stay.actualCheckOutDate ? format(new Date(stay.actualCheckOutDate), 'dd MMM yyyy') : format(new Date(stay.expectedCheckOutDate), 'dd MMM yyyy')}</p>
+                        <p className="text-[11px] text-gray-400 mt-0.5">{stay.actualCheckOutDate ? format(new Date(stay.actualCheckOutDate), 'hh:mm a') : format(new Date(stay.expectedCheckOutDate), 'hh:mm a')}</p>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="font-black text-gray-900 text-base">₹{stay.totalAmount}</p>
+                        <p className="font-black text-gray-900 text-sm">₹{stay.totalAmount}</p>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`px-3 py-1 inline-flex text-[10px] leading-5 font-black uppercase tracking-widest rounded-lg border ${
-                          stay.status === 'Completed' ? 'bg-green-50 text-green-700 border-green-200' : 
-                          stay.status === 'Cancelled' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-gray-50 text-gray-700 border-gray-200'
+                        <span className={`px-2.5 py-0.5 inline-flex text-[10px] font-black uppercase tracking-wider rounded-lg border ${
+                          stay.status === 'Completed' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 
+                          stay.status === 'Cancelled' ? 'bg-rose-50 text-rose-800 border-rose-200' : 'bg-gray-50 text-gray-700 border-gray-200'
                         }`}>
                           {stay.status}
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
                           <button 
                             onClick={() => handlePrint(stay)}
-                            className="text-gray-500 hover:text-black bg-gray-50 hover:bg-gray-100 p-2.5 rounded-xl transition-colors border border-gray-200 cursor-pointer"
+                            className="text-gray-500 hover:text-black bg-white hover:bg-gray-50 p-2 rounded-xl transition-colors border border-gray-200 cursor-pointer shadow-2xs"
                             title="Print Invoice / Bill"
                           >
-                            <Printer size={16} />
+                            <Printer size={15} />
                           </button>
                           <button 
                             onClick={() => setSelectedGrcStay(stay)}
-                            className="text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-3 py-2 rounded-xl transition-colors border border-indigo-200 flex items-center gap-1.5 font-black text-xs shadow-2xs cursor-pointer active:scale-95"
+                            className="text-gray-700 hover:text-black bg-white hover:bg-gray-50 px-2.5 py-1.5 rounded-xl transition-colors border border-gray-200 flex items-center gap-1 font-bold text-xs shadow-2xs cursor-pointer active:scale-95"
                             title="Print Guest Registration Card (GRC)"
                           >
-                            <FileText size={15} />
+                            <FileText size={13} />
                             <span className="text-[10px] font-black uppercase tracking-wider">GRC</span>
                           </button>
                         </div>
@@ -529,20 +595,20 @@ const GuestProfile = () => {
         </div>
       </div>
 
-      {/* ─── Guest Khata & Wallet Passbook Tab Content ─── */}
+      {/* ─── Guest Khata & Wallet Passbook Tab Content (Clean Luxury Style) ─── */}
       <div className={activeTab === 'khata' ? 'block' : 'hidden print:block'}>
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden print:border-none">
-          <div className="bg-gradient-to-r from-gray-900 to-black px-6 sm:px-8 py-5 text-white flex flex-col md:flex-row justify-between md:items-center gap-4">
+        <div className="bg-white rounded-3xl shadow-xs border border-gray-200/80 overflow-hidden print:border-none">
+          <div className="bg-gray-950 px-6 sm:px-8 py-5 text-white flex flex-col md:flex-row justify-between md:items-center gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-amber-400">
-                <BookOpen size={20} />
+              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-white">
+                <BookOpen size={18} />
               </div>
               <div>
-                <h2 className="text-lg font-black uppercase tracking-tight flex items-center gap-2">
-                  Khata & Advance Passbook (खाता लेजर)
+                <h2 className="text-base font-black uppercase tracking-wider">
+                  Khata & Advance Passbook
                 </h2>
                 <p className="text-xs text-gray-400 font-medium">
-                  Wallet deposit & credit ledger transactions for {guest.fullName}
+                  Wallet deposit & credit ledger for {guest.fullName}
                 </p>
               </div>
             </div>
@@ -553,24 +619,24 @@ const GuestProfile = () => {
                 onClick={() => { setFormAmount(''); setFormNotes(''); setLedgerActionError(''); setDepositModalOpen(true); }}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-transform active:scale-95 cursor-pointer"
               >
-                <PlusCircle size={15} /> + Advance Jama Karein
+                <PlusCircle size={14} /> + Advance Jama
               </button>
               <button
                 type="button"
                 onClick={() => { setFormAmount(''); setFormNotes(''); setLedgerActionError(''); setPaymentModalOpen(true); }}
-                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-gray-950 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-transform active:scale-95 cursor-pointer"
+                className="px-4 py-2 bg-white hover:bg-gray-100 text-gray-950 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-transform active:scale-95 cursor-pointer"
               >
-                <ArrowDownLeft size={15} /> 💰 Wasool Karein
+                <ArrowDownLeft size={14} /> Wasool Karein
               </button>
               {getWhatsAppStatementUrl() && (
                 <a
                   href={getWhatsAppStatementUrl()}
                   target="_blank"
                   rel="noreferrer"
-                  className="px-3.5 py-2 bg-emerald-700/80 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-transform active:scale-95"
+                  className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95"
                   title="Send Khata Statement on WhatsApp"
                 >
-                  <Share2 size={14} /> WhatsApp
+                  <Share2 size={13} /> WhatsApp
                 </a>
               )}
               <button
@@ -579,7 +645,7 @@ const GuestProfile = () => {
                 className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-colors print:hidden cursor-pointer"
                 title="Print Passbook Statement"
               >
-                <Printer size={14} /> Print
+                <Printer size={13} /> Print
               </button>
             </div>
           </div>

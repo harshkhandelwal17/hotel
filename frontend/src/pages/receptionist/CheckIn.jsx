@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useContext, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate, useOutletContext } from 'react-router-dom';
+import { useNavigate, useLocation, useOutletContext } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../../context/AuthContext';
 import {
@@ -118,6 +118,8 @@ const CheckIn = () => {
 
   const toast = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [prefilledProfile, setPrefilledProfile] = useState(null);
 
   const { user } = useContext(AuthContext) || {};
   const { globalProperty, isCurrentPropertyExpired, activeHostel } =
@@ -190,6 +192,71 @@ const CheckIn = () => {
       }
     ])
   );
+
+  // =========================================================
+  // GUEST PREFILL (FROM GUEST PROFILE OR DIRECT LINK)
+  // =========================================================
+
+  useEffect(() => {
+    let prefill = location.state?.prefillGuest;
+    if (!prefill) {
+      try {
+        const stored = sessionStorage.getItem('checkin_prefill_guest');
+        if (stored) prefill = JSON.parse(stored);
+      } catch (e) {
+        prefill = null;
+      }
+    }
+
+    if (prefill && prefill.fullName) {
+      setPrefilledProfile(prefill);
+      setGuests(prev => {
+        const primary = {
+          fullName: prefill.fullName || '',
+          mobileNumber: prefill.mobileNumber || '',
+          idProofType: prefill.idProofType || 'Aadhaar',
+          idProofNumber: prefill.idProofNumber || '',
+          idProofImage: prefill.idProofImage || '',
+          idProofImageBack: prefill.idProofImageBack || '',
+          gender: prefill.gender || '',
+          dateOfBirth: prefill.dateOfBirth || '',
+          address: prefill.address || '',
+          _id: prefill._id || null,
+          isSearching: false
+        };
+        const updated = [...prev];
+        updated[0] = { ...updated[0], ...primary };
+        return updated;
+      });
+
+      if (Array.isArray(prefill.frequentCompanions) && prefill.frequentCompanions.length > 0) {
+        setFrequentCoGuests(prefill.frequentCompanions);
+      }
+      setStep(1);
+    }
+  }, [location.state]);
+
+  const handleClearPrefill = () => {
+    sessionStorage.removeItem('checkin_prefill_guest');
+    setPrefilledProfile(null);
+    setFrequentCoGuests([]);
+    setGuests([
+      {
+        fullName: '',
+        mobileNumber: '',
+        idProofType: 'Aadhaar',
+        idProofNumber: '',
+        idProofImage: '',
+        idProofImageBack: '',
+        gender: '',
+        dateOfBirth: '',
+        address: '',
+        _id: null,
+        isSearching: false
+      }
+    ]);
+    toast({ message: 'Prefilled guest cleared', type: 'info' });
+  };
 
   // =========================================================
   // SESSION STORAGE
@@ -1507,6 +1574,10 @@ const CheckIn = () => {
       sessionStorage.removeItem(
         'checkin_guests'
       );
+      sessionStorage.removeItem(
+        'checkin_prefill_guest'
+      );
+      setPrefilledProfile(null);
 
       // =====================================================
       // 7. SUCCESS & GUEST REGISTRATION CARD (GRC)
@@ -1634,6 +1705,8 @@ const CheckIn = () => {
     sessionStorage.removeItem('checkin_step');
     sessionStorage.removeItem('checkin_stayInfo');
     sessionStorage.removeItem('checkin_guests');
+    sessionStorage.removeItem('checkin_prefill_guest');
+    setPrefilledProfile(null);
     
     setStep(1);
     setStayInfo({
@@ -1744,6 +1817,38 @@ const CheckIn = () => {
 
             {/* LEFT COLUMN: GUESTS, DURATION & ROOM MATRIX (8 Cols on Desktop - Bada & Prominent) */}
             <div className="lg:col-span-8 xl:col-span-8 space-y-4 sm:space-y-5">
+
+              {/* FAST BOOKING PREFILL BANNER */}
+              {prefilledProfile && (
+                <div className="bg-gray-950 text-white p-4 sm:p-5 rounded-2xl shadow-sm border border-gray-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-white font-black text-sm shrink-0">
+                      {prefilledProfile.fullName?.charAt(0)?.toUpperCase() || 'G'}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-black uppercase tracking-wider">Fast Booking: {prefilledProfile.fullName}</span>
+                        {prefilledProfile.mobileNumber && (
+                          <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded text-gray-200 font-mono">{prefilledProfile.mobileNumber}</span>
+                        )}
+                        <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded border border-emerald-500/30">
+                          Profile Linked
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-gray-400 mt-0.5 font-medium">
+                        Select room & dates below. Guest 1 details and past co-guests will be auto-filled in Step 2!
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleClearPrefill}
+                    className="text-[11px] font-bold text-gray-400 hover:text-white px-3 py-1.5 rounded-xl border border-white/10 hover:bg-white/10 transition-colors self-start sm:self-auto cursor-pointer"
+                  >
+                    Clear Prefill
+                  </button>
+                </div>
+              )}
 
               {/* 1. GUESTS & DURATION */}
               <div className="bg-white p-5 sm:p-6 rounded-2xl border border-gray-100 shadow-xs space-y-4">
@@ -3009,35 +3114,86 @@ const CheckIn = () => {
 
 
           {frequentCoGuests.length > 0 && (
-            <div className="bg-blue-50 border border-blue-100 p-5 rounded-3xl mb-6">
-              <h4 className="text-xs font-black text-blue-800 uppercase tracking-widest mb-3 flex items-center gap-2">
-                <Users size={14} /> Quick Add Past Co-Guests
-              </h4>
-              <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
-                 {frequentCoGuests.filter(Boolean).map(cg => (
-                  <button key={cg._id} type="button" onClick={() => {
-                    const emptyIdx = guests.findIndex((g, i) => i > 0 && !g.fullName);
-                    if (emptyIdx !== -1) {
-                      setGuests(prev => {
-                        const updated = [...prev];
-                        updated[emptyIdx] = { ...updated[emptyIdx], ...cg, isSearching: false };
-                        return updated;
-                      });
-                      toast({ message: `${cg.fullName} added!`, type: 'success' });
-                    } else {
-                      setGuests(prev => [...prev, { ...cg, isSearching: false }]);
-                      setStayInfo(p => ({ ...p, occupants: p.occupants + 1 }));
-                      toast({ message: `${cg.fullName} added!`, type: 'success' });
-                    }
-                  }} className="shrink-0 flex items-center gap-3 bg-white px-4 py-2 rounded-xl border border-blue-200 hover:border-blue-500 hover:shadow-md transition-all">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-600">
-                      {cg.fullName.charAt(0).toUpperCase()}
+            <div className="bg-gray-50/90 border border-gray-200/90 p-4 sm:p-5 rounded-2xl mb-6 shadow-2xs">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-xs font-black text-gray-900 uppercase tracking-wider flex items-center gap-2">
+                  <Users size={14} className="text-gray-500" />
+                  <span>Past Companions / Co-Guests</span>
+                </h4>
+                <span className="text-[10px] font-bold text-gray-600 bg-white px-2 py-0.5 rounded-md border border-gray-200">
+                  {frequentCoGuests.length} Found
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 mb-3 font-medium">
+                Previously accompanied this guest. Click any companion below to auto-fill Guest 2 (or next slot) instantly:
+              </p>
+              <div className="flex gap-2.5 overflow-x-auto pb-1.5 custom-scrollbar">
+                {frequentCoGuests.filter(Boolean).map((cg, cgIdx) => (
+                  <button
+                    key={cg._id || cgIdx}
+                    type="button"
+                    onClick={() => {
+                      const emptyIdx = guests.findIndex((g, i) => i > 0 && !g.fullName);
+                      if (emptyIdx !== -1) {
+                        setGuests(prev => {
+                          const updated = [...prev];
+                          updated[emptyIdx] = {
+                            ...updated[emptyIdx],
+                            fullName: cg.fullName || '',
+                            mobileNumber: cg.mobileNumber || '',
+                            idProofType: cg.idProofType || 'Aadhaar',
+                            idProofNumber: cg.idProofNumber || '',
+                            idProofImage: cg.idProofImage || '',
+                            idProofImageBack: cg.idProofImageBack || '',
+                            gender: cg.gender || '',
+                            dateOfBirth: cg.dateOfBirth || '',
+                            address: cg.address || '',
+                            _id: cg._id || null,
+                            isSearching: false
+                          };
+                          return updated;
+                        });
+                        toast({ message: `${cg.fullName} added to Guest ${emptyIdx + 1}!`, type: 'success' });
+                      } else {
+                        setGuests(prev => [
+                          ...prev,
+                          {
+                            fullName: cg.fullName || '',
+                            mobileNumber: cg.mobileNumber || '',
+                            idProofType: cg.idProofType || 'Aadhaar',
+                            idProofNumber: cg.idProofNumber || '',
+                            idProofImage: cg.idProofImage || '',
+                            idProofImageBack: cg.idProofImageBack || '',
+                            gender: cg.gender || '',
+                            dateOfBirth: cg.dateOfBirth || '',
+                            address: cg.address || '',
+                            _id: cg._id || null,
+                            isSearching: false
+                          }
+                        ]);
+                        setStayInfo(p => ({ ...p, occupants: (Number(p.occupants) || 1) + 1 }));
+                        toast({ message: `${cg.fullName} added as Guest ${guests.length + 1}!`, type: 'success' });
+                      }
+                    }}
+                    className="shrink-0 flex items-center gap-3 bg-white hover:bg-gray-100/80 px-3.5 py-2.5 rounded-xl border border-gray-200 hover:border-black transition-all active:scale-95 cursor-pointer text-left group shadow-2xs"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-gray-900 text-white flex items-center justify-center font-black text-xs shrink-0 group-hover:bg-black">
+                      {cg.fullName?.charAt(0)?.toUpperCase() || 'G'}
                     </div>
-                    <div className="text-left">
-                      <p className="text-sm font-bold text-gray-900">{cg.fullName}</p>
-                      {cg.mobileNumber && <p className="text-[10px] font-bold text-gray-500">{cg.mobileNumber}</p>}
+                    <div>
+                      <p className="text-xs font-black text-gray-900 group-hover:text-black leading-tight flex items-center gap-1.5">
+                        <span>{cg.fullName}</span>
+                        {cgIdx === 0 && (
+                          <span className="text-[9px] bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold px-1.5 py-0.2 rounded">
+                            Recent
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-[10px] font-bold text-gray-400 mt-0.5">{cg.mobileNumber || 'No phone'}</p>
                     </div>
-                    <Plus size={16} className="text-blue-500 ml-2" />
+                    <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 group-hover:bg-black group-hover:text-white transition-colors ml-1 shrink-0">
+                      <Plus size={12} />
+                    </div>
                   </button>
                 ))}
               </div>
