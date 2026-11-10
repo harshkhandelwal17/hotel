@@ -80,82 +80,18 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
         splitPayments: buildSplitPayments(paymentMethod, payAmt, splitBreakdown, 'Checkout Payment'),
         actualCheckOutDate: isEditingCheckoutTime && actualCheckOutDate ? new Date(actualCheckOutDate).toISOString() : new Date().toISOString()
       });
-      setCompletedStay(res.data.data);
-      setPayments(res.data.payments || []);
-      setCheckoutComplete(true);
       apiCache.invalidate();
+      window.dispatchEvent(new Event('hotelDataInvalidated'));
+      
+      // Immediately close modal and notify parent
+      if (onSuccess) {
+        onSuccess(res.data.data, res.data.payments || []);
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to checkout. Please try again.');
-    } finally {
       setLoading(false);
     }
   };
-
-  if (checkoutComplete) {
-    const stayToPrint = { ...stay, ...(completedStay || {}), guest: stay.guest, room: stay.room, hostel: stay.hostel };
-    const waUrl = getInvoiceWhatsAppUrl(stayToPrint, payments);
-
-    return createPortal(
-      <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4" onClick={onSuccess}>
-        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden p-6 sm:p-8 text-center animate-in fade-in zoom-in-95" onClick={e => e.stopPropagation()}>
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <CheckCircle2 size={36} className="text-green-600" />
-          </div>
-          <h2 className="text-2xl font-black text-gray-900 mb-1">Checked Out!</h2>
-          <p className="text-gray-500 text-xs mb-5">Guest room released and final bill settled.</p>
-          
-          <div className="space-y-2.5">
-            <button
-              onClick={() => setShowFinalInvoiceModal(true)}
-              className="w-full py-3 bg-black text-white font-bold rounded-xl shadow-md hover:bg-gray-800 transition-all flex items-center justify-center gap-2 text-sm active:scale-95"
-            >
-              <Eye size={17} /> View & Print Final Bill
-            </button>
-
-            {waUrl && (
-              <a
-                href={waUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 text-xs shadow-sm active:scale-95"
-              >
-                <Share2 size={15} /> WhatsApp Bill to Guest
-              </a>
-            )}
-
-            <button
-              onClick={() => {
-                printInvoice(stayToPrint, payments);
-                onSuccess();
-              }}
-              className="w-full py-2.5 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-all text-xs flex items-center justify-center gap-2"
-            >
-              <Printer size={15} /> Quick Print (A4)
-            </button>
-
-            <button
-              onClick={onSuccess}
-              className="w-full py-2.5 bg-gray-100 text-gray-500 font-bold rounded-xl hover:bg-gray-200 transition-all text-xs"
-            >
-              Done & Close
-            </button>
-          </div>
-        </div>
-
-        {showFinalInvoiceModal && (
-          <InvoiceModal 
-            stay={stayToPrint} 
-            payments={payments} 
-            onClose={() => {
-              setShowFinalInvoiceModal(false);
-              onSuccess();
-            }} 
-          />
-        )}
-      </div>,
-      document.body
-    );
-  }
 
   return createPortal(
     <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] overflow-y-auto" onClick={onClose}>

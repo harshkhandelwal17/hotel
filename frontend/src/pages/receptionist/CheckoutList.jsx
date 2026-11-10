@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { format, isPast, isToday } from 'date-fns';
@@ -18,6 +18,15 @@ const CheckoutList = () => {
   const [showPoliceModal, setShowPoliceModal] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const { globalProperty } = useOutletContext() || { globalProperty: 'all' };
+  const initialStayParamRef = useRef(searchParams.get('stay'));
+
+  useEffect(() => {
+    // Clean deep link param from browser address bar immediately so it never re-triggers
+    if (searchParams.get('stay')) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+      setSearchParams({}, { replace: true });
+    }
+  }, []);
 
   useEffect(() => { fetchStays(); }, [globalProperty]);
   useEffect(() => {
@@ -37,11 +46,12 @@ const CheckoutList = () => {
       setStays(cached);
       setLoading(false); // Instant render in 0ms!
 
-      const wanted = searchParams.get('stay');
-      if (wanted) {
-        const found = cached.find(s => s._id === wanted);
-        if (found) setManagedStay(found);
-        setSearchParams({}, { replace: true });
+      if (initialStayParamRef.current) {
+        const found = cached.find(s => s._id === initialStayParamRef.current);
+        if (found) {
+          setManagedStay(found);
+          initialStayParamRef.current = null;
+        }
       }
     } else if (!cached) {
       setLoading(true);
@@ -54,12 +64,13 @@ const CheckoutList = () => {
       apiCache.set(cacheKey, newStays);
       setStays(newStays);
 
-      // Deep link from Dashboard / Rooms: /checkouts?stay=<id>
-      const wanted = searchParams.get('stay');
-      if (wanted) {
-        const found = newStays.find(s => s._id === wanted);
-        if (found) setManagedStay(found);
-        setSearchParams({}, { replace: true });
+      // Deep link from Dashboard / Rooms: /checkouts?stay=<id> (consume once)
+      if (initialStayParamRef.current) {
+        const found = newStays.find(s => s._id === initialStayParamRef.current);
+        if (found) {
+          setManagedStay(found);
+          initialStayParamRef.current = null;
+        }
       }
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
@@ -288,7 +299,11 @@ const CheckoutList = () => {
         <CheckoutModal
           stay={selectedStay}
           onClose={() => setSelectedStay(null)}
-          onSuccess={() => { setSelectedStay(null); fetchStays(); }}
+          onSuccess={() => {
+            setSelectedStay(null);
+            setManagedStay(null);
+            fetchStays(true);
+          }}
         />
       )}
       {/* Official Police Verification Report Modal */}
