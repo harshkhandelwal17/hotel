@@ -8,7 +8,7 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
-    "build:frontend": "cd ../frontend && npm run build",
+    "build:frontend": "cd ../frontend && VITE_BASE_PATH=./ npm run build",
     "dist": "npm run build:frontend && electron-builder",
     "dist:win": "npm run build:frontend && electron-builder --win",
     "dist:win-portable": "npm run build:frontend && electron-builder --win portable",
