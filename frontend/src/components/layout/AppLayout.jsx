@@ -413,18 +413,28 @@ const AppLayout = ({ children }) => {
             </div>
             
             {/* Command Palette Trigger */}
-            <div className="hidden md:flex items-center justify-center shrink-1 min-w-0">
+            <div className="hidden md:flex xl:hidden items-center shrink-0">
               <button
                 type="button"
                 onClick={() => setShowCommandPalette(true)}
-                className="flex items-center justify-between gap-2.5 w-36 lg:w-48 xl:w-56 px-3 py-1.5 bg-gray-50 hover:bg-gray-100/90 border border-gray-200/90 hover:border-gray-300 rounded-xl text-xs font-semibold text-gray-500 hover:text-gray-900 transition-all shadow-2xs group cursor-pointer"
+                className="p-2 text-gray-400 hover:text-black hover:bg-gray-100 rounded-xl transition-all cursor-pointer border border-gray-200 shadow-2xs"
+                title="Search or command (⌘K / Ctrl+K)"
+              >
+                <Search size={16} />
+              </button>
+            </div>
+            <div className="hidden xl:flex items-center justify-center shrink-1 min-w-0">
+              <button
+                type="button"
+                onClick={() => setShowCommandPalette(true)}
+                className="flex items-center justify-between gap-2.5 w-44 2xl:w-56 px-3 py-1.5 bg-gray-50 hover:bg-gray-100/90 border border-gray-200/90 hover:border-gray-300 rounded-xl text-xs font-semibold text-gray-500 hover:text-gray-900 transition-all shadow-2xs group cursor-pointer"
                 title="Search guests, rooms, bookings or run commands (⌘K / Ctrl+K)"
               >
                 <span className="flex items-center gap-2 truncate">
                   <Search size={14} className="text-gray-400 group-hover:text-black transition-colors" />
                   <span className="truncate">Search or command...</span>
                 </span>
-                <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 bg-white border border-gray-200 rounded text-[10px] font-mono font-black text-gray-400 group-hover:text-black shadow-2xs">
+                <kbd className="inline-flex items-center px-1.5 py-0.5 bg-white border border-gray-200 rounded text-[10px] font-mono font-black text-gray-400 group-hover:text-black shadow-2xs">
                   {isMac ? '⌘K' : 'Ctrl+K'}
                 </kbd>
               </button>
