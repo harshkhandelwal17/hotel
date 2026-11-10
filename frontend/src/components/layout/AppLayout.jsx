@@ -14,7 +14,7 @@ import { useLanguage } from '../../context/LanguageContext';
 
 const AppLayout = ({ children }) => {
   const { user, logout } = useContext(AuthContext);
-  const { t, isHindi } = useLanguage();
+  const { language, setLanguage, t, isHindi } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
   const [hostels, setHostels] = useState([]);
@@ -26,6 +26,8 @@ const AppLayout = ({ children }) => {
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
   const [showLangModal, setShowLangModal] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const userMenuRef = useRef(null);
 
   const isMac = typeof window !== 'undefined' && navigator.platform?.toUpperCase().indexOf('MAC') >= 0;
 
@@ -258,6 +260,9 @@ const AppLayout = ({ children }) => {
       if (adminMenuRef.current && !adminMenuRef.current.contains(e.target)) {
         setIsAdminMenuOpen(false);
       }
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+        setIsUserMenuOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -265,6 +270,7 @@ const AppLayout = ({ children }) => {
 
   useEffect(() => {
     setIsAdminMenuOpen(false);
+    setIsUserMenuOpen(false);
   }, [location.pathname]);
 
   const adminMenuItems = [
@@ -434,60 +440,27 @@ const AppLayout = ({ children }) => {
             </div>
             
             {/* Profile & Actions */}
-            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
               {/* Command Palette Trigger */}
               <button
                 type="button"
                 onClick={() => setShowCommandPalette(true)}
-                className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100/90 border border-gray-200/90 hover:border-gray-300 rounded-xl text-xs font-semibold text-gray-600 hover:text-gray-950 transition-all shadow-2xs group cursor-pointer shrink-0"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200/90 hover:border-gray-300 rounded-xl text-xs font-semibold text-gray-600 hover:text-gray-950 transition-all shadow-2xs group cursor-pointer shrink-0"
                 title={isHindi ? "सर्च या कमांड (⌘K / Ctrl+K)" : "Search or command (⌘K / Ctrl+K)"}
               >
                 <Search size={14} className="text-gray-400 group-hover:text-black transition-colors" />
                 <span className="hidden xl:inline text-xs font-bold text-gray-500 group-hover:text-black">{t('common.search', 'Search')}</span>
-                <kbd className="inline-flex items-center px-1.5 py-0.5 bg-white border border-gray-200 rounded text-[9px] font-mono font-black text-gray-400 group-hover:text-black shadow-2xs">
+                <kbd className="hidden sm:inline-flex items-center px-1 py-0.2 bg-white border border-gray-200 rounded text-[9px] font-mono font-black text-gray-400 group-hover:text-black shadow-2xs">
                   {isMac ? '⌘K' : '^K'}
                 </kbd>
               </button>
 
-              {/* Language Selector Button */}
-              <button
-                type="button"
-                onClick={() => setShowLangModal(true)}
-                className="px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200/90 hover:border-gray-300 rounded-xl text-xs font-black text-gray-800 transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer shrink-0"
-                title={isHindi ? "भाषा सेटिंग्स (Language Settings)" : "Language Settings / भाषा बदलें"}
-              >
-                <Globe size={13} className="text-indigo-600" />
-                <span className="font-bold">{isHindi ? 'हिंदी' : 'EN'}</span>
-              </button>
-
-              {/* Keyboard Shortcuts Guide Pill */}
-              <button
-                type="button"
-                onClick={() => setShowShortcutsModal(true)}
-                className="hidden 2xl:flex items-center justify-center p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-all cursor-pointer shrink-0"
-                title="Keyboard Shortcuts Cheatsheet (?)"
-              >
-                <Keyboard size={16} />
-              </button>
-
-              {/* Official Police Verification Report Button for Staff / Receptionists / Admin */}
-              {user && user.role !== 'superadmin' && (
-                <button
-                  type="button"
-                  onClick={() => setShowPoliceModal(true)}
-                  className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-sm transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer shrink-0"
-                  title="Generate Official Police Verification Report"
-                >
-                  <ShieldCheck size={14} />
-                  <span className="hidden 2xl:inline">Police Report</span>
-                </button>
-              )}
-
+              {/* Property Selector for Multi-Property Admins */}
               {user?.role === 'admin' && (
                 <select 
                   value={globalProperty} 
                   onChange={e => handlePropertyChange(e.target.value)}
-                  className="hidden md:block max-w-[110px] lg:max-w-[130px] xl:max-w-[160px] truncate bg-gray-50 border border-gray-200 text-gray-700 text-xs rounded-xl focus:ring-black focus:border-black p-1.5 font-semibold shadow-2xs outline-none shrink-0"
+                  className="hidden md:block max-w-[120px] lg:max-w-[140px] truncate bg-gray-50 border border-gray-200 text-gray-700 text-xs rounded-xl focus:ring-black focus:border-black p-1.5 font-semibold shadow-2xs outline-none shrink-0"
                   title="Filter by Property"
                 >
                   <option value="all">🏢 All Properties</option>
@@ -501,14 +474,17 @@ const AppLayout = ({ children }) => {
                   })}
                 </select>
               )}
+
+              {/* Overdue & Departure Notifications */}
               <div className="relative">
                 <button 
                   onClick={() => setShowNotifications(!showNotifications)}
-                  className={`p-2 rounded-full transition-colors relative ${notifications.length > 0 ? 'text-gray-900 hover:bg-gray-100' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-100'}`}
+                  className={`p-2 rounded-xl transition-colors relative ${notifications.length > 0 ? 'text-gray-900 bg-red-50 hover:bg-red-100' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}
+                  title={notifications.length > 0 ? `${notifications.length} Overdue Checkouts` : 'Checkout Alerts'}
                 >
-                  <Bell size={20} className={notifications.length > 0 ? 'animate-pulse' : ''} />
+                  <Bell size={18} className={notifications.length > 0 ? 'animate-pulse text-red-600' : ''} />
                   {notifications.length > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-600 text-white text-[10px] font-black rounded-full border-2 border-white flex items-center justify-center shadow-sm">
+                    <span className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 bg-red-600 text-white text-[9px] font-black rounded-full border-2 border-white flex items-center justify-center shadow-sm">
                       {notifications.length}
                     </span>
                   )}
@@ -584,29 +560,126 @@ const AppLayout = ({ children }) => {
                   </div>
                 )}
               </div>
-              
-              <div className="hidden md:block h-6 w-[1px] bg-gray-200 mx-0.5 shrink-0"></div>
-              
-              <div className="hidden md:flex items-center space-x-2 shrink-0">
-                <div className="text-right hidden 2xl:block">
-                  <p className="text-xs font-bold text-gray-900 leading-tight truncate max-w-[120px]">{user?.name}</p>
-                  <p className="text-[10px] font-semibold text-gray-500 capitalize">{user?.role}</p>
-                </div>
-                <div 
-                  className="h-8 w-8 rounded-full bg-gradient-to-tr from-gray-100 to-gray-200 border border-gray-300 shadow-sm flex items-center justify-center text-gray-700 font-bold text-xs uppercase shrink-0"
+
+              {/* ─── Unified Account & Settings Dropdown ─── */}
+              <div className="relative shrink-0" ref={userMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  className="flex items-center gap-2 p-1 sm:px-2.5 sm:py-1.5 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer border border-transparent hover:border-gray-200"
                   title={`${user?.name} (${user?.role})`}
                 >
-                  {user?.name?.charAt(0) || 'U'}
-                </div>
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-gray-900 to-gray-700 text-white shadow-2xs flex items-center justify-center font-black text-xs uppercase shrink-0">
+                    {user?.name?.charAt(0) || 'U'}
+                  </div>
+                  <div className="text-left hidden xl:block min-w-0 max-w-[120px]">
+                    <p className="text-xs font-bold text-gray-900 leading-tight truncate">{user?.name}</p>
+                    <p className="text-[10px] font-semibold text-gray-400 capitalize truncate">{user?.role}</p>
+                  </div>
+                  <ChevronDown size={13} className={`text-gray-400 transition-transform duration-200 hidden sm:block ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isUserMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 z-50 animate-in fade-in slide-in-from-top-2">
+                    {/* User Info Header */}
+                    <div className="px-4 py-3 border-b border-gray-100">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-gray-900 text-white flex items-center justify-center font-black text-sm uppercase shrink-0">
+                          {user?.name?.charAt(0) || 'U'}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-black text-gray-900 truncate">{user?.name}</p>
+                          <p className="text-xs text-gray-500 font-medium capitalize truncate">{user?.role} • {activeHostel?.name || 'NXHotel'}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Language Switch Segment */}
+                    <div className="px-3.5 py-2.5 border-b border-gray-100">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1">
+                          <Globe size={11} className="text-indigo-600" />
+                          <span>{isHindi ? 'सिस्टम भाषा' : 'Display Language'}</span>
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1 bg-gray-100 p-1 rounded-xl">
+                        <button
+                          type="button"
+                          onClick={() => setLanguage('en')}
+                          className={`py-1.5 text-xs font-bold rounded-lg transition-all text-center cursor-pointer ${
+                            language === 'en'
+                              ? 'bg-white text-gray-950 shadow-2xs font-black'
+                              : 'text-gray-600 hover:text-gray-950'
+                          }`}
+                        >
+                          English
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setLanguage('hi')}
+                          className={`py-1.5 text-xs font-bold rounded-lg transition-all text-center cursor-pointer ${
+                            language === 'hi'
+                              ? 'bg-white text-gray-950 shadow-2xs font-black'
+                              : 'text-gray-600 hover:text-gray-950'
+                          }`}
+                        >
+                          हिंदी
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Quick Operations */}
+                    <div className="py-1">
+                      {user?.role !== 'superadmin' && (
+                        <button
+                          type="button"
+                          onClick={() => { setIsUserMenuOpen(false); setShowPoliceModal(true); }}
+                          className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50 hover:text-indigo-600 transition-colors text-left cursor-pointer"
+                        >
+                          <ShieldCheck size={15} className="text-indigo-600 shrink-0" />
+                          <span>{t('nav.policeReport', 'Police Verification Report')}</span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => { setIsUserMenuOpen(false); setShowShortcutsModal(true); }}
+                        className="w-full flex items-center justify-between px-4 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50 hover:text-black transition-colors text-left cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Keyboard size={15} className="text-gray-500 shrink-0" />
+                          <span>{isHindi ? 'कीबोर्ड शॉर्टकट्स' : 'Keyboard Shortcuts'}</span>
+                        </div>
+                        <kbd className="px-1.5 py-0.5 bg-gray-100 border border-gray-200 rounded text-[10px] font-mono text-gray-500">?</kbd>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => { setIsUserMenuOpen(false); setShowCommandPalette(true); }}
+                        className="w-full flex items-center justify-between px-4 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50 hover:text-black transition-colors text-left cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Search size={15} className="text-gray-500 shrink-0" />
+                          <span>{isHindi ? 'कमांड पैलेट' : 'Command Palette'}</span>
+                        </div>
+                        <kbd className="px-1.5 py-0.5 bg-gray-100 border border-gray-200 rounded text-[10px] font-mono text-gray-500">{isMac ? '⌘K' : '^K'}</kbd>
+                      </button>
+                    </div>
+
+                    {/* Sign Out */}
+                    <div className="border-t border-gray-100 pt-1 mt-1">
+                      <button
+                        type="button"
+                        onClick={() => { setIsUserMenuOpen(false); logout(); }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 transition-colors text-left cursor-pointer"
+                      >
+                        <LogOut size={15} className="shrink-0" />
+                        <span>{t('nav.logout', 'Sign Out')}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-              
-              <button 
-                onClick={logout}
-                className="hidden md:block p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors shrink-0 cursor-pointer"
-                title="Logout"
-              >
-                <LogOut size={18} />
-              </button>
             </div>
           </div>
         </div>
