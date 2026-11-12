@@ -85,6 +85,7 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
     totalAmount: '',
     occupants: 1,
     commissionTo: '',
+    commissionPhone: '',
     commissionAmount: ''
   });
   const [uploadingFront, setUploadingFront] = useState(false);
@@ -147,6 +148,7 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
         totalAmount: stay.totalAmount ?? '',
         occupants: stay.occupants || 1,
         commissionTo: stay.commissionTo || '',
+        commissionPhone: stay.commissionPhone || '',
         commissionAmount: stay.commissionAmount || ''
       });
     }
@@ -213,6 +215,7 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
         totalAmount: Number(editForm.totalAmount) || 0,
         occupants: Number(editForm.occupants) || 1,
         commissionTo: editForm.commissionTo,
+        commissionPhone: editForm.commissionPhone || '',
         commissionAmount: Number(editForm.commissionAmount) || 0,
         guestData: {
           fullName: editForm.fullName,
@@ -838,14 +841,47 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className={labelCls}>Broker / Commission To (Opt)</label>
+                    <label className={labelCls}>Broker / Auto Name (Opt)</label>
                     <input 
                       className={inputCls} 
-                      placeholder="Broker Name" 
+                      placeholder="e.g. Raju Auto" 
                       value={editForm.commissionTo} 
                       onChange={e => setEditForm({ ...editForm, commissionTo: e.target.value })} 
+                    />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-gray-500">Broker Mobile</label>
+                      {editForm.commissionPhone && (
+                        <div className="flex items-center gap-1.5">
+                          <a
+                            href={`tel:${editForm.commissionPhone.replace(/\D/g, '')}`}
+                            className="text-emerald-600 hover:text-emerald-700 text-[10px] font-black flex items-center gap-0.5"
+                            title="Call Broker"
+                          >
+                            <Phone size={10} /> Call
+                          </a>
+                          <a
+                            href={`https://wa.me/91${editForm.commissionPhone.replace(/\D/g, '').slice(-10)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-green-600 hover:text-green-700 text-[10px] font-black flex items-center gap-0.5"
+                            title="WhatsApp Broker"
+                          >
+                            <MessageSquare size={10} /> WA
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                    <input 
+                      type="tel"
+                      maxLength={13}
+                      className={inputCls} 
+                      placeholder="e.g. 9876543210" 
+                      value={editForm.commissionPhone} 
+                      onChange={e => setEditForm({ ...editForm, commissionPhone: e.target.value })} 
                     />
                   </div>
                   <div>

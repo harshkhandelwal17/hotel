@@ -108,6 +108,11 @@ const staySchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  commissionPhone: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   commissionAmount: {
     type: Number,
     default: 0

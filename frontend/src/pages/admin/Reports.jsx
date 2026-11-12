@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth, parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
-import { Search, Download, TrendingUp, TrendingDown, PieChart, Users, Receipt, ArrowRight, ShieldCheck, Trash, Shirt, BookOpen, Wallet, Share2, Clock, Banknote, CheckCircle, Building, Sparkles, PlusCircle } from 'lucide-react';
+import { Search, Download, TrendingUp, TrendingDown, PieChart, Users, Receipt, ArrowRight, ShieldCheck, Trash, Shirt, BookOpen, Wallet, Share2, Clock, Banknote, CheckCircle, Building, Sparkles, PlusCircle, Car, Phone, MessageCircle } from 'lucide-react';
 import { useOutletContext, Link } from 'react-router-dom';
 import PoliceReportModal from './PoliceReportModal';
 import ShiftHandoverModal from './ShiftHandoverModal';
@@ -45,6 +45,15 @@ const Reports = () => {
   });
   const [khataTypeFilter, setKhataTypeFilter] = useState('all'); // all, due, advance
 
+  // Brokers & Referral Summary
+  const [brokersSummary, setBrokersSummary] = useState({
+    totalBrokers: 0,
+    totalBookings: 0,
+    totalCommission: 0,
+    totalHotelRevenue: 0,
+    brokers: []
+  });
+
   // Filters
   const [dateFilter, setDateFilter] = useState('all');
   const [customStart, setCustomStart] = useState('');
@@ -65,13 +74,14 @@ const Reports = () => {
   async function fetchData() {
     try {
       setLoading(true);
-      const [staysRes, hostelsRes, paymentsRes, expensesRes, laundryRes, khataRes] = await Promise.all([
+      const [staysRes, hostelsRes, paymentsRes, expensesRes, laundryRes, khataRes, brokersRes] = await Promise.all([
         axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/stays').catch(() => ({ data: { data: [] } })),
         axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/hostels').catch(() => ({ data: { data: [] } })),
         axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/payments').catch(() => ({ data: { data: [] } })),
         axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/expenses').catch(() => ({ data: { data: [] } })),
         axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/laundry').catch(() => ({ data: { data: [] } })),
-        axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/guests/khata/summary').catch(() => ({ data: { data: { totalMarketDue: 0, totalAdvanceHeld: 0, netBalance: 0, customers: [] } } }))
+        axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/guests/khata/summary').catch(() => ({ data: { data: { totalMarketDue: 0, totalAdvanceHeld: 0, netBalance: 0, customers: [] } } })),
+        axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/stays/brokers/summary').catch(() => ({ data: { data: { totalBrokers: 0, totalBookings: 0, totalCommission: 0, totalHotelRevenue: 0, brokers: [] } } }))
       ]);
       setStays(staysRes?.data?.data || []);
       setHostels(hostelsRes?.data?.data || []);
@@ -80,6 +90,9 @@ const Reports = () => {
       setLaundryOrders(laundryRes?.data?.data || []);
       if (khataRes?.data?.data) {
         setKhataSummary(khataRes.data.data);
+      }
+      if (brokersRes?.data?.data) {
+        setBrokersSummary(brokersRes.data.data);
       }
     } catch (err) {
       console.error('Reports fetch error:', err);
@@ -518,6 +531,18 @@ const Reports = () => {
     return list;
   }, [khataSummary, hostelFilter, khataTypeFilter, searchQuery]);
 
+  const filteredBrokers = useMemo(() => {
+    let list = brokersSummary.brokers || [];
+    if (searchQuery && searchQuery.trim() !== '') {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter(b =>
+        (b.name && b.name.toLowerCase().includes(q)) ||
+        (b.phone && b.phone.toLowerCase().includes(q))
+      );
+    }
+    return list;
+  }, [brokersSummary, searchQuery]);
+
   // Comprehensive Detailed CSV Export with Summary Dashboard on Top
   const downloadCSV = () => {
     const periodLabel = activeDateTimeRange?.label || (dateFilter === 'all' ? 'All Time' : dateFilter);
@@ -598,6 +623,12 @@ const Reports = () => {
         return `"${c.fullName || ''}","${c.mobileNumber || ''}","${c.idProofType || ''} ${c.idProofNumber || ''}","${c.status || ''}",${c.dueAmount || 0},${c.advanceAmount || 0},${c.ledgerBalance || 0}`;
       });
       csvContent = `${summaryBlock}\n"--- KHATA & CREDIT LEDGER ---"\n` + [headers.join(','), ...csvData].join('\n');
+    } else if (activeTab === 'brokers') {
+      const headers = ['Broker / Driver Name', 'Mobile Number', 'Total Bookings Referred', 'Total Commission Paid (INR)', 'Total Hotel Revenue Generated (INR)', 'Last Active Booking'];
+      const csvData = (brokersSummary.brokers || []).map(b => {
+        return `"${(b.name || '').replace(/"/g, '""')}","${b.phone || 'N/A'}",${b.totalBookings || 0},${b.totalCommission || 0},${b.totalHotelRevenue || 0},"${safeFormat(b.lastActive, 'dd MMM yyyy')}"`;
+      });
+      csvContent = `${summaryBlock}\n"--- BROKERS & REFERRAL COMMISSION LEDGER ---"\n` + [headers.join(','), ...csvData].join('\n');
     }
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -827,6 +858,12 @@ const Reports = () => {
           >
             <Shirt size={14} /> Laundry ({filteredLaundryOrders.length})
           </button>
+          <button 
+            onClick={() => setActiveTab('brokers')} 
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all text-center flex items-center justify-center gap-1.5 ${activeTab === 'brokers' ? 'bg-white shadow-xs text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
+          >
+            <Car size={14} className="text-amber-600" /> Brokers & Referral ({brokersSummary.totalBrokers || 0})
+          </button>
         </div>
         {activeTab === 'laundry' && (
           <Link to="/laundry" className="text-xs font-bold text-gray-700 hover:text-gray-900 flex items-center gap-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 px-3 py-2 rounded-xl transition-colors">
@@ -836,6 +873,30 @@ const Reports = () => {
       </div>
 
       {/* Secondary Specific Ledger Metrics (Only shown for specialized tabs) */}
+      {activeTab === 'brokers' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs">
+            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Total Brokers & Drivers</p>
+            <div className="mt-1 text-2xl font-black text-gray-900">{brokersSummary.totalBrokers || 0}</div>
+            <p className="text-[10px] text-gray-500 mt-1">Unique partners & contacts</p>
+          </div>
+          <div className="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs">
+            <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Referred Bookings</p>
+            <div className="mt-1 text-2xl font-black text-indigo-700">{brokersSummary.totalBookings || 0}</div>
+            <p className="text-[10px] text-gray-500 mt-1">Total guest stays referred</p>
+          </div>
+          <div className="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs">
+            <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Total Commission Paid</p>
+            <div className="mt-1 text-2xl font-black text-rose-600">₹{(brokersSummary.totalCommission || 0).toLocaleString('en-IN')}</div>
+            <p className="text-[10px] text-gray-500 mt-1">Commission disbursed</p>
+          </div>
+          <div className="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs">
+            <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Hotel Revenue Generated</p>
+            <div className="mt-1 text-2xl font-black text-emerald-700">₹{(brokersSummary.totalHotelRevenue || 0).toLocaleString('en-IN')}</div>
+            <p className="text-[10px] text-gray-500 mt-1">Gross sales from referrals</p>
+          </div>
+        </div>
+      )}
       {activeTab === 'khata' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs">
@@ -898,14 +959,14 @@ const Reports = () => {
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400"><Search size={16} /></div>
           <input 
             type="text" 
-            placeholder={activeTab === 'expenses' ? "Search Expense Title, Category, Notes..." : activeTab === 'laundry' ? "Search Vendor, Order #..." : activeTab === 'khata' ? "Search Customer Name, Mobile, ID..." : "Search Guest, Room..."} 
+            placeholder={activeTab === 'expenses' ? "Search Expense Title, Category, Notes..." : activeTab === 'laundry' ? "Search Vendor, Order #..." : activeTab === 'khata' ? "Search Customer Name, Mobile, ID..." : activeTab === 'brokers' ? "Search Broker / Driver Name or Mobile..." : "Search Guest, Room..."} 
             value={searchQuery} 
             onChange={e => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-black outline-none transition-all" 
           />
         </div>
         
-        {activeTab !== 'khata' && (
+        {activeTab !== 'khata' && activeTab !== 'brokers' && (
           <select value={dateFilter} onChange={e => setDateFilter(e.target.value)} className="w-full md:w-48 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-black outline-none appearance-none">
             <option value="all">All Time</option>
             <option value="today">Today</option>
@@ -1547,6 +1608,98 @@ const Reports = () => {
                             >
                               Passbook &rarr;
                             </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          ) : activeTab === 'brokers' ? (
+            <table className="w-full text-left text-sm whitespace-nowrap">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest">Broker / Driver Details</th>
+                  <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest text-center">Bookings Referred</th>
+                  <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest text-right">Commission Paid</th>
+                  <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest text-right">Hotel Revenue</th>
+                  <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest text-center">Avg Comm / Booking</th>
+                  <th className="px-6 py-4 font-black text-xs text-gray-500 uppercase tracking-widest text-right">Quick Contact</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredBrokers.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-12 text-center text-gray-500 font-medium">
+                      <Car size={32} className="mx-auto mb-2 text-gray-300" />
+                      <p>No broker or auto referral records found.</p>
+                      <p className="text-xs text-gray-400 mt-1">Brokers and commission numbers are recorded during guest check-in.</p>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredBrokers.map((broker, idx) => {
+                    const cleanPhone = (broker.phone || '').replace(/\D/g, '');
+                    const waPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+                    const avgComm = broker.totalBookings > 0 ? Math.round(broker.totalCommission / broker.totalBookings) : 0;
+                    return (
+                      <tr key={idx} className="hover:bg-gray-50/80 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 flex items-center justify-center font-black text-sm shrink-0">
+                              {broker.name ? broker.name.charAt(0).toUpperCase() : <Car size={16} />}
+                            </div>
+                            <div>
+                              <p className="font-black text-gray-950 text-sm leading-snug">{broker.name || 'Unnamed Partner'}</p>
+                              <p className="text-xs font-semibold text-gray-500 mt-0.5">{broker.phone ? `📞 ${broker.phone}` : 'No phone recorded'}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="font-black text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1 rounded-lg inline-block">
+                            {broker.totalBookings} Bookings
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="font-black text-rose-600 bg-rose-50 px-3 py-1 rounded-lg inline-block text-sm">
+                            ₹{(broker.totalCommission || 0).toLocaleString('en-IN')}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="font-black text-emerald-700 bg-emerald-50 px-3 py-1 rounded-lg inline-block text-sm">
+                            ₹{(broker.totalHotelRevenue || 0).toLocaleString('en-IN')}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="font-bold text-gray-700 text-xs bg-gray-100 px-2.5 py-1 rounded-md">
+                            ₹{avgComm.toLocaleString('en-IN')} / stay
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {broker.phone && (
+                              <a
+                                href={`tel:${broker.phone}`}
+                                className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1 active:scale-95"
+                                title={`Direct Call ${broker.name}`}
+                              >
+                                <Phone size={13} /> Call
+                              </a>
+                            )}
+                            {waPhone && (
+                              <a
+                                href={`https://wa.me/${waPhone}?text=${encodeURIComponent(`Namaste ${broker.name || 'Bhaiya'}, this message is from the hotel reception.`)}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1 active:scale-95"
+                                title={`WhatsApp ${broker.name}`}
+                              >
+                                <MessageCircle size={13} /> WhatsApp
+                              </a>
+                            )}
+                            {!broker.phone && (
+                              <span className="text-xs text-gray-400 italic">No mobile</span>
+                            )}
                           </div>
                         </td>
                       </tr>

@@ -31,7 +31,8 @@ import {
   Trash2,
   CalendarClock,
   AlertTriangle,
-  Percent
+  Percent,
+  Car
 } from 'lucide-react';
 
 import { format, isPast } from 'date-fns';
@@ -40,6 +41,7 @@ import { compressImage } from '../../utils/imageCompression';
 import { scanAadhaarQrFromImage, validateAadhaarNumber } from '../../utils/aadhaarQrHelper';
 import { apiCache } from '../../utils/apiCache';
 import GuestRegistrationCardModal from '../../components/reception/GuestRegistrationCardModal';
+import BrokersDirectoryModal from '../../components/common/BrokersDirectoryModal';
 import { getFullImageUrl } from '../../utils/imageUrl';
 import DynamicUpiQr from '../../components/DynamicUpiQr';
 import PaymentMethodSelector, { validateSplitPayment, buildSplitPayments } from '../../components/common/PaymentMethodSelector';
@@ -118,6 +120,11 @@ const CheckIn = () => {
   const [createdStayData, setCreatedStayData] = useState(null);
   const [propertyData, setPropertyData] = useState(null);
 
+  // Broker & Referral Directory State
+  const [showBrokersModal, setShowBrokersModal] = useState(false);
+  const [knownBrokers, setKnownBrokers] = useState([]);
+  const [showBrokerSuggestions, setShowBrokerSuggestions] = useState(false);
+
   const toast = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -126,6 +133,18 @@ const CheckIn = () => {
   const { user } = useContext(AuthContext) || {};
   const { globalProperty, isCurrentPropertyExpired, activeHostel } =
     useOutletContext() || { globalProperty: 'all' };
+
+  // Fetch known brokers list for auto-complete
+  useEffect(() => {
+    const propQuery = globalProperty && globalProperty !== 'all' ? `?hostel=${globalProperty}` : '';
+    axios.get(`${API}/api/stays/brokers/summary${propQuery}`)
+      .then(res => {
+        if (res.data?.data?.brokers) {
+          setKnownBrokers(res.data.data.brokers);
+        }
+      })
+      .catch(() => {});
+  }, [globalProperty]);
 
   // =========================================================
   // STAY INFO
@@ -146,6 +165,7 @@ const CheckIn = () => {
       paymentMethod: 'Cash',
       splitBreakdown: { cash: '', upi: '', card: '' },
       commissionTo: '',
+      commissionPhone: '',
       commissionAmount: '',
       isBackdated: false,
       checkInDate: '',
@@ -1527,6 +1547,9 @@ const CheckIn = () => {
         commissionTo:
           stayInfo.commissionTo,
 
+        commissionPhone:
+          stayInfo.commissionPhone || '',
+
         commissionAmount:
           Number(
             stayInfo.commissionAmount
@@ -1721,6 +1744,7 @@ const CheckIn = () => {
       paymentMethod: 'Cash',
       splitBreakdown: { cash: '', upi: '', card: '' },
       commissionTo: '',
+      commissionPhone: '',
       commissionAmount: ''
     });
     setGuests([{
@@ -2714,33 +2738,121 @@ const CheckIn = () => {
                   }}
                 />
 
-                {/* BROKER / COMMISSION (OPTIONAL) */}
-                <div className="pt-2">
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Broker (Opt)"
-                      value={stayInfo.commissionTo}
-                      onChange={(e) =>
-                        setStayInfo((p) => ({
-                          ...p,
-                          commissionTo: e.target.value
-                        }))
-                      }
-                      className="flex-1 bg-gray-800/80 border border-gray-700 rounded-lg px-2.5 py-1.5 font-bold text-xs outline-none focus:border-gray-500 text-white placeholder-gray-500"
-                    />
-                    <input
-                      type="number"
-                      placeholder="₹ Comm"
-                      value={stayInfo.commissionAmount}
-                      onChange={(e) =>
-                        setStayInfo((p) => ({
-                          ...p,
-                          commissionAmount: e.target.value
-                        }))
-                      }
-                      className="w-24 bg-gray-800/80 border border-gray-700 rounded-lg px-2.5 py-1.5 font-bold text-xs outline-none focus:border-gray-500 text-white placeholder-gray-500"
-                    />
+                {/* BROKER / AUTO DRIVER / COMMISSION (OPTIONAL) */}
+                <div className="pt-2 relative">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1">
+                      <Car size={11} className="text-amber-400" />
+                      <span>Auto / Broker / Referral</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowBrokersModal(true)}
+                      className="text-[10px] font-bold text-amber-400 hover:text-amber-300 hover:underline flex items-center gap-0.5 cursor-pointer"
+                      title="Open full Brokers & Auto Drivers Directory"
+                    >
+                      <span>📂 {isHindi ? 'दलाल सूची देखें' : 'View Directory'}</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-12 gap-1.5 sm:gap-2">
+                    {/* 1. Broker Name with Autocomplete */}
+                    <div className="col-span-5 relative">
+                      <input
+                        type="text"
+                        placeholder="Broker / Auto Name"
+                        value={stayInfo.commissionTo}
+                        onFocus={() => setShowBrokerSuggestions(true)}
+                        onChange={(e) => {
+                          setStayInfo((p) => ({
+                            ...p,
+                            commissionTo: e.target.value
+                          }));
+                          setShowBrokerSuggestions(true);
+                        }}
+                        className="w-full bg-gray-800/80 border border-gray-700 rounded-lg px-2.5 py-1.5 font-bold text-xs outline-none focus:border-amber-500 text-white placeholder-gray-500"
+                      />
+
+                      {/* Suggestions Dropdown */}
+                      {showBrokerSuggestions && knownBrokers.length > 0 && (
+                        <div className="absolute left-0 bottom-full mb-1 w-64 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl z-50 py-1.5 max-h-48 overflow-y-auto">
+                          <div className="px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-gray-400 border-b border-gray-800 flex justify-between items-center">
+                            <span>Saved Brokers ({knownBrokers.length})</span>
+                            <button type="button" onClick={() => setShowBrokerSuggestions(false)} className="text-gray-500 hover:text-white">✕</button>
+                          </div>
+                          {knownBrokers
+                            .filter(b => !stayInfo.commissionTo || b.name.toLowerCase().includes(stayInfo.commissionTo.toLowerCase()) || (b.phone && b.phone.includes(stayInfo.commissionTo)))
+                            .slice(0, 5)
+                            .map((b, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => {
+                                  setStayInfo(p => ({
+                                    ...p,
+                                    commissionTo: b.name,
+                                    commissionPhone: b.phone || p.commissionPhone
+                                  }));
+                                  setShowBrokerSuggestions(false);
+                                }}
+                                className="w-full text-left px-3 py-2 hover:bg-gray-800 transition-colors flex items-center justify-between gap-2 border-b border-gray-800/50 last:border-0"
+                              >
+                                <div className="min-w-0">
+                                  <p className="text-xs font-bold text-white truncate">{b.name}</p>
+                                  <p className="text-[10px] text-gray-400">
+                                    {b.phone ? `📞 ${b.phone}` : 'No phone'} • {b.totalStays} Stays
+                                  </p>
+                                </div>
+                                <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400">
+                                  ₹{b.totalCommission}
+                                </span>
+                              </button>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 2. Broker Mobile Number with Direct Call Link */}
+                    <div className="col-span-4 relative">
+                      <input
+                        type="tel"
+                        maxLength={13}
+                        placeholder="Mobile No."
+                        value={stayInfo.commissionPhone}
+                        onChange={(e) =>
+                          setStayInfo((p) => ({
+                            ...p,
+                            commissionPhone: e.target.value
+                          }))
+                        }
+                        className="w-full bg-gray-800/80 border border-gray-700 rounded-lg pl-2 pr-6 py-1.5 font-bold text-xs outline-none focus:border-amber-500 text-white placeholder-gray-500"
+                      />
+                      {stayInfo.commissionPhone && (
+                        <a
+                          href={`tel:${stayInfo.commissionPhone.replace(/\D/g, '')}`}
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 text-emerald-400 hover:text-emerald-300"
+                          title={`Call ${stayInfo.commissionPhone}`}
+                        >
+                          <Phone size={12} />
+                        </a>
+                      )}
+                    </div>
+
+                    {/* 3. Commission Amount */}
+                    <div className="col-span-3">
+                      <input
+                        type="number"
+                        placeholder="₹ Comm"
+                        value={stayInfo.commissionAmount}
+                        onChange={(e) =>
+                          setStayInfo((p) => ({
+                            ...p,
+                            commissionAmount: e.target.value
+                          }))
+                        }
+                        className="w-full bg-gray-800/80 border border-gray-700 rounded-lg px-2 py-1.5 font-bold text-xs outline-none focus:border-amber-500 text-white placeholder-gray-500"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -4371,6 +4483,20 @@ const CheckIn = () => {
         guests={guests}
         hotelData={propertyData || selectedRoomDetails?.hostel}
         onProceedToDashboard={createdStayData ? () => navigate('/dashboard') : null}
+      />
+
+      {/* BROKERS & AUTO DRIVERS DIRECTORY MODAL */}
+      <BrokersDirectoryModal
+        isOpen={showBrokersModal}
+        onClose={() => setShowBrokersModal(false)}
+        defaultHostel={globalProperty}
+        onSelectBroker={(b) => {
+          setStayInfo(p => ({
+            ...p,
+            commissionTo: b.name,
+            commissionPhone: b.phone || p.commissionPhone
+          }));
+        }}
       />
 
     </div>

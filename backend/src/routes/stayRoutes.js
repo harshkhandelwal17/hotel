@@ -1,7 +1,7 @@
 const express = require('express');
 const {
   getStays, getStay, createStay, checkout, extendStay, shiftRoom,
-  addCharge, removeCharge, addPayment, deleteStay, updateStay
+  addCharge, removeCharge, addPayment, deleteStay, updateStay, getBrokersSummary
 } = require('../controllers/stayController');
 const { protect, authorize } = require('../middlewares/auth');
 
@@ -12,6 +12,8 @@ router.use(protect);
 router.route('/')
   .get(getStays)
   .post(createStay);
+
+router.get('/brokers/summary', getBrokersSummary);
 
 router.get('/:id', getStay);
 router.put('/:id', updateStay);

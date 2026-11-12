@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Stay = require('../models/Stay');
 const Room = require('../models/Room');
 const Payment = require('../models/Payment');
@@ -22,7 +23,7 @@ exports.createStay = async (req, res, next) => {
   try {
     const {
       guest, room, checkInDate, expectedCheckOutDate, initialPaymentAmount,
-      paymentMethod, splitPayments, durationOption, occupants, coGuests, commissionTo, commissionAmount,
+      paymentMethod, splitPayments, durationOption, occupants, coGuests, commissionTo, commissionPhone, commissionAmount,
       isAlreadyCheckedOut, actualCheckOutDate
     } = req.body;
 
@@ -112,6 +113,7 @@ exports.createStay = async (req, res, next) => {
       paidAmount: advance,
       occupants: occupants || 1,
       commissionTo: commissionTo || '',
+      commissionPhone: (commissionPhone || '').trim(),
       commissionAmount: Number(commissionAmount) || 0,
       gstApplied: Boolean(req.body.gstApplied),
       gstType: req.body.gstType || 'none',
@@ -733,6 +735,7 @@ exports.updateStay = async (req, res, next) => {
       totalAmount,
       occupants,
       commissionTo,
+      commissionPhone,
       commissionAmount,
       notes,
       guestData,
@@ -781,6 +784,7 @@ exports.updateStay = async (req, res, next) => {
     }
 
     if (commissionTo !== undefined) stay.commissionTo = commissionTo;
+    if (commissionPhone !== undefined) stay.commissionPhone = (commissionPhone || '').trim();
     if (commissionAmount !== undefined) stay.commissionAmount = Number(commissionAmount) || 0;
     if (notes !== undefined) stay.notes = notes;
 
@@ -870,6 +874,105 @@ exports.updateStay = async (req, res, next) => {
       success: true,
       message: 'Stay, Guest, and Payment details updated successfully',
       data: updatedStay
+    });
+  } catch (error) {
+    sendError(res, next, error);
+  }
+};
+
+// @desc    Get aggregated list of all brokers / auto drivers / agents with contact and commission totals
+// @route   GET /api/stays/brokers/summary
+// @access  Private (Staff, Admin, SuperAdmin)
+exports.getBrokersSummary = async (req, res, next) => {
+  try {
+    let matchQuery = {
+      $or: [
+        { commissionTo: { $exists: true, $ne: '' } },
+        { commissionPhone: { $exists: true, $ne: '' } }
+      ]
+    };
+
+    if (req.user.role === 'admin' || req.user.role === 'receptionist') {
+      const hostelId = req.query.hostel && req.query.hostel !== 'all'
+        ? req.query.hostel
+        : req.user.assignedHostel;
+      if (hostelId) {
+        matchQuery.hostel = new mongoose.Types.ObjectId(hostelId);
+      }
+    }
+
+    const stays = await Stay.find(matchQuery)
+      .populate('guest', 'fullName mobileNumber')
+      .populate('room', 'roomNumber')
+      .populate('hostel', 'name')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const brokerMap = {};
+
+    for (const s of stays) {
+      const rawName = (s.commissionTo || '').trim();
+      const rawPhone = (s.commissionPhone || '').trim();
+      if (!rawName && !rawPhone) continue;
+
+      // Group key: prefer normalized 10-digit phone, otherwise lowercase name
+      const cleanPhoneDigits = rawPhone.replace(/\D/g, '').slice(-10);
+      const key = cleanPhoneDigits ? `p_${cleanPhoneDigits}` : `n_${rawName.toLowerCase()}`;
+
+      if (!brokerMap[key]) {
+        brokerMap[key] = {
+          name: rawName || 'Auto / Agent',
+          phone: rawPhone || '',
+          totalStays: 0,
+          totalCommission: 0,
+          totalRevenue: 0,
+          lastActive: s.createdAt || s.checkInDate,
+          recentStays: []
+        };
+      }
+
+      const b = brokerMap[key];
+      if (rawName && (!b.name || b.name === 'Auto / Agent')) b.name = rawName;
+      if (rawPhone && !b.phone) b.phone = rawPhone;
+      b.totalStays += 1;
+      b.totalBookings = b.totalStays;
+      b.totalCommission += (Number(s.commissionAmount) || 0);
+      b.totalRevenue += (Number(s.totalAmount) || 0);
+      b.totalHotelRevenue = b.totalRevenue;
+
+      const stayDate = s.checkInDate || s.createdAt;
+      if (stayDate && new Date(stayDate) > new Date(b.lastActive)) {
+        b.lastActive = stayDate;
+      }
+
+      if (b.recentStays.length < 8) {
+        b.recentStays.push({
+          stayId: s._id,
+          bookingNumber: s.bookingNumber,
+          guestName: s.guest?.fullName || 'Guest',
+          guestPhone: s.guest?.mobileNumber || '',
+          roomNumber: s.room?.roomNumber || '—',
+          checkInDate: s.checkInDate || s.createdAt,
+          commission: Number(s.commissionAmount) || 0,
+          totalAmount: Number(s.totalAmount) || 0,
+          hostelName: s.hostel?.name || ''
+        });
+      }
+    }
+
+    const brokersList = Object.values(brokerMap).sort((a, b) => b.totalStays - a.totalStays);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        totalBrokers: brokersList.length,
+        totalCommission: brokersList.reduce((acc, b) => acc + b.totalCommission, 0),
+        totalCommissionPaid: brokersList.reduce((acc, b) => acc + b.totalCommission, 0),
+        totalBookings: brokersList.reduce((acc, b) => acc + b.totalStays, 0),
+        totalBookingsReferred: brokersList.reduce((acc, b) => acc + b.totalStays, 0),
+        totalHotelRevenue: brokersList.reduce((acc, b) => acc + b.totalRevenue, 0),
+        brokers: brokersList
+      }
     });
   } catch (error) {
     sendError(res, next, error);
