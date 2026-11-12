@@ -838,44 +838,44 @@ const Reports = () => {
         </div>
       </div>
 
-      {/* Navigation Tabs */}
+      {/* Navigation Tabs (Native swipeable segmented control) */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-        <div className="flex flex-wrap gap-1 p-1 bg-gray-100 rounded-xl w-full sm:w-fit border border-gray-200/60">
+        <div className="flex overflow-x-auto no-scrollbar gap-1 p-1 bg-gray-100 rounded-xl w-full sm:w-fit border border-gray-200/60 shrink-0">
           <button 
             onClick={() => setActiveTab('transactions')} 
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all text-center ${activeTab === 'transactions' ? 'bg-white shadow-xs text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
+            className={`px-3.5 sm:px-4 py-2 text-xs font-bold rounded-lg transition-all text-center whitespace-nowrap shrink-0 cursor-pointer ${activeTab === 'transactions' ? 'bg-white shadow-xs text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
           >
             Cash Flow & Collections ({filteredPayments.length})
           </button>
           <button 
             onClick={() => setActiveTab('expenses')} 
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all text-center flex items-center justify-center gap-1.5 ${activeTab === 'expenses' ? 'bg-white shadow-xs text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
+            className={`px-3.5 sm:px-4 py-2 text-xs font-bold rounded-lg transition-all text-center whitespace-nowrap shrink-0 flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'expenses' ? 'bg-white shadow-xs text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
           >
             <TrendingDown size={14} className="text-rose-500" /> Daily Expenses ({filteredExpenses.length})
           </button>
           <button 
             onClick={() => setActiveTab('bookings')} 
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all text-center ${activeTab === 'bookings' ? 'bg-white shadow-xs text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
+            className={`px-3.5 sm:px-4 py-2 text-xs font-bold rounded-lg transition-all text-center whitespace-nowrap shrink-0 cursor-pointer ${activeTab === 'bookings' ? 'bg-white shadow-xs text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
           >
             Booking Ledger ({filteredStays.length})
           </button>
           <button 
             onClick={() => setActiveTab('khata')} 
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all text-center flex items-center justify-center gap-1.5 ${activeTab === 'khata' ? 'bg-white shadow-xs text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
+            className={`px-3.5 sm:px-4 py-2 text-xs font-bold rounded-lg transition-all text-center whitespace-nowrap shrink-0 flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'khata' ? 'bg-white shadow-xs text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
           >
             <BookOpen size={14} /> Khata & Credit
           </button>
           <button 
             onClick={() => setActiveTab('laundry')} 
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all text-center flex items-center justify-center gap-1.5 ${activeTab === 'laundry' ? 'bg-white shadow-xs text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
+            className={`px-3.5 sm:px-4 py-2 text-xs font-bold rounded-lg transition-all text-center whitespace-nowrap shrink-0 flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'laundry' ? 'bg-white shadow-xs text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
           >
             <Shirt size={14} /> Laundry ({filteredLaundryOrders.length})
           </button>
           <button 
             onClick={() => setActiveTab('brokers')} 
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all text-center flex items-center justify-center gap-1.5 ${activeTab === 'brokers' ? 'bg-white shadow-xs text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
+            className={`px-3.5 sm:px-4 py-2 text-xs font-bold rounded-lg transition-all text-center whitespace-nowrap shrink-0 flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'brokers' ? 'bg-white shadow-xs text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
           >
-            <Car size={14} className="text-amber-600" /> Brokers & Referral ({brokersStats.totalBrokers || 0})
+            <Car size={14} className="text-amber-600" /> Brokers ({brokersStats.totalBrokers || 0})
           </button>
         </div>
         {activeTab === 'laundry' && (

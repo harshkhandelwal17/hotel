@@ -3923,7 +3923,7 @@ const CheckIn = () => {
 
           {/* BOTTOM BUTTONS */}
 
-          <div className="fixed md:static bottom-16 md:bottom-0 left-0 right-0 p-3 sm:p-4 md:p-0 bg-white/95 md:bg-transparent backdrop-blur-md md:backdrop-blur-none border-t md:border-0 border-gray-200 z-30 flex items-center gap-2 sm:gap-3 max-w-4xl mx-auto md:mt-8 shadow-lg md:shadow-none">
+          <div className="fixed lg:static bottom-16 lg:bottom-0 left-0 right-0 p-3 sm:p-4 lg:p-0 bg-white/95 lg:bg-transparent backdrop-blur-md lg:backdrop-blur-none border-t lg:border-0 border-gray-200 z-30 flex items-center gap-2 sm:gap-3 max-w-4xl mx-auto lg:mt-8 shadow-lg lg:shadow-none">
 
             <button
               onClick={() =>
