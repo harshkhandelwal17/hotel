@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { format } from 'date-fns';
 import { X, User, Home, Calendar, CreditCard, AlertCircle, CheckCircle2, Plus, Printer, ChevronRight, Eye, Share2 } from 'lucide-react';
-import { printInvoice, getInvoiceWhatsAppUrl } from '../../utils/invoice';
+import { printInvoice } from '../../utils/invoice';
 import InvoiceModal from '../../components/InvoiceModal';
 import DynamicUpiQr from '../../components/DynamicUpiQr';
 import PaymentMethodSelector, { validateSplitPayment, buildSplitPayments } from '../../components/common/PaymentMethodSelector';

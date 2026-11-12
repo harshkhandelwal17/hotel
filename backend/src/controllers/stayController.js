@@ -926,6 +926,7 @@ exports.getBrokersSummary = async (req, res, next) => {
           totalRevenue: 0,
           lastActive: s.createdAt || s.checkInDate,
           hostels: [],
+          hostelNames: [],
           recentStays: []
         };
       }
@@ -942,8 +943,12 @@ exports.getBrokersSummary = async (req, res, next) => {
       b.totalHotelRevenue = b.totalRevenue;
 
       const hId = s.hostel?._id ? s.hostel._id.toString() : (s.hostel ? s.hostel.toString() : '');
+      const hName = s.hostel?.name || '';
       if (hId && !b.hostels.includes(hId)) {
         b.hostels.push(hId);
+      }
+      if (hName && !b.hostelNames.includes(hName)) {
+        b.hostelNames.push(hName);
       }
 
       const stayDate = s.checkInDate || s.createdAt;

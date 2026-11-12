@@ -44,3 +44,12 @@ export const getStayWhatsAppUrl = (stay, type = 'bill') => {
 
   return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
 };
+
+/** Alias for backward compatibility */
+export const getInvoiceWhatsAppUrl = (stay, payments = [], options = {}) => {
+  return getStayWhatsAppUrl(stay, 'bill');
+};
+
+export const getWelcomeWhatsAppUrl = (stay) => {
+  return getStayWhatsAppUrl(stay, 'welcome');
+};

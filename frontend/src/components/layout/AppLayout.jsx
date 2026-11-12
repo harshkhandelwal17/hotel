@@ -736,7 +736,7 @@ const AppLayout = ({ children }) => {
             </div>
           </div>
         )}
-        {children || <Outlet context={{ globalProperty, isCurrentPropertyExpired, activeHostel }} />}
+        {children || <Outlet context={{ globalProperty, setGlobalProperty, isCurrentPropertyExpired, activeHostel, hostels }} />}
       </main>
 
       {/* Mobile Navigation Overlay */}

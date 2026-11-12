@@ -131,23 +131,8 @@ const CheckIn = () => {
   const [prefilledProfile, setPrefilledProfile] = useState(null);
 
   const { user } = useContext(AuthContext) || {};
-  const { globalProperty, isCurrentPropertyExpired, activeHostel } =
-    useOutletContext() || { globalProperty: 'all' };
-
-  // Fetch known brokers list for auto-complete scoped strictly to current property
-  useEffect(() => {
-    const targetHostel = (globalProperty && globalProperty !== 'all')
-      ? globalProperty
-      : (activeHostel?._id || (typeof user?.assignedHostel === 'object' ? user.assignedHostel?._id : user?.assignedHostel) || '');
-    const propQuery = targetHostel ? `?hostel=${targetHostel}` : '';
-    axios.get(`${API}/api/stays/brokers/summary${propQuery}`)
-      .then(res => {
-        if (res.data?.data?.brokers) {
-          setKnownBrokers(res.data.data.brokers);
-        }
-      })
-      .catch(() => {});
-  }, [globalProperty, activeHostel, user]);
+  const { globalProperty, isCurrentPropertyExpired, activeHostel, hostels } =
+    useOutletContext() || { globalProperty: 'all', hostels: [] };
 
   // =========================================================
   // STAY INFO
@@ -442,6 +427,18 @@ const CheckIn = () => {
       : (typeof rawHostel === 'string' && rawHostel !== 'all' && rawHostel !== '[object Object]'
           ? rawHostel
           : '');
+
+  // Fetch known brokers list for auto-complete scoped strictly to current hotel property
+  useEffect(() => {
+    const propQuery = hostelId ? `?hostel=${hostelId}` : '';
+    axios.get(`${API}/api/stays/brokers/summary${propQuery}`)
+      .then(res => {
+        if (res.data?.data?.brokers) {
+          setKnownBrokers(res.data.data.brokers);
+        }
+      })
+      .catch(() => {});
+  }, [hostelId]);
 
   // Check WhatsApp status for current hostel
   useEffect(() => {
@@ -4492,11 +4489,8 @@ const CheckIn = () => {
       <BrokersDirectoryModal
         isOpen={showBrokersModal}
         onClose={() => setShowBrokersModal(false)}
-        defaultHostel={
-          (globalProperty && globalProperty !== 'all')
-            ? globalProperty
-            : (activeHostel?._id || (typeof user?.assignedHostel === 'object' ? user.assignedHostel?._id : user?.assignedHostel) || 'all')
-        }
+        defaultHostel={hostelId || (globalProperty && globalProperty !== 'all' ? globalProperty : 'all')}
+        hostels={hostels || []}
         onSelectBroker={(b) => {
           setStayInfo(p => ({
             ...p,
