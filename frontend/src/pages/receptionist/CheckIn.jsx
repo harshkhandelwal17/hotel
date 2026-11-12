@@ -134,9 +134,12 @@ const CheckIn = () => {
   const { globalProperty, isCurrentPropertyExpired, activeHostel } =
     useOutletContext() || { globalProperty: 'all' };
 
-  // Fetch known brokers list for auto-complete
+  // Fetch known brokers list for auto-complete scoped strictly to current property
   useEffect(() => {
-    const propQuery = globalProperty && globalProperty !== 'all' ? `?hostel=${globalProperty}` : '';
+    const targetHostel = (globalProperty && globalProperty !== 'all')
+      ? globalProperty
+      : (activeHostel?._id || (typeof user?.assignedHostel === 'object' ? user.assignedHostel?._id : user?.assignedHostel) || '');
+    const propQuery = targetHostel ? `?hostel=${targetHostel}` : '';
     axios.get(`${API}/api/stays/brokers/summary${propQuery}`)
       .then(res => {
         if (res.data?.data?.brokers) {
@@ -144,7 +147,7 @@ const CheckIn = () => {
         }
       })
       .catch(() => {});
-  }, [globalProperty]);
+  }, [globalProperty, activeHostel, user]);
 
   // =========================================================
   // STAY INFO
@@ -4489,7 +4492,11 @@ const CheckIn = () => {
       <BrokersDirectoryModal
         isOpen={showBrokersModal}
         onClose={() => setShowBrokersModal(false)}
-        defaultHostel={globalProperty}
+        defaultHostel={
+          (globalProperty && globalProperty !== 'all')
+            ? globalProperty
+            : (activeHostel?._id || (typeof user?.assignedHostel === 'object' ? user.assignedHostel?._id : user?.assignedHostel) || 'all')
+        }
         onSelectBroker={(b) => {
           setStayInfo(p => ({
             ...p,

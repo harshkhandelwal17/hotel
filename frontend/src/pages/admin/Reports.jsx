@@ -533,6 +533,9 @@ const Reports = () => {
 
   const filteredBrokers = useMemo(() => {
     let list = brokersSummary.brokers || [];
+    if (hostelFilter !== 'all') {
+      list = list.filter(b => b.hostels && b.hostels.includes(hostelFilter));
+    }
     if (searchQuery && searchQuery.trim() !== '') {
       const q = searchQuery.toLowerCase().trim();
       list = list.filter(b =>
@@ -541,7 +544,17 @@ const Reports = () => {
       );
     }
     return list;
-  }, [brokersSummary, searchQuery]);
+  }, [brokersSummary, hostelFilter, searchQuery]);
+
+  const brokersStats = useMemo(() => {
+    const list = filteredBrokers || [];
+    return {
+      totalBrokers: list.length,
+      totalBookings: list.reduce((acc, b) => acc + (b.totalBookings || b.totalStays || 0), 0),
+      totalCommission: list.reduce((acc, b) => acc + (b.totalCommission || 0), 0),
+      totalHotelRevenue: list.reduce((acc, b) => acc + (b.totalHotelRevenue || b.totalRevenue || 0), 0)
+    };
+  }, [filteredBrokers]);
 
   // Comprehensive Detailed CSV Export with Summary Dashboard on Top
   const downloadCSV = () => {
@@ -625,7 +638,7 @@ const Reports = () => {
       csvContent = `${summaryBlock}\n"--- KHATA & CREDIT LEDGER ---"\n` + [headers.join(','), ...csvData].join('\n');
     } else if (activeTab === 'brokers') {
       const headers = ['Broker / Driver Name', 'Mobile Number', 'Total Bookings Referred', 'Total Commission Paid (INR)', 'Total Hotel Revenue Generated (INR)', 'Last Active Booking'];
-      const csvData = (brokersSummary.brokers || []).map(b => {
+      const csvData = (filteredBrokers || []).map(b => {
         return `"${(b.name || '').replace(/"/g, '""')}","${b.phone || 'N/A'}",${b.totalBookings || 0},${b.totalCommission || 0},${b.totalHotelRevenue || 0},"${safeFormat(b.lastActive, 'dd MMM yyyy')}"`;
       });
       csvContent = `${summaryBlock}\n"--- BROKERS & REFERRAL COMMISSION LEDGER ---"\n` + [headers.join(','), ...csvData].join('\n');
@@ -862,7 +875,7 @@ const Reports = () => {
             onClick={() => setActiveTab('brokers')} 
             className={`px-4 py-2 text-xs font-bold rounded-lg transition-all text-center flex items-center justify-center gap-1.5 ${activeTab === 'brokers' ? 'bg-white shadow-xs text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
           >
-            <Car size={14} className="text-amber-600" /> Brokers & Referral ({brokersSummary.totalBrokers || 0})
+            <Car size={14} className="text-amber-600" /> Brokers & Referral ({brokersStats.totalBrokers || 0})
           </button>
         </div>
         {activeTab === 'laundry' && (
@@ -877,22 +890,22 @@ const Reports = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs">
             <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Total Brokers & Drivers</p>
-            <div className="mt-1 text-2xl font-black text-gray-900">{brokersSummary.totalBrokers || 0}</div>
+            <div className="mt-1 text-2xl font-black text-gray-900">{brokersStats.totalBrokers || 0}</div>
             <p className="text-[10px] text-gray-500 mt-1">Unique partners & contacts</p>
           </div>
           <div className="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs">
             <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Referred Bookings</p>
-            <div className="mt-1 text-2xl font-black text-indigo-700">{brokersSummary.totalBookings || 0}</div>
+            <div className="mt-1 text-2xl font-black text-indigo-700">{brokersStats.totalBookings || 0}</div>
             <p className="text-[10px] text-gray-500 mt-1">Total guest stays referred</p>
           </div>
           <div className="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs">
             <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Total Commission Paid</p>
-            <div className="mt-1 text-2xl font-black text-rose-600">₹{(brokersSummary.totalCommission || 0).toLocaleString('en-IN')}</div>
+            <div className="mt-1 text-2xl font-black text-rose-600">₹{(brokersStats.totalCommission || 0).toLocaleString('en-IN')}</div>
             <p className="text-[10px] text-gray-500 mt-1">Commission disbursed</p>
           </div>
           <div className="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs">
             <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Hotel Revenue Generated</p>
-            <div className="mt-1 text-2xl font-black text-emerald-700">₹{(brokersSummary.totalHotelRevenue || 0).toLocaleString('en-IN')}</div>
+            <div className="mt-1 text-2xl font-black text-emerald-700">₹{(brokersStats.totalHotelRevenue || 0).toLocaleString('en-IN')}</div>
             <p className="text-[10px] text-gray-500 mt-1">Gross sales from referrals</p>
           </div>
         </div>

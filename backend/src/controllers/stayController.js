@@ -885,21 +885,15 @@ exports.updateStay = async (req, res, next) => {
 // @access  Private (Staff, Admin, SuperAdmin)
 exports.getBrokersSummary = async (req, res, next) => {
   try {
+    const hostelFilter = await getHostelFilter(req.user, req.query.hostel);
+
     let matchQuery = {
+      ...hostelFilter,
       $or: [
         { commissionTo: { $exists: true, $ne: '' } },
         { commissionPhone: { $exists: true, $ne: '' } }
       ]
     };
-
-    if (req.user.role === 'admin' || req.user.role === 'receptionist') {
-      const hostelId = req.query.hostel && req.query.hostel !== 'all'
-        ? req.query.hostel
-        : req.user.assignedHostel;
-      if (hostelId) {
-        matchQuery.hostel = new mongoose.Types.ObjectId(hostelId);
-      }
-    }
 
     const stays = await Stay.find(matchQuery)
       .populate('guest', 'fullName mobileNumber')
@@ -915,9 +909,13 @@ exports.getBrokersSummary = async (req, res, next) => {
       const rawPhone = (s.commissionPhone || '').trim();
       if (!rawName && !rawPhone) continue;
 
+      const lowerName = rawName.toLowerCase();
+      const invalidNames = ['none', 'na', 'n/a', 'no', '0', 'self', 'direct', '-', 'nil', 'null', 'false'];
+      if (!rawPhone && invalidNames.includes(lowerName)) continue;
+
       // Group key: prefer normalized 10-digit phone, otherwise lowercase name
       const cleanPhoneDigits = rawPhone.replace(/\D/g, '').slice(-10);
-      const key = cleanPhoneDigits ? `p_${cleanPhoneDigits}` : `n_${rawName.toLowerCase()}`;
+      const key = cleanPhoneDigits ? `p_${cleanPhoneDigits}` : `n_${lowerName}`;
 
       if (!brokerMap[key]) {
         brokerMap[key] = {
@@ -927,18 +925,26 @@ exports.getBrokersSummary = async (req, res, next) => {
           totalCommission: 0,
           totalRevenue: 0,
           lastActive: s.createdAt || s.checkInDate,
+          hostels: [],
           recentStays: []
         };
       }
 
       const b = brokerMap[key];
-      if (rawName && (!b.name || b.name === 'Auto / Agent')) b.name = rawName;
+      if (rawName && (!b.name || b.name === 'Auto / Agent') && !invalidNames.includes(lowerName)) {
+        b.name = rawName;
+      }
       if (rawPhone && !b.phone) b.phone = rawPhone;
       b.totalStays += 1;
       b.totalBookings = b.totalStays;
       b.totalCommission += (Number(s.commissionAmount) || 0);
       b.totalRevenue += (Number(s.totalAmount) || 0);
       b.totalHotelRevenue = b.totalRevenue;
+
+      const hId = s.hostel?._id ? s.hostel._id.toString() : (s.hostel ? s.hostel.toString() : '');
+      if (hId && !b.hostels.includes(hId)) {
+        b.hostels.push(hId);
+      }
 
       const stayDate = s.checkInDate || s.createdAt;
       if (stayDate && new Date(stayDate) > new Date(b.lastActive)) {
