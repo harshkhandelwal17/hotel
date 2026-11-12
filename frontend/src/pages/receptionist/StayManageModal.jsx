@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { format, addDays, addHours } from 'date-fns';
-import { X, Receipt, Plus, Wallet, ArrowRightLeft, CalendarPlus, Printer, Trash2, LogOut, AlertCircle, CheckCircle2, Phone, Edit3, Image as ImageIcon, Eye, FileText } from 'lucide-react';
-import { printInvoice } from '../../utils/invoice';
+import { X, Receipt, Plus, Wallet, ArrowRightLeft, CalendarPlus, Printer, Trash2, LogOut, AlertCircle, CheckCircle2, Phone, Edit3, Image as ImageIcon, Eye, FileText, MessageSquare } from 'lucide-react';
+import { printInvoice, getInvoiceWhatsAppUrl, getWelcomeWhatsAppUrl } from '../../utils/invoice';
 import InvoiceModal from '../../components/InvoiceModal';
 import GuestRegistrationCardModal from '../../components/reception/GuestRegistrationCardModal';
 import DynamicUpiQr from '../../components/DynamicUpiQr';
@@ -122,12 +122,32 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
   });
   const [showAddPaymentRow, setShowAddPaymentRow] = useState(false);
   const [showGrcModal, setShowGrcModal] = useState(false);
+  const [showIdProofModal, setShowIdProofModal] = useState(false);
+  const [stayNotes, setStayNotes] = useState(initialStay.notes || '');
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [savingNotes, setSavingNotes] = useState(false);
 
   const reload = useCallback(async () => {
     const res = await axios.get(`${API}/api/stays/${initialStay._id}`);
-    setStay(res.data.data.stay);
+    const freshStay = res.data.data.stay;
+    setStay(freshStay);
+    setStayNotes(freshStay.notes || '');
     setPayments(res.data.data.payments);
   }, [initialStay._id]);
+
+  const handleSaveNotes = async () => {
+    setSavingNotes(true);
+    try {
+      await axios.put(`${API}/api/stays/${stay._id}`, { notes: stayNotes });
+      flash('Stay notes updated successfully');
+      setIsEditingNotes(false);
+      reload();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to update notes');
+    } finally {
+      setSavingNotes(false);
+    }
+  };
 
   useEffect(() => { reload().catch(() => {}); }, [reload]);
 
@@ -374,6 +394,24 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                   >
                     <Phone size={11} className="stroke-[2.5]" /> Call
                   </a>
+                  <a
+                    href={getInvoiceWhatsAppUrl(stay, payments) || `https://wa.me/${stay.guest.mobileNumber.replace(/\D/g, '')}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-emerald-800 hover:text-emerald-900 bg-emerald-100/70 hover:bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-md font-bold text-[11px] active:scale-95 transition-all cursor-pointer"
+                    title="Send Bill & Summary to Guest on WhatsApp"
+                  >
+                    <MessageSquare size={11} className="stroke-[2.5]" /> WhatsApp Bill
+                  </a>
+                  <a
+                    href={getWelcomeWhatsAppUrl(stay) || `https://wa.me/${stay.guest.mobileNumber.replace(/\D/g, '')}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-indigo-700 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded-md font-bold text-[11px] active:scale-95 transition-all cursor-pointer"
+                    title="Send Welcome Greeting to Guest on WhatsApp"
+                  >
+                    <span>👋 Welcome</span>
+                  </a>
                   <span>&bull;</span>
                 </>
               )}
@@ -381,6 +419,16 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {(stay.guest?.idProofImage || stay.guest?.idProofImageBack) && (
+              <button
+                type="button"
+                onClick={() => setShowIdProofModal(true)}
+                className="hidden sm:flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 px-3 py-1.5 rounded-xl transition-all active:scale-95 shadow-2xs cursor-pointer"
+                title="View Guest ID Proof Images"
+              >
+                <ImageIcon size={14} /> ID Proof
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setShowGrcModal(true)}
@@ -508,6 +556,56 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                   </div>
                 </div>
               )}
+
+              {/* Stay Notes & Special Requests */}
+              <div className="bg-amber-50/60 border border-amber-200/80 rounded-2xl p-3.5 space-y-2">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-black uppercase tracking-wider text-amber-950">📝 Stay Notes & Special Requests</span>
+                  </div>
+                  {!isEditingNotes ? (
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingNotes(true)}
+                      className="text-[11px] font-black text-amber-800 hover:text-black underline cursor-pointer"
+                    >
+                      {stay.notes ? 'Edit Note' : '+ Add Note'}
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => { setIsEditingNotes(false); setStayNotes(stay.notes || ''); }}
+                        className="text-[10px] font-bold px-2 py-0.5 rounded bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={savingNotes}
+                        onClick={handleSaveNotes}
+                        className="text-[10px] font-black px-2.5 py-0.5 rounded bg-black text-white hover:bg-gray-800 active:scale-95 disabled:opacity-50 cursor-pointer"
+                      >
+                        {savingNotes ? 'Saving...' : 'Save'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {!isEditingNotes ? (
+                  <p className="text-xs text-gray-800 font-medium whitespace-pre-wrap leading-relaxed">
+                    {stay.notes || <span className="text-gray-400 italic">No notes recorded (e.g. Car number, special request, early morning wake-up call, luggage tag)</span>}
+                  </p>
+                ) : (
+                  <textarea
+                    rows={2}
+                    value={stayNotes}
+                    onChange={e => setStayNotes(e.target.value)}
+                    placeholder="Enter special requests, vehicle number, luggage token, wake-up calls..."
+                    className="w-full bg-white border border-amber-300 rounded-xl p-2.5 text-xs font-medium text-gray-900 focus:outline-none focus:ring-1 focus:ring-black shadow-2xs"
+                  />
+                )}
+              </div>
             </>
           )}
 
@@ -1282,6 +1380,65 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
         guests={stay.guest ? [stay.guest, ...(stay.coGuests || [])] : []}
         hotelData={stay.hostel}
       />
+    )}
+    {/* Guest ID Proof Quick Preview Lightbox */}
+    {showIdProofModal && (
+      <div 
+        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[10000] flex items-center justify-center p-3 sm:p-4"
+        onClick={() => setShowIdProofModal(false)}
+      >
+        <div 
+          className="bg-white rounded-3xl max-w-xl w-full p-5 sm:p-6 space-y-4 shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh] overflow-y-auto"
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="flex justify-between items-center border-b border-gray-100 pb-3 shrink-0">
+            <div>
+              <h3 className="font-black text-gray-900 text-base">{stay.guest?.fullName} — ID Proof</h3>
+              <p className="text-xs text-gray-500 font-bold">{stay.guest?.idProofType}: <span className="font-mono text-gray-800">{stay.guest?.idProofNumber || 'N/A'}</span></p>
+            </div>
+            <button 
+              type="button" 
+              onClick={() => setShowIdProofModal(false)}
+              className="p-1.5 text-gray-400 hover:text-black hover:bg-gray-100 rounded-full cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          <div className="space-y-4 flex-1">
+            {stay.guest?.idProofImage ? (
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1">Front Side</p>
+                <img 
+                  src={getFullImageUrl(stay.guest.idProofImage)} 
+                  alt="ID Proof Front" 
+                  className="w-full max-h-64 object-contain rounded-2xl border border-gray-200 bg-gray-50 shadow-2xs"
+                />
+              </div>
+            ) : null}
+            {stay.guest?.idProofImageBack ? (
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1">Back Side</p>
+                <img 
+                  src={getFullImageUrl(stay.guest.idProofImageBack)} 
+                  alt="ID Proof Back" 
+                  className="w-full max-h-64 object-contain rounded-2xl border border-gray-200 bg-gray-50 shadow-2xs"
+                />
+              </div>
+            ) : null}
+          </div>
+
+          <div className="flex justify-end pt-3 border-t border-gray-100 shrink-0">
+            <button 
+              type="button" 
+              onClick={() => setShowIdProofModal(false)}
+              className="px-5 py-2.5 bg-black hover:bg-gray-800 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all active:scale-95 cursor-pointer shadow-sm"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
     )}
   </div>,
   document.body

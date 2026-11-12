@@ -695,8 +695,9 @@ export const printInvoice = (stay, payments = [], options = {}) => {
  */
 export const getInvoiceWhatsAppUrl = (stay, payments = [], options = {}) => {
   const inv = calculateInvoiceData(stay, payments, options);
-  const cleanPhone = (inv.guest.mobileNumber || '').replace(/[^0-9]/g, '');
-  if (!cleanPhone) return null;
+  const rawPhone = (inv.guest.mobileNumber || '').replace(/[^0-9]/g, '');
+  if (!rawPhone) return null;
+  const cleanPhone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
 
   const msg = [
     `🏨 *${inv.hostel.name || 'Hotel'}* - Invoice & Receipt`,
@@ -717,5 +718,32 @@ export const getInvoiceWhatsAppUrl = (stay, payments = [], options = {}) => {
     `Thank you for staying with us! Visit again. ✨`
   ].filter(Boolean).join('\n');
 
-  return `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(msg)}`;
+  return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
+};
+
+/**
+ * Creates a prefilled WhatsApp welcome message for check-in
+ */
+export const getWelcomeWhatsAppUrl = (stay) => {
+  const guest = stay.guest || {};
+  const hostel = stay.hostel || {};
+  const room = stay.room || {};
+  const rawPhone = (guest.mobileNumber || '').replace(/[^0-9]/g, '');
+  if (!rawPhone) return null;
+  const cleanPhone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
+
+  const msg = [
+    `🏨 *Welcome to ${hostel.name || 'our Hotel'}!*`,
+    `──────────────────────`,
+    `Namaste *${guest.fullName || 'Guest'}* ji,`,
+    `We are pleased to host you. Here are your reservation details:`,
+    `🚪 *Room:* ${room.roomNumber || 'Assigned'}`,
+    `📅 *Check-In:* ${stay.checkInDate ? format(new Date(stay.checkInDate), 'dd MMM yyyy, hh:mm a') : 'Today'}`,
+    `📅 *Expected Check-Out:* ${stay.expectedCheckOutDate ? format(new Date(stay.expectedCheckOutDate), 'dd MMM yyyy, hh:mm a') : 'Scheduled'}`,
+    hostel.contactNumber ? `📞 *Front Desk / Reception:* ${hostel.contactNumber}` : '',
+    `──────────────────────`,
+    `Please contact reception for room service, housekeeping, or any queries. Wish you a wonderful stay! ✨`
+  ].filter(Boolean).join('\n');
+
+  return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
 };

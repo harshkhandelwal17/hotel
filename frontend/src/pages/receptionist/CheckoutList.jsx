@@ -4,9 +4,10 @@ import axios from 'axios';
 import { format, isPast, isToday } from 'date-fns';
 import CheckoutModal from './CheckoutModal';
 import StayManageModal from './StayManageModal';
-import { Users, Clock, Download, AlertTriangle, Search, ChevronRight, Phone } from 'lucide-react';
+import { Users, Clock, Download, AlertTriangle, Search, ChevronRight, Phone, MessageSquare } from 'lucide-react';
 import { apiCache } from '../../utils/apiCache';
 import { useLanguage } from '../../context/LanguageContext';
+import { getInvoiceWhatsAppUrl } from '../../utils/invoice';
 
 const CheckoutList = () => {
   const { t, isHindi } = useLanguage();
@@ -235,6 +236,19 @@ const CheckoutList = () => {
                             >
                               <Phone size={11} className="stroke-[2.5]" />
                               <span>Call</span>
+                            </a>
+                          )}
+                          {stay.guest?.mobileNumber && (
+                            <a
+                              href={getInvoiceWhatsAppUrl(stay) || `https://wa.me/${stay.guest.mobileNumber.replace(/\D/g, '')}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300 rounded-md text-[11px] font-bold shadow-xs active:scale-95 transition-all"
+                              title="Send Bill / Summary on WhatsApp"
+                            >
+                              <MessageSquare size={11} className="stroke-[2.5]" />
+                              <span>WhatsApp</span>
                             </a>
                           )}
                           <span>&bull;</span>
