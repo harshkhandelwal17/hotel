@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { format, addDays, addHours } from 'date-fns';
 import { X, Receipt, Plus, Wallet, ArrowRightLeft, CalendarPlus, Printer, Trash2, LogOut, AlertCircle, CheckCircle2, Phone, Edit3, Image as ImageIcon, Eye, FileText, MessageSquare } from 'lucide-react';
-import { printInvoice, getInvoiceWhatsAppUrl, getWelcomeWhatsAppUrl } from '../../utils/invoice';
+import { printInvoice } from '../../utils/invoice';
+import { getStayWhatsAppUrl } from '../../utils/whatsapp';
 import InvoiceModal from '../../components/InvoiceModal';
 import GuestRegistrationCardModal from '../../components/reception/GuestRegistrationCardModal';
 import DynamicUpiQr from '../../components/DynamicUpiQr';
@@ -395,7 +396,7 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                     <Phone size={11} className="stroke-[2.5]" /> Call
                   </a>
                   <a
-                    href={getInvoiceWhatsAppUrl(stay, payments) || `https://wa.me/${stay.guest.mobileNumber.replace(/\D/g, '')}`}
+                    href={getStayWhatsAppUrl(stay, 'bill') || `https://wa.me/${stay.guest.mobileNumber.replace(/\D/g, '')}`}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-1 text-emerald-800 hover:text-emerald-900 bg-emerald-100/70 hover:bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-md font-bold text-[11px] active:scale-95 transition-all cursor-pointer"
@@ -404,7 +405,7 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                     <MessageSquare size={11} className="stroke-[2.5]" /> WhatsApp Bill
                   </a>
                   <a
-                    href={getWelcomeWhatsAppUrl(stay) || `https://wa.me/${stay.guest.mobileNumber.replace(/\D/g, '')}`}
+                    href={getStayWhatsAppUrl(stay, 'welcome') || `https://wa.me/${stay.guest.mobileNumber.replace(/\D/g, '')}`}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-1 text-indigo-700 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded-md font-bold text-[11px] active:scale-95 transition-all cursor-pointer"

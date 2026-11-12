@@ -7,7 +7,7 @@ import StayManageModal from './StayManageModal';
 import { Users, Clock, Download, AlertTriangle, Search, ChevronRight, Phone, MessageSquare } from 'lucide-react';
 import { apiCache } from '../../utils/apiCache';
 import { useLanguage } from '../../context/LanguageContext';
-import { getInvoiceWhatsAppUrl } from '../../utils/invoice';
+import { getStayWhatsAppUrl } from '../../utils/whatsapp';
 
 const CheckoutList = () => {
   const { t, isHindi } = useLanguage();
@@ -240,7 +240,7 @@ const CheckoutList = () => {
                           )}
                           {stay.guest?.mobileNumber && (
                             <a
-                              href={getInvoiceWhatsAppUrl(stay) || `https://wa.me/${stay.guest.mobileNumber.replace(/\D/g, '')}`}
+                              href={getStayWhatsAppUrl(stay, 'bill') || `https://wa.me/${stay.guest.mobileNumber.replace(/\D/g, '')}`}
                               target="_blank"
                               rel="noreferrer"
                               onClick={(e) => e.stopPropagation()}

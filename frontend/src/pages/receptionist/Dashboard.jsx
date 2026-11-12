@@ -22,7 +22,7 @@ import {
 import { AuthContext } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { apiCache } from '../../utils/apiCache';
-import { getInvoiceWhatsAppUrl } from '../../utils/invoice';
+import { getStayWhatsAppUrl } from '../../utils/whatsapp';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
 
@@ -538,7 +538,7 @@ const ReceptionistDashboard = () => {
                       {/* WhatsApp Link with Pre-filled Stay & Bill Summary */}
                       {stay.guest?.mobileNumber && (
                         <a
-                          href={getInvoiceWhatsAppUrl(stay) || `https://wa.me/${stay.guest.mobileNumber.replace(/\D/g, '')}`}
+                          href={getStayWhatsAppUrl(stay, 'bill') || `https://wa.me/${stay.guest.mobileNumber.replace(/\D/g, '')}`}
                           target="_blank"
                           rel="noreferrer"
                           className="p-2 text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-all shadow-2xs cursor-pointer"
