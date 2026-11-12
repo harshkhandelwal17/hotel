@@ -747,3 +747,12 @@ export const getWelcomeWhatsAppUrl = (stay) => {
 
   return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
 };
+
+export default {
+  numberToWordsINR,
+  calculateInvoiceData,
+  generateInvoiceHtml,
+  printInvoice,
+  getInvoiceWhatsAppUrl,
+  getWelcomeWhatsAppUrl
+};

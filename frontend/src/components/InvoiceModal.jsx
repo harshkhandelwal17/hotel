@@ -5,7 +5,8 @@ import {
   X, Printer, Share2, FileText, CheckCircle2, 
   Building2, Percent, AlertCircle, RefreshCw, Eye
 } from 'lucide-react';
-import { calculateInvoiceData, printInvoice, getInvoiceWhatsAppUrl, numberToWordsINR } from '../utils/invoice';
+import { calculateInvoiceData, printInvoice, numberToWordsINR } from '../utils/invoice';
+import { getStayWhatsAppUrl } from '../utils/whatsapp';
 
 const InvoiceModal = ({ stay, payments = [], onClose }) => {
   const hostel = stay.hostel || {};
@@ -39,7 +40,7 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
   const outDate = stay.actualCheckOutDate || stay.expectedCheckOutDate || new Date();
   const checkInFormatted = format(new Date(stay.checkInDate), 'dd MMM yyyy, hh:mm a');
   const checkOutFormatted = format(new Date(outDate), 'dd MMM yyyy, hh:mm a');
-  const waUrl = getInvoiceWhatsAppUrl(stay, payments, invOptions);
+  const waUrl = getStayWhatsAppUrl(stay, 'bill');
 
   const handlePrint = () => {
     printInvoice(stay, payments, invOptions);
