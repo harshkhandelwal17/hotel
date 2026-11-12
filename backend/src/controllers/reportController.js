@@ -34,6 +34,13 @@ exports.getDashboardStats = async (req, res, next) => {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
+    // Week: last 7 days start
+    const weekStart = new Date(today);
+    weekStart.setDate(weekStart.getDate() - 6);
+
+    // Month: 1st of current month
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+
     const [
       activeStays,
       totalRooms,
@@ -42,7 +49,9 @@ exports.getDashboardStats = async (req, res, next) => {
       checkoutsToday,
       pendingPayments,
       todayPayments,
-      todayExpenses
+      todayExpenses,
+      weekPayments,
+      monthPayments
     ] = await Promise.all([
       Stay.countDocuments({ ...filter, status: { $in: ['Active', 'Checkout Due', 'Overdue'] } }),
       Room.countDocuments({ ...filter, status: { $ne: 'Inactive' } }),
@@ -62,6 +71,14 @@ exports.getDashboardStats = async (req, res, next) => {
       Expense.aggregate([
         { $match: { ...aggFilter, expenseDate: { $gte: today, $lt: tomorrow } } },
         { $group: { _id: "$paymentMethod", total: { $sum: "$amount" }, count: { $sum: 1 } } }
+      ]),
+      Payment.aggregate([
+        { $match: { ...aggFilter, paymentDate: { $gte: weekStart, $lt: tomorrow } } },
+        { $group: { _id: null, total: { $sum: "$amount" } } }
+      ]),
+      Payment.aggregate([
+        { $match: { ...aggFilter, paymentDate: { $gte: monthStart, $lt: tomorrow } } },
+        { $group: { _id: null, total: { $sum: "$amount" } } }
       ])
     ]);
 
@@ -89,6 +106,9 @@ exports.getDashboardStats = async (req, res, next) => {
 
     const todayNetCashInDrawer = todayCashCollected - todayCashExpense;
     
+    const weekRevenue = weekPayments?.[0]?.total || 0;
+    const monthRevenue = monthPayments?.[0]?.total || 0;
+
     const occupiedRooms = activeStays;
     const availableRooms = Math.max(0, totalRooms - occupiedRooms - maintenanceRooms);
 
@@ -109,7 +129,9 @@ exports.getDashboardStats = async (req, res, next) => {
         todayCashExpense,
         todayUpiExpense,
         todayTotalExpense,
-        todayNetCashInDrawer
+        todayNetCashInDrawer,
+        weekRevenue,
+        monthRevenue
       }
     });
   } catch (error) {

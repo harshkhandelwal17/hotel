@@ -4,8 +4,7 @@ import axios from 'axios';
 import { format, isPast, isToday } from 'date-fns';
 import CheckoutModal from './CheckoutModal';
 import StayManageModal from './StayManageModal';
-import { Users, Clock, Download, AlertTriangle, Search, ChevronRight, Phone, ShieldCheck } from 'lucide-react';
-import PoliceReportModal from '../admin/PoliceReportModal';
+import { Users, Clock, Download, AlertTriangle, Search, ChevronRight, Phone } from 'lucide-react';
 import { apiCache } from '../../utils/apiCache';
 import { useLanguage } from '../../context/LanguageContext';
 
@@ -17,7 +16,6 @@ const CheckoutList = () => {
   const [managedStay, setManagedStay] = useState(null);
   const [filter, setFilter] = useState('all'); // 'all', 'overdue', 'today', 'active'
   const [search, setSearch] = useState('');
-  const [showPoliceModal, setShowPoliceModal] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const { globalProperty } = useOutletContext() || { globalProperty: 'all' };
   const initialStayParamRef = useRef(searchParams.get('stay'));
@@ -144,14 +142,6 @@ const CheckoutList = () => {
             <p className="text-gray-500 font-medium mt-1">{t('checkout.subtitle', 'Tap a guest to add charges, take payment, change room, extend stay or check out.')}</p>
           </div>
           <div className="flex flex-wrap sm:flex-nowrap gap-2 w-full sm:w-auto">
-            <button 
-              type="button"
-              onClick={() => setShowPoliceModal(true)} 
-              className="flex-1 sm:flex-none justify-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm transition-colors shadow-sm flex items-center gap-2 active:scale-95 cursor-pointer"
-              title="Generate Official Police Verification Report"
-            >
-              <ShieldCheck size={16} /> {t('nav.policeReport', 'Police Report')}
-            </button>
             <button onClick={downloadCSV} className="flex-1 sm:flex-none justify-center px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-bold text-sm hover:bg-gray-50 flex items-center gap-2 shadow-sm">
               <Download size={16} /> {t('common.export', 'Export')} CSV
             </button>
@@ -308,12 +298,6 @@ const CheckoutList = () => {
           }}
         />
       )}
-      {/* Official Police Verification Report Modal */}
-      <PoliceReportModal
-        isOpen={showPoliceModal}
-        onClose={() => setShowPoliceModal(false)}
-        defaultHostel={globalProperty}
-      />
     </div>
   );
 };

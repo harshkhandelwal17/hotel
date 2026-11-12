@@ -13,22 +13,13 @@ import {
   PlusCircle, 
   RefreshCw, 
   Phone, 
-  ShieldCheck, 
-  TrendingDown, 
   Banknote,
   Search,
-  MessageSquare,
-  ArrowUpRight,
   CheckCircle2,
-  User,
-  Sparkles,
-  Building,
-  ExternalLink
+  User
 } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
-import PoliceReportModal from '../admin/PoliceReportModal';
-import ExpenseModal from '../admin/ExpenseModal';
 import { apiCache } from '../../utils/apiCache';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
@@ -56,8 +47,6 @@ const ReceptionistDashboard = () => {
   const [recentStays, setRecentStays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [showPoliceModal, setShowPoliceModal] = useState(false);
-  const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [hostels, setHostels] = useState([]);
   const [now, setNow] = useState(new Date());
   const [guestSearch, setGuestSearch] = useState('');
@@ -188,16 +177,6 @@ const ReceptionistDashboard = () => {
 
         {/* Action Controls */}
         <div className="flex items-center gap-2 shrink-0">
-          <button 
-            type="button"
-            onClick={() => setShowExpenseModal(true)} 
-            className="px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-800 border border-gray-200 hover:border-gray-300 rounded-xl font-bold text-xs shadow-2xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
-            title="Record Counter Cash or Daily Operating Expense"
-          >
-            <TrendingDown size={14} className="text-rose-500" />
-            <span>{t('dashboard.addExpense', 'Add Expense')}</span>
-          </button>
-
           <button 
             type="button"
             onClick={() => fetchDashboardData(true)} 
@@ -373,6 +352,48 @@ const ReceptionistDashboard = () => {
           </div>
         </Link>
       </div>
+
+      {/* ─── Admin Revenue Overview (Admin Only) ─── */}
+      {user?.role === 'admin' && stats && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+          <div className="col-span-2 md:col-span-1 bg-black p-4 sm:p-5 rounded-2xl text-white flex flex-col justify-between shadow-md">
+            <div>
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">{isHindi ? 'आज की आय' : "Today's Revenue"}</span>
+              <div className="text-2xl sm:text-3xl font-black mt-1.5">
+                ₹{(stats.todayRevenue || stats.todayCashCollected || 0).toLocaleString('en-IN')}
+              </div>
+            </div>
+            <p className="text-[10px] font-bold text-gray-500 mt-3">{isHindi ? 'आज कुल भुगतान' : 'Total collected today'}</p>
+          </div>
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-200/80 shadow-2xs flex flex-col justify-between">
+            <div>
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">{isHindi ? 'इस सप्ताह' : 'This Week'}</span>
+              <div className="text-2xl sm:text-3xl font-black text-gray-950 mt-1.5">
+                ₹{(stats.weekRevenue || 0).toLocaleString('en-IN')}
+              </div>
+            </div>
+            <p className="text-[10px] font-bold text-gray-500 mt-3">{isHindi ? 'पिछले 7 दिन' : 'Last 7 days'}</p>
+          </div>
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-200/80 shadow-2xs flex flex-col justify-between">
+            <div>
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">{isHindi ? 'इस महीने' : 'This Month'}</span>
+              <div className="text-2xl sm:text-3xl font-black text-gray-950 mt-1.5">
+                ₹{(stats.monthRevenue || 0).toLocaleString('en-IN')}
+              </div>
+            </div>
+            <p className="text-[10px] font-bold text-gray-500 mt-3">{isHindi ? 'माह की कुल आय' : 'Monthly revenue'}</p>
+          </div>
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-200/80 shadow-2xs flex flex-col justify-between hover:border-emerald-300 transition-colors">
+            <div>
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">{isHindi ? 'खर्च (आज)' : 'Expenses Today'}</span>
+              <div className="text-2xl sm:text-3xl font-black text-rose-600 mt-1.5">
+                ₹{(stats.todayCashExpense || 0).toLocaleString('en-IN')}
+              </div>
+            </div>
+            <p className="text-[10px] font-bold text-gray-500 mt-3">{isHindi ? 'आज का व्यय' : 'Operational expenses'}</p>
+          </div>
+        </div>
+      )}
 
       {/* ─── Active Operations: In-House Guests Section ─── */}
       <div className="bg-white rounded-3xl border border-gray-200/80 shadow-2xs overflow-hidden">
@@ -631,22 +652,6 @@ const ReceptionistDashboard = () => {
           </div>
         )}
       </div>
-
-      {/* Official Police Verification Report Modal */}
-      <PoliceReportModal
-        isOpen={showPoliceModal}
-        onClose={() => setShowPoliceModal(false)}
-        defaultHostel={globalProperty}
-      />
-
-      {/* Quick Daily Expense Modal */}
-      <ExpenseModal
-        isOpen={showExpenseModal}
-        onClose={() => setShowExpenseModal(false)}
-        hostels={hostels}
-        defaultHostel={globalProperty !== 'all' ? globalProperty : (user?.assignedHostel || '')}
-        onExpenseAdded={() => fetchDashboardData(true)}
-      />
     </div>
   );
 };

@@ -857,12 +857,12 @@ const AppLayout = ({ children }) => {
           <div className="flex justify-around items-center h-16 px-2">
             <Link to="/dashboard" onMouseEnter={() => prefetchRoute('/dashboard', globalProperty)} onTouchStart={() => prefetchRoute('/dashboard', globalProperty)} className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${location.pathname === '/dashboard' ? 'text-black' : 'text-gray-400'}`}>
               <Home size={22} className={location.pathname === '/dashboard' ? 'fill-black' : ''} />
-              <span className="text-[9px] font-bold mt-1 uppercase tracking-widest">Home</span>
+              <span className="text-[9px] font-bold mt-1 uppercase tracking-widest">{t('nav.dashboard', 'Home')}</span>
             </Link>
-            
-            <Link to="/checkouts" onMouseEnter={() => prefetchRoute('/checkouts', globalProperty)} onTouchStart={() => prefetchRoute('/checkouts', globalProperty)} className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${location.pathname.startsWith('/checkouts') || location.pathname.startsWith('/guests') ? 'text-black' : 'text-gray-400'}`}>
-              <Users size={22} className={location.pathname.startsWith('/checkouts') || location.pathname.startsWith('/guests') ? 'fill-black' : ''} />
-              <span className="text-[9px] font-bold mt-1 uppercase tracking-widest">Guests</span>
+
+            <Link to="/rooms" onMouseEnter={() => prefetchRoute('/rooms', globalProperty)} onTouchStart={() => prefetchRoute('/rooms', globalProperty)} className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${location.pathname === '/rooms' ? 'text-black' : 'text-gray-400'}`}>
+              <LayoutGrid size={22} className={location.pathname === '/rooms' ? 'stroke-black stroke-[2.5]' : ''} />
+              <span className="text-[9px] font-bold mt-1 uppercase tracking-widest">{t('nav.rooms', 'Rooms')}</span>
             </Link>
             
             <div className="relative -top-5">
@@ -871,9 +871,9 @@ const AppLayout = ({ children }) => {
               </Link>
             </div>
             
-            <Link to="/payments" onMouseEnter={() => prefetchRoute('/payments', globalProperty)} onTouchStart={() => prefetchRoute('/payments', globalProperty)} className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${location.pathname === '/payments' ? 'text-black' : 'text-gray-400'}`}>
-              <CreditCard size={22} className={location.pathname === '/payments' ? 'fill-black' : ''} />
-              <span className="text-[9px] font-bold mt-1 uppercase tracking-widest">Pay</span>
+            <Link to="/checkouts" onMouseEnter={() => prefetchRoute('/checkouts', globalProperty)} onTouchStart={() => prefetchRoute('/checkouts', globalProperty)} className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${location.pathname.startsWith('/checkouts') || location.pathname.startsWith('/guests') ? 'text-black' : 'text-gray-400'}`}>
+              <Users size={22} className={location.pathname.startsWith('/checkouts') || location.pathname.startsWith('/guests') ? 'fill-black' : ''} />
+              <span className="text-[9px] font-bold mt-1 uppercase tracking-widest">{t('nav.stays', 'Stays')}</span>
             </Link>
             
             <button onClick={() => setIsMobileMenuOpen(true)} className="flex flex-col items-center justify-center w-16 h-full text-gray-400 hover:text-black transition-colors">

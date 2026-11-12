@@ -48,6 +48,29 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
     };
   }, []);
 
+  // Keyboard shortcut listener (1-6 for tabs, Esc to close)
+  useEffect(() => {
+    const handleModalKeyDown = (e) => {
+      // Don't trigger if user is typing in form inputs
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      const tabKeys = ['bill', 'charge', 'pay', 'shift', 'extend', 'edit'];
+      const keyNum = parseInt(e.key, 10);
+      if (!isNaN(keyNum) && keyNum >= 1 && keyNum <= tabKeys.length) {
+        e.preventDefault();
+        setTab(tabKeys[keyNum - 1]);
+        return;
+      }
+      if (e.key === 'Escape' && !isInvoiceModalOpen) {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleModalKeyDown);
+    return () => window.removeEventListener('keydown', handleModalKeyDown);
+  }, [onClose, isInvoiceModalOpen]);
+
   // charge form
   const [pendingCharges, setPendingCharges] = useState([]);
   // payment form

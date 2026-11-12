@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useOutletContext, Link } from 'react-router-dom';
 import axios from 'axios';
@@ -15,6 +15,21 @@ const RoomsView = () => {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
   const { globalProperty } = useOutletContext() || { globalProperty: 'all' };
+
+  const [housekeepingStatus, setHousekeepingStatus] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('hk_status') || '{}'); } catch { return {}; }
+  });
+
+  const activeStaysRef = useRef([]);
+  useEffect(() => { activeStaysRef.current = activeStays; }, [activeStays]);
+
+  const setRoomHKStatus = (roomId, status) => {
+    const updated = { ...housekeepingStatus, [roomId]: status };
+    setHousekeepingStatus(updated);
+    localStorage.setItem('hk_status', JSON.stringify(updated));
+  };
+
+  const getHKStatus = (roomId) => housekeepingStatus[roomId] || 'clean';
 
   // Maintenance dialog: { room, mode: 'start' | 'end' }
   const [mDialog, setMDialog] = useState(null);
@@ -78,6 +93,21 @@ const RoomsView = () => {
       apiCache.set(`stays_active_${globalProperty}`, newStays);
       setRooms(newRooms);
       setActiveStays(newStays);
+      // Auto-mark rooms as dirty when they become vacant after checkout
+      setHousekeepingStatus(prev => {
+        const updated = { ...prev };
+        newRooms.forEach(room => {
+          const hasActiveStay = newStays.some(s => s.room?._id === room._id);
+          if (!hasActiveStay && room.status !== 'Maintenance') {
+            const wasOccupied = activeStaysRef.current.some(s => s.room?._id === room._id);
+            if (wasOccupied && !updated[room._id]) {
+              updated[room._id] = 'dirty';
+            }
+          }
+        });
+        localStorage.setItem('hk_status', JSON.stringify(updated));
+        return updated;
+      });
     } catch (error) { console.error(error); }
     finally { setLoading(false); }
   };
@@ -105,13 +135,19 @@ const RoomsView = () => {
     const status = getRoomStatus(room);
     const matchSearch = !search || room.roomNumber.toLowerCase().includes(search.toLowerCase()) ||
       status.stay?.guest?.fullName?.toLowerCase().includes(search.toLowerCase());
-    const matchFilter = filter === 'all' || status.label.toLowerCase() === filter;
+    let matchFilter;
+    if (filter === 'dirty') {
+      matchFilter = status.label === 'Available' && getHKStatus(room._id) === 'dirty';
+    } else {
+      matchFilter = filter === 'all' || status.label.toLowerCase() === filter;
+    }
     return matchSearch && matchFilter;
   });
 
   const availCount = rooms.filter(r => getRoomStatus(r).label === 'Available').length;
   const occupCount = rooms.filter(r => getRoomStatus(r).label === 'Occupied').length;
   const maintCount = rooms.filter(r => getRoomStatus(r).label === 'Maintenance').length;
+  const dirtyCount = rooms.filter(r => getRoomStatus(r).label === 'Available' && getHKStatus(r._id) === 'dirty').length;
 
   const statusConfig = {
     Available: { dot: 'bg-green-500', badge: 'bg-green-50 text-green-700 border-green-200', card: 'border-green-100 hover:border-green-300 hover:shadow-green-50', header: 'bg-green-50' },
@@ -136,6 +172,7 @@ const RoomsView = () => {
             <span className="flex items-center gap-1.5 text-sm font-bold text-green-600"><span className="w-2 h-2 rounded-full bg-green-500" />{availCount} Available</span>
             <span className="flex items-center gap-1.5 text-sm font-bold text-red-600"><span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />{occupCount} Occupied</span>
             {maintCount > 0 && <span className="flex items-center gap-1.5 text-sm font-bold text-yellow-600"><span className="w-2 h-2 rounded-full bg-yellow-500" />{maintCount} Maintenance</span>}
+            {dirtyCount > 0 && <span className="flex items-center gap-1.5 text-sm font-bold text-orange-600"><span className="w-2 h-2 rounded-full bg-orange-400" />{dirtyCount} Needs Cleaning</span>}
           </div>
         </div>
         <button onClick={fetchData} className="p-2.5 text-gray-500 hover:text-black bg-white border border-gray-200 rounded-xl hover:border-gray-400 transition-all self-start sm:self-auto">
@@ -154,10 +191,10 @@ const RoomsView = () => {
           />
         </div>
         <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 sm:pb-0 no-scrollbar">
-          {['all', 'available', 'occupied', 'maintenance'].map(f => (
+          {['all', 'available', 'dirty', 'occupied', 'maintenance'].map(f => (
             <button key={f} onClick={() => setFilter(f)}
               className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all shrink-0 ${filter === f ? 'bg-black text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:border-gray-400'}`}>
-              {f}
+              {f === 'dirty' ? '🧹 Dirty' : f}
             </button>
           ))}
         </div>
@@ -176,7 +213,11 @@ const RoomsView = () => {
             return (
               <div key={room._id} className={`bg-white rounded-2xl border-2 shadow-sm overflow-hidden transition-all hover:shadow-md ${cfg.card}`}>
                 {/* Top Color Bar */}
-                <div className={`h-1.5 w-full ${label === 'Available' ? 'bg-green-400' : label === 'Occupied' ? 'bg-red-500' : 'bg-yellow-400'}`} />
+                <div className={`h-1.5 w-full ${
+                  label === 'Available'
+                    ? (getHKStatus(room._id) === 'clean' ? 'bg-green-400' : 'bg-orange-400')
+                    : label === 'Occupied' ? 'bg-red-500' : 'bg-yellow-400'
+                }`} />
                 
                 <div className={`px-4 py-3 ${cfg.header} border-b border-gray-100`}>
                   <div className="flex justify-between items-start">
@@ -212,8 +253,25 @@ const RoomsView = () => {
                     </>
                   ) : label === 'Available' ? (
                     <>
-                      <p className="text-xs font-bold text-gray-400 text-center mt-1">Ready for guest</p>
-                      <div className="space-y-1.5 text-[10px] text-gray-500">
+                      {/* Housekeeping Status Toggle */}
+                      {(() => {
+                        const hk = getHKStatus(room._id);
+                        return (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setRoomHKStatus(room._id, hk === 'clean' ? 'dirty' : 'clean'); }}
+                            className={`w-full flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border cursor-pointer ${
+                              hk === 'clean'
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                                : 'bg-orange-50 text-orange-800 border-orange-200 hover:bg-orange-100'
+                            }`}
+                            title={hk === 'clean' ? 'Room is cleaned & inspected. Click to mark dirty.' : 'Needs cleaning. Click to mark clean.'}
+                          >
+                            <span>{hk === 'clean' ? '✓ Clean & Ready' : '🧹 Needs Cleaning'}</span>
+                          </button>
+                        );
+                      })()}
+                      <div className="space-y-1.5 text-[10px] text-gray-500 pt-1">
                         <div className="flex justify-between"><span>12h Rate</span><span className="font-black text-gray-800">₹{room.price12h || '—'}</span></div>
                         <div className="flex justify-between"><span>24h Rate</span><span className="font-black text-gray-800">₹{room.price24h || '—'}</span></div>
                       </div>
