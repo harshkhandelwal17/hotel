@@ -3,7 +3,6 @@ import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { Search, Users, ChevronRight, Phone, ShieldCheck, ChevronLeft } from 'lucide-react';
 import { format } from 'date-fns';
-import PoliceReportModal from '../admin/PoliceReportModal';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
 
@@ -14,7 +13,6 @@ const GuestDirectory = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ pages: 1, total: 0 });
-  const [showPoliceModal, setShowPoliceModal] = useState(false);
 
   // Debounce search
   useEffect(() => {
@@ -44,33 +42,25 @@ const GuestDirectory = () => {
 
   return (
     <div className="w-full mx-auto animate-in fade-in duration-500">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
         <div>
-          <h1 className="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
-            <Users size={28} className="text-indigo-600" />
+          <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight flex items-center gap-2.5">
+            <Users size={24} className="text-black" />
             Guest History
           </h1>
-          <p className="text-sm font-bold text-gray-500 mt-1">Directory of all past and present guests</p>
+          <p className="text-xs font-semibold text-gray-400 mt-0.5">Directory and complete profile logs of all registered guests</p>
         </div>
         
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
-          <button 
-            type="button"
-            onClick={() => setShowPoliceModal(true)} 
-            className="px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold text-sm transition-colors shadow-sm flex items-center justify-center gap-2 active:scale-95 cursor-pointer shrink-0"
-            title="Generate Official Police Verification Report"
-          >
-            <ShieldCheck size={16} /> Police Report
-          </button>
-          <div className="relative w-full sm:w-80">
+        <div className="w-full sm:w-72">
+          <div className="relative">
             <input
               type="text"
               placeholder="Search by name, mobile, or ID..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 bg-white border-2 border-gray-100 rounded-2xl focus:border-indigo-500 focus:ring-0 outline-none font-bold text-sm text-gray-900 transition-colors shadow-sm"
+              className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:border-black focus:ring-0 outline-none font-bold text-xs text-gray-900 shadow-2xs transition-colors"
             />
-            <Search size={18} className="absolute left-4 top-3.5 text-gray-400" />
+            <Search size={15} className="absolute left-3 top-3 text-gray-400" />
           </div>
         </div>
       </div>
@@ -171,11 +161,6 @@ const GuestDirectory = () => {
           </div>
         )}
       </div>
-      {/* Official Police Verification Report Modal */}
-      <PoliceReportModal
-        isOpen={showPoliceModal}
-        onClose={() => setShowPoliceModal(false)}
-      />
     </div>
   );
 };

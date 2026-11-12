@@ -699,7 +699,7 @@ const AppLayout = ({ children }) => {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-[1720px] w-full mx-auto px-3 sm:px-6 lg:px-8 pt-6 pb-24 md:pb-8">
+      <main className="flex-1 max-w-[1720px] w-full mx-auto px-3 sm:px-6 lg:px-8 pt-5 sm:pt-6 pb-24 lg:pb-8">
         {isCurrentPropertyExpired && (
           <div className="bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white rounded-2xl p-4 sm:p-5 shadow-lg mb-6 border-2 border-red-300 animate-in fade-in">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -741,7 +741,7 @@ const AppLayout = ({ children }) => {
 
       {/* Mobile Navigation Overlay */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-50 flex md:hidden animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex lg:hidden animate-in fade-in duration-200">
           <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)}></div>
           
           <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white shadow-2xl animate-in slide-in-from-left duration-300">
@@ -853,7 +853,7 @@ const AppLayout = ({ children }) => {
 
       {/* ─── Mobile Bottom App Bar (Staff & Admin only) ─── */}
       {user?.role !== 'superadmin' && (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-200 pb-[env(safe-area-inset-bottom)] z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-gray-200/90 pb-[env(safe-area-inset-bottom)] z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
           <div className="flex justify-around items-center h-16 px-2">
             <Link to="/dashboard" onMouseEnter={() => prefetchRoute('/dashboard', globalProperty)} onTouchStart={() => prefetchRoute('/dashboard', globalProperty)} className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${location.pathname === '/dashboard' ? 'text-black' : 'text-gray-400'}`}>
               <Home size={22} className={location.pathname === '/dashboard' ? 'fill-black' : ''} />

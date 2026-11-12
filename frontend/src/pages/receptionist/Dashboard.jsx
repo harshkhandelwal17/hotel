@@ -355,50 +355,8 @@ const ReceptionistDashboard = () => {
         </Link>
       </div>
 
-      {/* ─── Admin Revenue Overview (Admin Only) ─── */}
-      {user?.role === 'admin' && stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-          <div className="col-span-2 md:col-span-1 bg-black p-4 sm:p-5 rounded-2xl text-white flex flex-col justify-between shadow-md">
-            <div>
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">{isHindi ? 'आज की आय' : "Today's Revenue"}</span>
-              <div className="text-2xl sm:text-3xl font-black mt-1.5">
-                ₹{(stats.todayRevenue || stats.todayCashCollected || 0).toLocaleString('en-IN')}
-              </div>
-            </div>
-            <p className="text-[10px] font-bold text-gray-500 mt-3">{isHindi ? 'आज कुल भुगतान' : 'Total collected today'}</p>
-          </div>
-          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-200/80 shadow-2xs flex flex-col justify-between">
-            <div>
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">{isHindi ? 'इस सप्ताह' : 'This Week'}</span>
-              <div className="text-2xl sm:text-3xl font-black text-gray-950 mt-1.5">
-                ₹{(stats.weekRevenue || 0).toLocaleString('en-IN')}
-              </div>
-            </div>
-            <p className="text-[10px] font-bold text-gray-500 mt-3">{isHindi ? 'पिछले 7 दिन' : 'Last 7 days'}</p>
-          </div>
-          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-200/80 shadow-2xs flex flex-col justify-between">
-            <div>
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">{isHindi ? 'इस महीने' : 'This Month'}</span>
-              <div className="text-2xl sm:text-3xl font-black text-gray-950 mt-1.5">
-                ₹{(stats.monthRevenue || 0).toLocaleString('en-IN')}
-              </div>
-            </div>
-            <p className="text-[10px] font-bold text-gray-500 mt-3">{isHindi ? 'माह की कुल आय' : 'Monthly revenue'}</p>
-          </div>
-          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-200/80 shadow-2xs flex flex-col justify-between hover:border-emerald-300 transition-colors">
-            <div>
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">{isHindi ? 'खर्च (आज)' : 'Expenses Today'}</span>
-              <div className="text-2xl sm:text-3xl font-black text-rose-600 mt-1.5">
-                ₹{(stats.todayCashExpense || 0).toLocaleString('en-IN')}
-              </div>
-            </div>
-            <p className="text-[10px] font-bold text-gray-500 mt-3">{isHindi ? 'आज का व्यय' : 'Operational expenses'}</p>
-          </div>
-        </div>
-      )}
-
       {/* ─── Active Operations: In-House Guests Section ─── */}
-      <div className="bg-white rounded-3xl border border-gray-200/80 shadow-2xs overflow-hidden">
+      <div className="bg-white rounded-2xl sm:rounded-3xl border border-gray-200/70 shadow-xs overflow-hidden">
         
         {/* Section Header with Tabs & Search */}
         <div className="p-5 sm:p-6 border-b border-gray-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4">

@@ -156,8 +156,8 @@ const RoomsView = () => {
   };
 
   if (loading) return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 animate-pulse">
-      {[...Array(12)].map((_, i) => <div key={i} className="h-44 bg-gray-200 rounded-2xl" />)}
+    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-4 animate-pulse">
+      {[...Array(10)].map((_, i) => <div key={i} className="h-44 bg-gray-200 rounded-2xl" />)}
     </div>
   );
 
@@ -204,14 +204,14 @@ const RoomsView = () => {
       {filtered.length === 0 ? (
         <div className="text-center py-20 text-gray-400 font-bold">No rooms found.</div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-4">
           {filtered.map((room) => {
             const { label, stay } = getRoomStatus(room);
             const cfg = statusConfig[label];
             const balance = stay ? stay.totalAmount - stay.paidAmount : 0;
             const isOverdue = stay && isPast(new Date(stay.expectedCheckOutDate));
             return (
-              <div key={room._id} className={`bg-white rounded-2xl border-2 shadow-sm overflow-hidden transition-all hover:shadow-md ${cfg.card}`}>
+              <div key={room._id} className={`bg-white rounded-2xl border-2 shadow-2xs overflow-hidden transition-all hover:shadow-sm ${cfg.card}`}>
                 {/* Top Color Bar */}
                 <div className={`h-1.5 w-full ${
                   label === 'Available'
@@ -219,22 +219,22 @@ const RoomsView = () => {
                     : label === 'Occupied' ? 'bg-red-500' : 'bg-yellow-400'
                 }`} />
                 
-                <div className={`px-4 py-3 ${cfg.header} border-b border-gray-100`}>
+                <div className={`px-3 sm:px-4 py-2.5 sm:py-3 ${cfg.header} border-b border-gray-100`}>
                   <div className="flex justify-between items-start">
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 sm:gap-2">
                         <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot} flex-shrink-0`} />
-                        <h3 className="font-black text-gray-900 text-lg leading-none">Room {room.roomNumber}</h3>
+                        <h3 className="font-black text-gray-900 text-base sm:text-lg leading-none">Room {room.roomNumber}</h3>
                       </div>
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Floor {room.floor || '-'} • Cap {room.capacity}</p>
+                      <p className="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">F{room.floor || '1'} • {room.capacity}P</p>
                     </div>
-                    {label === 'Available' ? <CheckCircle2 size={18} className="text-green-500" /> :
-                     label === 'Occupied' ? <Users size={18} className="text-red-500" /> :
-                     <Wrench size={18} className="text-yellow-500" />}
+                    {label === 'Available' ? <CheckCircle2 size={16} className="text-green-500 shrink-0" /> :
+                     label === 'Occupied' ? <Users size={16} className="text-red-500 shrink-0" /> :
+                     <Wrench size={16} className="text-yellow-500 shrink-0" />}
                   </div>
                 </div>
 
-                <div className="p-3 space-y-2">
+                <div className="p-2.5 sm:p-3 space-y-1.5 sm:space-y-2">
                   {stay ? (
                     <>
                       <p className="font-black text-gray-900 text-sm truncate">{stay.guest?.fullName}</p>

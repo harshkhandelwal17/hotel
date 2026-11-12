@@ -149,15 +149,15 @@ const CheckoutList = () => {
           </div>
         </div>
 
-        {/* Massive Search Bar */}
+        {/* Compact Modern Search Bar */}
         <div className="relative w-full">
-          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <Search size={24} className="text-gray-400" />
+          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+            <Search size={18} className="text-gray-400" />
           </div>
           <input
             type="text"
             placeholder={isHindi ? "कमरा नंबर या अतिथि के नाम से खोजें..." : "Search by Room No. (e.g. 101) or Guest Name..."}
-            className="w-full pl-12 pr-4 py-4 bg-white border-2 border-gray-200 rounded-2xl text-lg font-bold text-gray-900 placeholder-gray-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black shadow-sm transition-all"
+            className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-900 placeholder-gray-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black shadow-2xs transition-all"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -165,7 +165,7 @@ const CheckoutList = () => {
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5 sm:gap-2">
         {[
           { key: 'all', label: `${t('common.all', 'All')} (${stays.length})` },
           { key: 'overdue', label: `${t('common.overdue', 'Overdue')} (${overdueCt})`, warn: overdueCt > 0 },
@@ -174,9 +174,9 @@ const CheckoutList = () => {
           <button
             key={tab.key}
             onClick={() => setFilter(tab.key)}
-            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+            className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
               filter === tab.key
-                ? 'bg-black text-white shadow-md'
+                ? 'bg-black text-white shadow-xs'
                 : tab.warn
                 ? 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'
                 : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
