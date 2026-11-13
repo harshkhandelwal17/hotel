@@ -37,6 +37,10 @@ import {
 } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import SuperAdminHero from '../../components/superadmin/SuperAdminHero';
+import SuperAdminStats from '../../components/superadmin/SuperAdminStats';
+import EcosystemView from '../../components/superadmin/EcosystemView';
+import SubscriptionsView from '../../components/superadmin/SubscriptionsView';
 
 const SuperAdminDashboard = () => {
   // --- 1. ALL HOOKS STRICTLY AT THE TOP ---
@@ -53,6 +57,7 @@ const SuperAdminDashboard = () => {
   // Tabs: 'ecosystem' (default) | 'subscriptions' | 'owners' | 'hostels' | 'all-users'
   const [activeTab, setActiveTab] = useState('ecosystem');
   const [searchQuery, setSearchQuery] = useState('');
+  const [quickFilter, setQuickFilter] = useState('all');
 
   // 👤 Create New Hotel Owner (Admin) Modal State
   const [isCreateOwnerOpen, setIsCreateOwnerOpen] = useState(false);
@@ -61,7 +66,8 @@ const SuperAdminDashboard = () => {
     email: '',
     phone: '',
     password: 'password123',
-    role: 'admin'
+    role: 'admin',
+    assignedHostel: null
   });
   const [creatingOwner, setCreatingOwner] = useState(false);
 
@@ -161,24 +167,26 @@ const SuperAdminDashboard = () => {
       const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
       const res = await axios.post(`${API}/api/superadmin/users`, newOwnerForm);
       const createdUser = res.data.data;
-      
-      alert(`✅ Hotel Owner "${createdUser.name}" created successfully!\nEmail: ${createdUser.email}`);
+      const roleLabel = createdUser.role === 'receptionist' ? 'Front Desk Staff' : 'Hotel Owner';
+      alert(`✅ ${roleLabel} "${createdUser.name}" created successfully!\nEmail: ${createdUser.email}`);
       setIsCreateOwnerOpen(false);
       
       const prevEmail = newOwnerForm.email;
+      const wasAdmin = newOwnerForm.role === 'admin';
       setNewOwnerForm({
         name: '',
         email: '',
         phone: '',
         password: 'password123',
-        role: 'admin'
+        role: 'admin',
+        assignedHostel: null
       });
 
       // Refresh data
       await fetchData();
 
       // Offer to immediately assign a property to this new owner
-      if (window.confirm(`Would you like to register their first property now for ${createdUser.name}?`)) {
+      if (wasAdmin && window.confirm(`Would you like to register their first property now for ${createdUser.name}?`)) {
         setNewPropertyForm(prev => ({
           ...prev,
           owner: createdUser._id,
@@ -459,6 +467,19 @@ const SuperAdminDashboard = () => {
     setIsAddPropertyOpen(true);
   };
 
+  // Helper to open Create Staff modal pre-assigned to a specific hotel
+  const openCreateStaffForHotel = (hostelId) => {
+    setNewOwnerForm({
+      name: '',
+      email: '',
+      phone: '',
+      password: 'password123',
+      role: 'receptionist',
+      assignedHostel: hostelId
+    });
+    setIsCreateOwnerOpen(true);
+  };
+
   // --- 4. FILTERED DATA CALCULATIONS ---
   const hotelOwners = users.filter(u => u.role === 'admin');
   const staffUsers = users.filter(u => u.role === 'receptionist');
@@ -512,68 +533,38 @@ const SuperAdminDashboard = () => {
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-12">
       {/* 🚀 TOP HERO BANNER WITH FAST ACTIONS */}
-      <div className="bg-gradient-to-r from-gray-950 via-gray-900 to-black rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden border border-gray-800">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="flex items-center gap-4">
-            <div className="p-3.5 bg-red-600/20 border border-red-500/30 rounded-2xl backdrop-blur-sm text-red-400">
-              <ShieldAlert size={36} />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black uppercase tracking-widest text-red-400 bg-red-500/10 border border-red-500/20 px-2.5 py-0.5 rounded-full">
-                  Master Control Portal
-                </span>
-                <span className="text-[10px] font-bold text-gray-400">SaaS Multi-Tenant</span>
-              </div>
-              <h1 className="text-3xl font-black tracking-tight mt-1">Super Admin Headquarters</h1>
-              <p className="text-gray-400 text-sm mt-1">Manage Hotel Owners, attach multiple properties, and configure subscriptions.</p>
-            </div>
-          </div>
+      <SuperAdminHero
+        onOpenCreateOwner={() => {
+          setNewOwnerForm({
+            name: '',
+            email: '',
+            phone: '',
+            password: 'password123',
+            role: 'admin',
+            assignedHostel: null
+          });
+          setIsCreateOwnerOpen(true);
+        }}
+        onOpenRegisterProperty={() => {
+          setNewPropertyForm(prev => ({ ...prev, owner: '' }));
+          setIsAddPropertyOpen(true);
+        }}
+        onRefresh={fetchData}
+        loading={loading}
+        stats={stats}
+      />
 
-          {/* Quick Action CTA Buttons */}
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={() => setIsCreateOwnerOpen(true)}
-              className="px-5 py-3 bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg shadow-red-600/30 active:scale-95 transition-all flex items-center gap-2"
-            >
-              <Plus size={16} className="stroke-[3]" />
-              <span>+ Create Hotel Owner</span>
-            </button>
-            <button
-              onClick={() => {
-                setNewPropertyForm(prev => ({ ...prev, owner: '' }));
-                setIsAddPropertyOpen(true);
-              }}
-              className="px-5 py-3 bg-white/10 hover:bg-white/20 text-white font-black text-xs uppercase tracking-wider rounded-2xl border border-white/20 active:scale-95 transition-all flex items-center gap-2"
-            >
-              <Building size={16} />
-              <span>+ Register Property</span>
-            </button>
-          </div>
-        </div>
-
-        {/* 3-Step Logical Workflow Hint Card */}
-        
-      </div>
-
-      {/* 📊 SYSTEM METRICS */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
-        {[
-          { label: 'Hotel Owners', value: hotelOwners.length, icon: Crown, color: 'text-purple-600', bg: 'bg-purple-50', sub: 'Admins' },
-          { label: 'Properties', value: stats?.totalHostels || hostels.length, icon: Building, color: 'text-blue-600', bg: 'bg-blue-50', sub: `${activeHostelsCount} Active` },
-          { label: 'SaaS Plan Revenue', value: `₹${(stats?.totalSaasRevenue || 0).toLocaleString()}`, icon: IndianRupee, color: 'text-emerald-600', bg: 'bg-emerald-50', sub: 'Platform Earnings' },
-          { label: 'Active Subscriptions', value: stats?.activeSubscriptions || 0, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50', sub: `${stats?.expiringSoonSubscriptions || 0} Expiring Soon` },
-          { label: 'Reception Staff', value: staffUsers.length, icon: Users, color: 'text-indigo-600', bg: 'bg-indigo-50', sub: 'Assigned' },
-          { label: 'Total Rooms', value: stats?.totalRooms || 0, icon: BedDouble, color: 'text-cyan-600', bg: 'bg-cyan-50', sub: `${stats?.activeStays || 0} Occupied` }
-        ].map((s, i) => (
-          <div key={i} className="bg-white p-4 sm:p-5 rounded-3xl border border-gray-100 shadow-sm flex flex-col items-center text-center hover:-translate-y-1 transition-transform">
-            <div className={`p-3 rounded-2xl ${s.bg} ${s.color} mb-2`}><s.icon size={22} /></div>
-            <h3 className="text-xl sm:text-2xl font-black text-gray-900">{s.value}</h3>
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">{s.label}</p>
-            {s.sub && <p className="text-[9px] font-bold text-gray-500 mt-0.5">{s.sub}</p>}
-          </div>
-        ))}
-      </div>
+      {/* 📊 SYSTEM METRICS & FAST QUICK FILTERS */}
+      <SuperAdminStats
+        stats={stats}
+        hotelOwnersCount={hotelOwners.length}
+        hostelsCount={stats?.totalHostels || hostels.length}
+        activeHostelsCount={activeHostelsCount}
+        lockedHostelsCount={lockedHostelsCount}
+        staffCount={staffUsers.length}
+        quickFilter={quickFilter}
+        onQuickFilterChange={setQuickFilter}
+      />
 
       {/* 🗂️ MAIN TABS & SEARCH BAR */}
       <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 bg-gray-100/70 p-2 rounded-2xl border border-gray-200">
@@ -656,501 +647,50 @@ const SuperAdminDashboard = () => {
       {/* TAB 0: 🌐 HOTEL ECOSYSTEM - COMPLETE HIERARCHY TREE */}
       {/* ============================================================== */}
       {activeTab === 'ecosystem' && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-3xl border border-gray-200 p-6 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="p-2 rounded-xl bg-purple-100 text-purple-700">
-                  <Network size={20} />
-                </span>
-                <div>
-                  <h2 className="text-lg font-black text-gray-900">Hotel Business Ecosystem</h2>
-                  <p className="text-xs text-gray-500 font-medium mt-0.5">
-                    Hierarchical structure: Owner (Admin) ➔ Properties Managed ➔ Assigned Front Desk Staff (Receptionists)
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setIsCreateOwnerOpen(true)}
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-1.5 cursor-pointer"
-              >
-                <Plus size={14} className="stroke-[3]" />
-                <span>+ New Owner</span>
-              </button>
-              <button
-                onClick={() => {
-                  setNewPropertyForm(prev => ({ ...prev, owner: '' }));
-                  setIsAddPropertyOpen(true);
-                }}
-                className="px-4 py-2 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-1.5 cursor-pointer"
-              >
-                <Building size={14} />
-                <span>+ Register Hotel</span>
-              </button>
-            </div>
-          </div>
-
-          {filteredOwners.length === 0 ? (
-            <div className="p-12 text-center bg-white rounded-3xl border border-gray-200 text-gray-400">
-              <Users size={36} className="mx-auto mb-2 opacity-30" />
-              <p className="font-bold text-gray-600">No hotel owners found matching search</p>
-            </div>
-          ) : (
-            filteredOwners.map((owner) => {
-              const ownerProps = hostels.filter(h => (h.owner?._id || h.owner) === owner._id);
-              const totalRevenueForOwner = ownerProps.reduce((sum, h) => sum + (Number(h.planPrice) || 0), 0);
-              const propContact = ownerProps.find(p => p.contactNumber && p.contactNumber !== 'N/A' && p.contactNumber.trim() !== '')?.contactNumber;
-              const displayPhone = owner.phone || propContact || '';
-
-              return (
-                <div key={owner._id} className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden transition-all hover:shadow-md">
-                  {/* OWNER HEADER BAR */}
-                  <div className="p-5 sm:p-6 bg-gradient-to-r from-gray-900 via-gray-950 to-black text-white flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3.5 min-w-0">
-                      <div className="w-12 h-12 rounded-2xl bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center justify-center font-black text-lg shrink-0">
-                        {owner.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-base sm:text-lg font-black tracking-tight truncate">{owner.name}</h3>
-                          <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-400/30 flex items-center gap-1">
-                            <Crown size={10} />
-                            <span>Hotel Owner</span>
-                          </span>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-gray-300">
-                            {ownerProps.length} {ownerProps.length === 1 ? 'Property' : 'Properties'}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-3 text-xs text-gray-400 font-medium mt-1 flex-wrap">
-                          <span className="flex items-center gap-1 text-gray-300 font-bold">
-                            <Mail size={12} className="text-gray-400" />
-                            {owner.email}
-                          </span>
-                          {displayPhone && (
-                            <a href={`tel:${displayPhone}`} className="flex items-center gap-1 text-emerald-400 hover:underline font-mono font-bold">
-                              <Phone size={12} />
-                              {displayPhone}
-                            </a>
-                          )}
-                          <span className="text-gray-500">
-                            • Total SaaS: <strong className="text-amber-400">₹{totalRevenueForOwner.toLocaleString()}</strong>
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Owner Action Buttons */}
-                    <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                      <button
-                        onClick={() => handleImpersonate(owner._id)}
-                        disabled={impersonating}
-                        className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer disabled:opacity-50"
-                        title="Login directly into this Hotel Owner account"
-                      >
-                        <LogIn size={13} />
-                        <span>Login As Owner</span>
-                      </button>
-
-                      <button
-                        onClick={() => handleResetPassword(owner._id)}
-                        className="p-2 bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white rounded-xl transition-all cursor-pointer"
-                        title="Reset Password to default (123456)"
-                      >
-                        <KeyRound size={15} />
-                      </button>
-
-                      <button
-                        onClick={() => openEditUserModal(owner, displayPhone)}
-                        className="p-2 bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white rounded-xl transition-all cursor-pointer"
-                        title="Edit Owner Phone / Name"
-                      >
-                        <Pencil size={15} />
-                      </button>
-
-                      <button
-                        onClick={() => openAddPropertyForOwner(owner._id)}
-                        className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
-                      >
-                        <Plus size={13} />
-                        <span>Add Hotel</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* PROPERTIES UNDER THIS OWNER */}
-                  <div className="p-5 sm:p-6 bg-gray-50/50">
-                    {ownerProps.length === 0 ? (
-                      <div className="p-8 text-center border-2 border-dashed border-gray-200 rounded-2xl bg-white text-gray-400">
-                        <Building size={32} className="mx-auto mb-2 opacity-40 text-gray-400" />
-                        <p className="font-bold text-gray-700 text-sm">No hotels registered under this owner yet</p>
-                        <button
-                          onClick={() => openAddPropertyForOwner(owner._id)}
-                          className="mt-3 px-4 py-2 bg-black text-white text-xs font-bold rounded-xl hover:bg-gray-800 transition-all inline-flex items-center gap-1.5 cursor-pointer"
-                        >
-                          <Plus size={13} />
-                          <span>Attach First Property</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                        {ownerProps.map((h) => {
-                          const now = new Date();
-                          const endDate = h.planEndDate ? new Date(h.planEndDate) : null;
-                          const isExpired = h.planStatus === 'expired' || (endDate && endDate < now);
-                          const daysRemaining = h.daysRemaining !== undefined ? h.daysRemaining : (endDate ? Math.ceil((endDate - now) / (1000 * 60 * 60 * 24)) : 0);
-                          const staffList = h.staffMembers || users.filter(u => u.role === 'receptionist' && (u.assignedHostel?._id || u.assignedHostel) === h._id);
-
-                          return (
-                            <div key={h._id} className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-5 shadow-2xs hover:border-gray-300 transition-all flex flex-col justify-between space-y-4">
-                              {/* Property Title & Status */}
-                              <div>
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-base sm:text-lg">🏨</span>
-                                      <h4 className="font-black text-base text-gray-900 truncate">{h.name}</h4>
-                                      <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
-                                        h.isActive !== false ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
-                                      }`}>
-                                        {h.isActive !== false ? 'Active' : 'Locked'}
-                                      </span>
-                                    </div>
-                                    <p className="text-xs text-gray-500 font-medium mt-0.5 truncate">
-                                      📍 {h.address || 'Address not added'} {h.contactNumber ? `• 📞 ${h.contactNumber}` : ''}
-                                    </p>
-                                  </div>
-
-                                  <div className="flex items-center gap-1 shrink-0">
-                                    <button
-                                      onClick={() => openEditPropertyModal(h)}
-                                      className="p-1.5 text-gray-400 hover:text-black hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
-                                      title="Edit Property Info"
-                                    >
-                                      <Pencil size={13} />
-                                    </button>
-                                    <button
-                                      onClick={() => handleToggleHostelStatus(h._id, h.isActive)}
-                                      className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                                        h.isActive !== false ? 'text-amber-600 hover:bg-amber-50' : 'text-emerald-600 hover:bg-emerald-50'
-                                      }`}
-                                      title={h.isActive !== false ? 'Lock / Deactivate Hotel' : 'Activate Hotel'}
-                                    >
-                                      {h.isActive !== false ? <Lock size={13} /> : <Unlock size={13} />}
-                                    </button>
-                                  </div>
-                                </div>
-
-                                {/* SaaS Plan & Billing Status Card */}
-                                <div className="mt-3 p-3 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-between gap-2 flex-wrap">
-                                  <div>
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800">
-                                        {h.plan || 'Starter'} Plan
-                                      </span>
-                                      <span className="text-xs font-black text-gray-900">
-                                        ₹{(h.planPrice || 0).toLocaleString()} <span className="text-[10px] text-gray-500 font-normal">/{h.billingCycle || 'mo'}</span>
-                                      </span>
-                                    </div>
-                                    <p className="text-[10px] text-gray-500 font-medium mt-1">
-                                      {endDate ? `Expires: ${new Date(endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}` : 'No expiry set'}
-                                    </p>
-                                  </div>
-
-                                  <div className="flex items-center gap-2">
-                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
-                                      isExpired 
-                                        ? 'bg-red-100 text-red-800 border border-red-200' 
-                                        : daysRemaining <= 7 
-                                        ? 'bg-amber-100 text-amber-800 border border-amber-200' 
-                                        : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                                    }`}>
-                                      {isExpired ? '⚠️ Expired' : `${daysRemaining}d left`}
-                                    </span>
-                                    <button
-                                      onClick={() => openPlanModal(h)}
-                                      className="px-2.5 py-1 text-[11px] font-black text-indigo-600 hover:text-indigo-800 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors cursor-pointer"
-                                    >
-                                      Edit Plan
-                                    </button>
-                                  </div>
-                                </div>
-
-                                {/* Live Stats: Rooms & Checked in guests */}
-                                <div className="mt-3 grid grid-cols-2 gap-2 text-center text-xs">
-                                  <div className="p-2 rounded-xl bg-gray-50 border border-gray-100">
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Total Rooms</span>
-                                    <span className="font-black text-gray-900 text-sm">{h.roomCount || 0} Rooms</span>
-                                  </div>
-                                  <div className="p-2 rounded-xl bg-gray-50 border border-gray-100">
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Active Stays</span>
-                                    <span className="font-black text-emerald-600 text-sm">{h.activeStaysCount || 0} Checked In</span>
-                                  </div>
-                                </div>
-
-                                {/* Feature Toggles: OCR, WhatsApp, Laundry */}
-                                <div className="mt-3 flex items-center justify-between gap-1 pt-2 border-t border-gray-100 text-[10px]">
-                                  <button
-                                    onClick={() => handleToggleAiOcr(h._id)}
-                                    className={`px-2 py-1 rounded-lg font-bold flex items-center gap-1 transition-all cursor-pointer ${
-                                      h.aiOcrEnabled ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-gray-100 text-gray-400'
-                                    }`}
-                                  >
-                                    <Sparkles size={11} />
-                                    <span>AI OCR: {h.aiOcrEnabled ? 'ON' : 'OFF'}</span>
-                                  </button>
-
-                                  <button
-                                    onClick={() => handleToggleWhatsAppSync(h._id)}
-                                    className={`px-2 py-1 rounded-lg font-bold flex items-center gap-1 transition-all cursor-pointer ${
-                                      h.whatsappSyncEnabled ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-gray-100 text-gray-400'
-                                    }`}
-                                  >
-                                    <MessageSquare size={11} />
-                                    <span>WhatsApp: {h.whatsappSyncEnabled ? 'ON' : 'OFF'}</span>
-                                  </button>
-
-                                  <button
-                                    onClick={() => handleToggleLaundry(h._id)}
-                                    className={`px-2 py-1 rounded-lg font-bold flex items-center gap-1 transition-all cursor-pointer ${
-                                      h.laundryEnabled ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-gray-100 text-gray-400'
-                                    }`}
-                                  >
-                                    <Shirt size={11} />
-                                    <span>Laundry: {h.laundryEnabled ? 'ON' : 'OFF'}</span>
-                                  </button>
-                                </div>
-                              </div>
-
-                              {/* ASSIGNED FRONT DESK RECEPTIONISTS SECTION */}
-                              <div className="pt-3 border-t border-gray-100">
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1">
-                                    <Users size={12} className="text-indigo-600" />
-                                    <span>Front Desk Staff ({staffList.length})</span>
-                                  </span>
-                                  <button
-                                    onClick={() => {
-                                      setNewOwnerForm({
-                                        name: '',
-                                        email: '',
-                                        phone: '',
-                                        password: 'password123',
-                                        role: 'receptionist',
-                                        assignedHostel: h._id
-                                      });
-                                      setIsCreateOwnerOpen(true);
-                                    }}
-                                    className="text-[10px] font-black text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer"
-                                  >
-                                    + Add Receptionist
-                                  </button>
-                                </div>
-
-                                {staffList.length === 0 ? (
-                                  <p className="text-[11px] text-gray-400 italic">No receptionists created for this hotel yet.</p>
-                                ) : (
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {staffList.map((sm) => (
-                                      <div key={sm._id} className="flex items-center gap-1.5 px-2.5 py-1 bg-gray-50 border border-gray-200 rounded-lg text-xs font-bold text-gray-800">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                        <span className="truncate max-w-[110px]">{sm.name}</span>
-                                        {sm.phone && (
-                                          <a href={`tel:${sm.phone}`} className="text-[10px] text-gray-400 hover:text-black font-mono">
-                                            📞 {sm.phone}
-                                          </a>
-                                        )}
-                                        <button
-                                          onClick={() => handleImpersonate(sm._id)}
-                                          disabled={impersonating}
-                                          className="text-[9px] font-black text-indigo-600 hover:underline ml-1 cursor-pointer"
-                                          title={`Login as ${sm.name}`}
-                                        >
-                                          Login
-                                        </button>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
+        <EcosystemView
+          owners={filteredOwners}
+          hostels={hostels}
+          users={users}
+          onImpersonate={handleImpersonate}
+          onResetPassword={handleResetPassword}
+          onEditUser={openEditUserModal}
+          onOpenAddProperty={openAddPropertyForOwner}
+          onOpenPlanModal={openPlanModal}
+          onEditProperty={openEditPropertyModal}
+          onToggleHostelStatus={handleToggleHostelStatus}
+          onToggleAiOcr={handleToggleAiOcr}
+          onToggleWhatsAppSync={handleToggleWhatsAppSync}
+          onToggleLaundry={handleToggleLaundry}
+          onOpenCreateStaffForHotel={openCreateStaffForHotel}
+          onOpenCreateOwner={() => {
+            setNewOwnerForm({
+              name: '',
+              email: '',
+              phone: '',
+              password: 'password123',
+              role: 'admin',
+              assignedHostel: null
+            });
+            setIsCreateOwnerOpen(true);
+          }}
+          onOpenRegisterProperty={() => {
+            setNewPropertyForm(prev => ({ ...prev, owner: '' }));
+            setIsAddPropertyOpen(true);
+          }}
+          impersonating={impersonating}
+          quickFilter={quickFilter}
+        />
       )}
 
       {/* ============================================================== */}
       {/* TAB 0.5: 💰 SAAS PLANS & REVENUE HEADQUARTERS */}
       {/* ============================================================== */}
       {activeTab === 'subscriptions' && (
-        <div className="space-y-6">
-          {/* Top Revenue Summary Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-sm">
-              <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1">
-                <IndianRupee size={12} className="text-emerald-600" />
-                <span>Total SaaS Revenue</span>
-              </span>
-              <p className="text-2xl font-black text-gray-900 mt-1">₹{(stats?.totalSaasRevenue || 0).toLocaleString()}</p>
-              <p className="text-[10px] text-gray-500 font-medium mt-0.5">Platform subscription collections</p>
-            </div>
-
-            <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-sm">
-              <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1">
-                <CheckCircle2 size={12} className="text-emerald-600" />
-                <span>Active Paid Plans</span>
-              </span>
-              <p className="text-2xl font-black text-emerald-600 mt-1">{stats?.activeSubscriptions || 0}</p>
-              <p className="text-[10px] text-gray-500 font-medium mt-0.5">Hotels on live paid billing</p>
-            </div>
-
-            <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-sm">
-              <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1">
-                <Clock size={12} className="text-amber-600" />
-                <span>Expiring in 7 Days</span>
-              </span>
-              <p className="text-2xl font-black text-amber-600 mt-1">{stats?.expiringSoonSubscriptions || 0}</p>
-              <p className="text-[10px] text-gray-500 font-medium mt-0.5">Immediate renewal needed</p>
-            </div>
-
-            <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-sm">
-              <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1">
-                <AlertTriangle size={12} className="text-red-600" />
-                <span>Expired Subscriptions</span>
-              </span>
-              <p className="text-2xl font-black text-red-600 mt-1">{stats?.expiredSubscriptions || 0}</p>
-              <p className="text-[10px] text-gray-500 font-medium mt-0.5">Blocked / Trial ended</p>
-            </div>
-          </div>
-
-          {/* Subscriptions Table */}
-          <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <h2 className="text-lg font-black text-gray-900">Hotel Subscription Ledger</h2>
-                <p className="text-xs text-gray-500 font-medium mt-0.5">
-                  Complete record of plan tiers, renewal dates, prices charged, and payment status.
-                </p>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm whitespace-nowrap">
-                <thead className="bg-white border-b border-gray-100">
-                  <tr>
-                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Hotel Property</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Client / Owner</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Plan Tier</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Amount Charged</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Validity Period</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 bg-white">
-                  {filteredHostels.map((h) => {
-                    const now = new Date();
-                    const endDate = h.planEndDate ? new Date(h.planEndDate) : null;
-                    const startDate = h.planStartDate ? new Date(h.planStartDate) : null;
-                    const isExpired = h.planStatus === 'expired' || (endDate && endDate < now);
-                    const daysRemaining = h.daysRemaining !== undefined ? h.daysRemaining : (endDate ? Math.ceil((endDate - now) / (1000 * 60 * 60 * 24)) : 0);
-
-                    return (
-                      <tr key={h._id} className="hover:bg-gray-50/80 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm">
-                              🏨
-                            </div>
-                            <div>
-                              <p className="font-bold text-gray-900 text-sm">{h.name}</p>
-                              <p className="text-xs text-gray-500 font-medium">📍 {h.address || 'Location N/A'}</p>
-                            </div>
-                          </div>
-                        </td>
-
-                        <td className="px-6 py-4">
-                          {h.owner ? (
-                            <div>
-                              <p className="font-bold text-gray-900 text-xs">{h.owner.name}</p>
-                              {h.owner.phone && (
-                                <a href={`tel:${h.owner.phone}`} className="text-[11px] text-emerald-600 hover:underline font-mono font-bold block">
-                                  📞 {h.owner.phone}
-                                </a>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-xs text-gray-400 italic">No Owner Attached</span>
-                          )}
-                        </td>
-
-                        <td className="px-6 py-4">
-                          <span className="px-2.5 py-1 text-xs font-black uppercase tracking-wider rounded-lg bg-indigo-50 text-indigo-800 border border-indigo-200">
-                            {h.plan || 'Starter'}
-                          </span>
-                        </td>
-
-                        <td className="px-6 py-4">
-                          <div>
-                            <span className="font-black text-gray-900 text-sm font-mono">
-                              ₹{(h.planPrice || 0).toLocaleString()}
-                            </span>
-                            <span className="text-[10px] text-gray-400 block uppercase font-bold">
-                              /{h.billingCycle || 'monthly'}
-                            </span>
-                          </div>
-                        </td>
-
-                        <td className="px-6 py-4 text-xs font-medium text-gray-600">
-                          {startDate && endDate ? (
-                            <div>
-                              <span>{startDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                              <span className="text-gray-400 mx-1">➔</span>
-                              <span className="font-bold text-gray-900">{endDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                            </div>
-                          ) : (
-                            <span className="text-gray-400 italic">Dates not set</span>
-                          )}
-                        </td>
-
-                        <td className="px-6 py-4">
-                          <span className={`px-2.5 py-1 text-xs font-black rounded-full inline-flex items-center gap-1 ${
-                            isExpired 
-                              ? 'bg-red-50 text-red-700 border border-red-200' 
-                              : daysRemaining <= 7 
-                              ? 'bg-amber-50 text-amber-700 border border-amber-200' 
-                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${isExpired ? 'bg-red-500' : daysRemaining <= 7 ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>
-                            <span>{isExpired ? 'Expired' : `${daysRemaining} days remaining`}</span>
-                          </span>
-                        </td>
-
-                        <td className="px-6 py-4 text-right">
-                          <button
-                            onClick={() => openPlanModal(h)}
-                            className="px-3.5 py-1.5 bg-black hover:bg-gray-800 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 cursor-pointer"
-                          >
-                            Renew / Edit Plan
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+        <SubscriptionsView
+          stats={stats}
+          hostels={filteredHostels}
+          onOpenPlanModal={openPlanModal}
+        />
       )}
 
       {/* ============================================================== */}
@@ -2237,6 +1777,68 @@ const SuperAdminDashboard = () => {
                     value={planForm.planEndDate}
                     onChange={e => setPlanForm({ ...planForm, planEndDate: e.target.value })}
                   />
+                </div>
+              </div>
+
+              {/* ⚡ Quick Renewal Presets */}
+              <div className="p-3 bg-emerald-50/60 border border-emerald-200/80 rounded-2xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-900">
+                    ⚡ Quick Renewal Presets
+                  </span>
+                  <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                    Auto-Calculates Expiry & Sets Active
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 30);
+                      setPlanForm(prev => ({
+                        ...prev,
+                        planEndDate: d.toISOString().split('T')[0],
+                        billingCycle: 'monthly',
+                        planStatus: 'active'
+                      }));
+                    }}
+                    className="px-3 py-1.5 bg-white hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl border border-emerald-300 transition-all shadow-2xs active:scale-95 cursor-pointer"
+                  >
+                    + 30 Days (Monthly)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 90);
+                      setPlanForm(prev => ({
+                        ...prev,
+                        planEndDate: d.toISOString().split('T')[0],
+                        billingCycle: 'quarterly',
+                        planStatus: 'active'
+                      }));
+                    }}
+                    className="px-3 py-1.5 bg-white hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl border border-emerald-300 transition-all shadow-2xs active:scale-95 cursor-pointer"
+                  >
+                    + 90 Days (Quarterly)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 365);
+                      setPlanForm(prev => ({
+                        ...prev,
+                        planEndDate: d.toISOString().split('T')[0],
+                        billingCycle: 'yearly',
+                        planStatus: 'active'
+                      }));
+                    }}
+                    className="px-3 py-1.5 bg-white hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl border border-emerald-300 transition-all shadow-2xs active:scale-95 cursor-pointer"
+                  >
+                    + 365 Days (1 Year)
+                  </button>
                 </div>
               </div>
 
