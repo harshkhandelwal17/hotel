@@ -2386,11 +2386,6 @@ const CheckIn = () => {
                           <h3 className={`font-black text-xl sm:text-2xl font-mono tracking-tight ${active ? 'text-white' : 'text-gray-900'}`}>
                             {room.roomNumber}
                           </h3>
-                          {room.housekeepingStatus === 'dirty' && (
-                            <span className="inline-block text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 bg-amber-500/20 text-amber-500 border border-amber-500/30 rounded-md">
-                              🧹 Dirty
-                            </span>
-                          )}
                           <div className={`text-[10px] sm:text-[11px] font-bold mt-1 px-1.5 py-0.5 rounded-md inline-block truncate max-w-full ${active ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'}`}>
                             {room.floor ? `Fl.${room.floor}` : ''} {room.roomType ? `• ${room.roomType.replace('Standard ', '')}` : ''}
                           </div>
@@ -2427,11 +2422,6 @@ const CheckIn = () => {
                         <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-1.5 py-0.5 rounded">
                           {selectedRoomDetails.roomType || 'Standard'}
                         </span>
-                        {selectedRoomDetails.housekeepingStatus === 'dirty' && (
-                          <span className="text-[9px] bg-amber-500/20 text-amber-300 font-black px-1.5 py-0.5 rounded border border-amber-400/30">
-                            🧹 Needs Cleaning
-                          </span>
-                        )}
                       </div>
                       <p className="text-[11px] font-bold text-gray-400 mt-0.5">
                         {stayInfo.occupants} Occupant{Number(stayInfo.occupants) > 1 ? 's' : ''} • Floor {selectedRoomDetails.floor || '1'}
