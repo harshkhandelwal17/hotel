@@ -224,3 +224,25 @@ exports.endMaintenance = async (req, res, next) => {
     sendError(res, next, error);
   }
 };
+
+// PATCH /api/rooms/:id/housekeeping  { status: 'clean' | 'dirty' | 'in_progress' }
+exports.updateHousekeepingStatus = async (req, res, next) => {
+  try {
+    const room = await loadAuthorizedRoom(req);
+    const { status } = req.body;
+    if (!['clean', 'dirty', 'in_progress'].includes(status)) {
+      throw new Error('Invalid housekeeping status');
+    }
+
+    room.housekeepingStatus = status;
+    if (status === 'clean') {
+      room.lastCleanedAt = new Date();
+      room.cleanedBy = req.user._id;
+    }
+    await room.save();
+
+    res.status(200).json({ success: true, data: room });
+  } catch (error) {
+    sendError(res, next, error);
+  }
+};

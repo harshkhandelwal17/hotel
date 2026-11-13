@@ -131,6 +131,9 @@ exports.createStay = async (req, res, next) => {
       throw new Error('The selected room is already booked for the requested dates.');
     }
 
+    // Mark room as clean & ready upon successful guest check-in
+    await Room.findByIdAndUpdate(room, { housekeepingStatus: 'clean', lastCleanedAt: new Date() }).catch(() => {});
+
     if (advance > 0) {
       if (Array.isArray(splitPayments) && splitPayments.length > 0) {
         for (const sp of splitPayments) {
@@ -477,6 +480,11 @@ exports.checkout = async (req, res, next) => {
 
     if (!flipped) {
       throw new Error('Stay is already checked out');
+    }
+
+    // Automatically mark the room as 'dirty' (Needs Cleaning) in database
+    if (stay.room) {
+      await Room.findByIdAndUpdate(stay.room, { housekeepingStatus: 'dirty' }).catch(() => {});
     }
 
     if (checkoutPayment > 0) {

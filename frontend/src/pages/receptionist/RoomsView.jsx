@@ -16,20 +16,32 @@ const RoomsView = () => {
   const [filter, setFilter] = useState('all');
   const { globalProperty } = useOutletContext() || { globalProperty: 'all' };
 
-  const [housekeepingStatus, setHousekeepingStatus] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('hk_status') || '{}'); } catch { return {}; }
-  });
+  const [housekeepingStatus, setHousekeepingStatus] = useState({});
 
   const activeStaysRef = useRef([]);
   useEffect(() => { activeStaysRef.current = activeStays; }, [activeStays]);
 
-  const setRoomHKStatus = (roomId, status) => {
-    const updated = { ...housekeepingStatus, [roomId]: status };
-    setHousekeepingStatus(updated);
-    localStorage.setItem('hk_status', JSON.stringify(updated));
+  const setRoomHKStatus = async (roomId, status) => {
+    // 1. Instant optimistic UI update
+    setHousekeepingStatus(prev => ({ ...prev, [roomId]: status }));
+    setRooms(prev => prev.map(r => r._id === roomId ? { ...r, housekeepingStatus: status } : r));
+
+    // 2. Persist to MongoDB server so all staff/devices see it in real-time
+    try {
+      await axios.patch(`${API}/api/rooms/${roomId}/housekeeping`, { status });
+      apiCache.clear(`rooms_${globalProperty}`);
+    } catch (err) {
+      console.error('Failed to update housekeeping on server', err);
+    }
   };
 
-  const getHKStatus = (roomId) => housekeepingStatus[roomId] || 'clean';
+  const getHKStatus = (roomOrId) => {
+    const roomId = typeof roomOrId === 'object' && roomOrId !== null ? roomOrId._id : roomOrId;
+    if (housekeepingStatus[roomId]) return housekeepingStatus[roomId];
+    if (typeof roomOrId === 'object' && roomOrId?.housekeepingStatus) return roomOrId.housekeepingStatus;
+    const found = rooms.find(r => r._id === roomId);
+    return found?.housekeepingStatus || 'clean';
+  };
 
   // Maintenance dialog: { room, mode: 'start' | 'end' }
   const [mDialog, setMDialog] = useState(null);

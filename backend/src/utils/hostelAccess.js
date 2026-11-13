@@ -16,7 +16,10 @@ const userCanAccessHostel = async (user, hostelId) => {
   }
 
   if (user.assignedHostel) {
-    return user.assignedHostel.toString() === id;
+    const assignedId = typeof user.assignedHostel === 'object' && user.assignedHostel !== null
+      ? (user.assignedHostel._id ? user.assignedHostel._id.toString() : user.assignedHostel.toString())
+      : user.assignedHostel.toString();
+    return assignedId === id;
   }
 
   return false;
@@ -77,7 +80,10 @@ const getHostelFilter = async (user, queryHostel) => {
     return { hostel: { $in: hostelIds } };
   }
 
-  return { hostel: user.assignedHostel };
+  const staffHostel = typeof user.assignedHostel === 'object' && user.assignedHostel !== null
+    ? (user.assignedHostel._id || user.assignedHostel)
+    : user.assignedHostel;
+  return { hostel: staffHostel };
 };
 
 module.exports = {

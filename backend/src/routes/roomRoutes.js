@@ -1,7 +1,7 @@
 const express = require('express');
 const {
   getRooms, getRoom, createRoom, updateRoom, deleteRoom,
-  startMaintenance, endMaintenance
+  startMaintenance, endMaintenance, updateHousekeepingStatus
 } = require('../controllers/roomController');
 const { protect, authorize } = require('../middlewares/auth');
 
@@ -12,6 +12,9 @@ router.use(protect);
 router.route('/')
   .get(getRooms)
   .post(authorize('admin'), createRoom);
+
+// Housekeeping status update (Staff & Admin)
+router.patch('/:id/housekeeping', updateHousekeepingStatus);
 
 // Staff and admin can both block a broken room / mark it repaired
 router.post('/:id/maintenance', startMaintenance);
