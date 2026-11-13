@@ -9,8 +9,13 @@ const env = require('../config/env');
 exports.getSystemStats = async (req, res, next) => {
   try {
     const totalUsers = await User.countDocuments();
+    const totalOwners = await User.countDocuments({ role: 'admin' });
+    const totalStaff = await User.countDocuments({ role: 'receptionist' });
     const totalHostels = await Hostel.countDocuments();
+    const activeHostels = await Hostel.countDocuments({ isActive: true });
+    const lockedHostels = await Hostel.countDocuments({ isActive: false });
     const totalStays = await Stay.countDocuments();
+    const activeStays = await Stay.countDocuments({ status: 'Active' });
     const totalRooms = await Room.countDocuments();
     
     const today = new Date();
@@ -19,20 +24,61 @@ exports.getSystemStats = async (req, res, next) => {
       createdAt: { $gte: today }
     });
 
+    // 🎟️ Calculate Real SaaS Platform Subscription Revenue & Plan Breakdown
+    const allHostelsForSaas = await Hostel.find().select('plan planStatus planPrice billingCycle planEndDate').lean();
+    let totalSaasRevenue = 0;
+    let activeSubscriptions = 0;
+    let trialSubscriptions = 0;
+    let expiredSubscriptions = 0;
+    let expiringSoonSubscriptions = 0;
+    const now = new Date();
+    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    for (const h of allHostelsForSaas) {
+      const price = Number(h.planPrice) || 0;
+      totalSaasRevenue += price;
+      const endDate = h.planEndDate ? new Date(h.planEndDate) : null;
+      const isExpired = h.planStatus === 'expired' || (endDate && endDate < now);
+
+      if (isExpired) {
+        expiredSubscriptions++;
+      } else if (h.planStatus === 'trial' || h.plan === 'demo') {
+        trialSubscriptions++;
+      } else {
+        activeSubscriptions++;
+      }
+
+      if (endDate && endDate >= now && endDate <= sevenDaysFromNow) {
+        expiringSoonSubscriptions++;
+      }
+    }
+
+    // Guest Room Bill Revenue (Hotel industry gross transaction volume)
     const revenue = await Payment.aggregate([
       { $group: { _id: null, total: { $sum: "$amount" } } }
     ]);
-    const totalRevenue = revenue[0] ? revenue[0].total : 0;
+    const totalGuestRevenue = revenue[0] ? revenue[0].total : 0;
 
     res.status(200).json({
       success: true,
       data: {
         totalUsers,
+        totalOwners,
+        totalStaff,
         totalHostels,
+        activeHostels,
+        lockedHostels,
         totalStays,
+        activeStays,
+        todayStays,
         totalRooms,
-        totalRevenue,
-        todayStays
+        totalSaasRevenue,
+        activeSubscriptions,
+        trialSubscriptions,
+        expiredSubscriptions,
+        expiringSoonSubscriptions,
+        totalRevenue: totalSaasRevenue, // Super Admin primary revenue = SaaS plan subscriptions
+        totalGuestRevenue // Guest bills volume
       }
     });
   } catch (error) {
@@ -43,34 +89,53 @@ exports.getSystemStats = async (req, res, next) => {
 exports.getAllUsers = async (req, res, next) => {
   try {
     const users = await User.find()
-      .populate('assignedHostel', 'name contactNumber')
+      .populate('assignedHostel', 'name contactNumber owner')
       .select('+password') 
-      .sort('-createdAt');
+      .sort('-createdAt')
+      .lean();
 
-    // Auto-backfill phone from linked properties if user phone is blank
-    for (const u of users) {
-      if (!u.phone || u.phone.trim() === '') {
+    // Auto-backfill phone & enrich admin owners with their linked properties
+    const enrichedUsers = await Promise.all(users.map(async (u) => {
+      let phone = u.phone || '';
+      if (!phone || phone.trim() === '') {
         if (u.role === 'admin') {
           const hostel = await Hostel.findOne({ 
             owner: u._id, 
             contactNumber: { $exists: true, $nin: ['', 'N/A', null] } 
           }).select('contactNumber');
           if (hostel && hostel.contactNumber) {
-            u.phone = hostel.contactNumber;
+            phone = hostel.contactNumber;
             await User.updateOne({ _id: u._id }, { $set: { phone: hostel.contactNumber } });
           }
         } else if (u.role === 'receptionist' && u.assignedHostel) {
           const hostelId = u.assignedHostel._id || u.assignedHostel;
           const hostel = await Hostel.findById(hostelId).select('contactNumber');
           if (hostel && hostel.contactNumber && hostel.contactNumber !== 'N/A') {
-            u.phone = hostel.contactNumber;
+            phone = hostel.contactNumber;
             await User.updateOne({ _id: u._id }, { $set: { phone: hostel.contactNumber } });
           }
         }
       }
-    }
+
+      if (u.role === 'admin') {
+        const ownedHostels = await Hostel.find({ owner: u._id })
+          .select('name city address contactNumber plan planStatus planPrice billingCycle planEndDate isActive maxRooms')
+          .lean();
+        return {
+          ...u,
+          phone,
+          ownedHostels,
+          ownedHostelsCount: ownedHostels.length
+        };
+      }
+
+      return {
+        ...u,
+        phone
+      };
+    }));
       
-    res.status(200).json({ success: true, data: users });
+    res.status(200).json({ success: true, data: enrichedUsers });
   } catch (error) {
     next(error);
   }
@@ -145,8 +210,37 @@ exports.getAllHostels = async (req, res, next) => {
   try {
     const hostels = await Hostel.find()
       .populate('owner', 'name email phone')
-      .sort('-createdAt');
-    res.status(200).json({ success: true, data: hostels });
+      .sort('-createdAt')
+      .lean();
+
+    const now = new Date();
+
+    // Enrich each property with rooms count, active stays count, assigned staff & plan metrics
+    const enrichedHostels = await Promise.all(hostels.map(async (h) => {
+      const [roomCount, activeStaysCount, staffMembers] = await Promise.all([
+        Room.countDocuments({ hostel: h._id }),
+        Stay.countDocuments({ hostel: h._id, status: 'Active' }),
+        User.find({ assignedHostel: h._id, role: { $ne: 'superadmin' } })
+          .select('name email phone role isActive lastLogin createdAt')
+          .lean()
+      ]);
+
+      const endDate = h.planEndDate ? new Date(h.planEndDate) : null;
+      const isExpired = h.planStatus === 'expired' || (endDate && endDate < now);
+      const daysRemaining = endDate ? Math.ceil((endDate - now) / (1000 * 60 * 60 * 24)) : 0;
+
+      return {
+        ...h,
+        roomCount,
+        activeStaysCount,
+        staffCount: staffMembers.length,
+        staffMembers,
+        isExpired: Boolean(isExpired),
+        daysRemaining
+      };
+    }));
+
+    res.status(200).json({ success: true, data: enrichedHostels });
   } catch (error) {
     next(error);
   }
