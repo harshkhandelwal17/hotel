@@ -147,6 +147,10 @@ exports.impersonateUser = async (req, res, next) => {
     const user = await User.findById(userId).populate('assignedHostel', 'name');
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
     
+    if (user.isActive === false) {
+      return res.status(400).json({ success: false, message: 'Cannot login: User account is currently deactivated or locked.' });
+    }
+
     const token = jwt.sign({
       id: user._id,
       tokenVersion: user.tokenVersion || 0

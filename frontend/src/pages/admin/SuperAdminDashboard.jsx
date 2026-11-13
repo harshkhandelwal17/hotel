@@ -303,8 +303,19 @@ const SuperAdminDashboard = () => {
   };
 
   const handleImpersonate = async (targetUserId, e) => {
-    e.preventDefault();
-    if (!window.confirm('Are you sure you want to log in as this user? You will need to click "Return to Super Admin" or log out to return.')) return;
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
+    if (!targetUserId) {
+      alert('⚠️ User ID is missing');
+      return;
+    }
+
+    if (!window.confirm('Are you sure you want to log in as this user? You can return to Super Admin anytime by clicking "Return to Super Admin" on the top banner.')) {
+      return;
+    }
     
     try {
       setImpersonating(true);
@@ -312,13 +323,29 @@ const SuperAdminDashboard = () => {
       const res = await axios.post(`${API}/api/superadmin/impersonate`, { userId: targetUserId });
       const { token, user: targetUser } = res.data;
       
-      localStorage.setItem('superAdminToken', localStorage.getItem('token'));
+      if (!token) throw new Error('No authentication token received from server');
+
+      // Preserve original superadmin token if not already stored
+      const currentToken = localStorage.getItem('token');
+      if (!localStorage.getItem('superAdminToken') && currentToken) {
+        localStorage.setItem('superAdminToken', currentToken);
+      }
+
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(targetUser));
-      
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+      if (targetUser.assignedHostel) {
+        const assignedId = typeof targetUser.assignedHostel === 'object' ? targetUser.assignedHostel._id : targetUser.assignedHostel;
+        localStorage.setItem('adminGlobalProperty', assignedId);
+      } else {
+        localStorage.setItem('adminGlobalProperty', 'all');
+      }
+
       window.location.href = '/dashboard';
     } catch (err) {
-      alert(err.response?.data?.message || 'Impersonation failed');
+      console.error('Impersonation error:', err);
+      alert(err.response?.data?.message || err.message || 'Impersonation failed');
       setImpersonating(false);
     }
   };

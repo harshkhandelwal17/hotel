@@ -160,10 +160,10 @@ const EcosystemView = ({
                 {/* Owner Actions */}
                 <div className="flex items-center gap-2 shrink-0 flex-wrap">
                   <button
-                    onClick={() => onImpersonate(owner._id)}
-                    disabled={impersonating}
+                    onClick={(e) => onImpersonate(owner._id, e)}
+                    disabled={impersonating || owner.isActive === false}
                     className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer disabled:opacity-50"
-                    title="Login directly into this Hotel Owner account"
+                    title={owner.isActive === false ? 'Account is locked' : 'Login directly into this Hotel Owner account'}
                   >
                     <LogIn size={13} />
                     <span>Login As Owner</span>
@@ -383,10 +383,10 @@ const EcosystemView = ({
                                       </a>
                                     )}
                                     <button
-                                      onClick={() => onImpersonate(sm._id)}
-                                      disabled={impersonating}
-                                      className="text-[9px] font-black text-indigo-600 hover:underline ml-1 cursor-pointer"
-                                      title={`Login as ${sm.name}`}
+                                      onClick={(e) => onImpersonate(sm._id, e)}
+                                      disabled={impersonating || sm.isActive === false}
+                                      className="text-[9px] font-black text-indigo-600 hover:underline ml-1 cursor-pointer disabled:opacity-40"
+                                      title={sm.isActive === false ? 'Account is deactivated' : `Login as ${sm.name}`}
                                     >
                                       Login
                                     </button>

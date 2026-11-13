@@ -320,6 +320,7 @@ const AppLayout = ({ children }) => {
     if (saToken) {
       localStorage.setItem('token', saToken);
       localStorage.removeItem('superAdminToken');
+      localStorage.removeItem('user');
       window.location.href = '/superadmin';
     }
   };
