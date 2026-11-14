@@ -60,6 +60,12 @@ const salesLeadSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  followUpHistory: [{
+    note: { type: String, required: true },
+    followUpDate: { type: Date },
+    status: { type: String },
+    createdAt: { type: Date, default: Date.now }
+  }],
   estimatedValue: {
     type: Number,
     default: 2499

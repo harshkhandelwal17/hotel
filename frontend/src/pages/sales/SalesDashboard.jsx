@@ -36,7 +36,12 @@ import {
   Pencil,
   QrCode,
   Shirt,
-  Briefcase
+  Briefcase,
+  Lock,
+  Unlock,
+  CreditCard,
+  History,
+  CheckCircle
 } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -55,10 +60,13 @@ const SalesDashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   
-  // Tabs: 'ecosystem' | 'properties' | 'owners' | 'staff' | 'leads' | 'outreach'
+  // Tabs: 'ecosystem' | 'leads' | 'properties' | 'owners' | 'staff' | 'outreach'
   const [activeTab, setActiveTab] = useState('ecosystem');
   const [searchQuery, setSearchQuery] = useState('');
   const [quickFilter, setQuickFilter] = useState('all'); // 'all' | 'mine' | 'active' | 'trial'
+
+  // Leads sub-filter: 'all' | 'today' | 'overdue' | 'demo'
+  const [leadFilterTab, setLeadFilterTab] = useState('all');
 
   // 👑 Modal 1: Create Hotel Owner (Admin)
   const [isCreateOwnerOpen, setIsCreateOwnerOpen] = useState(false);
@@ -97,7 +105,21 @@ const SalesDashboard = () => {
   });
   const [creatingStaff, setCreatingStaff] = useState(false);
 
-  // ✏️ Modal 4: Edit Property Details
+  // 🎟️ Modal 4: Plan Assignment & Subscription Management (Like Super Admin)
+  const [selectedPlanHotel, setSelectedPlanHotel] = useState(null);
+  const [planForm, setPlanForm] = useState({
+    plan: 'starter',
+    planStatus: 'active',
+    planStartDate: '',
+    planEndDate: '',
+    planPrice: 2499,
+    billingCycle: 'monthly',
+    maxRooms: 20,
+    planNotes: ''
+  });
+  const [savingPlan, setSavingPlan] = useState(false);
+
+  // ✏️ Modal 5: Edit Property Details
   const [editingProperty, setEditingProperty] = useState(null);
   const [editPropertyForm, setEditPropertyForm] = useState({
     name: '',
@@ -111,7 +133,7 @@ const SalesDashboard = () => {
   });
   const [savingEditProperty, setSavingEditProperty] = useState(false);
 
-  // 👤 Modal 5: Edit User / Phone Details
+  // 👤 Modal 6: Edit User / Phone Details
   const [editingUser, setEditingUser] = useState(null);
   const [editUserForm, setEditUserForm] = useState({
     name: '',
@@ -120,12 +142,12 @@ const SalesDashboard = () => {
   });
   const [savingEditUser, setSavingEditUser] = useState(false);
 
-  // 🔑 Modal 6: Reset Password
+  // 🔑 Modal 7: Reset Password
   const [resetModalData, setResetModalData] = useState(null);
   const [newPasswordVal, setNewPasswordVal] = useState('password123');
   const [resettingPassword, setResettingPassword] = useState(false);
 
-  // 🎯 Modal 7: Add Field Lead
+  // 🎯 Modal 8: Add Field Lead
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [leadForm, setLeadForm] = useState({
     hotelName: '',
@@ -138,9 +160,19 @@ const SalesDashboard = () => {
     currentSystem: 'Paper Register',
     status: 'new',
     priority: 'medium',
+    nextFollowUpDate: '',
     notes: ''
   });
   const [savingLead, setSavingLead] = useState(false);
+
+  // 📅 Modal 9: Log Follow-up for Lead
+  const [followUpModalLead, setFollowUpModalLead] = useState(null);
+  const [followUpForm, setFollowUpForm] = useState({
+    note: '',
+    nextFollowUpDate: '',
+    status: 'contacted'
+  });
+  const [savingFollowUp, setSavingFollowUp] = useState(false);
 
   // 💬 WhatsApp Outreach
   const [outreachPhone, setOutreachPhone] = useState('');
@@ -287,6 +319,68 @@ const SalesDashboard = () => {
       alert(err.response?.data?.message || 'Failed to add staff member');
     } finally {
       setCreatingStaff(false);
+    }
+  };
+
+  // 🎟️ Plan Assignment Modal Open
+  const openPlanModal = (hotel) => {
+    setSelectedPlanHotel(hotel);
+    const startIso = hotel.planStartDate ? new Date(hotel.planStartDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+    const endIso = hotel.planEndDate ? new Date(hotel.planEndDate).toISOString().split('T')[0] : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    setPlanForm({
+      plan: hotel.plan || 'demo',
+      planStatus: hotel.planStatus || 'trial',
+      planStartDate: startIso,
+      planEndDate: endIso,
+      planPrice: hotel.planPrice || (hotel.plan === 'demo' ? 0 : 2499),
+      billingCycle: hotel.billingCycle || 'monthly',
+      maxRooms: hotel.maxRooms || 20,
+      planNotes: hotel.planNotes || ''
+    });
+  };
+
+  // 🎟️ Plan Save Handler
+  const handleSavePlan = async (e) => {
+    e.preventDefault();
+    if (!selectedPlanHotel) return;
+    try {
+      setSavingPlan(true);
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      const res = await axios.put(`${API}/api/sales/properties/${selectedPlanHotel._id}/plan`, planForm);
+      setHostels(prev => prev.map(h => h._id === selectedPlanHotel._id ? { ...h, ...res.data.data } : h));
+      alert(`✅ Plan updated successfully for "${selectedPlanHotel.name}"`);
+      setSelectedPlanHotel(null);
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update plan');
+    } finally {
+      setSavingPlan(false);
+    }
+  };
+
+  // 🔒 Lock / Unlock Property Toggle
+  const handleTogglePropertyStatus = async (hotelId) => {
+    try {
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      const res = await axios.put(`${API}/api/sales/properties/${hotelId}/toggle-status`);
+      setHostels(prev => prev.map(h => h._id === hotelId ? { ...h, isActive: res.data.data.isActive } : h));
+      alert(res.data.message);
+    } catch (err) {
+      alert('Failed to toggle property lock status');
+    }
+  };
+
+  // 🔒 Lock / Unlock User Toggle
+  const handleToggleUserStatus = async (userId) => {
+    try {
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      const res = await axios.put(`${API}/api/sales/users/${userId}/toggle-status`);
+      setOwners(prev => prev.map(o => o._id === userId ? { ...o, isActive: res.data.data.isActive } : o));
+      setStaffUsers(prev => prev.map(s => s._id === userId ? { ...s, isActive: res.data.data.isActive } : s));
+      alert(res.data.message);
+    } catch (err) {
+      alert('Failed to toggle user status');
     }
   };
 
@@ -447,6 +541,7 @@ const SalesDashboard = () => {
         currentSystem: 'Paper Register',
         status: 'new',
         priority: 'medium',
+        nextFollowUpDate: '',
         notes: ''
       });
       fetchData();
@@ -454,6 +549,35 @@ const SalesDashboard = () => {
       alert(err.response?.data?.message || 'Failed to save lead');
     } finally {
       setSavingLead(false);
+    }
+  };
+
+  // 📅 Open Follow-up Modal for Lead
+  const openFollowUpModal = (lead) => {
+    setFollowUpModalLead(lead);
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    setFollowUpForm({
+      note: '',
+      nextFollowUpDate: lead.nextFollowUpDate ? new Date(lead.nextFollowUpDate).toISOString().split('T')[0] : tomorrow,
+      status: lead.status || 'contacted'
+    });
+  };
+
+  // 📅 Submit Follow-up
+  const handleSaveFollowUp = async (e) => {
+    e.preventDefault();
+    if (!followUpModalLead) return;
+    try {
+      setSavingFollowUp(true);
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      await axios.post(`${API}/api/sales/leads/${followUpModalLead._id}/follow-up`, followUpForm);
+      alert(`✅ Follow-up logged for "${followUpModalLead.hotelName}"!`);
+      setFollowUpModalLead(null);
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to log follow-up');
+    } finally {
+      setSavingFollowUp(false);
     }
   };
 
@@ -497,6 +621,10 @@ Would you like a *Free 10-Minute Live Demo* at ${hotel}?
 Please let us know your available time today! 🙏`;
     }
 
+    if (selectedTemplate === 'follow_up') {
+      return `Namaste ${name} ji, regarding our software demo for *${hotel}*, please let me know your available time today. We would love to show you how easy check-ins and UPI bills can be! 🙏`;
+    }
+
     return `Namaste ${name} ji, regarding our software demo for *${hotel}*, please let me know your available time today. Thank you!`;
   };
 
@@ -508,6 +636,9 @@ Please let us know your available time today! 🙏`;
 
   // --- FILTERED CALCULATIONS ---
   const q = searchQuery.toLowerCase();
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+  const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
 
   const filteredOwners = owners.filter(o => {
     const match = o.name.toLowerCase().includes(q) || o.email.toLowerCase().includes(q) || (o.phone && o.phone.includes(q));
@@ -535,7 +666,23 @@ Please let us know your available time today! 🙏`;
   });
 
   const filteredLeads = leads.filter(l => {
-    return l.hotelName.toLowerCase().includes(q) || l.contactPerson.toLowerCase().includes(q) || l.phone.includes(q) || (l.city && l.city.toLowerCase().includes(q));
+    const match = l.hotelName.toLowerCase().includes(q) || l.contactPerson.toLowerCase().includes(q) || l.phone.includes(q) || (l.city && l.city.toLowerCase().includes(q));
+    if (!match) return false;
+
+    if (leadFilterTab === 'today') {
+      if (!l.nextFollowUpDate) return false;
+      const d = new Date(l.nextFollowUpDate);
+      return d >= todayStart && d <= todayEnd && l.status !== 'won' && l.status !== 'lost';
+    }
+    if (leadFilterTab === 'overdue') {
+      if (!l.nextFollowUpDate) return false;
+      const d = new Date(l.nextFollowUpDate);
+      return d < todayStart && l.status !== 'won' && l.status !== 'lost';
+    }
+    if (leadFilterTab === 'demo') {
+      return l.status === 'demo_scheduled' || l.status === 'demo_completed';
+    }
+    return true;
   });
 
   if (loading) {
@@ -553,6 +700,8 @@ Please let us know your available time today! 🙏`;
   const targetProgressPct = stats?.agent?.targetProgressPct || 0;
   const remainingTarget = stats?.agent?.remainingTarget || 0;
   const daysLeft = stats?.agent?.daysRemainingInMonth || 0;
+  const todayFollowUpsCount = stats?.pipeline?.todayFollowUps || 0;
+  const overdueFollowUpsCount = stats?.pipeline?.overdueFollowUps || 0;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-16">
@@ -575,7 +724,7 @@ Please let us know your available time today! 🙏`;
               Hotel Client Management & Onboarding
             </h1>
             <p className="text-xs sm:text-sm text-gray-300 font-medium max-w-2xl mt-1">
-              Create hotel owners, configure properties, add front desk staff, and launch live demos seamlessly on-site.
+              Create hotel owners, configure properties, assign subscription plans, add front desk staff, and track field follow-ups.
             </p>
           </div>
 
@@ -669,23 +818,36 @@ Please let us know your available time today! 🙏`;
           <span className="text-[10px] text-gray-400 font-medium">Properties tagged to you</span>
         </div>
 
-        {/* Field Leads in Pipeline */}
+        {/* Follow-up Alerts & Leads */}
         <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-sm flex flex-col justify-between">
-          <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
-            <Sparkles size={14} className="text-purple-600" />
-            <span>Active Field Prospects</span>
-          </span>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+              <Clock size={14} className="text-rose-600" />
+              <span>Follow-ups Required</span>
+            </span>
+            {todayFollowUpsCount > 0 && (
+              <span className="px-2 py-0.5 text-[9px] font-black bg-rose-100 text-rose-700 rounded-full animate-pulse">
+                {todayFollowUpsCount} Today
+              </span>
+            )}
+          </div>
           <div className="my-2">
-            <p className="text-3xl font-black text-purple-600">
-              {leads.filter(l => l.status !== 'won' && l.status !== 'lost').length}
+            <p className="text-3xl font-black text-rose-600">
+              {todayFollowUpsCount + overdueFollowUpsCount}
             </p>
-            <p className="text-[11px] text-gray-500 font-medium mt-1">Hotels in discussion / visit</p>
+            <p className="text-[11px] text-gray-500 font-medium mt-1">
+              {overdueFollowUpsCount > 0 ? `⚠️ ${overdueFollowUpsCount} overdue · ` : ''}
+              {todayFollowUpsCount} scheduled for today
+            </p>
           </div>
           <button
-            onClick={() => setIsLeadModalOpen(true)}
+            onClick={() => {
+              setActiveTab('leads');
+              setLeadFilterTab(todayFollowUpsCount > 0 ? 'today' : 'all');
+            }}
             className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 text-left"
           >
-            + Log new visit prospect →
+            View follow-up queue →
           </button>
         </div>
       </div>
@@ -704,6 +866,21 @@ Please let us know your available time today! 🙏`;
             <span className="px-2 py-0.5 text-[10px] rounded-full bg-purple-100 text-purple-700 font-bold ml-1">
               Hierarchy Tree
             </span>
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('leads')} 
+            className={`px-4 py-2.5 text-xs font-black rounded-xl transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+              activeTab === 'leads' ? 'bg-white shadow-sm text-gray-900 ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            <Target size={15} className="text-rose-600" />
+            <span>Field Leads & Follow-ups</span>
+            {(todayFollowUpsCount > 0 || overdueFollowUpsCount > 0) && (
+              <span className="px-2 py-0.5 text-[10px] rounded-full bg-rose-100 text-rose-700 font-bold ml-1">
+                {todayFollowUpsCount + overdueFollowUpsCount} Follow-ups
+              </span>
+            )}
           </button>
 
           <button 
@@ -734,16 +911,6 @@ Please let us know your available time today! 🙏`;
           >
             <Users size={15} className="text-indigo-600" />
             <span>Staff ({staffUsers.length})</span>
-          </button>
-
-          <button 
-            onClick={() => setActiveTab('leads')} 
-            className={`px-4 py-2.5 text-xs font-black rounded-xl transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-              activeTab === 'leads' ? 'bg-white shadow-sm text-gray-900 ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-900'
-            }`}
-          >
-            <Target size={15} className="text-rose-600" />
-            <span>Field Leads ({leads.length})</span>
           </button>
 
           <button 
@@ -833,6 +1000,11 @@ Please let us know your available time today! 🙏`;
                               ⭐ Onboarded By You
                             </span>
                           )}
+                          <span className={`px-2 py-0.5 text-[9px] font-black rounded-md uppercase tracking-wider ${
+                            owner.isActive !== false ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
+                          }`}>
+                            {owner.isActive !== false ? 'Active' : 'Locked'}
+                          </span>
                         </div>
                         <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 font-semibold mt-1">
                           <span className="flex items-center gap-1 text-gray-700 font-bold">
@@ -871,6 +1043,15 @@ Please let us know your available time today! 🙏`;
                         title="Edit Owner Details"
                       >
                         <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleToggleUserStatus(owner._id)}
+                        className={`p-1.5 rounded-xl transition-all border ${
+                          owner.isActive !== false ? 'text-gray-500 hover:text-red-600 border-gray-200' : 'text-red-600 bg-red-50 border-red-200'
+                        }`}
+                        title={owner.isActive !== false ? "Lock Owner Account" : "Unlock Owner Account"}
+                      >
+                        {owner.isActive !== false ? <Unlock size={14} /> : <Lock size={14} />}
                       </button>
                       <button
                         onClick={() => setResetModalData({ userId: owner._id, userName: owner.name, role: 'Owner' })}
@@ -918,6 +1099,11 @@ Please let us know your available time today! 🙏`;
                                 }`}>
                                   {hotel.planStatus === 'active' ? '● Active' : '⏳ Trial / Demo'}
                                 </span>
+                                <span className={`px-2 py-0.5 text-[9px] font-bold rounded-md uppercase tracking-wider ${
+                                  hotel.isActive !== false ? 'bg-gray-100 text-gray-700' : 'bg-red-100 text-red-700'
+                                }`}>
+                                  {hotel.isActive !== false ? 'Live' : 'Locked'}
+                                </span>
                               </div>
                               <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
                                 <MapPin size={11} className="text-gray-400" />
@@ -925,6 +1111,9 @@ Please let us know your available time today! 🙏`;
                                 <span className="mx-1 text-gray-300">•</span>
                                 <Phone size={11} className="text-gray-400" />
                                 <span>{hotel.contactNumber || 'No contact'}</span>
+                                <span className="mx-1 text-gray-300">•</span>
+                                <CreditCard size={11} className="text-emerald-600" />
+                                <span className="font-bold text-gray-700">Tier: {(hotel.plan || 'Starter').toUpperCase()}</span>
                               </p>
                             </div>
 
@@ -940,6 +1129,15 @@ Please let us know your available time today! 🙏`;
                               </button>
 
                               <button
+                                onClick={() => openPlanModal(hotel)}
+                                className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 font-black text-xs rounded-xl border border-purple-200 flex items-center gap-1 transition-all"
+                                title="Assign or Modify Subscription Plan"
+                              >
+                                <CreditCard size={12} />
+                                <span>Plan Settings</span>
+                              </button>
+
+                              <button
                                 onClick={() => {
                                   setStaffForm(prev => ({ ...prev, assignedHostel: hotel._id }));
                                   setIsCreateStaffOpen(true);
@@ -948,6 +1146,16 @@ Please let us know your available time today! 🙏`;
                               >
                                 <Plus size={12} />
                                 <span>Add Staff</span>
+                              </button>
+
+                              <button
+                                onClick={() => handleTogglePropertyStatus(hotel._id)}
+                                className={`p-1.5 rounded-xl border transition-all ${
+                                  hotel.isActive !== false ? 'bg-white hover:bg-red-50 text-gray-600 hover:text-red-600 border-gray-200' : 'bg-red-50 text-red-600 border-red-200'
+                                }`}
+                                title={hotel.isActive !== false ? "Lock Hotel Property" : "Unlock Hotel Property"}
+                              >
+                                {hotel.isActive !== false ? <Unlock size={13} /> : <Lock size={13} />}
                               </button>
 
                               <button
@@ -1035,7 +1243,10 @@ Please let us know your available time today! 🙏`;
                                 {hotel.staffMembers.map(staff => (
                                   <div key={staff._id} className="p-2.5 bg-white rounded-xl border border-gray-200 flex items-center justify-between shadow-xs">
                                     <div className="truncate">
-                                      <p className="text-xs font-black text-gray-900 truncate">{staff.name}</p>
+                                      <div className="flex items-center gap-1.5">
+                                        <p className="text-xs font-black text-gray-900 truncate">{staff.name}</p>
+                                        <span className={`w-2 h-2 rounded-full ${staff.isActive !== false ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+                                      </div>
                                       <p className="text-[10px] text-gray-500 truncate">{staff.email}</p>
                                     </div>
                                     <div className="flex items-center gap-1">
@@ -1045,6 +1256,13 @@ Please let us know your available time today! 🙏`;
                                         title="Edit Staff"
                                       >
                                         <Pencil size={11} />
+                                      </button>
+                                      <button
+                                        onClick={() => handleToggleUserStatus(staff._id)}
+                                        className="p-1 text-gray-400 hover:text-red-600 rounded-md"
+                                        title={staff.isActive !== false ? "Lock Staff" : "Unlock Staff"}
+                                      >
+                                        {staff.isActive !== false ? <Unlock size={11} /> : <Lock size={11} />}
                                       </button>
                                       <button
                                         onClick={() => setResetModalData({ userId: staff._id, userName: staff.name, role: 'Staff' })}
@@ -1071,7 +1289,181 @@ Please let us know your available time today! 🙏`;
       )}
 
       {/* ============================================================== */}
-      {/* TAB 2: 🏨 PROPERTIES DIRECTORY */}
+      {/* TAB 2: 🎯 FIELD LEADS & PROSPECTS PIPELINE WITH FOLLOW-UPS */}
+      {/* ============================================================== */}
+      {activeTab === 'leads' && (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+            <div>
+              <h2 className="text-base font-black text-gray-900 flex items-center gap-2">
+                <Target size={18} className="text-rose-600" />
+                <span>Field Prospects & Follow-up Command</span>
+              </h2>
+              <p className="text-xs text-gray-500">Record on-ground visits, schedule demo follow-ups, and convert directly to clients.</p>
+            </div>
+
+            <button
+              onClick={() => setIsLeadModalOpen(true)}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center gap-1.5 shrink-0"
+            >
+              <Plus size={14} className="stroke-[3]" />
+              <span>+ Add Field Prospect</span>
+            </button>
+          </div>
+
+          {/* Follow-up Sub-tabs */}
+          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+            <button
+              onClick={() => setLeadFilterTab('all')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                leadFilterTab === 'all' ? 'bg-black text-white shadow-sm' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              All Leads ({leads.length})
+            </button>
+
+            <button
+              onClick={() => setLeadFilterTab('today')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                leadFilterTab === 'today' ? 'bg-rose-600 text-white shadow-sm' : 'bg-white border border-gray-200 text-rose-600 hover:bg-rose-50'
+              }`}
+            >
+              <Clock size={12} />
+              <span>Today's Follow-ups ({todayFollowUpsCount})</span>
+            </button>
+
+            <button
+              onClick={() => setLeadFilterTab('overdue')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                leadFilterTab === 'overdue' ? 'bg-amber-600 text-white shadow-sm' : 'bg-white border border-gray-200 text-amber-600 hover:bg-amber-50'
+              }`}
+            >
+              <AlertTriangle size={12} />
+              <span>Overdue Follow-ups ({overdueFollowUpsCount})</span>
+            </button>
+
+            <button
+              onClick={() => setLeadFilterTab('demo')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                leadFilterTab === 'demo' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white border border-gray-200 text-indigo-600 hover:bg-indigo-50'
+              }`}
+            >
+              <Sparkles size={12} />
+              <span>Demos Scheduled / Completed</span>
+            </button>
+          </div>
+
+          {filteredLeads.length === 0 ? (
+            <div className="bg-white rounded-3xl border border-gray-200 p-12 text-center shadow-sm">
+              <Target size={36} className="mx-auto text-gray-300 mb-3" />
+              <h3 className="text-sm font-black text-gray-700">No leads in this queue</h3>
+              <p className="text-xs text-gray-400 max-w-sm mx-auto mt-1 mb-4">
+                Record hot prospects while visiting hotels to manage their follow-ups.
+              </p>
+              <button
+                onClick={() => setIsLeadModalOpen(true)}
+                className="px-4 py-2 bg-purple-600 text-white font-black text-xs rounded-xl"
+              >
+                + Add Prospect Lead
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredLeads.map(lead => {
+                const followDate = lead.nextFollowUpDate ? new Date(lead.nextFollowUpDate) : null;
+                const isOverdue = followDate && followDate < todayStart && lead.status !== 'won' && lead.status !== 'lost';
+                const isToday = followDate && followDate >= todayStart && followDate <= todayEnd;
+
+                return (
+                  <div key={lead._id} className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm flex flex-col justify-between space-y-3">
+                    <div>
+                      {/* Priority, Status & Overdue Badges */}
+                      <div className="flex items-center justify-between gap-1 flex-wrap">
+                        <span className={`px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded-md ${
+                          lead.priority === 'hot' ? 'bg-rose-100 text-rose-800' : 'bg-gray-100 text-gray-700'
+                        }`}>
+                          {lead.priority === 'hot' ? '🔥 Hot Prospect' : `${lead.priority} priority`}
+                        </span>
+
+                        <span className={`px-2 py-0.5 text-[9px] font-bold rounded-md uppercase tracking-wider ${
+                          lead.status === 'won' ? 'bg-emerald-100 text-emerald-800' :
+                          lead.status === 'demo_scheduled' ? 'bg-indigo-100 text-indigo-800' : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {lead.status.replace('_', ' ')}
+                        </span>
+                      </div>
+
+                      <h3 className="text-base font-black text-gray-900 mt-2">{lead.hotelName}</h3>
+                      <p className="text-xs text-gray-600 font-bold mt-0.5">{lead.contactPerson} {lead.city && `· ${lead.city}`}</p>
+
+                      {/* Contact & Next Follow-up info */}
+                      <div className="mt-3 text-xs text-gray-600 space-y-1.5 bg-gray-50 p-3 rounded-xl border border-gray-100">
+                        <div className="flex items-center justify-between">
+                          <span className="flex items-center gap-1 font-bold text-gray-800">
+                            <Phone size={12} className="text-gray-400" /> {lead.phone}
+                          </span>
+                          <a
+                            href={`https://wa.me/91${lead.phone.replace(/\D/g, '').slice(-10)}?text=${encodeURIComponent(`Namaste ${lead.contactPerson} ji! Following up regarding software demo for ${lead.hotelName}...`)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
+                          >
+                            <MessageSquare size={11} /> WhatsApp
+                          </a>
+                        </div>
+
+                        {followDate && (
+                          <div className={`flex items-center gap-1 font-bold text-[11px] ${
+                            isOverdue ? 'text-rose-600' : isToday ? 'text-amber-600 font-black' : 'text-gray-500'
+                          }`}>
+                            <Calendar size={11} />
+                            <span>
+                              Follow-up: {followDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                              {isOverdue && ' (Overdue ⚠️)'}
+                              {isToday && ' (Today 🔥)'}
+                            </span>
+                          </div>
+                        )}
+
+                        <p className="text-[11px] text-gray-500">System: {lead.currentSystem} ({lead.roomCount} rooms)</p>
+                        {lead.notes && <p className="text-[11px] italic text-gray-700 font-medium">"{lead.notes}"</p>}
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="pt-3 border-t border-gray-100 flex items-center gap-2">
+                      <button
+                        onClick={() => openFollowUpModal(lead)}
+                        className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs rounded-xl transition-all flex items-center gap-1"
+                      >
+                        <Clock size={12} />
+                        <span>Log Follow-up</span>
+                      </button>
+
+                      {lead.status !== 'won' ? (
+                        <button
+                          onClick={() => convertLeadToClient(lead)}
+                          className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-sm flex items-center justify-center gap-1"
+                        >
+                          <Trophy size={13} />
+                          <span>Convert to Client</span>
+                        </button>
+                      ) : (
+                        <span className="flex-1 py-1.5 text-center text-xs font-bold text-emerald-700 bg-emerald-50 rounded-xl border border-emerald-200">
+                          ✅ Converted
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* TAB 3: 🏨 PROPERTIES DIRECTORY */}
       {/* ============================================================== */}
       {activeTab === 'properties' && (
         <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
@@ -1126,11 +1518,14 @@ Please let us know your available time today! 🙏`;
                       <span className="text-gray-400 font-normal block">{h.staffCount || 0} staff</span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-md ${
-                        h.planStatus === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                      }`}>
-                        {h.planStatus === 'active' ? 'Active Paid' : 'Trial / Demo'}
-                      </span>
+                      <div className="space-y-0.5">
+                        <span className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-md inline-block ${
+                          h.planStatus === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                        }`}>
+                          {h.planStatus === 'active' ? 'Active Paid' : 'Trial / Demo'}
+                        </span>
+                        <p className="text-[11px] text-gray-500 font-bold">Tier: {(h.plan || 'Starter').toUpperCase()}</p>
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
@@ -1141,6 +1536,15 @@ Please let us know your available time today! 🙏`;
                           <Sparkles size={12} />
                           <span>Demo</span>
                         </button>
+
+                        <button
+                          onClick={() => openPlanModal(h)}
+                          className="px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs rounded-xl border border-purple-200"
+                          title="Assign Plan"
+                        >
+                          <CreditCard size={12} />
+                        </button>
+
                         <button
                           onClick={() => openEditPropertyModal(h)}
                           className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200"
@@ -1158,7 +1562,7 @@ Please let us know your available time today! 🙏`;
       )}
 
       {/* ============================================================== */}
-      {/* TAB 3: 👑 HOTEL OWNERS (ADMINS) */}
+      {/* TAB 4: 👑 HOTEL OWNERS (ADMINS) */}
       {/* ============================================================== */}
       {activeTab === 'owners' && (
         <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
@@ -1226,7 +1630,7 @@ Please let us know your available time today! 🙏`;
       )}
 
       {/* ============================================================== */}
-      {/* TAB 4: 🛎️ FRONT DESK STAFF */}
+      {/* TAB 5: 🛎️ FRONT DESK STAFF */}
       {/* ============================================================== */}
       {activeTab === 'staff' && (
         <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
@@ -1292,74 +1696,6 @@ Please let us know your available time today! 🙏`;
       )}
 
       {/* ============================================================== */}
-      {/* TAB 5: 🎯 FIELD LEADS & PROSPECTS */}
-      {/* ============================================================== */}
-      {activeTab === 'leads' && (
-        <div className="space-y-4">
-          <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
-            <div>
-              <h2 className="text-base font-black text-gray-900">Field Prospects & Visit Tracker</h2>
-              <p className="text-xs text-gray-500">Record hotel visits and convert them with 1-click.</p>
-            </div>
-            <button
-              onClick={() => setIsLeadModalOpen(true)}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center gap-1.5"
-            >
-              <Plus size={14} className="stroke-[3]" />
-              <span>+ Add Field Prospect</span>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredLeads.map(lead => (
-              <div key={lead._id} className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm flex flex-col justify-between space-y-3">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className={`px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded-md ${
-                      lead.priority === 'hot' ? 'bg-rose-100 text-rose-800' : 'bg-gray-100 text-gray-700'
-                    }`}>
-                      {lead.priority === 'hot' ? '🔥 Hot Prospect' : `${lead.priority} priority`}
-                    </span>
-                    <span className="text-[10px] font-bold text-gray-500 uppercase">{lead.status}</span>
-                  </div>
-
-                  <h3 className="text-base font-black text-gray-900 mt-2">{lead.hotelName}</h3>
-                  <p className="text-xs text-gray-600 font-bold mt-0.5">{lead.contactPerson} {lead.city && `· ${lead.city}`}</p>
-
-                  <div className="mt-2 text-xs text-gray-500 space-y-1">
-                    <p className="flex items-center gap-1 text-gray-700 font-bold">
-                      <Phone size={12} className="text-gray-400" /> {lead.phone}
-                    </p>
-                    <p className="text-[11px]">System: {lead.currentSystem} ({lead.roomCount} rooms)</p>
-                    {lead.notes && <p className="text-[11px] italic bg-gray-50 p-2 rounded-lg">"{lead.notes}"</p>}
-                  </div>
-                </div>
-
-                <div className="pt-3 border-t border-gray-100 flex items-center gap-2">
-                  <button
-                    onClick={() => convertLeadToClient(lead)}
-                    className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-sm flex items-center justify-center gap-1"
-                  >
-                    <Trophy size={13} />
-                    <span>Convert to Client</span>
-                  </button>
-                  <a
-                    href={`https://wa.me/91${lead.phone.replace(/\D/g, '').slice(-10)}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-xl border border-gray-200"
-                    title="WhatsApp"
-                  >
-                    <MessageSquare size={14} />
-                  </a>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ============================================================== */}
       {/* TAB 6: 💬 WHATSAPP PITCH GENERATOR */}
       {/* ============================================================== */}
       {activeTab === 'outreach' && (
@@ -1376,6 +1712,30 @@ Please let us know your available time today! 🙏`;
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Select Template</label>
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTemplate('brochure')}
+                    className={`w-full p-2.5 rounded-xl border text-left text-xs font-bold transition-all ${
+                      selectedTemplate === 'brochure' ? 'bg-indigo-50 border-indigo-400 text-indigo-900' : 'bg-gray-50 border-gray-200'
+                    }`}
+                  >
+                    📄 Full Feature Brochure (AI OCR + QR + Bills)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTemplate('follow_up')}
+                    className={`w-full p-2.5 rounded-xl border text-left text-xs font-bold transition-all ${
+                      selectedTemplate === 'follow_up' ? 'bg-indigo-50 border-indigo-400 text-indigo-900' : 'bg-gray-50 border-gray-200'
+                    }`}
+                  >
+                    ⏰ Demo Follow-up Reminder
+                  </button>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Owner Name</label>
                 <input
@@ -1751,7 +2111,149 @@ Please let us know your available time today! 🙏`;
       )}
 
       {/* ============================================================== */}
-      {/* ✏️ MODAL 4: EDIT PROPERTY DETAILS */}
+      {/* 🎟️ MODAL 4: PLAN ASSIGNMENT & SUBSCRIPTION (Like Super Admin) */}
+      {/* ============================================================== */}
+      {selectedPlanHotel && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-gray-100 flex flex-col max-h-[90vh]">
+            <div className="p-6 bg-gradient-to-r from-gray-950 to-gray-900 text-white flex justify-between items-start">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-500/20 px-2.5 py-0.5 rounded-full">
+                  Subscription Tier & Plan Setup
+                </span>
+                <h3 className="text-xl font-black text-white mt-1.5">Manage Hotel Subscription</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Configure plan, validity, price, and rooms for {selectedPlanHotel.name}.</p>
+              </div>
+              <button onClick={() => setSelectedPlanHotel(null)} className="text-gray-400 hover:text-white p-1">✕</button>
+            </div>
+
+            <form onSubmit={handleSavePlan} className="p-6 space-y-4 overflow-y-auto flex-1 text-xs font-bold">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-700 uppercase mb-1">Plan Tier</label>
+                  <select
+                    value={planForm.plan}
+                    onChange={e => {
+                      const p = e.target.value;
+                      const price = p === 'demo' ? 0 : p === 'starter' ? 2499 : p === 'standard' ? 3999 : 6999;
+                      setPlanForm({ ...planForm, plan: p, planPrice: price, planStatus: p === 'demo' ? 'trial' : 'active' });
+                    }}
+                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
+                  >
+                    <option value="demo">Free Trial / Demo (14 Days)</option>
+                    <option value="starter">Starter Plan (₹2,499/mo)</option>
+                    <option value="standard">Standard Plan (₹3,999/mo)</option>
+                    <option value="growth">Growth Plan (₹6,999/mo)</option>
+                    <option value="enterprise">Enterprise Custom</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 uppercase mb-1">Status</label>
+                  <select
+                    value={planForm.planStatus}
+                    onChange={e => setPlanForm({ ...planForm, planStatus: e.target.value })}
+                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
+                  >
+                    <option value="active">Active Paid</option>
+                    <option value="trial">Trial / Demo</option>
+                    <option value="grace">Grace Period</option>
+                    <option value="expired">Expired</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-700 uppercase mb-1">Amount Charged (₹)</label>
+                  <input
+                    type="number"
+                    value={planForm.planPrice}
+                    onChange={e => setPlanForm({ ...planForm, planPrice: e.target.value })}
+                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 uppercase mb-1">Billing Cycle</label>
+                  <select
+                    value={planForm.billingCycle}
+                    onChange={e => setPlanForm({ ...planForm, billingCycle: e.target.value })}
+                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
+                  >
+                    <option value="monthly">Monthly</option>
+                    <option value="quarterly">Quarterly</option>
+                    <option value="yearly">Yearly (Annual)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-700 uppercase mb-1">Start Date</label>
+                  <input
+                    type="date"
+                    value={planForm.planStartDate}
+                    onChange={e => setPlanForm({ ...planForm, planStartDate: e.target.value })}
+                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 uppercase mb-1">End / Expiry Date</label>
+                  <input
+                    type="date"
+                    value={planForm.planEndDate}
+                    onChange={e => setPlanForm({ ...planForm, planEndDate: e.target.value })}
+                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-gray-700 uppercase mb-1">Max Rooms Capacity Limit</label>
+                <input
+                  type="number"
+                  value={planForm.maxRooms}
+                  onChange={e => setPlanForm({ ...planForm, maxRooms: e.target.value })}
+                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-700 uppercase mb-1">Plan Notes / Remarks</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 14-day free trial assigned during field visit"
+                  value={planForm.planNotes}
+                  onChange={e => setPlanForm({ ...planForm, planNotes: e.target.value })}
+                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
+                />
+              </div>
+
+              <div className="pt-4 border-t border-gray-100 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedPlanHotel(null)}
+                  className="px-4 py-2.5 border border-gray-200 text-gray-700 font-bold rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingPlan}
+                  className="px-6 py-2.5 bg-black hover:bg-gray-800 text-white font-black uppercase tracking-wider rounded-xl transition-all shadow-md disabled:opacity-50"
+                >
+                  {savingPlan ? 'Saving...' : 'Save Plan Settings'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* ✏️ MODAL 5: EDIT PROPERTY DETAILS */}
       {/* ============================================================== */}
       {editingProperty && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -1847,7 +2349,7 @@ Please let us know your available time today! 🙏`;
       )}
 
       {/* ============================================================== */}
-      {/* 👤 MODAL 5: EDIT USER DETAILS */}
+      {/* 👤 MODAL 6: EDIT USER DETAILS */}
       {/* ============================================================== */}
       {editingUser && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -1912,7 +2414,7 @@ Please let us know your available time today! 🙏`;
       )}
 
       {/* ============================================================== */}
-      {/* 🔑 MODAL 6: RESET PASSWORD */}
+      {/* 🔑 MODAL 7: RESET PASSWORD */}
       {/* ============================================================== */}
       {resetModalData && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -1959,7 +2461,7 @@ Please let us know your available time today! 🙏`;
       )}
 
       {/* ============================================================== */}
-      {/* 🎯 MODAL 7: ADD FIELD PROSPECT LEAD */}
+      {/* 🎯 MODAL 8: ADD FIELD PROSPECT LEAD */}
       {/* ============================================================== */}
       {isLeadModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -2035,6 +2537,16 @@ Please let us know your available time today! 🙏`;
               </div>
 
               <div>
+                <label className="block text-gray-700 uppercase mb-1">Initial Next Follow-up Date</label>
+                <input
+                  type="date"
+                  value={leadForm.nextFollowUpDate}
+                  onChange={e => setLeadForm({ ...leadForm, nextFollowUpDate: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
+                />
+              </div>
+
+              <div>
                 <label className="block text-gray-700 uppercase mb-1">Visit Notes</label>
                 <textarea
                   rows={2}
@@ -2059,6 +2571,100 @@ Please let us know your available time today! 🙏`;
                   className="px-5 py-2 bg-purple-600 text-white font-black rounded-xl hover:bg-purple-700"
                 >
                   {savingLead ? 'Saving...' : 'Save Prospect'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* 📅 MODAL 9: LOG FOLLOW-UP ACTIVITY */}
+      {/* ============================================================== */}
+      {followUpModalLead && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 text-left">
+            <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+              <Clock size={18} className="text-rose-600" />
+              <span>Log Follow-up Activity</span>
+            </h3>
+            <p className="text-xs text-gray-500">
+              Record discussion and set next follow-up for <strong>{followUpModalLead.hotelName}</strong> ({followUpModalLead.contactPerson}).
+            </p>
+
+            <form onSubmit={handleSaveFollowUp} className="space-y-3 text-xs font-bold">
+              <div>
+                <label className="block text-gray-700 uppercase mb-1">Discussion Note *</label>
+                <textarea
+                  rows={3}
+                  required
+                  placeholder="e.g. Spoke with owner, showed demo on phone. Asked to call tomorrow at 4 PM to confirm plan..."
+                  value={followUpForm.note}
+                  onChange={e => setFollowUpForm({ ...followUpForm, note: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
+                ></textarea>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-700 uppercase mb-1">Next Follow-up Date *</label>
+                  <input
+                    type="date"
+                    required
+                    value={followUpForm.nextFollowUpDate}
+                    onChange={e => setFollowUpForm({ ...followUpForm, nextFollowUpDate: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 uppercase mb-1">Update Stage Status</label>
+                  <select
+                    value={followUpForm.status}
+                    onChange={e => setFollowUpForm({ ...followUpForm, status: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
+                  >
+                    <option value="contacted">Contacted</option>
+                    <option value="demo_scheduled">Demo Scheduled</option>
+                    <option value="demo_completed">Demo Completed</option>
+                    <option value="negotiation">Negotiation / Pricing</option>
+                    <option value="won">Won (Ready to Onboard)</option>
+                    <option value="lost">Lost</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Past follow-up history if any */}
+              {followUpModalLead.followUpHistory && followUpModalLead.followUpHistory.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-gray-100">
+                  <span className="text-[10px] text-gray-400 uppercase tracking-widest block mb-2">Previous Interactions</span>
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                    {followUpModalLead.followUpHistory.map((hist, i) => (
+                      <div key={i} className="p-2 bg-gray-50 rounded-xl border border-gray-100 text-[11px]">
+                        <p className="text-gray-800 font-medium">{hist.note}</p>
+                        <span className="text-[10px] text-gray-400 block mt-0.5">
+                          {new Date(hist.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} · Stage: {hist.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setFollowUpModalLead(null)}
+                  className="px-4 py-2 border border-gray-200 text-gray-700 rounded-xl text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingFollowUp}
+                  className="px-5 py-2 bg-rose-600 text-white font-black rounded-xl text-xs hover:bg-rose-700 disabled:opacity-50"
+                >
+                  {savingFollowUp ? 'Logging...' : 'Save Follow-up'}
                 </button>
               </div>
             </form>

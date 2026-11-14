@@ -22,6 +22,9 @@ exports.getSalesStats = async (req, res, next) => {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
 
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+
     const [
       myHotels, 
       myActiveHotels, 
@@ -30,7 +33,9 @@ exports.getSalesStats = async (req, res, next) => {
       totalLeads,
       activeLeads,
       demoLeads,
-      wonLeads
+      wonLeads,
+      todayFollowUps,
+      overdueFollowUps
     ] = await Promise.all([
       Hostel.find({ onboardedBy: salesUserId }).select('plan planStatus createdAt name'),
       Hostel.countDocuments({ onboardedBy: salesUserId, planStatus: 'active' }),
@@ -45,7 +50,17 @@ exports.getSalesStats = async (req, res, next) => {
       SalesLead.countDocuments({ salesAgent: salesUserId }),
       SalesLead.countDocuments({ salesAgent: salesUserId, status: { $nin: ['won', 'lost'] } }),
       SalesLead.countDocuments({ salesAgent: salesUserId, status: { $in: ['demo_scheduled', 'demo_completed'] } }),
-      SalesLead.countDocuments({ salesAgent: salesUserId, status: 'won' })
+      SalesLead.countDocuments({ salesAgent: salesUserId, status: 'won' }),
+      SalesLead.countDocuments({
+        salesAgent: salesUserId,
+        status: { $nin: ['won', 'lost'] },
+        nextFollowUpDate: { $gte: todayStart, $lte: todayEnd }
+      }),
+      SalesLead.countDocuments({
+        salesAgent: salesUserId,
+        status: { $nin: ['won', 'lost'] },
+        nextFollowUpDate: { $lt: todayStart }
+      })
     ]);
 
     const targetProgressPct = Math.min(100, Math.round((thisMonthOnboarded / monthlyTarget) * 100));
@@ -80,7 +95,9 @@ exports.getSalesStats = async (req, res, next) => {
           totalLeads,
           activeLeads,
           demoLeads,
-          wonLeads
+          wonLeads,
+          todayFollowUps,
+          overdueFollowUps
         },
         recentOnboardings: recentHotels
       }
@@ -645,6 +662,109 @@ exports.deleteSalesLead = async (req, res, next) => {
     res.status(200).json({
       success: true,
       message: '✅ Lead removed'
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * 🎟️ Assign / Update Subscription Plan & Rooms Limit for Property (Like Super Admin)
+ */
+exports.updateSalesPropertyPlan = async (req, res, next) => {
+  try {
+    const { plan, planStatus, planStartDate, planEndDate, planPrice, billingCycle, maxRooms, planNotes } = req.body;
+    const hostel = await Hostel.findById(req.params.id);
+    if (!hostel) return res.status(404).json({ success: false, message: 'Property not found' });
+
+    if (plan !== undefined) hostel.plan = plan;
+    if (planStatus !== undefined) hostel.planStatus = planStatus;
+    if (planStartDate !== undefined) hostel.planStartDate = planStartDate;
+    if (planEndDate !== undefined) hostel.planEndDate = planEndDate;
+    if (planPrice !== undefined) hostel.planPrice = Number(planPrice) || 0;
+    if (billingCycle !== undefined) hostel.billingCycle = billingCycle;
+    if (maxRooms !== undefined) hostel.maxRooms = Number(maxRooms) || 20;
+    if (planNotes !== undefined) hostel.planNotes = planNotes;
+
+    await hostel.save();
+
+    res.status(200).json({
+      success: true,
+      message: `✅ Plan updated successfully for "${hostel.name}"`,
+      data: hostel
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * 🔒 Toggle Property Active/Locked Status
+ */
+exports.toggleSalesPropertyStatus = async (req, res, next) => {
+  try {
+    const hostel = await Hostel.findById(req.params.id);
+    if (!hostel) return res.status(404).json({ success: false, message: 'Property not found' });
+    hostel.isActive = hostel.isActive === false ? true : false;
+    await hostel.save();
+    res.status(200).json({
+      success: true,
+      message: `Property "${hostel.name}" is now ${hostel.isActive ? 'Active' : 'Locked'}`,
+      data: hostel
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * 🔒 Toggle User (Owner / Staff) Active/Locked Status
+ */
+exports.toggleSalesUserStatus = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    if (user.role === 'superadmin') return res.status(403).json({ success: false, message: 'Cannot modify superadmin' });
+    user.isActive = user.isActive === false ? true : false;
+    await user.save();
+    res.status(200).json({
+      success: true,
+      message: `User "${user.name}" is now ${user.isActive ? 'Active' : 'Locked'}`,
+      data: user
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * 📅 Log Follow-up Activity for a Lead
+ */
+exports.addLeadFollowUp = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { note, nextFollowUpDate, status } = req.body;
+    const lead = await SalesLead.findOne({ _id: id, salesAgent: req.user.id });
+    if (!lead) return res.status(404).json({ success: false, message: 'Lead not found or unauthorized' });
+
+    if (note && note.trim()) {
+      lead.followUpHistory.unshift({
+        note: note.trim(),
+        followUpDate: nextFollowUpDate ? new Date(nextFollowUpDate) : undefined,
+        status: status || lead.status,
+        createdAt: new Date()
+      });
+      lead.notes = note.trim();
+    }
+    if (nextFollowUpDate) lead.nextFollowUpDate = new Date(nextFollowUpDate);
+    if (status) lead.status = status;
+
+    await lead.save();
+
+    res.status(200).json({
+      success: true,
+      message: '✅ Follow-up logged successfully',
+      data: lead
     });
   } catch (err) {
     next(err);

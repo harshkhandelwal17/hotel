@@ -6,6 +6,9 @@ const {
   createSalesProperty,
   createSalesStaff,
   updateSalesProperty,
+  updateSalesPropertyPlan,
+  toggleSalesPropertyStatus,
+  toggleSalesUserStatus,
   updateSalesUser,
   toggleSalesPropertyFeature,
   salesImpersonate,
@@ -13,7 +16,8 @@ const {
   getSalesLeads,
   createSalesLead,
   updateSalesLead,
-  deleteSalesLead
+  deleteSalesLead,
+  addLeadFollowUp
 } = require('../controllers/salesController');
 const { protect, authorize } = require('../middlewares/auth');
 
@@ -31,17 +35,21 @@ router.post('/owners', createSalesOwner);
 router.post('/properties', createSalesProperty);
 router.post('/staff', createSalesStaff);
 router.put('/properties/:id', updateSalesProperty);
+router.put('/properties/:id/plan', updateSalesPropertyPlan);
+router.put('/properties/:id/toggle-status', toggleSalesPropertyStatus);
 router.put('/properties/:id/toggle-feature', toggleSalesPropertyFeature);
 router.put('/users/:id', updateSalesUser);
+router.put('/users/:id/toggle-status', toggleSalesUserStatus);
 
 // 1-Click Launch Demo & Password Reset
 router.post('/impersonate', salesImpersonate);
 router.put('/reset-password', resetClientPassword);
 
-// CRM Leads Pipeline
+// CRM Leads & Follow-ups Pipeline
 router.get('/leads', getSalesLeads);
 router.post('/leads', createSalesLead);
 router.put('/leads/:id', updateSalesLead);
 router.delete('/leads/:id', deleteSalesLead);
+router.post('/leads/:id/follow-up', addLeadFollowUp);
 
 module.exports = router;
