@@ -17,6 +17,7 @@ const mongoose = require('mongoose');
 const Hostel = require('../models/Hostel');
 const WhatsAppMedia = require('../models/WhatsAppMedia');
 const { saveMediaBuffer } = require('../utils/mediaStorage');
+const { maintainHostelMediaBuffer } = require('./mediaCleanupService');
 
 // In-memory active sockets, pending QR codes, connecting locks, pairing state, and explicit disconnects
 const sessions = new Map();           // hostelId -> socket
@@ -225,6 +226,9 @@ const processIncomingMessage = async (sock, hostelId, msg, hostel) => {
       });
 
       console.log(`[WhatsApp] ✅ Successfully ingested and saved ID photo: ${uploadedUrl} [ID: ${record._id}]`);
+
+      // ⚡ FIFO Rolling Buffer: Keep max 50 newest photos, auto-delete oldest bottom unused ones
+      maintainHostelMediaBuffer(hostelId, 50).catch(() => {});
     } else {
       console.error(`[WhatsApp] ❌ Failed to extract media buffer for message ${messageId}`);
     }

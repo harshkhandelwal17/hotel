@@ -125,6 +125,18 @@ const CheckIn = () => {
   const [knownBrokers, setKnownBrokers] = useState([]);
   const [showBrokerSuggestions, setShowBrokerSuggestions] = useState(false);
 
+  // Helper for human-friendly WhatsApp photo timestamps
+  const getWaRelativeTime = (dateStr) => {
+    if (!dateStr) return '';
+    const diffSec = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+    if (diffSec < 45) return 'Just now';
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHours = Math.floor(diffMin / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return new Date(dateStr).toLocaleDateString([], { day: 'numeric', month: 'short' });
+  };
+
   const toast = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -2968,16 +2980,21 @@ const CheckIn = () => {
                         )}
                       </div>
                       <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <h4 className="text-xs font-black text-gray-900 uppercase tracking-wider truncate">
                             WhatsApp Inbox
                           </h4>
-                          <span className="bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded-full text-[10px] font-black shrink-0">
-                            {waRecentMedia.length}
+                          <span 
+                            className="bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded-full text-[10px] font-black shrink-0"
+                            title="Rolling FIFO Buffer: Max 50 newest photos kept active. Oldest bottom unused photos are auto-purged so new photos always arrive."
+                          >
+                            {waRecentMedia.length} / 50
                           </span>
                         </div>
-                        <p className="text-[11px] font-bold text-gray-500 truncate">
-                          {waPhone ? `+${waPhone}` : (waStatus === 'connecting' ? 'Connecting...' : 'Not linked')}
+                        <p className="text-[10px] font-bold text-gray-500 truncate flex items-center gap-1 mt-0.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                          <span>FIFO (Newest on top)</span>
+                          {waPhone && <span className="text-gray-400">• +{waPhone}</span>}
                         </p>
                       </div>
                     </div>
@@ -3109,6 +3126,7 @@ const CheckIn = () => {
                             ? media.imageUrl
                             : `${API}${media.imageUrl}`;
                           const isUsed = media.status === 'used';
+                          const isRecent = (Date.now() - new Date(media.createdAt).getTime()) < 15 * 60 * 1000;
                           const isLid = media.senderPhone && (media.senderPhone.startsWith('155') || media.senderPhone.length > 13);
                           const displaySenderName = media.senderName || (isLid ? 'WhatsApp Contact' : `+${media.senderPhone}`);
                           const displayPhone = isLid ? 'Via WhatsApp' : `+${media.senderPhone}`;
@@ -3131,13 +3149,18 @@ const CheckIn = () => {
                                   </p>
                                 </div>
                                 <div className="text-right shrink-0 flex items-center gap-1.5">
+                                  {isRecent && !isUsed && (
+                                    <span className="px-1.5 py-0.5 rounded-full bg-emerald-500 text-white text-[8px] font-black uppercase tracking-wider animate-pulse">
+                                      NEW
+                                    </span>
+                                  )}
                                   {isUsed && (
                                     <span className="inline-flex items-center gap-0.5 bg-gray-100 text-gray-700 text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase">
                                       <CheckCircle2 size={10} className="text-emerald-600" /> Attached
                                     </span>
                                   )}
-                                  <span className="text-[10px] font-bold text-gray-400 block">
-                                    {new Date(media.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  <span className="text-[10px] font-bold text-gray-400 block font-mono">
+                                    {getWaRelativeTime(media.createdAt)}
                                   </span>
                                 </div>
                               </div>
@@ -4344,6 +4367,17 @@ const CheckIn = () => {
               </button>
             </div>
 
+            {/* FIFO Buffer Information Bar */}
+            <div className="px-6 py-2 bg-emerald-50/70 border-b border-emerald-100 text-[11px] text-emerald-900 font-bold flex items-center justify-between gap-2 flex-wrap">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>⚡ <strong>Auto-Rolling Buffer (Max 50):</strong> New photos always arrive on top. Oldest unused photos auto-clear from bottom.</span>
+              </span>
+              <span className="text-[10px] text-emerald-700 bg-emerald-100/90 px-2 py-0.5 rounded-full font-mono font-black">
+                {waRecentMedia.length} / 50 Active
+              </span>
+            </div>
+
             {/* CARDS LIST / GRID */}
             <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
               {waRecentMedia.length === 0 ? (
@@ -4409,11 +4443,19 @@ const CheckIn = () => {
                                 Click to Zoom
                               </div>
                             </div>
-                            <p className="text-xs font-black text-gray-900 truncate">
-                              {displayName}
-                            </p>
-                            <p className="text-[10px] text-gray-500 font-bold mb-3 truncate">
-                              {displaySub} • {new Date(media.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            <div className="flex items-center justify-between gap-1 mb-1">
+                              <p className="text-xs font-black text-gray-900 truncate">
+                                {displayName}
+                              </p>
+                              {((Date.now() - new Date(media.createdAt).getTime()) < 15 * 60 * 1000) && (
+                                <span className="px-1.5 py-0.5 rounded-full bg-emerald-500 text-white text-[8px] font-black uppercase tracking-wider shrink-0 animate-pulse">
+                                  NEW
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-gray-500 font-bold mb-3 truncate flex items-center justify-between">
+                              <span className="truncate">{displaySub}</span>
+                              <span className="font-mono text-gray-400 shrink-0 ml-1">{getWaRelativeTime(media.createdAt)}</span>
                             </p>
                           </div>
                           <button

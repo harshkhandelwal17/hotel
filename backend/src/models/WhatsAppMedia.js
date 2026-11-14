@@ -28,7 +28,7 @@ const whatsAppMediaSchema = new mongoose.Schema({
   messageTimestamp: {
     type: Date,
     default: Date.now,
-    expires: 86400 * 3 // Auto-expires after 3 days to keep DB compact
+    expires: 86400 * 7 // Auto-expires after 7 days
   },
   status: {
     type: String,

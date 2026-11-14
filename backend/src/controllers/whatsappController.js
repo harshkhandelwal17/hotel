@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Hostel = require('../models/Hostel');
 const WhatsAppMedia = require('../models/WhatsAppMedia');
+const { maintainHostelMediaBuffer } = require('../services/mediaCleanupService');
 const {
   startHostelWhatsApp,
   getHostelWhatsAppStatus,
@@ -141,15 +142,23 @@ exports.getRecentMedia = async (req, res, next) => {
       }
     }
 
-    const since = new Date(Date.now() - 72 * 60 * 60 * 1000);
+    // Proactively maintain rolling FIFO buffer (keeps top 50 newest, auto-purges oldest bottom unused)
+    maintainHostelMediaBuffer(hostelId, 50).catch(() => {});
+
+    // Return the newest media up to requested limit (default 60, allows full buffer visibility)
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 60, 10), 100);
     const media = await WhatsAppMedia.find({
-      hostel: hostelId,
-      createdAt: { $gte: since }
+      hostel: hostelId
     })
       .sort({ createdAt: -1 })
-      .limit(50);
+      .limit(limit);
 
-    res.status(200).json({ success: true, count: media.length, data: media });
+    res.status(200).json({ 
+      success: true, 
+      count: media.length, 
+      maxBuffer: 50,
+      data: media 
+    });
   } catch (err) {
     if (err.statusCode) {
       return res.status(err.statusCode).json({ success: false, message: err.message });

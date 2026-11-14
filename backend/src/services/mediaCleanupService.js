@@ -168,6 +168,83 @@ const cleanupUnusedMedia = async ({ olderThanHours = 24, forceAllUnused = false,
 };
 
 /**
+ * Rolling FIFO Buffer:
+ * Automatically ensures that the number of unused WhatsApp images for a hotel
+ * never exceeds maxBuffer (default 50).
+ * When new images arrive, the oldest unused images from the bottom are automatically
+ * purged from MongoDB and physical storage (R2 / local uploads).
+ * Used / checked-in guest photos are 100% protected.
+ */
+const maintainHostelMediaBuffer = async (hostelId, maxBuffer = 50) => {
+  if (!hostelId) return { purgedCount: 0 };
+
+  try {
+    // 1. Fetch all unused media for this hostel, sorted newest first (descending)
+    const unusedMedia = await WhatsAppMedia.find({
+      hostel: hostelId,
+      status: 'new'
+    })
+      .sort({ createdAt: -1 })
+      .select('_id imageUrl');
+
+    // If unused count is within limit, nothing to purge
+    if (unusedMedia.length <= maxBuffer) {
+      return { purgedCount: 0 };
+    }
+
+    // 2. Identify the overflow items at the bottom (oldest ones beyond maxBuffer)
+    const excessItems = unusedMedia.slice(maxBuffer);
+
+    // 3. Collect all protected image URLs from checked-in guests
+    const guests = await Guest.find({
+      $or: [
+        { idProofImage: { $exists: true, $ne: '' } },
+        { idProofImageBack: { $exists: true, $ne: '' } }
+      ]
+    }).select('idProofImage idProofImageBack').lean();
+
+    const protectedUrls = new Set();
+    const protectedKeys = new Set();
+    guests.forEach(g => {
+      if (g.idProofImage) {
+        protectedUrls.add(g.idProofImage);
+        const k = extractStorageKey(g.idProofImage);
+        if (k) protectedKeys.add(k);
+      }
+      if (g.idProofImageBack) {
+        protectedUrls.add(g.idProofImageBack);
+        const k = extractStorageKey(g.idProofImageBack);
+        if (k) protectedKeys.add(k);
+      }
+    });
+
+    let purgedCount = 0;
+    for (const item of excessItems) {
+      const key = extractStorageKey(item.imageUrl);
+      if (protectedUrls.has(item.imageUrl) || (key && protectedKeys.has(key))) {
+        // Protect it by marking status used
+        await WhatsAppMedia.updateOne({ _id: item._id }, { status: 'used' }).catch(() => {});
+      } else {
+        // Delete physical file (Cloudflare R2 and/or local uploads)
+        await deleteMediaFile(item.imageUrl).catch(() => {});
+        // Remove from database
+        await WhatsAppMedia.deleteOne({ _id: item._id }).catch(() => {});
+        purgedCount++;
+      }
+    }
+
+    if (purgedCount > 0) {
+      console.log(`[WhatsApp Rolling Buffer] 🔄 Auto-purged ${purgedCount} oldest unused photos for Hostel ${hostelId}. (Maintained top ${maxBuffer} newest photos).`);
+    }
+
+    return { purgedCount };
+  } catch (err) {
+    console.warn(`[WhatsApp Rolling Buffer] ⚠️ Warning while maintaining buffer for Hostel ${hostelId}:`, err.message);
+    return { purgedCount: 0 };
+  }
+};
+
+/**
  * Scheduled cleanup (Safe 7-day retention, no boot deletion)
  */
 let intervalHandle = null;
@@ -185,5 +262,6 @@ const startScheduledCleanup = () => {
 
 module.exports = {
   cleanupUnusedMedia,
+  maintainHostelMediaBuffer,
   startScheduledCleanup
 };
