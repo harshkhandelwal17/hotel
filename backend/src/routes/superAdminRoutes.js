@@ -13,7 +13,8 @@ const {
   toggleHostelWhatsAppSync, 
   toggleHostelLaundry,
   toggleHostelStatus, 
-  updateHostelPlan 
+  updateHostelPlan,
+  getSalesTeamPerformance 
 } = require('../controllers/superAdminController');
 const { protect, authorize } = require('../middlewares/auth');
 
@@ -36,6 +37,7 @@ router.put('/hostels/:id/toggle-ai-ocr', toggleHostelAiOcr);
 router.put('/hostels/:id/toggle-whatsapp-sync', toggleHostelWhatsAppSync);
 router.put('/hostels/:id/toggle-laundry', toggleHostelLaundry);
 router.put('/hostels/:id/plan', updateHostelPlan);
+router.get('/sales-team', getSalesTeamPerformance);
 
 module.exports = router;
 

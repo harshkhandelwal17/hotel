@@ -24,6 +24,7 @@ const PaymentsList = lazy(() => import('./pages/receptionist/PaymentsList'));
 const GuestDirectory = lazy(() => import('./pages/receptionist/GuestDirectory'));
 const Laundry = lazy(() => import('./pages/receptionist/Laundry'));
 const SuperAdminDashboard = lazy(() => import('./pages/admin/SuperAdminDashboard'));
+const SalesDashboard = lazy(() => import('./pages/sales/SalesDashboard'));
 
 import { ToastProvider } from './components/ui/Toast';
 import { LanguageProvider } from './context/LanguageContext';
@@ -40,6 +41,7 @@ const RootRedirect = () => {
   }
   if (!user) return <Navigate to="/login" replace />;
   if (user.role === 'superadmin') return <Navigate to="/superadmin" replace />;
+  if (user.role === 'sales') return <Navigate to="/sales" replace />;
   return <Navigate to="/dashboard" replace />;
 };
 
@@ -82,6 +84,11 @@ function App() {
             <Route element={<AppLayout />}>
               <Route path="/superadmin" element={<SuperAdminDashboard />} />
             </Route>
+          </Route>
+
+          {/* Sales Executive Portal */}
+          <Route element={<ProtectedRoute allowedRoles={['sales', 'superadmin']} />}>
+            <Route path="/sales" element={<SalesDashboard />} />
           </Route>
 
           {/* Smart Root & Fallback Redirects */}

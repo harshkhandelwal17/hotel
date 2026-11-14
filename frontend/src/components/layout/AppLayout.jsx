@@ -315,25 +315,33 @@ const AppLayout = ({ children }) => {
 
   const primaryNavItems = user?.role === 'superadmin' ? navItems : navItems.filter(item => ['dashboard', 'stays', 'rooms', 'history', 'payments', 'laundry'].includes(item.id));
 
-  const handleReturnToSuperAdmin = () => {
-    const saToken = localStorage.getItem('superAdminToken');
+  const handleReturnToAdminPortal = () => {
+    const returnUrl = localStorage.getItem('impersonateReturnUrl') || '/superadmin';
+    const saToken = localStorage.getItem('superAdminToken') || localStorage.getItem('salesAdminToken');
     if (saToken) {
       localStorage.setItem('token', saToken);
       localStorage.removeItem('superAdminToken');
+      localStorage.removeItem('salesAdminToken');
+      localStorage.removeItem('impersonateReturnUrl');
       localStorage.removeItem('user');
-      window.location.href = '/superadmin';
+      window.location.href = returnUrl;
     }
   };
 
-  const isImpersonating = !!localStorage.getItem('superAdminToken');
+  const isImpersonating = !!(localStorage.getItem('superAdminToken') || localStorage.getItem('salesAdminToken'));
+  const isSalesMode = localStorage.getItem('impersonateReturnUrl') === '/sales';
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] flex flex-col font-sans overflow-x-hidden w-full max-w-full">
       {isImpersonating && (
-        <div className="bg-orange-500 text-white px-4 py-2 text-xs font-black uppercase tracking-widest flex items-center justify-between shadow-sm z-50 relative w-full">
-          <span className="truncate mr-2">⚠️ You are impersonating {user?.name} ({user?.role})</span>
-          <button onClick={handleReturnToSuperAdmin} className="bg-black/20 hover:bg-black/40 px-3 py-1.5 rounded transition-colors active:scale-95 shrink-0">
-            Return to Superadmin
+        <div className={`px-4 py-2 text-xs font-black uppercase tracking-widest flex items-center justify-between shadow-sm z-50 relative w-full text-white ${
+          isSalesMode ? 'bg-indigo-600' : 'bg-orange-500'
+        }`}>
+          <span className="truncate mr-2">
+            {isSalesMode ? '⚡ Field Demo / Support Mode Active' : '⚠️ Impersonating'}: {user?.name} ({user?.role})
+          </span>
+          <button onClick={handleReturnToAdminPortal} className="bg-black/20 hover:bg-black/40 px-3 py-1.5 rounded-lg transition-colors active:scale-95 shrink-0">
+            {isSalesMode ? 'Return to Sales Portal' : 'Return to Superadmin'}
           </button>
         </div>
       )}

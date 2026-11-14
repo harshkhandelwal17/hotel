@@ -39,6 +39,7 @@ const ocrRoutes = require('./routes/ocrRoutes');
 const whatsappRoutes = require('./routes/whatsappRoutes');
 const laundryRoutes = require('./routes/laundryRoutes');
 const expenseRoutes = require('./routes/expenseRoutes');
+const salesRoutes = require('./routes/salesRoutes');
 const path = require('path');
 
 app.use('/api/auth', authRoutes);
@@ -52,6 +53,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/superadmin', superAdminRoutes);
+app.use('/api/sales', salesRoutes);
 app.use('/api/ocr', ocrRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/laundry', laundryRoutes);

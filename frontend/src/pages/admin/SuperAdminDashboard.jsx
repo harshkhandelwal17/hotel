@@ -33,7 +33,8 @@ import {
   Network,
   Crown,
   Clock,
-  ChevronRight
+  ChevronRight,
+  Trophy
 } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -41,6 +42,7 @@ import SuperAdminHero from '../../components/superadmin/SuperAdminHero';
 import SuperAdminStats from '../../components/superadmin/SuperAdminStats';
 import EcosystemView from '../../components/superadmin/EcosystemView';
 import SubscriptionsView from '../../components/superadmin/SubscriptionsView';
+import SalesTeamView from '../../components/superadmin/SalesTeamView';
 
 const SuperAdminDashboard = () => {
   // --- 1. ALL HOOKS STRICTLY AT THE TOP ---
@@ -50,11 +52,12 @@ const SuperAdminDashboard = () => {
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [hostels, setHostels] = useState([]);
+  const [salesTeamData, setSalesTeamData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [impersonating, setImpersonating] = useState(false);
   
-  // Tabs: 'ecosystem' (default) | 'subscriptions' | 'owners' | 'hostels' | 'all-users'
+  // Tabs: 'ecosystem' (default) | 'subscriptions' | 'sales' | 'owners' | 'hostels' | 'all-users'
   const [activeTab, setActiveTab] = useState('ecosystem');
   const [searchQuery, setSearchQuery] = useState('');
   const [quickFilter, setQuickFilter] = useState('all');
@@ -140,14 +143,16 @@ const SuperAdminDashboard = () => {
     try {
       setLoading(true);
       const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
-      const [statsRes, usersRes, hostelsRes] = await Promise.all([
+      const [statsRes, usersRes, hostelsRes, salesRes] = await Promise.all([
         axios.get(`${API}/api/superadmin/stats`),
         axios.get(`${API}/api/superadmin/users`),
-        axios.get(`${API}/api/superadmin/hostels`)
+        axios.get(`${API}/api/superadmin/hostels`),
+        axios.get(`${API}/api/superadmin/sales-team`).catch(() => ({ data: { data: null } }))
       ]);
       setStats(statsRes.data.data);
       setUsers(usersRes.data.data || []);
       setHostels(hostelsRes.data.data || []);
+      setSalesTeamData(salesRes.data?.data || null);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load superadmin data');
     } finally {
@@ -167,7 +172,11 @@ const SuperAdminDashboard = () => {
       const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
       const res = await axios.post(`${API}/api/superadmin/users`, newOwnerForm);
       const createdUser = res.data.data;
-      const roleLabel = createdUser.role === 'receptionist' ? 'Front Desk Staff' : 'Hotel Owner';
+      const roleLabel = createdUser.role === 'sales'
+        ? 'Field Sales Executive'
+        : createdUser.role === 'receptionist'
+        ? 'Front Desk Staff'
+        : 'Hotel Owner';
       alert(`✅ ${roleLabel} "${createdUser.name}" created successfully!\nEmail: ${createdUser.email}`);
       setIsCreateOwnerOpen(false);
       
@@ -507,9 +516,23 @@ const SuperAdminDashboard = () => {
     setIsCreateOwnerOpen(true);
   };
 
+  // Helper to open Create Sales Executive modal
+  const openCreateSalesAgent = () => {
+    setNewOwnerForm({
+      name: '',
+      email: '',
+      phone: '',
+      password: 'password123',
+      role: 'sales',
+      assignedHostel: null
+    });
+    setIsCreateOwnerOpen(true);
+  };
+
   // --- 4. FILTERED DATA CALCULATIONS ---
   const hotelOwners = users.filter(u => u.role === 'admin');
   const staffUsers = users.filter(u => u.role === 'receptionist');
+  const salesUsers = users.filter(u => u.role === 'sales');
   
   const filteredOwners = hotelOwners.filter(u => 
     u.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -623,6 +646,19 @@ const SuperAdminDashboard = () => {
           </button>
 
           <button 
+            onClick={() => setActiveTab('sales')} 
+            className={`px-4 py-2.5 text-xs font-black rounded-xl transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+              activeTab === 'sales' ? 'bg-white shadow-sm text-gray-900 ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            <Trophy size={15} className="text-amber-500" />
+            <span>Sales Team</span>
+            <span className="px-2 py-0.5 text-[10px] rounded-full bg-indigo-100 text-indigo-700 font-bold ml-1">
+              {salesTeamData?.totalAgents !== undefined ? salesTeamData.totalAgents : salesUsers.length} Agents
+            </span>
+          </button>
+
+          <button 
             onClick={() => setActiveTab('owners')} 
             className={`px-4 py-2.5 text-xs font-black rounded-xl transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
               activeTab === 'owners' ? 'bg-white shadow-sm text-gray-900 ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-900'
@@ -660,6 +696,7 @@ const SuperAdminDashboard = () => {
             placeholder={
               activeTab === 'ecosystem' ? "Search ecosystem by owner, hotel..." :
               activeTab === 'subscriptions' ? "Search subscription by property, plan..." :
+              activeTab === 'sales' ? "Search sales team by name, phone..." :
               activeTab === 'owners' ? "Search owners by name, email..." :
               activeTab === 'hostels' ? "Search properties..." : "Search all users..."
             }
@@ -717,6 +754,18 @@ const SuperAdminDashboard = () => {
           stats={stats}
           hostels={filteredHostels}
           onOpenPlanModal={openPlanModal}
+        />
+      )}
+
+      {/* ============================================================== */}
+      {/* TAB 0.7: 💼 FIELD SALES TEAM & PERFORMANCE LEADERBOARD */}
+      {/* ============================================================== */}
+      {activeTab === 'sales' && (
+        <SalesTeamView
+          salesData={salesTeamData}
+          onOpenCreateSalesAgent={openCreateSalesAgent}
+          onResetPassword={handleResetPassword}
+          loading={loading}
         />
       )}
 
@@ -1277,13 +1326,19 @@ const SuperAdminDashboard = () => {
                     <td className="px-6 py-4">
                       <span className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-lg ${
                         u.role === 'superadmin' ? 'bg-red-100 text-red-700' :
-                        u.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                        u.role === 'admin' ? 'bg-purple-100 text-purple-700' :
+                        u.role === 'sales' ? 'bg-indigo-100 text-indigo-700' : 'bg-blue-100 text-blue-700'
                       }`}>
-                        {u.role === 'admin' ? 'Hotel Owner (Admin)' : u.role}
+                        {u.role === 'admin' ? 'Hotel Owner (Admin)' : u.role === 'sales' ? 'Field Sales' : u.role === 'receptionist' ? 'Front Desk Staff' : u.role}
                       </span>
                       {u.role === 'admin' && (
                         <p className="text-[11px] font-bold text-purple-700 mt-1 flex items-center gap-1">
                           <Crown size={11} /> Owns {u.ownedHostelsCount || hostels.filter(h => (h.owner?._id || h.owner) === u._id).length} Properties
+                        </p>
+                      )}
+                      {u.role === 'sales' && (
+                        <p className="text-[11px] font-bold text-indigo-700 mt-1 flex items-center gap-1">
+                          <Briefcase size={11} /> {hostels.filter(h => (h.onboardedBy?._id || h.onboardedBy) === u._id).length} Properties Onboarded
                         </p>
                       )}
                       {u.role === 'receptionist' && u.assignedHostel && (
@@ -1366,7 +1421,7 @@ const SuperAdminDashboard = () => {
       )}
 
       {/* ============================================================== */}
-      {/* 👤 MODAL 1: CREATE NEW HOTEL OWNER (ADMIN) */}
+      {/* 👤 MODAL 1: CREATE USER (OWNER / SALES / STAFF) */}
       {/* ============================================================== */}
       {isCreateOwnerOpen && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] overflow-y-auto animate-in fade-in duration-200" onClick={() => setIsCreateOwnerOpen(false)}>
@@ -1374,11 +1429,25 @@ const SuperAdminDashboard = () => {
             <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-lg w-full my-0 sm:my-8 overflow-hidden shadow-2xl border border-gray-100 max-h-[92dvh] sm:max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-200 text-left" onClick={e => e.stopPropagation()}>
               <div className="p-6 bg-gradient-to-r from-gray-950 to-gray-900 text-white flex justify-between items-start shrink-0">
                 <div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-purple-400 bg-purple-500/20 px-2.5 py-0.5 rounded-full">
-                    Step 1 · Client Onboarding
+                  <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full ${
+                    newOwnerForm.role === 'sales' 
+                      ? 'text-indigo-400 bg-indigo-500/20' 
+                      : newOwnerForm.role === 'receptionist'
+                      ? 'text-blue-400 bg-blue-500/20'
+                      : 'text-purple-400 bg-purple-500/20'
+                  }`}>
+                    {newOwnerForm.role === 'sales' ? 'Field Sales Team' : newOwnerForm.role === 'receptionist' ? 'Front Desk Staff' : 'Client Onboarding'}
                   </span>
-                  <h3 className="text-xl font-black text-white mt-1.5">Create New Hotel Owner (Admin)</h3>
-                  <p className="text-xs text-gray-400 mt-0.5">This creates the master login for the hotel owner.</p>
+                  <h3 className="text-xl font-black text-white mt-1.5">
+                    {newOwnerForm.role === 'sales' ? 'Add Sales Executive' : newOwnerForm.role === 'receptionist' ? 'Add Front Desk Staff' : 'Create Hotel Owner (Admin)'}
+                  </h3>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {newOwnerForm.role === 'sales' 
+                      ? 'Grants access to /sales portal with hotel onboarding & demo mode.' 
+                      : newOwnerForm.role === 'receptionist'
+                      ? 'Grants front desk check-in and room operation access.'
+                      : 'Master login for the hotel owner to manage their properties.'}
+                  </p>
                 </div>
                 <button onClick={() => setIsCreateOwnerOpen(false)} className="p-2 text-gray-400 hover:text-white rounded-full hover:bg-gray-800 transition-colors">
                   ✕
@@ -1387,14 +1456,56 @@ const SuperAdminDashboard = () => {
 
               <form onSubmit={handleCreateOwner} className="flex flex-col flex-1 min-h-0">
                 <div className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
+                  {/* Role Selector */}
                   <div>
                     <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                      Owner Full Name <span className="text-red-500">*</span>
+                      User Role / Permission Level
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setNewOwnerForm({ ...newOwnerForm, role: 'admin' })}
+                        className={`p-2.5 text-xs font-black rounded-xl border text-center transition-all ${
+                          newOwnerForm.role === 'admin'
+                            ? 'bg-purple-50 border-purple-300 text-purple-900 ring-2 ring-purple-600'
+                            : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                        }`}
+                      >
+                        👑 Hotel Owner
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewOwnerForm({ ...newOwnerForm, role: 'sales' })}
+                        className={`p-2.5 text-xs font-black rounded-xl border text-center transition-all ${
+                          newOwnerForm.role === 'sales'
+                            ? 'bg-indigo-50 border-indigo-300 text-indigo-900 ring-2 ring-indigo-600'
+                            : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                        }`}
+                      >
+                        💼 Sales Exec
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewOwnerForm({ ...newOwnerForm, role: 'receptionist' })}
+                        className={`p-2.5 text-xs font-black rounded-xl border text-center transition-all ${
+                          newOwnerForm.role === 'receptionist'
+                            ? 'bg-blue-50 border-blue-300 text-blue-900 ring-2 ring-blue-600'
+                            : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                        }`}
+                      >
+                        🛎️ Front Desk
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                      Full Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Rajesh Sharma"
+                      placeholder={newOwnerForm.role === 'sales' ? 'e.g. Amit Kumar (Sales)' : 'e.g. Rajesh Sharma'}
                       className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
                       value={newOwnerForm.name}
                       onChange={e => setNewOwnerForm({ ...newOwnerForm, name: e.target.value })}
@@ -1408,7 +1519,7 @@ const SuperAdminDashboard = () => {
                     <input
                       type="email"
                       required
-                      placeholder="e.g. rajesh@hotelroyal.com"
+                      placeholder="e.g. sales@domain.com"
                       className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
                       value={newOwnerForm.email}
                       onChange={e => setNewOwnerForm({ ...newOwnerForm, email: e.target.value })}
@@ -1444,12 +1555,42 @@ const SuperAdminDashboard = () => {
                     </div>
                   </div>
 
-                  <div className="p-3 bg-purple-50 rounded-2xl border border-purple-100 flex items-start gap-2.5 text-xs text-purple-900">
-                    <Briefcase size={16} className="text-purple-600 shrink-0 mt-0.5" />
-                    <p>
-                      <strong>Role: Admin (Hotel Owner)</strong>. Once created, you can attach their first property or multiple properties immediately.
-                    </p>
-                  </div>
+                  {newOwnerForm.role === 'receptionist' && (
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                        Assigned Property <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        required
+                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                        value={newOwnerForm.assignedHostel || ''}
+                        onChange={e => setNewOwnerForm({ ...newOwnerForm, assignedHostel: e.target.value || null })}
+                      >
+                        <option value="">Select Property...</option>
+                        {hostels.map(h => (
+                          <option key={h._id} value={h._id}>{h.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {newOwnerForm.role === 'sales' && (
+                    <div className="p-3 bg-indigo-50 rounded-2xl border border-indigo-100 flex items-start gap-2.5 text-xs text-indigo-900">
+                      <Briefcase size={16} className="text-indigo-600 shrink-0 mt-0.5" />
+                      <p>
+                        <strong>Field Sales Privilege:</strong> This account will only access <code>/sales</code>. They can onboard clients, run 1-click live demos, and resolve front desk issues. <em>Total platform revenue is strictly hidden from them.</em>
+                      </p>
+                    </div>
+                  )}
+
+                  {newOwnerForm.role === 'admin' && (
+                    <div className="p-3 bg-purple-50 rounded-2xl border border-purple-100 flex items-start gap-2.5 text-xs text-purple-900">
+                      <Briefcase size={16} className="text-purple-600 shrink-0 mt-0.5" />
+                      <p>
+                        <strong>Role: Admin (Hotel Owner)</strong>. Once created, you can attach their first property or multiple properties immediately.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-4 px-6 pb-[max(1rem,env(safe-area-inset-bottom))] bg-gray-50 border-t border-gray-100 flex gap-3 justify-end shrink-0">
@@ -1465,7 +1606,13 @@ const SuperAdminDashboard = () => {
                     disabled={creatingOwner}
                     className="px-6 py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50"
                   >
-                    {creatingOwner ? 'Creating Owner...' : 'Create Hotel Owner'}
+                    {creatingOwner 
+                      ? 'Creating...' 
+                      : newOwnerForm.role === 'sales'
+                      ? 'Create Sales Executive'
+                      : newOwnerForm.role === 'receptionist'
+                      ? 'Create Front Desk Staff'
+                      : 'Create Hotel Owner'}
                   </button>
                 </div>
               </form>

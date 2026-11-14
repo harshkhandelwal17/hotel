@@ -11,6 +11,7 @@ exports.getSystemStats = async (req, res, next) => {
     const totalUsers = await User.countDocuments();
     const totalOwners = await User.countDocuments({ role: 'admin' });
     const totalStaff = await User.countDocuments({ role: 'receptionist' });
+    const totalSalesAgents = await User.countDocuments({ role: 'sales' });
     const totalHostels = await Hostel.countDocuments();
     const activeHostels = await Hostel.countDocuments({ isActive: true });
     const lockedHostels = await Hostel.countDocuments({ isActive: false });
@@ -65,6 +66,7 @@ exports.getSystemStats = async (req, res, next) => {
         totalUsers,
         totalOwners,
         totalStaff,
+        totalSalesAgents,
         totalHostels,
         activeHostels,
         lockedHostels,
@@ -424,5 +426,59 @@ exports.updateHostelPlan = async (req, res, next) => {
     });
   } catch (error) {
     next(error);
+  }
+};
+
+/**
+ * 💼 Super Admin Sales Team Leaderboard & Performance Overview
+ */
+exports.getSalesTeamPerformance = async (req, res, next) => {
+  try {
+    const salesAgents = await User.find({ role: 'sales' })
+      .select('name email phone isActive createdAt')
+      .sort('-createdAt')
+      .lean();
+
+    const teamPerformance = await Promise.all(
+      salesAgents.map(async (agent) => {
+        const hotels = await Hostel.find({ onboardedBy: agent._id })
+          .select('name address plan planStatus planPrice createdAt contactNumber')
+          .lean();
+
+        const totalRevenue = hotels
+          .filter(h => h.planStatus === 'active')
+          .reduce((sum, h) => sum + (Number(h.planPrice) || 0), 0);
+
+        const activeHotels = hotels.filter(h => h.planStatus === 'active').length;
+        const trialHotels = hotels.filter(h => h.planStatus === 'trial' || h.plan === 'demo').length;
+
+        return {
+          agent,
+          hotelsCount: hotels.length,
+          activeHotelsCount: activeHotels,
+          trialHotelsCount: trialHotels,
+          totalRevenueGenerated: totalRevenue,
+          hotels
+        };
+      })
+    );
+
+    // Sort leaderboard by highest revenue generated first
+    teamPerformance.sort((a, b) => b.totalRevenueGenerated - a.totalRevenueGenerated);
+
+    const totalSalesRevenue = teamPerformance.reduce((sum, p) => sum + p.totalRevenueGenerated, 0);
+    const totalHotelsBySales = teamPerformance.reduce((sum, p) => sum + p.hotelsCount, 0);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        totalAgents: salesAgents.length,
+        totalSalesRevenue,
+        totalHotelsBySales,
+        leaderboard: teamPerformance
+      }
+    });
+  } catch (err) {
+    next(err);
   }
 };

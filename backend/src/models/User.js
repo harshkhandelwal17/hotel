@@ -27,7 +27,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['superadmin', 'admin', 'receptionist'],
+    enum: ['superadmin', 'admin', 'receptionist', 'sales'],
     default: 'receptionist'
   },
   assignedHostel: {
@@ -36,6 +36,10 @@ const userSchema = new mongoose.Schema({
     required: function() {
       return this.role === 'receptionist';
     }
+  },
+  onboardedBy: {
+    type: mongoose.Schema.ObjectId,
+    ref: 'User'
   },
   isActive: {
     type: Boolean,

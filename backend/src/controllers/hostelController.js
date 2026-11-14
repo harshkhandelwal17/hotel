@@ -22,6 +22,9 @@ exports.createHostel = async (req, res, next) => {
     if (typeof payload.upiPayeeName === 'string') {
       payload.upiPayeeName = payload.upiPayeeName.trim();
     }
+    if (req.user) {
+      payload.onboardedBy = payload.onboardedBy || req.user._id;
+    }
     const hostel = await Hostel.create(payload);
 
     // If owner has no phone, sync property contactNumber to owner

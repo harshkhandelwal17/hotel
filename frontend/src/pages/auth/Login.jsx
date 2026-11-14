@@ -18,8 +18,11 @@ const Login = () => {
     setLoading(true);
     try {
       const res = await login(email, password);
-      if (res?.data?.role === 'superadmin' || res?.role === 'superadmin' || res?.data?.user?.role === 'superadmin') {
+      const role = res?.data?.role || res?.role || res?.data?.user?.role;
+      if (role === 'superadmin') {
          navigate('/superadmin');
+      } else if (role === 'sales') {
+         navigate('/sales');
       } else {
          navigate('/dashboard');
       }

@@ -122,6 +122,10 @@ const hostelSchema = new mongoose.Schema({
     type: mongoose.Schema.ObjectId,
     ref: 'User'
   },
+  onboardedBy: {
+    type: mongoose.Schema.ObjectId,
+    ref: 'User'
+  },
   // 🎟️ SUBSCRIPTION & BILLING PLAN DETAILS
   plan: {
     type: String,
