@@ -41,7 +41,8 @@ import {
   Unlock,
   CreditCard,
   History,
-  CheckCircle
+  CheckCircle,
+  X
 } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -704,23 +705,23 @@ Please let us know your available time today! 🙏`;
   const overdueFollowUpsCount = stats?.pipeline?.overdueFollowUps || 0;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-16">
+    <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-500 pb-24 sm:pb-16 px-1 sm:px-0">
       
-      {/* 🚀 TOP HERO BANNER (Clean Modern White & Gradient Style) */}
-      <div className="bg-gradient-to-r from-gray-900 via-indigo-950 to-gray-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden border border-gray-800">
+      {/* 🚀 TOP HERO BANNER (Responsive Mobile & Tablet Optimized) */}
+      <div className="bg-gradient-to-r from-gray-900 via-indigo-950 to-gray-900 text-white rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-xl relative overflow-hidden border border-gray-800">
         <div className="absolute right-0 top-0 -mt-12 -mr-12 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5 relative z-10">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="px-3 py-1 bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5">
                 <Briefcase size={12} className="text-indigo-400" />
                 <span>Field Sales Command</span>
               </span>
-              <span className="text-xs text-gray-400 font-bold">· Welcome, {agentName}</span>
+              <span className="text-xs text-gray-400 font-bold">· {agentName}</span>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight mt-2">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-white tracking-tight mt-2">
               Hotel Client Management & Onboarding
             </h1>
             <p className="text-xs sm:text-sm text-gray-300 font-medium max-w-2xl mt-1">
@@ -728,14 +729,14 @@ Please let us know your available time today! 🙏`;
             </p>
           </div>
 
-          {/* Action CTAs */}
-          <div className="flex flex-wrap items-center gap-2.5">
+          {/* Action CTAs - Responsive Flex / Grid */}
+          <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
             <button
               onClick={() => setIsCreateOwnerOpen(true)}
-              className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-1.5"
+              className="flex-1 sm:flex-initial px-3.5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5"
             >
               <Crown size={14} />
-              <span>+ Create Owner</span>
+              <span>+ Owner</span>
             </button>
 
             <button
@@ -743,18 +744,18 @@ Please let us know your available time today! 🙏`;
                 setPropertyForm(prev => ({ ...prev, owner: '' }));
                 setIsAddPropertyOpen(true);
               }}
-              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-1.5"
+              className="flex-1 sm:flex-initial px-3.5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5"
             >
               <Building size={14} />
-              <span>+ Register Property</span>
+              <span>+ Property</span>
             </button>
 
             <button
               onClick={() => setIsCreateStaffOpen(true)}
-              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-1.5"
+              className="flex-1 sm:flex-initial px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5"
             >
               <Users size={14} />
-              <span>+ Add Staff</span>
+              <span>+ Staff</span>
             </button>
 
             <button
@@ -769,10 +770,10 @@ Please let us know your available time today! 🙏`;
         </div>
       </div>
 
-      {/* 🎯 TARGET GAUGE & KEY METRICS (Clean White Cards) */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* 🎯 TARGET GAUGE & KEY METRICS (Responsive Grid) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Monthly Target Progress Card */}
-        <div className="md:col-span-2 bg-white p-5 rounded-3xl border border-gray-200 shadow-sm flex flex-col justify-between">
+        <div className="sm:col-span-2 bg-white p-5 rounded-2xl sm:rounded-3xl border border-gray-200 shadow-sm flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
@@ -792,20 +793,20 @@ Please let us know your available time today! 🙏`;
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-xs text-gray-500 font-semibold mt-3 pt-2 border-t border-gray-100">
-            <span>{remainingTarget > 0 ? `🎯 Need ${remainingTarget} more hotels to hit target` : '🎉 Monthly target achieved!'}</span>
-            <span className="text-amber-600 font-bold">{daysLeft} days remaining this month</span>
+          <div className="flex flex-wrap items-center justify-between text-xs text-gray-500 font-semibold mt-3 pt-2 border-t border-gray-100 gap-1">
+            <span>{remainingTarget > 0 ? `🎯 Need ${remainingTarget} more hotels` : '🎉 Target achieved!'}</span>
+            <span className="text-amber-600 font-bold">{daysLeft} days left in month</span>
           </div>
         </div>
 
         {/* My Onboarded Hotels */}
-        <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-sm flex flex-col justify-between">
+        <div className="bg-white p-5 rounded-2xl sm:rounded-3xl border border-gray-200 shadow-sm flex flex-col justify-between">
           <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
             <Building size={14} className="text-blue-600" />
             <span>My Onboarded Hotels</span>
           </span>
           <div className="my-2">
-            <p className="text-3xl font-black text-gray-900">{stats?.myHotelsCount || 0}</p>
+            <p className="text-2xl sm:text-3xl font-black text-gray-900">{stats?.myHotelsCount || 0}</p>
             <div className="flex items-center gap-2 mt-1">
               <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-50 text-emerald-700 rounded-md">
                 {stats?.myActivePaidCount || 0} Paid
@@ -819,7 +820,7 @@ Please let us know your available time today! 🙏`;
         </div>
 
         {/* Follow-up Alerts & Leads */}
-        <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-sm flex flex-col justify-between">
+        <div className="bg-white p-5 rounded-2xl sm:rounded-3xl border border-gray-200 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
               <Clock size={14} className="text-rose-600" />
@@ -832,12 +833,12 @@ Please let us know your available time today! 🙏`;
             )}
           </div>
           <div className="my-2">
-            <p className="text-3xl font-black text-rose-600">
+            <p className="text-2xl sm:text-3xl font-black text-rose-600">
               {todayFollowUpsCount + overdueFollowUpsCount}
             </p>
             <p className="text-[11px] text-gray-500 font-medium mt-1">
               {overdueFollowUpsCount > 0 ? `⚠️ ${overdueFollowUpsCount} overdue · ` : ''}
-              {todayFollowUpsCount} scheduled for today
+              {todayFollowUpsCount} scheduled today
             </p>
           </div>
           <button
@@ -852,80 +853,80 @@ Please let us know your available time today! 🙏`;
         </div>
       </div>
 
-      {/* 🗂️ MAIN TABS & FAST SEARCH (Clean Modern Gray Bar) */}
-      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 bg-gray-100/70 p-2 rounded-2xl border border-gray-200">
-        <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+      {/* 🗂️ MAIN TABS & FAST SEARCH (Responsive Bar with Horizontal Scroll) */}
+      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-gray-100/70 p-2 rounded-2xl border border-gray-200">
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-0.5">
           <button 
             onClick={() => setActiveTab('ecosystem')} 
-            className={`px-4 py-2.5 text-xs font-black rounded-xl transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+            className={`px-3.5 py-2 text-xs font-black rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
               activeTab === 'ecosystem' ? 'bg-white shadow-sm text-gray-900 ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-900'
             }`}
           >
-            <Network size={15} className="text-purple-600" />
-            <span>Hotel Ecosystem</span>
-            <span className="px-2 py-0.5 text-[10px] rounded-full bg-purple-100 text-purple-700 font-bold ml-1">
-              Hierarchy Tree
+            <Network size={14} className="text-purple-600" />
+            <span>Ecosystem</span>
+            <span className="px-1.5 py-0.5 text-[9px] rounded-full bg-purple-100 text-purple-700 font-bold ml-1">
+              Tree
             </span>
           </button>
 
           <button 
             onClick={() => setActiveTab('leads')} 
-            className={`px-4 py-2.5 text-xs font-black rounded-xl transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+            className={`px-3.5 py-2 text-xs font-black rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
               activeTab === 'leads' ? 'bg-white shadow-sm text-gray-900 ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-900'
             }`}
           >
-            <Target size={15} className="text-rose-600" />
-            <span>Field Leads & Follow-ups</span>
+            <Target size={14} className="text-rose-600" />
+            <span>Leads & Follow-ups</span>
             {(todayFollowUpsCount > 0 || overdueFollowUpsCount > 0) && (
-              <span className="px-2 py-0.5 text-[10px] rounded-full bg-rose-100 text-rose-700 font-bold ml-1">
-                {todayFollowUpsCount + overdueFollowUpsCount} Follow-ups
+              <span className="px-1.5 py-0.5 text-[9px] rounded-full bg-rose-100 text-rose-700 font-bold ml-1">
+                {todayFollowUpsCount + overdueFollowUpsCount}
               </span>
             )}
           </button>
 
           <button 
             onClick={() => setActiveTab('properties')} 
-            className={`px-4 py-2.5 text-xs font-black rounded-xl transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+            className={`px-3.5 py-2 text-xs font-black rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
               activeTab === 'properties' ? 'bg-white shadow-sm text-gray-900 ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-900'
             }`}
           >
-            <Building size={15} className="text-blue-600" />
-            <span>Properties ({hostels.length})</span>
+            <Building size={14} className="text-blue-600" />
+            <span>Hotels ({hostels.length})</span>
           </button>
 
           <button 
             onClick={() => setActiveTab('owners')} 
-            className={`px-4 py-2.5 text-xs font-black rounded-xl transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+            className={`px-3.5 py-2 text-xs font-black rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
               activeTab === 'owners' ? 'bg-white shadow-sm text-gray-900 ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-900'
             }`}
           >
-            <Crown size={15} className="text-amber-600" />
+            <Crown size={14} className="text-amber-600" />
             <span>Owners ({owners.length})</span>
           </button>
 
           <button 
             onClick={() => setActiveTab('staff')} 
-            className={`px-4 py-2.5 text-xs font-black rounded-xl transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+            className={`px-3.5 py-2 text-xs font-black rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
               activeTab === 'staff' ? 'bg-white shadow-sm text-gray-900 ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-900'
             }`}
           >
-            <Users size={15} className="text-indigo-600" />
+            <Users size={14} className="text-indigo-600" />
             <span>Staff ({staffUsers.length})</span>
           </button>
 
           <button 
             onClick={() => setActiveTab('outreach')} 
-            className={`px-4 py-2.5 text-xs font-black rounded-xl transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+            className={`px-3.5 py-2 text-xs font-black rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
               activeTab === 'outreach' ? 'bg-white shadow-sm text-gray-900 ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-900'
             }`}
           >
-            <MessageSquare size={15} className="text-emerald-600" />
-            <span>WhatsApp Pitch</span>
+            <MessageSquare size={14} className="text-emerald-600" />
+            <span>WhatsApp</span>
           </button>
         </div>
 
         <div className="relative w-full sm:w-72">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
           <input 
             type="text" 
             placeholder="Search hotel, owner, staff, phone..." 
@@ -940,15 +941,15 @@ Please let us know your available time today! 🙏`;
       {/* TAB 1: 🌐 HOTEL ECOSYSTEM - COMPLETE HIERARCHY TREE */}
       {/* ============================================================== */}
       {activeTab === 'ecosystem' && (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Quick Filter Bar */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Filter:</span>
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mr-1">Filter:</span>
             {['all', 'mine', 'active', 'trial'].map(filterKey => (
               <button
                 key={filterKey}
                 onClick={() => setQuickFilter(filterKey)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                   quickFilter === filterKey 
                     ? 'bg-black text-white shadow-sm' 
                     : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
@@ -963,7 +964,7 @@ Please let us know your available time today! 🙏`;
           </div>
 
           {filteredOwners.length === 0 ? (
-            <div className="bg-white rounded-3xl border border-gray-200 p-12 text-center shadow-sm">
+            <div className="bg-white rounded-3xl border border-gray-200 p-8 sm:p-12 text-center shadow-sm">
               <Users size={36} className="mx-auto text-gray-300 mb-3" />
               <h3 className="text-sm font-black text-gray-700">No Hotel Ecosystem Clients Found</h3>
               <p className="text-xs text-gray-400 max-w-sm mx-auto mt-1 mb-4">
@@ -982,22 +983,22 @@ Please let us know your available time today! 🙏`;
               if (ownerHotels.length === 0 && quickFilter !== 'all') return null;
 
               return (
-                <div key={owner._id} className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
+                <div key={owner._id} className="bg-white rounded-2xl sm:rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
                   {/* Owner Header Bar */}
-                  <div className="p-6 bg-gradient-to-r from-gray-50 via-purple-50/20 to-white border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div className="flex items-start sm:items-center gap-4">
-                      <div className="w-12 h-12 rounded-2xl bg-purple-600 text-white flex items-center justify-center font-black text-lg shadow-sm">
+                  <div className="p-4 sm:p-6 bg-gradient-to-r from-gray-50 via-purple-50/20 to-white border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div className="flex items-start sm:items-center gap-3 sm:gap-4">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-purple-600 text-white flex items-center justify-center font-black text-base sm:text-lg shadow-sm shrink-0">
                         {owner.name.charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-base font-black text-gray-900">{owner.name}</h3>
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                          <h3 className="text-sm sm:text-base font-black text-gray-900">{owner.name}</h3>
                           <span className="px-2 py-0.5 text-[9px] font-black uppercase tracking-wider bg-purple-100 text-purple-700 rounded-md">
-                            Hotel Owner (Client)
+                            Owner
                           </span>
                           {owner.isMine && (
                             <span className="px-2 py-0.5 text-[9px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-700 rounded-md">
-                              ⭐ Onboarded By You
+                              ⭐ Mine
                             </span>
                           )}
                           <span className={`px-2 py-0.5 text-[9px] font-black rounded-md uppercase tracking-wider ${
@@ -1006,22 +1007,22 @@ Please let us know your available time today! 🙏`;
                             {owner.isActive !== false ? 'Active' : 'Locked'}
                           </span>
                         </div>
-                        <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 font-semibold mt-1">
-                          <span className="flex items-center gap-1 text-gray-700 font-bold">
-                            <Mail size={12} className="text-gray-400" /> {owner.email}
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-gray-500 font-semibold mt-1">
+                          <span className="flex items-center gap-1 text-gray-700 font-bold truncate max-w-[200px] sm:max-w-none">
+                            <Mail size={12} className="text-gray-400 shrink-0" /> {owner.email}
                           </span>
                           <span className="flex items-center gap-1 text-gray-700">
-                            <Phone size={12} className="text-gray-400" /> {owner.phone || 'No phone'}
+                            <Phone size={12} className="text-gray-400 shrink-0" /> {owner.phone || 'No phone'}
                           </span>
                           <span className="text-purple-700 font-black">
-                            {ownerHotels.length} Properties Configured
+                            {ownerHotels.length} Properties
                           </span>
                         </div>
                       </div>
                     </div>
 
                     {/* Owner Quick Actions */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
                       <button
                         onClick={() => {
                           setPropertyForm(prev => ({
@@ -1064,7 +1065,7 @@ Please let us know your available time today! 🙏`;
                   </div>
 
                   {/* Properties & Staff Tree */}
-                  <div className="p-6 space-y-4">
+                  <div className="p-4 sm:p-6 space-y-4">
                     {ownerHotels.length === 0 ? (
                       <div className="p-6 bg-gray-50 rounded-2xl border border-dashed border-gray-200 text-center">
                         <p className="text-xs text-gray-500 font-medium">No properties attached to this owner yet.</p>
@@ -1085,12 +1086,12 @@ Please let us know your available time today! 🙏`;
                       </div>
                     ) : (
                       ownerHotels.map(hotel => (
-                        <div key={hotel._id} className="p-5 bg-gray-50/60 rounded-2xl border border-gray-200 space-y-4">
+                        <div key={hotel._id} className="p-4 sm:p-5 bg-gray-50/60 rounded-2xl border border-gray-200 space-y-3 sm:space-y-4">
                           {/* Property Details Bar */}
-                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
                             <div>
-                              <div className="flex items-center gap-2">
-                                <Building size={16} className="text-blue-600" />
+                              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                                <Building size={16} className="text-blue-600 shrink-0" />
                                 <h4 className="text-sm font-black text-gray-900">{hotel.name}</h4>
                                 <span className={`px-2 py-0.5 text-[9px] font-black rounded-md uppercase tracking-wider ${
                                   hotel.planStatus === 'active' 
@@ -1105,36 +1106,42 @@ Please let us know your available time today! 🙏`;
                                   {hotel.isActive !== false ? 'Live' : 'Locked'}
                                 </span>
                               </div>
-                              <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                                <MapPin size={11} className="text-gray-400" />
-                                <span>{hotel.address || 'Address not added'}</span>
-                                <span className="mx-1 text-gray-300">•</span>
-                                <Phone size={11} className="text-gray-400" />
-                                <span>{hotel.contactNumber || 'No contact'}</span>
-                                <span className="mx-1 text-gray-300">•</span>
-                                <CreditCard size={11} className="text-emerald-600" />
-                                <span className="font-bold text-gray-700">Tier: {(hotel.plan || 'Starter').toUpperCase()}</span>
+                              <p className="text-xs text-gray-500 flex flex-wrap items-center gap-1.5 mt-1">
+                                <span className="flex items-center gap-1">
+                                  <MapPin size={11} className="text-gray-400 shrink-0" />
+                                  <span>{hotel.address || 'Address not added'}</span>
+                                </span>
+                                <span className="text-gray-300">•</span>
+                                <span className="flex items-center gap-1">
+                                  <Phone size={11} className="text-gray-400 shrink-0" />
+                                  <span>{hotel.contactNumber || 'No contact'}</span>
+                                </span>
+                                <span className="text-gray-300">•</span>
+                                <span className="flex items-center gap-1">
+                                  <CreditCard size={11} className="text-emerald-600 shrink-0" />
+                                  <span className="font-bold text-gray-700">Tier: {(hotel.plan || 'Starter').toUpperCase()}</span>
+                                </span>
                               </p>
                             </div>
 
-                            {/* Property Actions */}
-                            <div className="flex flex-wrap items-center gap-2">
+                            {/* Property Actions - Responsive Grid on Mobile */}
+                            <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-1.5 w-full md:w-auto">
                               <button
                                 onClick={() => handleSalesImpersonate(hotel._id)}
                                 disabled={impersonatingId === hotel._id}
-                                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-sm flex items-center gap-1 active:scale-95 disabled:opacity-50"
+                                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-sm flex items-center justify-center gap-1 active:scale-95 disabled:opacity-50"
                               >
                                 <Sparkles size={12} />
-                                <span>{impersonatingId === hotel._id ? 'Launching...' : '⚡ Launch Demo'}</span>
+                                <span>{impersonatingId === hotel._id ? 'Launching...' : '⚡ Demo'}</span>
                               </button>
 
                               <button
                                 onClick={() => openPlanModal(hotel)}
-                                className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 font-black text-xs rounded-xl border border-purple-200 flex items-center gap-1 transition-all"
+                                className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 font-black text-xs rounded-xl border border-purple-200 flex items-center justify-center gap-1 transition-all"
                                 title="Assign or Modify Subscription Plan"
                               >
                                 <CreditCard size={12} />
-                                <span>Plan Settings</span>
+                                <span>Plan</span>
                               </button>
 
                               <button
@@ -1142,7 +1149,7 @@ Please let us know your available time today! 🙏`;
                                   setStaffForm(prev => ({ ...prev, assignedHostel: hotel._id }));
                                   setIsCreateStaffOpen(true);
                                 }}
-                                className="px-2.5 py-1.5 bg-white hover:bg-gray-100 text-gray-700 font-bold text-xs rounded-xl border border-gray-200 flex items-center gap-1"
+                                className="px-2.5 py-1.5 bg-white hover:bg-gray-100 text-gray-700 font-bold text-xs rounded-xl border border-gray-200 flex items-center justify-center gap-1"
                               >
                                 <Plus size={12} />
                                 <span>Add Staff</span>
@@ -1150,7 +1157,7 @@ Please let us know your available time today! 🙏`;
 
                               <button
                                 onClick={() => handleTogglePropertyStatus(hotel._id)}
-                                className={`p-1.5 rounded-xl border transition-all ${
+                                className={`p-1.5 rounded-xl border transition-all flex items-center justify-center ${
                                   hotel.isActive !== false ? 'bg-white hover:bg-red-50 text-gray-600 hover:text-red-600 border-gray-200' : 'bg-red-50 text-red-600 border-red-200'
                                 }`}
                                 title={hotel.isActive !== false ? "Lock Hotel Property" : "Unlock Hotel Property"}
@@ -1160,7 +1167,7 @@ Please let us know your available time today! 🙏`;
 
                               <button
                                 onClick={() => openEditPropertyModal(hotel)}
-                                className="p-1.5 bg-white hover:bg-gray-100 text-gray-600 rounded-xl border border-gray-200"
+                                className="col-span-2 sm:col-span-1 p-1.5 bg-white hover:bg-gray-100 text-gray-600 rounded-xl border border-gray-200 flex items-center justify-center"
                                 title="Edit Property Details"
                               >
                                 <Pencil size={13} />
@@ -1169,38 +1176,38 @@ Please let us know your available time today! 🙏`;
                           </div>
 
                           {/* Feature Toggles & Capabilities */}
-                          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-200/70 text-xs">
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-1">
+                          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 text-xs">
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-1 shrink-0">
                               Features:
                             </span>
 
                             <button
                               onClick={() => handleToggleFeature(hotel._id, 'aiOcr')}
-                              className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1 border ${
+                              className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1 border shrink-0 ${
                                 hotel.aiOcrEnabled !== false 
                                   ? 'bg-purple-50 text-purple-700 border-purple-200' 
                                   : 'bg-white text-gray-400 border-gray-200'
                               }`}
                             >
-                              <span>AI OCR Scanner</span>
+                              <span>AI OCR</span>
                               <span className="text-[10px]">{hotel.aiOcrEnabled !== false ? '✅' : '✕'}</span>
                             </button>
 
                             <button
                               onClick={() => handleToggleFeature(hotel._id, 'whatsappSync')}
-                              className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1 border ${
+                              className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1 border shrink-0 ${
                                 hotel.whatsappSyncEnabled !== false 
                                   ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
                                   : 'bg-white text-gray-400 border-gray-200'
                               }`}
                             >
-                              <span>Auto WhatsApp Bills</span>
+                              <span>WhatsApp Bills</span>
                               <span className="text-[10px]">{hotel.whatsappSyncEnabled !== false ? '✅' : '✕'}</span>
                             </button>
 
                             <button
                               onClick={() => handleToggleFeature(hotel._id, 'laundry')}
-                              className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1 border ${
+                              className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1 border shrink-0 ${
                                 hotel.laundryEnabled !== false 
                                   ? 'bg-blue-50 text-blue-700 border-blue-200' 
                                   : 'bg-white text-gray-400 border-gray-200'
@@ -1211,7 +1218,7 @@ Please let us know your available time today! 🙏`;
                             </button>
 
                             {hotel.upiId && (
-                              <span className="px-2.5 py-1 bg-gray-100 text-gray-700 rounded-lg text-[11px] font-bold flex items-center gap-1">
+                              <span className="px-2.5 py-1 bg-gray-100 text-gray-700 rounded-lg text-[11px] font-bold flex items-center gap-1 shrink-0">
                                 <QrCode size={11} className="text-gray-500" />
                                 <span>UPI: {hotel.upiId}</span>
                               </span>
@@ -1242,14 +1249,14 @@ Please let us know your available time today! 🙏`;
                               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                                 {hotel.staffMembers.map(staff => (
                                   <div key={staff._id} className="p-2.5 bg-white rounded-xl border border-gray-200 flex items-center justify-between shadow-xs">
-                                    <div className="truncate">
+                                    <div className="truncate mr-2">
                                       <div className="flex items-center gap-1.5">
                                         <p className="text-xs font-black text-gray-900 truncate">{staff.name}</p>
-                                        <span className={`w-2 h-2 rounded-full ${staff.isActive !== false ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+                                        <span className={`w-2 h-2 rounded-full shrink-0 ${staff.isActive !== false ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
                                       </div>
                                       <p className="text-[10px] text-gray-500 truncate">{staff.email}</p>
                                     </div>
-                                    <div className="flex items-center gap-1">
+                                    <div className="flex items-center gap-1 shrink-0">
                                       <button
                                         onClick={() => openEditUserModal(staff)}
                                         className="p-1 text-gray-400 hover:text-gray-700 rounded-md"
@@ -1293,7 +1300,7 @@ Please let us know your available time today! 🙏`;
       {/* ============================================================== */}
       {activeTab === 'leads' && (
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 sm:p-5 rounded-2xl border border-gray-200 shadow-sm">
             <div>
               <h2 className="text-base font-black text-gray-900 flex items-center gap-2">
                 <Target size={18} className="text-rose-600" />
@@ -1304,7 +1311,7 @@ Please let us know your available time today! 🙏`;
 
             <button
               onClick={() => setIsLeadModalOpen(true)}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center gap-1.5 shrink-0"
+              className="w-full sm:w-auto px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 shrink-0"
             >
               <Plus size={14} className="stroke-[3]" />
               <span>+ Add Field Prospect</span>
@@ -1354,7 +1361,7 @@ Please let us know your available time today! 🙏`;
           </div>
 
           {filteredLeads.length === 0 ? (
-            <div className="bg-white rounded-3xl border border-gray-200 p-12 text-center shadow-sm">
+            <div className="bg-white rounded-3xl border border-gray-200 p-8 sm:p-12 text-center shadow-sm">
               <Target size={36} className="mx-auto text-gray-300 mb-3" />
               <h3 className="text-sm font-black text-gray-700">No leads in this queue</h3>
               <p className="text-xs text-gray-400 max-w-sm mx-auto mt-1 mb-4">
@@ -1368,14 +1375,14 @@ Please let us know your available time today! 🙏`;
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               {filteredLeads.map(lead => {
                 const followDate = lead.nextFollowUpDate ? new Date(lead.nextFollowUpDate) : null;
                 const isOverdue = followDate && followDate < todayStart && lead.status !== 'won' && lead.status !== 'lost';
                 const isToday = followDate && followDate >= todayStart && followDate <= todayEnd;
 
                 return (
-                  <div key={lead._id} className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm flex flex-col justify-between space-y-3">
+                  <div key={lead._id} className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-5 shadow-sm flex flex-col justify-between space-y-3">
                     <div>
                       {/* Priority, Status & Overdue Badges */}
                       <div className="flex items-center justify-between gap-1 flex-wrap">
@@ -1400,7 +1407,7 @@ Please let us know your available time today! 🙏`;
                       <div className="mt-3 text-xs text-gray-600 space-y-1.5 bg-gray-50 p-3 rounded-xl border border-gray-100">
                         <div className="flex items-center justify-between">
                           <span className="flex items-center gap-1 font-bold text-gray-800">
-                            <Phone size={12} className="text-gray-400" /> {lead.phone}
+                            <Phone size={12} className="text-gray-400 shrink-0" /> {lead.phone}
                           </span>
                           <a
                             href={`https://wa.me/91${lead.phone.replace(/\D/g, '').slice(-10)}?text=${encodeURIComponent(`Namaste ${lead.contactPerson} ji! Following up regarding software demo for ${lead.hotelName}...`)}`}
@@ -1434,10 +1441,10 @@ Please let us know your available time today! 🙏`;
                     <div className="pt-3 border-t border-gray-100 flex items-center gap-2">
                       <button
                         onClick={() => openFollowUpModal(lead)}
-                        className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs rounded-xl transition-all flex items-center gap-1"
+                        className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1 shrink-0"
                       >
                         <Clock size={12} />
-                        <span>Log Follow-up</span>
+                        <span>Follow-up</span>
                       </button>
 
                       {lead.status !== 'won' ? (
@@ -1446,7 +1453,7 @@ Please let us know your available time today! 🙏`;
                           className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-sm flex items-center justify-center gap-1"
                         >
                           <Trophy size={13} />
-                          <span>Convert to Client</span>
+                          <span>Convert</span>
                         </button>
                       ) : (
                         <span className="flex-1 py-1.5 text-center text-xs font-bold text-emerald-700 bg-emerald-50 rounded-xl border border-emerald-200">
@@ -1466,10 +1473,10 @@ Please let us know your available time today! 🙏`;
       {/* TAB 3: 🏨 PROPERTIES DIRECTORY */}
       {/* ============================================================== */}
       {activeTab === 'properties' && (
-        <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+        <div className="bg-white rounded-2xl sm:rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="p-4 sm:p-6 border-b border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
-              <h2 className="text-lg font-black text-gray-900">Hotel Properties Directory</h2>
+              <h2 className="text-base sm:text-lg font-black text-gray-900">Hotel Properties Directory</h2>
               <p className="text-xs text-gray-500 font-medium">All properties configured in the ecosystem.</p>
             </div>
             <button
@@ -1477,7 +1484,7 @@ Please let us know your available time today! 🙏`;
                 setPropertyForm(prev => ({ ...prev, owner: '' }));
                 setIsAddPropertyOpen(true);
               }}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center gap-1.5"
+              className="w-full sm:w-auto px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5"
             >
               <Plus size={14} className="stroke-[3]" />
               <span>+ Register Property</span>
@@ -1488,36 +1495,36 @@ Please let us know your available time today! 🙏`;
             <table className="w-full text-left text-sm whitespace-nowrap">
               <thead className="bg-white border-b border-gray-100">
                 <tr>
-                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Hotel Property</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Hotel Owner</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Rooms & Staff</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Plan & Status</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
+                  <th className="px-4 sm:px-6 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Hotel Property</th>
+                  <th className="px-4 sm:px-6 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Hotel Owner</th>
+                  <th className="px-4 sm:px-6 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Rooms & Staff</th>
+                  <th className="px-4 sm:px-6 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Plan & Status</th>
+                  <th className="px-4 sm:px-6 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filteredHostels.map(h => (
                   <tr key={h._id} className="hover:bg-gray-50/80 transition-colors">
-                    <td className="px-6 py-4">
+                    <td className="px-4 sm:px-6 py-4">
                       <div>
                         <p className="font-black text-gray-900 text-sm flex items-center gap-1.5">
-                          <Building size={14} className="text-blue-600" />
+                          <Building size={14} className="text-blue-600 shrink-0" />
                           <span>{h.name}</span>
                         </p>
                         <p className="text-xs text-gray-500">{h.address || 'No address'}</p>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 sm:px-6 py-4">
                       <div>
                         <p className="font-bold text-gray-900 text-xs">{h.owner?.name || 'Owner N/A'}</p>
                         <p className="text-[11px] text-gray-500">{h.owner?.phone || h.owner?.email || ''}</p>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-xs font-bold text-gray-700">
+                    <td className="px-4 sm:px-6 py-4 text-xs font-bold text-gray-700">
                       <span>{h.roomCount || 0} rooms</span>
                       <span className="text-gray-400 font-normal block">{h.staffCount || 0} staff</span>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 sm:px-6 py-4">
                       <div className="space-y-0.5">
                         <span className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-md inline-block ${
                           h.planStatus === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
@@ -1527,7 +1534,7 @@ Please let us know your available time today! 🙏`;
                         <p className="text-[11px] text-gray-500 font-bold">Tier: {(h.plan || 'Starter').toUpperCase()}</p>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-4 sm:px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => handleSalesImpersonate(h._id)}
@@ -1565,15 +1572,15 @@ Please let us know your available time today! 🙏`;
       {/* TAB 4: 👑 HOTEL OWNERS (ADMINS) */}
       {/* ============================================================== */}
       {activeTab === 'owners' && (
-        <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+        <div className="bg-white rounded-2xl sm:rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="p-4 sm:p-6 border-b border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
-              <h2 className="text-lg font-black text-gray-900">Hotel Owners (Clients)</h2>
+              <h2 className="text-base sm:text-lg font-black text-gray-900">Hotel Owners (Clients)</h2>
               <p className="text-xs text-gray-500 font-medium">Master logins for hotel owners.</p>
             </div>
             <button
               onClick={() => setIsCreateOwnerOpen(true)}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center gap-1.5"
+              className="w-full sm:w-auto px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5"
             >
               <Plus size={14} className="stroke-[3]" />
               <span>+ Create Owner</span>
@@ -1584,26 +1591,26 @@ Please let us know your available time today! 🙏`;
             <table className="w-full text-left text-sm whitespace-nowrap">
               <thead className="bg-white border-b border-gray-100">
                 <tr>
-                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Owner Name</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Login Email</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Phone</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Properties Owned</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
+                  <th className="px-4 sm:px-6 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Owner Name</th>
+                  <th className="px-4 sm:px-6 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Login Email</th>
+                  <th className="px-4 sm:px-6 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Phone</th>
+                  <th className="px-4 sm:px-6 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Properties Owned</th>
+                  <th className="px-4 sm:px-6 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filteredOwners.map(o => (
                   <tr key={o._id} className="hover:bg-gray-50/80 transition-colors">
-                    <td className="px-6 py-4 font-black text-gray-900 text-sm">
+                    <td className="px-4 sm:px-6 py-4 font-black text-gray-900 text-sm">
                       <div className="flex items-center gap-2">
                         <Crown size={14} className="text-amber-500" />
                         <span>{o.name}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 font-bold text-gray-700 text-xs">{o.email}</td>
-                    <td className="px-6 py-4 text-xs font-semibold text-gray-600">{o.phone || 'No phone'}</td>
-                    <td className="px-6 py-4 text-center font-black text-gray-900">{o.ownedHostelsCount || 0}</td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-4 sm:px-6 py-4 font-bold text-gray-700 text-xs">{o.email}</td>
+                    <td className="px-4 sm:px-6 py-4 text-xs font-semibold text-gray-600">{o.phone || 'No phone'}</td>
+                    <td className="px-4 sm:px-6 py-4 text-center font-black text-gray-900">{o.ownedHostelsCount || 0}</td>
+                    <td className="px-4 sm:px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => openEditUserModal(o)}
@@ -1633,15 +1640,15 @@ Please let us know your available time today! 🙏`;
       {/* TAB 5: 🛎️ FRONT DESK STAFF */}
       {/* ============================================================== */}
       {activeTab === 'staff' && (
-        <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+        <div className="bg-white rounded-2xl sm:rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="p-4 sm:p-6 border-b border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
-              <h2 className="text-lg font-black text-gray-900">Front Desk Staff Members</h2>
+              <h2 className="text-base sm:text-lg font-black text-gray-900">Front Desk Staff Members</h2>
               <p className="text-xs text-gray-500 font-medium">Receptionist accounts attached to properties.</p>
             </div>
             <button
               onClick={() => setIsCreateStaffOpen(true)}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center gap-1.5"
+              className="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5"
             >
               <Plus size={14} className="stroke-[3]" />
               <span>+ Add Front Desk Staff</span>
@@ -1652,26 +1659,26 @@ Please let us know your available time today! 🙏`;
             <table className="w-full text-left text-sm whitespace-nowrap">
               <thead className="bg-white border-b border-gray-100">
                 <tr>
-                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Staff Name</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Assigned Hotel</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Login Email</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Phone</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
+                  <th className="px-4 sm:px-6 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Staff Name</th>
+                  <th className="px-4 sm:px-6 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Assigned Hotel</th>
+                  <th className="px-4 sm:px-6 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Login Email</th>
+                  <th className="px-4 sm:px-6 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Phone</th>
+                  <th className="px-4 sm:px-6 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filteredStaff.map(s => (
                   <tr key={s._id} className="hover:bg-gray-50/80 transition-colors">
-                    <td className="px-6 py-4 font-black text-gray-900 text-sm">{s.name}</td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 sm:px-6 py-4 font-black text-gray-900 text-sm">{s.name}</td>
+                    <td className="px-4 sm:px-6 py-4">
                       <span className="font-bold text-gray-900 text-xs flex items-center gap-1">
                         <Building size={13} className="text-blue-600" />
                         <span>{s.assignedHostel?.name || 'Unassigned'}</span>
                       </span>
                     </td>
-                    <td className="px-6 py-4 font-bold text-gray-700 text-xs">{s.email}</td>
-                    <td className="px-6 py-4 text-xs font-semibold text-gray-600">{s.phone || 'No phone'}</td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-4 sm:px-6 py-4 font-bold text-gray-700 text-xs">{s.email}</td>
+                    <td className="px-4 sm:px-6 py-4 text-xs font-semibold text-gray-600">{s.phone || 'No phone'}</td>
+                    <td className="px-4 sm:px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => openEditUserModal(s)}
@@ -1699,9 +1706,9 @@ Please let us know your available time today! 🙏`;
       {/* TAB 6: 💬 WHATSAPP PITCH GENERATOR */}
       {/* ============================================================== */}
       {activeTab === 'outreach' && (
-        <div className="bg-white rounded-3xl border border-gray-200 p-6 shadow-sm space-y-6">
+        <div className="bg-white rounded-2xl sm:rounded-3xl border border-gray-200 p-5 sm:p-6 shadow-sm space-y-6">
           <div>
-            <h2 className="text-lg font-black text-gray-900 flex items-center gap-2">
+            <h2 className="text-base sm:text-lg font-black text-gray-900 flex items-center gap-2">
               <MessageSquare size={18} className="text-emerald-600" />
               <span>1-Click WhatsApp Pitch Generator</span>
             </h2>
@@ -1710,7 +1717,7 @@ Please let us know your available time today! 🙏`;
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6">
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Select Template</label>
@@ -1778,12 +1785,12 @@ Please let us know your available time today! 🙏`;
               </button>
             </div>
 
-            <div className="md:col-span-2 bg-gray-50 rounded-2xl border border-gray-200 p-5 flex flex-col justify-between">
+            <div className="md:col-span-2 bg-gray-50 rounded-2xl border border-gray-200 p-4 sm:p-5 flex flex-col justify-between">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 block mb-2">
                   Live WhatsApp Message Preview
                 </span>
-                <pre className="text-xs font-mono text-gray-800 whitespace-pre-wrap bg-white p-4 rounded-xl border border-gray-200 leading-relaxed max-h-96 overflow-y-auto">
+                <pre className="text-xs font-mono text-gray-800 whitespace-pre-wrap bg-white p-3 sm:p-4 rounded-xl border border-gray-200 leading-relaxed max-h-80 overflow-y-auto">
                   {getOutreachText()}
                 </pre>
               </div>
@@ -1796,20 +1803,22 @@ Please let us know your available time today! 🙏`;
       {/* 👑 MODAL 1: CREATE HOTEL OWNER (ADMIN) */}
       {/* ============================================================== */}
       {isCreateOwnerOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-gray-100 flex flex-col max-h-[90vh]">
-            <div className="p-6 bg-gradient-to-r from-gray-950 to-gray-900 text-white flex justify-between items-start">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-gray-100 flex flex-col max-h-[92dvh] sm:max-h-[88vh] animate-in slide-in-from-bottom sm:zoom-in-95 duration-200">
+            <div className="p-5 sm:p-6 bg-gradient-to-r from-gray-950 to-gray-900 text-white flex justify-between items-start shrink-0">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-widest text-purple-400 bg-purple-500/20 px-2.5 py-0.5 rounded-full">
                   Step 1 · Client Onboarding
                 </span>
-                <h3 className="text-xl font-black text-white mt-1.5">Create New Hotel Owner (Admin)</h3>
-                <p className="text-xs text-gray-400 mt-0.5">Creates master owner login for managing properties.</p>
+                <h3 className="text-lg sm:text-xl font-black text-white mt-1.5">Create Hotel Owner (Admin)</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Master owner account for managing properties.</p>
               </div>
-              <button onClick={() => setIsCreateOwnerOpen(false)} className="text-gray-400 hover:text-white p-1">✕</button>
+              <button onClick={() => setIsCreateOwnerOpen(false)} className="text-gray-400 hover:text-white p-1.5 rounded-full hover:bg-gray-800">
+                <X size={18} />
+              </button>
             </div>
 
-            <form onSubmit={handleCreateOwner} className="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
+            <form onSubmit={handleCreateOwner} className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 text-xs">
               <div>
                 <label className="block font-bold text-gray-700 uppercase mb-1">Owner Full Name *</label>
                 <input
@@ -1834,7 +1843,7 @@ Please let us know your available time today! 🙏`;
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-gray-700 uppercase mb-1">Phone / WhatsApp</label>
                   <input
@@ -1861,11 +1870,11 @@ Please let us know your available time today! 🙏`;
               <div className="p-3 bg-purple-50 rounded-2xl border border-purple-100 flex items-start gap-2.5 text-xs text-purple-900">
                 <Crown size={16} className="text-purple-600 shrink-0 mt-0.5" />
                 <p>
-                  <strong>Hotel Owner (Admin):</strong> Once created, you can immediately register and attach their hotel properties.
+                  <strong>Hotel Owner (Admin):</strong> Once created, you can attach their first property or multiple properties immediately.
                 </p>
               </div>
 
-              <div className="pt-4 border-t border-gray-100 flex justify-end gap-2">
+              <div className="pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-gray-100 flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsCreateOwnerOpen(false)}
@@ -1890,20 +1899,22 @@ Please let us know your available time today! 🙏`;
       {/* 🏨 MODAL 2: REGISTER PROPERTY */}
       {/* ============================================================== */}
       {isAddPropertyOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-gray-100 flex flex-col max-h-[90vh]">
-            <div className="p-6 bg-gradient-to-r from-gray-950 to-gray-900 text-white flex justify-between items-start">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-gray-100 flex flex-col max-h-[92dvh] sm:max-h-[88vh] animate-in slide-in-from-bottom sm:zoom-in-95 duration-200">
+            <div className="p-5 sm:p-6 bg-gradient-to-r from-gray-950 to-gray-900 text-white flex justify-between items-start shrink-0">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 bg-blue-500/20 px-2.5 py-0.5 rounded-full">
                   Step 2 · Property Registration
                 </span>
-                <h3 className="text-xl font-black text-white mt-1.5">Register New Hotel Property</h3>
+                <h3 className="text-lg sm:text-xl font-black text-white mt-1.5">Register Hotel Property</h3>
                 <p className="text-xs text-gray-400 mt-0.5">Attach hotel property to a registered owner.</p>
               </div>
-              <button onClick={() => setIsAddPropertyOpen(false)} className="text-gray-400 hover:text-white p-1">✕</button>
+              <button onClick={() => setIsAddPropertyOpen(false)} className="text-gray-400 hover:text-white p-1.5 rounded-full hover:bg-gray-800">
+                <X size={18} />
+              </button>
             </div>
 
-            <form onSubmit={handleCreateProperty} className="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
+            <form onSubmit={handleCreateProperty} className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 text-xs">
               <div>
                 <label className="block font-bold text-gray-700 uppercase mb-1">Hotel Property Name *</label>
                 <input
@@ -1942,7 +1953,7 @@ Please let us know your available time today! 🙏`;
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-gray-700 uppercase mb-1">Contact Phone</label>
                   <input
@@ -1964,7 +1975,7 @@ Please let us know your available time today! 🙏`;
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-gray-700 uppercase mb-1">UPI ID for Direct QR</label>
                   <input
@@ -1987,7 +1998,7 @@ Please let us know your available time today! 🙏`;
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-gray-100 flex justify-end gap-2">
+              <div className="pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-gray-100 flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsAddPropertyOpen(false)}
@@ -2012,20 +2023,22 @@ Please let us know your available time today! 🙏`;
       {/* 🛎️ MODAL 3: ADD FRONT DESK STAFF */}
       {/* ============================================================== */}
       {isCreateStaffOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-gray-100 flex flex-col max-h-[90vh]">
-            <div className="p-6 bg-gradient-to-r from-gray-950 to-gray-900 text-white flex justify-between items-start">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-gray-100 flex flex-col max-h-[92dvh] sm:max-h-[88vh] animate-in slide-in-from-bottom sm:zoom-in-95 duration-200">
+            <div className="p-5 sm:p-6 bg-gradient-to-r from-gray-950 to-gray-900 text-white flex justify-between items-start shrink-0">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400 bg-indigo-500/20 px-2.5 py-0.5 rounded-full">
                   Step 3 · Staff Allocation
                 </span>
-                <h3 className="text-xl font-black text-white mt-1.5">Add Front Desk Staff</h3>
+                <h3 className="text-lg sm:text-xl font-black text-white mt-1.5">Add Front Desk Staff</h3>
                 <p className="text-xs text-gray-400 mt-0.5">Creates receptionist account for check-in operations.</p>
               </div>
-              <button onClick={() => setIsCreateStaffOpen(false)} className="text-gray-400 hover:text-white p-1">✕</button>
+              <button onClick={() => setIsCreateStaffOpen(false)} className="text-gray-400 hover:text-white p-1.5 rounded-full hover:bg-gray-800">
+                <X size={18} />
+              </button>
             </div>
 
-            <form onSubmit={handleCreateStaff} className="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
+            <form onSubmit={handleCreateStaff} className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 text-xs">
               <div>
                 <label className="block font-bold text-gray-700 uppercase mb-1">Staff Full Name *</label>
                 <input
@@ -2065,7 +2078,7 @@ Please let us know your available time today! 🙏`;
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-gray-700 uppercase mb-1">Phone Number</label>
                   <input
@@ -2089,7 +2102,7 @@ Please let us know your available time today! 🙏`;
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-gray-100 flex justify-end gap-2">
+              <div className="pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-gray-100 flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsCreateStaffOpen(false)}
@@ -2114,21 +2127,23 @@ Please let us know your available time today! 🙏`;
       {/* 🎟️ MODAL 4: PLAN ASSIGNMENT & SUBSCRIPTION (Like Super Admin) */}
       {/* ============================================================== */}
       {selectedPlanHotel && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-gray-100 flex flex-col max-h-[90vh]">
-            <div className="p-6 bg-gradient-to-r from-gray-950 to-gray-900 text-white flex justify-between items-start">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-gray-100 flex flex-col max-h-[92dvh] sm:max-h-[88vh] animate-in slide-in-from-bottom sm:zoom-in-95 duration-200">
+            <div className="p-5 sm:p-6 bg-gradient-to-r from-gray-950 to-gray-900 text-white flex justify-between items-start shrink-0">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-500/20 px-2.5 py-0.5 rounded-full">
                   Subscription Tier & Plan Setup
                 </span>
-                <h3 className="text-xl font-black text-white mt-1.5">Manage Hotel Subscription</h3>
+                <h3 className="text-lg sm:text-xl font-black text-white mt-1.5">Manage Hotel Subscription</h3>
                 <p className="text-xs text-gray-400 mt-0.5">Configure plan, validity, price, and rooms for {selectedPlanHotel.name}.</p>
               </div>
-              <button onClick={() => setSelectedPlanHotel(null)} className="text-gray-400 hover:text-white p-1">✕</button>
+              <button onClick={() => setSelectedPlanHotel(null)} className="text-gray-400 hover:text-white p-1.5 rounded-full hover:bg-gray-800">
+                <X size={18} />
+              </button>
             </div>
 
-            <form onSubmit={handleSavePlan} className="p-6 space-y-4 overflow-y-auto flex-1 text-xs font-bold">
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleSavePlan} className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 text-xs font-bold">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-gray-700 uppercase mb-1">Plan Tier</label>
                   <select
@@ -2163,7 +2178,7 @@ Please let us know your available time today! 🙏`;
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-gray-700 uppercase mb-1">Amount Charged (₹)</label>
                   <input
@@ -2188,7 +2203,7 @@ Please let us know your available time today! 🙏`;
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-gray-700 uppercase mb-1">Start Date</label>
                   <input
@@ -2231,7 +2246,7 @@ Please let us know your available time today! 🙏`;
                 />
               </div>
 
-              <div className="pt-4 border-t border-gray-100 flex justify-end gap-2">
+              <div className="pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-gray-100 flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setSelectedPlanHotel(null)}
@@ -2256,12 +2271,17 @@ Please let us know your available time today! 🙏`;
       {/* ✏️ MODAL 5: EDIT PROPERTY DETAILS */}
       {/* ============================================================== */}
       {editingProperty && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-            <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
-              <Pencil size={16} className="text-blue-600" />
-              <span>Edit Property Details</span>
-            </h3>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92dvh] sm:max-h-[88vh] overflow-y-auto">
+            <div className="flex justify-between items-center pb-2 border-b border-gray-100">
+              <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+                <Pencil size={16} className="text-blue-600" />
+                <span>Edit Property Details</span>
+              </h3>
+              <button onClick={() => setEditingProperty(null)} className="text-gray-400 hover:text-gray-600">
+                <X size={18} />
+              </button>
+            </div>
 
             <form onSubmit={handleSaveEditProperty} className="space-y-3 text-xs font-bold">
               <div>
@@ -2285,7 +2305,7 @@ Please let us know your available time today! 🙏`;
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-gray-700 uppercase mb-1">Contact Phone</label>
                   <input
@@ -2306,7 +2326,7 @@ Please let us know your available time today! 🙏`;
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-gray-700 uppercase mb-1">UPI ID</label>
                   <input
@@ -2327,7 +2347,7 @@ Please let us know your available time today! 🙏`;
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+              <div className="flex justify-end gap-2 pt-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] border-t border-gray-100">
                 <button
                   type="button"
                   onClick={() => setEditingProperty(null)}
@@ -2352,12 +2372,17 @@ Please let us know your available time today! 🙏`;
       {/* 👤 MODAL 6: EDIT USER DETAILS */}
       {/* ============================================================== */}
       {editingUser && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
-              <Pencil size={16} className="text-purple-600" />
-              <span>Edit User Details</span>
-            </h3>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92dvh] sm:max-h-[88vh] overflow-y-auto">
+            <div className="flex justify-between items-center pb-2 border-b border-gray-100">
+              <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+                <Pencil size={16} className="text-purple-600" />
+                <span>Edit User Details</span>
+              </h3>
+              <button onClick={() => setEditingUser(null)} className="text-gray-400 hover:text-gray-600">
+                <X size={18} />
+              </button>
+            </div>
 
             <form onSubmit={handleSaveEditUser} className="space-y-3 text-xs font-bold">
               <div>
@@ -2392,7 +2417,7 @@ Please let us know your available time today! 🙏`;
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+              <div className="flex justify-end gap-2 pt-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] border-t border-gray-100">
                 <button
                   type="button"
                   onClick={() => setEditingUser(null)}
@@ -2417,12 +2442,17 @@ Please let us know your available time today! 🙏`;
       {/* 🔑 MODAL 7: RESET PASSWORD */}
       {/* ============================================================== */}
       {resetModalData && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
-              <KeyRound size={16} className="text-amber-500" />
-              <span>Reset Password</span>
-            </h3>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92dvh] sm:max-h-[88vh] overflow-y-auto">
+            <div className="flex justify-between items-center pb-2 border-b border-gray-100">
+              <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+                <KeyRound size={16} className="text-amber-500" />
+                <span>Reset Password</span>
+              </h3>
+              <button onClick={() => setResetModalData(null)} className="text-gray-400 hover:text-gray-600">
+                <X size={18} />
+              </button>
+            </div>
             <p className="text-xs text-gray-500">
               Update password for <strong>{resetModalData.userName}</strong> ({resetModalData.role}).
             </p>
@@ -2439,7 +2469,7 @@ Please let us know your available time today! 🙏`;
                 />
               </div>
 
-              <div className="flex justify-end gap-2">
+              <div className="flex justify-end gap-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
                 <button
                   type="button"
                   onClick={() => setResetModalData(null)}
@@ -2464,12 +2494,17 @@ Please let us know your available time today! 🙏`;
       {/* 🎯 MODAL 8: ADD FIELD PROSPECT LEAD */}
       {/* ============================================================== */}
       {isLeadModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-            <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
-              <Target size={18} className="text-purple-600" />
-              <span>Log Field Prospect Lead</span>
-            </h3>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92dvh] sm:max-h-[88vh] overflow-y-auto">
+            <div className="flex justify-between items-center pb-2 border-b border-gray-100">
+              <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+                <Target size={18} className="text-purple-600" />
+                <span>Log Field Prospect Lead</span>
+              </h3>
+              <button onClick={() => setIsLeadModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={18} />
+              </button>
+            </div>
             <p className="text-xs text-gray-500">Record hotel visits and follow-ups on the ground.</p>
 
             <form onSubmit={handleCreateLead} className="space-y-3 text-xs font-bold">
@@ -2485,7 +2520,7 @@ Please let us know your available time today! 🙏`;
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-gray-700 uppercase mb-1">Contact Person Name *</label>
                   <input
@@ -2510,7 +2545,7 @@ Please let us know your available time today! 🙏`;
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-gray-700 uppercase mb-1">City / Location</label>
                   <input
@@ -2557,7 +2592,7 @@ Please let us know your available time today! 🙏`;
                 ></textarea>
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+              <div className="flex justify-end gap-2 pt-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] border-t border-gray-100">
                 <button
                   type="button"
                   onClick={() => setIsLeadModalOpen(false)}
@@ -2582,12 +2617,17 @@ Please let us know your available time today! 🙏`;
       {/* 📅 MODAL 9: LOG FOLLOW-UP ACTIVITY */}
       {/* ============================================================== */}
       {followUpModalLead && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 text-left">
-            <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
-              <Clock size={18} className="text-rose-600" />
-              <span>Log Follow-up Activity</span>
-            </h3>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 text-left max-h-[92dvh] sm:max-h-[88vh] overflow-y-auto">
+            <div className="flex justify-between items-center pb-2 border-b border-gray-100">
+              <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+                <Clock size={18} className="text-rose-600" />
+                <span>Log Follow-up Activity</span>
+              </h3>
+              <button onClick={() => setFollowUpModalLead(null)} className="text-gray-400 hover:text-gray-600">
+                <X size={18} />
+              </button>
+            </div>
             <p className="text-xs text-gray-500">
               Record discussion and set next follow-up for <strong>{followUpModalLead.hotelName}</strong> ({followUpModalLead.contactPerson}).
             </p>
@@ -2605,7 +2645,7 @@ Please let us know your available time today! 🙏`;
                 ></textarea>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-gray-700 uppercase mb-1">Next Follow-up Date *</label>
                   <input
@@ -2651,7 +2691,7 @@ Please let us know your available time today! 🙏`;
                 </div>
               )}
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+              <div className="flex justify-end gap-2 pt-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] border-t border-gray-100">
                 <button
                   type="button"
                   onClick={() => setFollowUpModalLead(null)}
@@ -2671,6 +2711,52 @@ Please let us know your available time today! 🙏`;
           </div>
         </div>
       )}
+
+      {/* 📱 MOBILE FLOATING ACTION BAR (Fixed on Mobile Phones for Instant Thumb Access) */}
+      <div className="fixed bottom-3 left-3 right-3 z-40 sm:hidden bg-white/95 backdrop-blur-md border border-gray-200/90 rounded-2xl p-2 shadow-2xl flex items-center justify-around">
+        <button
+          onClick={() => setIsCreateOwnerOpen(true)}
+          className="flex flex-col items-center gap-0.5 text-purple-700 p-1"
+        >
+          <Crown size={16} />
+          <span className="text-[10px] font-black">+ Owner</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setPropertyForm(prev => ({ ...prev, owner: '' }));
+            setIsAddPropertyOpen(true);
+          }}
+          className="flex flex-col items-center gap-0.5 text-indigo-700 p-1"
+        >
+          <Building size={16} />
+          <span className="text-[10px] font-black">+ Hotel</span>
+        </button>
+
+        <button
+          onClick={() => setIsCreateStaffOpen(true)}
+          className="flex flex-col items-center gap-0.5 text-blue-700 p-1"
+        >
+          <Users size={16} />
+          <span className="text-[10px] font-black">+ Staff</span>
+        </button>
+
+        <button
+          onClick={() => setIsLeadModalOpen(true)}
+          className="flex flex-col items-center gap-0.5 text-rose-700 p-1"
+        >
+          <Target size={16} />
+          <span className="text-[10px] font-black">+ Lead</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('outreach')}
+          className="flex flex-col items-center gap-0.5 text-emerald-700 p-1"
+        >
+          <MessageSquare size={16} />
+          <span className="text-[10px] font-black">Pitch</span>
+        </button>
+      </div>
 
     </div>
   );
