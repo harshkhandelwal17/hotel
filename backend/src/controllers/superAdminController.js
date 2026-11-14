@@ -3,6 +3,7 @@ const Hostel = require('../models/Hostel');
 const Stay = require('../models/Stay');
 const Payment = require('../models/Payment');
 const Room = require('../models/Room');
+const SalesLead = require('../models/SalesLead');
 const jwt = require('jsonwebtoken');
 const env = require('../config/env');
 
@@ -435,15 +436,19 @@ exports.updateHostelPlan = async (req, res, next) => {
 exports.getSalesTeamPerformance = async (req, res, next) => {
   try {
     const salesAgents = await User.find({ role: 'sales' })
-      .select('name email phone isActive createdAt')
+      .select('name email phone isActive createdAt monthlyTargetHotels commissionRate')
       .sort('-createdAt')
       .lean();
 
     const teamPerformance = await Promise.all(
       salesAgents.map(async (agent) => {
-        const hotels = await Hostel.find({ onboardedBy: agent._id })
-          .select('name address plan planStatus planPrice createdAt contactNumber')
-          .lean();
+        const [hotels, totalLeads, wonLeads] = await Promise.all([
+          Hostel.find({ onboardedBy: agent._id })
+            .select('name address plan planStatus planPrice createdAt contactNumber')
+            .lean(),
+          SalesLead.countDocuments({ salesAgent: agent._id }),
+          SalesLead.countDocuments({ salesAgent: agent._id, status: 'won' })
+        ]);
 
         const totalRevenue = hotels
           .filter(h => h.planStatus === 'active')
@@ -451,13 +456,22 @@ exports.getSalesTeamPerformance = async (req, res, next) => {
 
         const activeHotels = hotels.filter(h => h.planStatus === 'active').length;
         const trialHotels = hotels.filter(h => h.planStatus === 'trial' || h.plan === 'demo').length;
+        const commissionRate = agent.commissionRate || 15;
+        const monthlyTarget = agent.monthlyTargetHotels || 10;
+        const commissionEarned = Math.round((totalRevenue * commissionRate) / 100);
 
         return {
           agent,
+          monthlyTarget,
+          commissionRate,
+          commissionEarned,
           hotelsCount: hotels.length,
           activeHotelsCount: activeHotels,
           trialHotelsCount: trialHotels,
           totalRevenueGenerated: totalRevenue,
+          leadsCount: totalLeads,
+          wonLeadsCount: wonLeads,
+          conversionRate: totalLeads > 0 ? Math.round((wonLeads / totalLeads) * 100) : 0,
           hotels
         };
       })
@@ -468,6 +482,10 @@ exports.getSalesTeamPerformance = async (req, res, next) => {
 
     const totalSalesRevenue = teamPerformance.reduce((sum, p) => sum + p.totalRevenueGenerated, 0);
     const totalHotelsBySales = teamPerformance.reduce((sum, p) => sum + p.hotelsCount, 0);
+    const totalCommissionPayout = teamPerformance.reduce((sum, p) => sum + p.commissionEarned, 0);
+    const totalTeamLeads = teamPerformance.reduce((sum, p) => sum + p.leadsCount, 0);
+    const totalTeamWon = teamPerformance.reduce((sum, p) => sum + p.wonLeadsCount, 0);
+    const overallConversion = totalTeamLeads > 0 ? Math.round((totalTeamWon / totalTeamLeads) * 100) : 0;
 
     res.status(200).json({
       success: true,
@@ -475,8 +493,43 @@ exports.getSalesTeamPerformance = async (req, res, next) => {
         totalAgents: salesAgents.length,
         totalSalesRevenue,
         totalHotelsBySales,
+        totalCommissionPayout,
+        pipeline: {
+          totalTeamLeads,
+          totalTeamWon,
+          overallConversion
+        },
         leaderboard: teamPerformance
       }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * ⚙️ Update Sales Agent Target, Commission, or Status
+ */
+exports.updateSalesAgentSettings = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { monthlyTargetHotels, commissionRate, isActive } = req.body;
+
+    const agent = await User.findById(id);
+    if (!agent || agent.role !== 'sales') {
+      return res.status(404).json({ success: false, message: 'Sales executive not found' });
+    }
+
+    if (monthlyTargetHotels !== undefined) agent.monthlyTargetHotels = Number(monthlyTargetHotels);
+    if (commissionRate !== undefined) agent.commissionRate = Number(commissionRate);
+    if (isActive !== undefined) agent.isActive = Boolean(isActive);
+
+    await agent.save();
+
+    res.status(200).json({
+      success: true,
+      message: `✅ Settings updated for ${agent.name}`,
+      data: agent
     });
   } catch (err) {
     next(err);

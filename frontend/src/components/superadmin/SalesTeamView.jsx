@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 import { 
   Users, 
   IndianRupee, 
@@ -15,23 +16,39 @@ import {
   KeyRound,
   ShieldAlert,
   Search,
-  ExternalLink
+  ExternalLink,
+  Target,
+  Settings,
+  MessageSquare,
+  Sparkles
 } from 'lucide-react';
 
 const SalesTeamView = ({
   salesData,
   onOpenCreateSalesAgent,
   onResetPassword,
+  onRefresh,
   loading
 }) => {
   const [search, setSearch] = useState('');
   const [expandedAgentId, setExpandedAgentId] = useState(null);
 
+  // Settings Modal State
+  const [editingAgent, setEditingAgent] = useState(null);
+  const [settingsForm, setSettingsForm] = useState({
+    monthlyTargetHotels: 10,
+    commissionRate: 15,
+    isActive: true
+  });
+  const [savingSettings, setSavingSettings] = useState(false);
+
   const leaderboard = salesData?.leaderboard || [];
   const totalAgents = salesData?.totalAgents || 0;
   const totalSalesRevenue = salesData?.totalSalesRevenue || 0;
   const totalHotelsBySales = salesData?.totalHotelsBySales || 0;
-  const avgRevenuePerAgent = totalAgents > 0 ? Math.round(totalSalesRevenue / totalAgents) : 0;
+  const totalCommissionPayout = salesData?.totalCommissionPayout || 0;
+  const totalLeads = salesData?.pipeline?.totalTeamLeads || 0;
+  const overallConversion = salesData?.pipeline?.overallConversion || 0;
 
   const filteredLeaderboard = leaderboard.filter(item => {
     const q = search.toLowerCase();
@@ -45,6 +62,48 @@ const SalesTeamView = ({
     setExpandedAgentId(prev => prev === agentId ? null : agentId);
   };
 
+  const openSettingsModal = (item) => {
+    setEditingAgent(item.agent);
+    setSettingsForm({
+      monthlyTargetHotels: item.monthlyTarget || 10,
+      commissionRate: item.commissionRate || 15,
+      isActive: item.agent?.isActive !== false
+    });
+  };
+
+  const handleSaveSettings = async (e) => {
+    e.preventDefault();
+    if (!editingAgent) return;
+    try {
+      setSavingSettings(true);
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      await axios.put(`${API}/api/superadmin/sales-team/${editingAgent._id}/settings`, settingsForm);
+      alert(`✅ Settings updated for ${editingAgent.name}`);
+      setEditingAgent(null);
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update settings');
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  const getAgentWhatsAppUrl = (item) => {
+    const phone = item.agent?.phone ? item.agent.phone.replace(/\D/g, '').slice(-10) : '';
+    if (!phone) return null;
+    const msg = [
+      `💼 *NexisParkX Sales Command - Performance Update*`,
+      `Namaste *${item.agent.name}* ji,`,
+      `Here is your current performance snapshot:`,
+      `🏨 *Onboarded Hotels:* ${item.hotelsCount} properties`,
+      `💰 *Total Sales Value:* ₹${(item.totalRevenueGenerated || 0).toLocaleString()}`,
+      `💸 *Earned Commission:* ₹${(item.commissionEarned || 0).toLocaleString()} (${item.commissionRate}% tier)`,
+      `🎯 *Monthly Target:* ${item.hotelsCount} / ${item.monthlyTarget} Hotels`,
+      `Keep up the great work! 🚀`
+    ].join('\n');
+    return `https://wa.me/91${phone}?text=${encodeURIComponent(msg)}`;
+  };
+
   return (
     <div className="space-y-6">
       {/* 🚀 Top Sales Performance KPI Cards */}
@@ -52,19 +111,19 @@ const SalesTeamView = ({
         <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-sm">
           <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1">
             <Users size={12} className="text-indigo-600" />
-            <span>Field Sales Executives</span>
+            <span>Field Executives</span>
           </span>
           <p className="text-2xl font-black text-gray-900 mt-1">{totalAgents}</p>
-          <p className="text-[10px] text-gray-500 font-medium mt-0.5">Active field agents</p>
+          <p className="text-[10px] text-gray-500 font-medium mt-0.5">Active team members</p>
         </div>
 
         <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-sm">
           <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1">
             <IndianRupee size={12} className="text-emerald-600" />
-            <span>Total Sales Revenue</span>
+            <span>Team Sales Revenue</span>
           </span>
           <p className="text-2xl font-black text-emerald-600 mt-1">₹{totalSalesRevenue.toLocaleString()}</p>
-          <p className="text-[10px] text-gray-500 font-medium mt-0.5">Generated via sales team</p>
+          <p className="text-[10px] text-gray-500 font-medium mt-0.5">Total subscription collections</p>
         </div>
 
         <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-sm">
@@ -73,16 +132,16 @@ const SalesTeamView = ({
             <span>Hotels Onboarded</span>
           </span>
           <p className="text-2xl font-black text-blue-600 mt-1">{totalHotelsBySales}</p>
-          <p className="text-[10px] text-gray-500 font-medium mt-0.5">Properties registered by sales</p>
+          <p className="text-[10px] text-gray-500 font-medium mt-0.5">Properties brought by sales</p>
         </div>
 
         <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-sm">
           <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1">
             <TrendingUp size={12} className="text-purple-600" />
-            <span>Avg Revenue / Agent</span>
+            <span>Est. Commission Payout</span>
           </span>
-          <p className="text-2xl font-black text-purple-600 mt-1">₹{avgRevenuePerAgent.toLocaleString()}</p>
-          <p className="text-[10px] text-gray-500 font-medium mt-0.5">Performance average</p>
+          <p className="text-2xl font-black text-purple-600 mt-1">₹{totalCommissionPayout.toLocaleString()}</p>
+          <p className="text-[10px] text-gray-500 font-medium mt-0.5">{overallConversion}% lead conversion rate</p>
         </div>
       </div>
 
@@ -98,7 +157,7 @@ const SalesTeamView = ({
               </span>
             </div>
             <p className="text-xs text-gray-500 font-medium mt-0.5">
-              Ranked by total SaaS revenue generated. Click any executive to inspect their onboarded hotels.
+              Ranked by total SaaS revenue generated. Set individual targets, commission rates, and track performance.
             </p>
           </div>
 
@@ -144,9 +203,10 @@ const SalesTeamView = ({
                 <tr>
                   <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Rank & Agent</th>
                   <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Contact Info</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Hotels Onboarded</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Target Progress</th>
                   <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Active Paid / Trials</th>
                   <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Revenue Generated</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Commission Earned</th>
                   <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
                   <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
                 </tr>
@@ -162,6 +222,9 @@ const SalesTeamView = ({
                     : idx === 2 
                     ? 'bg-orange-100 text-orange-800 border-orange-300' 
                     : 'bg-gray-100 text-gray-600 border-gray-200';
+
+                  const progressPct = Math.min(100, Math.round((item.hotelsCount / (item.monthlyTarget || 10)) * 100));
+                  const waUrl = getAgentWhatsAppUrl(item);
 
                   return (
                     <React.Fragment key={agent._id}>
@@ -195,10 +258,20 @@ const SalesTeamView = ({
                           </div>
                         </td>
 
-                        {/* Hotels Count */}
+                        {/* Target Progress */}
                         <td className="px-6 py-4 text-center">
-                          <span className="font-black text-gray-900 text-base">{item.hotelsCount}</span>
-                          <span className="text-[10px] text-gray-400 font-semibold block">hotels</span>
+                          <div className="w-28 mx-auto space-y-1">
+                            <div className="flex justify-between text-[10px] font-bold text-gray-600">
+                              <span>{item.hotelsCount} Hotels</span>
+                              <span>Target: {item.monthlyTarget}</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                              <div 
+                                className="h-full bg-indigo-600 rounded-full" 
+                                style={{ width: `${progressPct}%` }}
+                              ></div>
+                            </div>
+                          </div>
                         </td>
 
                         {/* Active vs Trials */}
@@ -218,7 +291,15 @@ const SalesTeamView = ({
                           <div className="font-black text-emerald-600 text-base">
                             ₹{item.totalRevenueGenerated.toLocaleString()}
                           </div>
-                          <span className="text-[10px] text-gray-400 font-medium">Subscription value</span>
+                          <span className="text-[10px] text-gray-400 font-medium">Subscription collections</span>
+                        </td>
+
+                        {/* Commission Earned */}
+                        <td className="px-6 py-4">
+                          <div className="font-black text-purple-600 text-sm">
+                            ₹{item.commissionEarned.toLocaleString()}
+                          </div>
+                          <span className="text-[10px] text-gray-400 font-medium">({item.commissionRate}% tier)</span>
                         </td>
 
                         {/* Status */}
@@ -232,7 +313,25 @@ const SalesTeamView = ({
 
                         {/* Actions */}
                         <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {waUrl && (
+                              <a
+                                href={waUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                title="Send WhatsApp Update to Agent"
+                                className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
+                              >
+                                <MessageSquare size={15} />
+                              </a>
+                            )}
+                            <button
+                              onClick={() => openSettingsModal(item)}
+                              title="Set Target & Commission Rate"
+                              className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+                            >
+                              <Settings size={15} />
+                            </button>
                             <button
                               onClick={() => toggleExpand(agent._id)}
                               className={`px-3 py-1.5 text-xs font-black rounded-xl border transition-all flex items-center gap-1 ${
@@ -241,8 +340,8 @@ const SalesTeamView = ({
                                   : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-100'
                               }`}
                             >
-                              <span>{item.hotelsCount} Hotels</span>
-                              {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                              <span>{item.hotelsCount} Properties</span>
+                              {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                             </button>
                             <button
                               onClick={() => onResetPassword(agent._id)}
@@ -258,7 +357,7 @@ const SalesTeamView = ({
                       {/* Expanded View: Hotels Onboarded by this Sales Agent */}
                       {isExpanded && (
                         <tr>
-                          <td colSpan={7} className="px-6 py-4 bg-gray-50/70 border-y border-gray-200">
+                          <td colSpan={8} className="px-6 py-4 bg-gray-50/70 border-y border-gray-200">
                             <div className="space-y-3">
                               <div className="flex items-center justify-between">
                                 <h4 className="text-xs font-black uppercase tracking-wider text-gray-700 flex items-center gap-1.5">
@@ -314,6 +413,81 @@ const SalesTeamView = ({
           </div>
         )}
       </div>
+
+      {/* ⚙️ EDIT SALES AGENT SETTINGS MODAL */}
+      {editingAgent && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 text-left">
+            <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+              <Settings size={18} className="text-indigo-600" />
+              <span>Configure Sales Agent Settings</span>
+            </h3>
+            <p className="text-xs text-gray-500">
+              Customize targets and incentive commission for <strong>{editingAgent.name}</strong>.
+            </p>
+
+            <form onSubmit={handleSaveSettings} className="space-y-4 text-xs font-bold">
+              <div>
+                <label className="block text-gray-700 uppercase mb-1">Monthly Hotel Onboarding Target</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  required
+                  value={settingsForm.monthlyTargetHotels}
+                  onChange={e => setSettingsForm({ ...settingsForm, monthlyTargetHotels: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
+                />
+                <span className="text-[10px] text-gray-400 font-normal">Number of new hotels expected per month.</span>
+              </div>
+
+              <div>
+                <label className="block text-gray-700 uppercase mb-1">Commission Rate Percentage (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  required
+                  value={settingsForm.commissionRate}
+                  onChange={e => setSettingsForm({ ...settingsForm, commissionRate: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
+                />
+                <span className="text-[10px] text-gray-400 font-normal">Percentage of active subscription revenue paid as incentive.</span>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="isActiveToggle"
+                  checked={settingsForm.isActive}
+                  onChange={e => setSettingsForm({ ...settingsForm, isActive: e.target.checked })}
+                  className="w-4 h-4 rounded text-indigo-600"
+                />
+                <label htmlFor="isActiveToggle" className="text-xs font-bold text-gray-700">
+                  Account Active & Enabled
+                </label>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingAgent(null)}
+                  className="px-4 py-2 border border-gray-200 text-gray-700 rounded-xl text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingSettings}
+                  className="px-5 py-2 bg-indigo-600 text-white font-black rounded-xl text-xs hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {savingSettings ? 'Saving...' : 'Save Settings'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

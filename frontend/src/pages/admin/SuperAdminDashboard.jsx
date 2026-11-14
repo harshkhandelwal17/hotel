@@ -765,6 +765,7 @@ const SuperAdminDashboard = () => {
           salesData={salesTeamData}
           onOpenCreateSalesAgent={openCreateSalesAgent}
           onResetPassword={handleResetPassword}
+          onRefresh={fetchData}
           loading={loading}
         />
       )}

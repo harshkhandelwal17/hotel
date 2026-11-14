@@ -41,6 +41,14 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.ObjectId,
     ref: 'User'
   },
+  monthlyTargetHotels: {
+    type: Number,
+    default: 10
+  },
+  commissionRate: {
+    type: Number,
+    default: 15 // 15% commission percentage
+  },
   isActive: {
     type: Boolean,
     default: true

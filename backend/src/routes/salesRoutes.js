@@ -4,7 +4,11 @@ const {
   getSalesHotels,
   onboardHotelClient,
   salesImpersonate,
-  resetClientPassword
+  resetClientPassword,
+  getSalesLeads,
+  createSalesLead,
+  updateSalesLead,
+  deleteSalesLead
 } = require('../controllers/salesController');
 const { protect, authorize } = require('../middlewares/auth');
 
@@ -19,5 +23,11 @@ router.get('/hostels', getSalesHotels);
 router.post('/onboard', onboardHotelClient);
 router.post('/impersonate', salesImpersonate);
 router.put('/reset-password', resetClientPassword);
+
+// CRM Leads Pipeline
+router.get('/leads', getSalesLeads);
+router.post('/leads', createSalesLead);
+router.put('/leads/:id', updateSalesLead);
+router.delete('/leads/:id', deleteSalesLead);
 
 module.exports = router;
