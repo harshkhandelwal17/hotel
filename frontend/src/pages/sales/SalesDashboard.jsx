@@ -31,7 +31,12 @@ import {
   FileText,
   Trash2,
   ExternalLink,
-  ChevronRight
+  ChevronRight,
+  Network,
+  Pencil,
+  QrCode,
+  Shirt,
+  Briefcase
 } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -40,42 +45,87 @@ const SalesDashboard = () => {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
 
+  // Data states
   const [stats, setStats] = useState(null);
-  const [hotels, setHostels] = useState([]);
+  const [hostels, setHostels] = useState([]);
+  const [owners, setOwners] = useState([]);
+  const [staffUsers, setStaffUsers] = useState([]);
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   
-  // Tabs: 'hotels' | 'leads' | 'outreach'
-  const [activeTab, setActiveTab] = useState('hotels');
-  const [hotelFilter, setHotelFilter] = useState('mine'); // 'mine' | 'all' | 'active' | 'trial'
-  const [hotelSearch, setHotelSearch] = useState('');
-  
-  // Leads filter
-  const [leadStatusFilter, setLeadStatusFilter] = useState('all');
-  const [leadSearch, setLeadSearch] = useState('');
+  // Tabs: 'ecosystem' | 'properties' | 'owners' | 'staff' | 'leads' | 'outreach'
+  const [activeTab, setActiveTab] = useState('ecosystem');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [quickFilter, setQuickFilter] = useState('all'); // 'all' | 'mine' | 'active' | 'trial'
 
-  // 🚀 Onboarding Modal State
-  const [isOnboardOpen, setIsOnboardOpen] = useState(false);
-  const [onboardForm, setOnboardForm] = useState({
-    ownerName: '',
-    ownerEmail: '',
-    ownerPhone: '',
-    ownerPassword: 'password123',
-    hotelName: '',
-    hotelAddress: '',
-    hotelContact: '',
+  // 👑 Modal 1: Create Hotel Owner (Admin)
+  const [isCreateOwnerOpen, setIsCreateOwnerOpen] = useState(false);
+  const [ownerForm, setOwnerForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    password: 'password123'
+  });
+  const [creatingOwner, setCreatingOwner] = useState(false);
+
+  // 🏨 Modal 2: Register Hotel Property
+  const [isAddPropertyOpen, setIsAddPropertyOpen] = useState(false);
+  const [propertyForm, setPropertyForm] = useState({
+    name: '',
+    address: '',
+    contactNumber: '',
+    email: '',
+    owner: '',
     plan: 'demo',
-    planPrice: 0,
-    billingCycle: 'monthly',
     maxRooms: 20,
+    upiId: '',
+    upiPayeeName: '',
     leadId: null
   });
-  const [onboardingLoading, setOnboardingLoading] = useState(false);
-  const [impersonatingId, setImpersonatingId] = useState(null);
+  const [creatingProperty, setCreatingProperty] = useState(false);
 
-  // 🎯 New Lead Modal State
+  // 🛎️ Modal 3: Add Front Desk Staff (Receptionist)
+  const [isCreateStaffOpen, setIsCreateStaffOpen] = useState(false);
+  const [staffForm, setStaffForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    password: 'password123',
+    assignedHostel: ''
+  });
+  const [creatingStaff, setCreatingStaff] = useState(false);
+
+  // ✏️ Modal 4: Edit Property Details
+  const [editingProperty, setEditingProperty] = useState(null);
+  const [editPropertyForm, setEditPropertyForm] = useState({
+    name: '',
+    address: '',
+    contactNumber: '',
+    email: '',
+    owner: '',
+    upiId: '',
+    upiPayeeName: '',
+    maxRooms: 20
+  });
+  const [savingEditProperty, setSavingEditProperty] = useState(false);
+
+  // 👤 Modal 5: Edit User / Phone Details
+  const [editingUser, setEditingUser] = useState(null);
+  const [editUserForm, setEditUserForm] = useState({
+    name: '',
+    email: '',
+    phone: ''
+  });
+  const [savingEditUser, setSavingEditUser] = useState(false);
+
+  // 🔑 Modal 6: Reset Password
+  const [resetModalData, setResetModalData] = useState(null);
+  const [newPasswordVal, setNewPasswordVal] = useState('password123');
+  const [resettingPassword, setResettingPassword] = useState(false);
+
+  // 🎯 Modal 7: Add Field Lead
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [leadForm, setLeadForm] = useState({
     hotelName: '',
@@ -88,22 +138,17 @@ const SalesDashboard = () => {
     currentSystem: 'Paper Register',
     status: 'new',
     priority: 'medium',
-    nextFollowUpDate: '',
-    notes: '',
-    estimatedValue: 2499
+    notes: ''
   });
   const [savingLead, setSavingLead] = useState(false);
 
-  // 🔑 Reset Password Modal
-  const [resetModalData, setResetModalData] = useState(null);
-  const [newPasswordVal, setNewPasswordVal] = useState('password123');
-  const [resettingPassword, setResettingPassword] = useState(false);
-
-  // 💬 WhatsApp Outreach State
+  // 💬 WhatsApp Outreach
   const [outreachPhone, setOutreachPhone] = useState('');
   const [outreachContactName, setOutreachContactName] = useState('');
   const [outreachHotelName, setOutreachHotelName] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState('brochure');
+
+  const [impersonatingId, setImpersonatingId] = useState(null);
 
   useEffect(() => {
     if (!user) return;
@@ -118,89 +163,212 @@ const SalesDashboard = () => {
     try {
       setRefreshing(true);
       const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
-      const [statsRes, hotelsRes, leadsRes] = await Promise.all([
+      const [statsRes, ecoRes, leadsRes] = await Promise.all([
         axios.get(`${API}/api/sales/stats`),
-        axios.get(`${API}/api/sales/hostels`),
+        axios.get(`${API}/api/sales/ecosystem`),
         axios.get(`${API}/api/sales/leads`).catch(() => ({ data: { data: [] } }))
       ]);
+
       setStats(statsRes.data?.data || null);
-      setHostels(hotelsRes.data?.data || []);
+      setHostels(ecoRes.data?.data?.hostels || []);
+      setOwners(ecoRes.data?.data?.owners || []);
+      setStaffUsers(ecoRes.data?.data?.staffUsers || []);
       setLeads(leadsRes.data?.data || []);
       setError('');
     } catch (err) {
-      console.error('Failed to load sales data:', err);
-      setError(err.response?.data?.message || 'Failed to load sales dashboard data');
+      console.error('Failed to load sales ecosystem data:', err);
+      setError(err.response?.data?.message || 'Failed to load sales dashboard');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  // 1-Step Hotel Onboarding
-  const handleOnboardSubmit = async (e) => {
+  // 👑 Handler: Create Hotel Owner
+  const handleCreateOwner = async (e) => {
     e.preventDefault();
-    if (!onboardForm.ownerName.trim() || !onboardForm.ownerEmail.trim()) {
-      alert('Please fill in Owner Name and Email');
-      return;
-    }
-    if (!onboardForm.hotelName.trim()) {
-      alert('Please enter Property / Hotel Name');
-      return;
+    if (!ownerForm.name.trim() || !ownerForm.email.trim()) {
+      return alert('Owner Name and Email are required');
     }
 
     try {
-      setOnboardingLoading(true);
+      setCreatingOwner(true);
       const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
-      const res = await axios.post(`${API}/api/sales/onboard`, onboardForm);
+      const res = await axios.post(`${API}/api/sales/owners`, ownerForm);
+      const newOwner = res.data.data;
+      alert(`✅ Hotel Owner "${newOwner.name}" created successfully!\nEmail: ${newOwner.email}`);
+      setIsCreateOwnerOpen(false);
 
-      alert(`✅ Hotel "${res.data.data.hostel.name}" successfully onboarded!\nOwner: ${res.data.data.owner.name} (${res.data.data.owner.email})`);
-      setIsOnboardOpen(false);
-      
-      const createdHostelId = res.data.data.hostel._id;
-      const createdHotelName = res.data.data.hostel.name;
-
-      // Reset form
-      setOnboardForm({
-        ownerName: '',
-        ownerEmail: '',
-        ownerPhone: '',
-        ownerPassword: 'password123',
-        hotelName: '',
-        hotelAddress: '',
-        hotelContact: '',
-        plan: 'demo',
-        planPrice: 0,
-        billingCycle: 'monthly',
-        maxRooms: 20,
-        leadId: null
-      });
-
+      const ownerEmail = ownerForm.email;
+      const ownerPhone = ownerForm.phone;
+      setOwnerForm({ name: '', email: '', phone: '', password: 'password123' });
       await fetchData();
 
-      // Offer immediate demo launch
-      if (window.confirm(`Would you like to launch Demo Mode right now for "${createdHotelName}"?`)) {
-        handleSalesImpersonate(createdHostelId);
+      // Offer to immediately register property for this owner
+      if (window.confirm(`Would you like to register a hotel property now for ${newOwner.name}?`)) {
+        setPropertyForm(prev => ({
+          ...prev,
+          owner: newOwner._id,
+          contactNumber: ownerPhone || '',
+          email: ownerEmail || ''
+        }));
+        setIsAddPropertyOpen(true);
       }
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to onboard hotel');
+      alert(err.response?.data?.message || 'Failed to create owner');
     } finally {
-      setOnboardingLoading(false);
+      setCreatingOwner(false);
     }
   };
 
-  // ⚡ 1-Click Launch Demo / Support Mode (Sales Impersonation)
+  // 🏨 Handler: Register Property
+  const handleCreateProperty = async (e) => {
+    e.preventDefault();
+    if (!propertyForm.name.trim()) return alert('Hotel name is required');
+    if (!propertyForm.owner) return alert('Please select a Hotel Owner');
+
+    try {
+      setCreatingProperty(true);
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      const res = await axios.post(`${API}/api/sales/properties`, propertyForm);
+      const newHotel = res.data.data;
+      alert(`✅ Property "${newHotel.name}" registered successfully!`);
+      setIsAddPropertyOpen(false);
+      setPropertyForm({
+        name: '',
+        address: '',
+        contactNumber: '',
+        email: '',
+        owner: '',
+        plan: 'demo',
+        maxRooms: 20,
+        upiId: '',
+        upiPayeeName: '',
+        leadId: null
+      });
+      await fetchData();
+
+      // Offer immediate demo launch
+      if (window.confirm(`Launch Demo Mode now for "${newHotel.name}"?`)) {
+        handleSalesImpersonate(newHotel._id);
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to register property');
+    } finally {
+      setCreatingProperty(false);
+    }
+  };
+
+  // 🛎️ Handler: Create Staff
+  const handleCreateStaff = async (e) => {
+    e.preventDefault();
+    if (!staffForm.name.trim() || !staffForm.email.trim()) {
+      return alert('Staff Name and Email are required');
+    }
+    if (!staffForm.assignedHostel) {
+      return alert('Please select an assigned hotel');
+    }
+
+    try {
+      setCreatingStaff(true);
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      const res = await axios.post(`${API}/api/sales/staff`, staffForm);
+      alert(`✅ Front desk staff "${res.data.data.name}" added successfully!`);
+      setIsCreateStaffOpen(false);
+      setStaffForm({
+        name: '',
+        email: '',
+        phone: '',
+        password: 'password123',
+        assignedHostel: ''
+      });
+      await fetchData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to add staff member');
+    } finally {
+      setCreatingStaff(false);
+    }
+  };
+
+  // ✏️ Edit Property Handler
+  const openEditPropertyModal = (h) => {
+    setEditingProperty(h);
+    setEditPropertyForm({
+      name: h.name || '',
+      address: h.address || '',
+      contactNumber: h.contactNumber || '',
+      email: h.email || '',
+      owner: h.owner?._id || h.owner || '',
+      upiId: h.upiId || '',
+      upiPayeeName: h.upiPayeeName || '',
+      maxRooms: h.maxRooms || 20
+    });
+  };
+
+  const handleSaveEditProperty = async (e) => {
+    e.preventDefault();
+    if (!editingProperty) return;
+    try {
+      setSavingEditProperty(true);
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      await axios.put(`${API}/api/sales/properties/${editingProperty._id}`, editPropertyForm);
+      alert(`✅ Property "${editPropertyForm.name}" updated successfully!`);
+      setEditingProperty(null);
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update property');
+    } finally {
+      setSavingEditProperty(false);
+    }
+  };
+
+  // 👤 Edit User / Phone Handler
+  const openEditUserModal = (u) => {
+    setEditingUser(u);
+    setEditUserForm({
+      name: u.name || '',
+      email: u.email || '',
+      phone: u.phone || ''
+    });
+  };
+
+  const handleSaveEditUser = async (e) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    try {
+      setSavingEditUser(true);
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      await axios.put(`${API}/api/sales/users/${editingUser._id}`, editUserForm);
+      alert(`✅ User "${editUserForm.name}" updated successfully!`);
+      setEditingUser(null);
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update user');
+    } finally {
+      setSavingEditUser(false);
+    }
+  };
+
+  // ⚙️ Toggle Property Feature (AI OCR, WhatsApp Sync, Laundry)
+  const handleToggleFeature = async (hostelId, feature) => {
+    try {
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      const res = await axios.put(`${API}/api/sales/properties/${hostelId}/toggle-feature`, { feature });
+      setHostels(prev => prev.map(h => h._id === hostelId ? { ...h, ...res.data.data } : h));
+    } catch (err) {
+      alert('Failed to toggle feature');
+    }
+  };
+
+  // ⚡ 1-Click Launch Demo Mode
   const handleSalesImpersonate = async (hostelId, e) => {
     if (e && typeof e.preventDefault === 'function') {
       e.preventDefault();
       e.stopPropagation();
     }
+    if (!hostelId) return alert('Property ID is missing');
 
-    if (!hostelId) {
-      alert('⚠️ Hotel ID is missing');
-      return;
-    }
-
-    if (!window.confirm('Launch Demo / Support Mode for this hotel?\nYou can return back to Sales Portal anytime by clicking "Return to Sales Portal" on the top banner.')) {
+    if (!window.confirm('Launch Demo / Support Mode for this hotel?\nYou can return anytime by clicking "Return to Sales Portal" on the top banner.')) {
       return;
     }
 
@@ -212,7 +380,6 @@ const SalesDashboard = () => {
 
       if (!token) throw new Error('No authentication token received');
 
-      // Preserve sales agent session for return
       const currentToken = localStorage.getItem('token');
       if (currentToken) {
         localStorage.setItem('salesAdminToken', currentToken);
@@ -232,25 +399,42 @@ const SalesDashboard = () => {
 
       window.location.href = '/dashboard';
     } catch (err) {
-      console.error('Demo Mode Launch Failed:', err);
       alert(err.response?.data?.message || err.message || 'Failed to launch demo mode');
       setImpersonatingId(null);
     }
   };
 
-  // 🎯 Create Lead Handler
+  // 🔑 Reset Client Password
+  const handleResetPasswordSubmit = async (e) => {
+    e.preventDefault();
+    if (!resetModalData?.userId) return;
+    try {
+      setResettingPassword(true);
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      const res = await axios.put(`${API}/api/sales/reset-password`, {
+        userId: resetModalData.userId,
+        newPassword: newPasswordVal
+      });
+      alert(res.data.message || 'Password updated successfully');
+      setResetModalData(null);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to reset password');
+    } finally {
+      setResettingPassword(false);
+    }
+  };
+
+  // 🎯 Field Leads Handlers
   const handleCreateLead = async (e) => {
     e.preventDefault();
     if (!leadForm.hotelName.trim() || !leadForm.contactPerson.trim() || !leadForm.phone.trim()) {
-      alert('Please fill in Hotel Name, Contact Person, and Phone number');
-      return;
+      return alert('Hotel Name, Contact Person, and Phone are required');
     }
-
     try {
       setSavingLead(true);
       const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
       await axios.post(`${API}/api/sales/leads`, leadForm);
-      alert(`✅ Prospect Lead for "${leadForm.hotelName}" saved successfully!`);
+      alert(`✅ Field prospect for "${leadForm.hotelName}" saved!`);
       setIsLeadModalOpen(false);
       setLeadForm({
         hotelName: '',
@@ -263,9 +447,7 @@ const SalesDashboard = () => {
         currentSystem: 'Paper Register',
         status: 'new',
         priority: 'medium',
-        nextFollowUpDate: '',
-        notes: '',
-        estimatedValue: 2499
+        notes: ''
       });
       fetchData();
     } catch (err) {
@@ -275,69 +457,27 @@ const SalesDashboard = () => {
     }
   };
 
-  // 🔄 Update Lead Status Quick Action
-  const handleUpdateLeadStatus = async (leadId, newStatus) => {
-    try {
-      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
-      await axios.put(`${API}/api/sales/leads/${leadId}`, { status: newStatus });
-      setLeads(prev => prev.map(l => l._id === leadId ? { ...l, status: newStatus } : l));
-    } catch (err) {
-      alert('Failed to update lead status');
-    }
-  };
-
-  // 🗑️ Delete Lead
-  const handleDeleteLead = async (leadId) => {
-    if (!window.confirm('Delete this prospect lead?')) return;
-    try {
-      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
-      await axios.delete(`${API}/api/sales/leads/${leadId}`);
-      setLeads(prev => prev.filter(l => l._id !== leadId));
-    } catch (err) {
-      alert('Failed to delete lead');
-    }
-  };
-
-  // 🏆 Convert Lead into Client: Pre-fill Onboard Modal
   const convertLeadToClient = (lead) => {
-    setOnboardForm({
-      ownerName: lead.contactPerson || '',
-      ownerEmail: lead.email || '',
-      ownerPhone: lead.phone || '',
-      ownerPassword: 'password123',
-      hotelName: lead.hotelName || '',
-      hotelAddress: lead.address || lead.city || '',
-      hotelContact: lead.phone || '',
-      plan: 'demo',
-      planPrice: 0,
-      billingCycle: 'monthly',
+    // Open owner modal pre-filled with lead contact
+    setOwnerForm({
+      name: lead.contactPerson || '',
+      email: lead.email || '',
+      phone: lead.phone || '',
+      password: 'password123'
+    });
+    setPropertyForm(prev => ({
+      ...prev,
+      name: lead.hotelName || '',
+      address: lead.address || lead.city || '',
+      contactNumber: lead.phone || '',
+      email: lead.email || '',
       maxRooms: lead.roomCount || 20,
       leadId: lead._id
-    });
-    setIsOnboardOpen(true);
+    }));
+    setIsCreateOwnerOpen(true);
   };
 
-  // 🔑 Reset Client Password Handler
-  const handleResetPasswordSubmit = async (e) => {
-    e.preventDefault();
-    if (!resetModalData?.ownerId) return;
-    try {
-      setResettingPassword(true);
-      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
-      const res = await axios.put(`${API}/api/sales/reset-password`, {
-        ownerId: resetModalData.ownerId,
-        newPassword: newPasswordVal
-      });
-      alert(res.data.message || 'Password updated successfully');
-      setResetModalData(null);
-    } catch (err) {
-      alert(err.response?.data?.message || 'Failed to reset password');
-    } finally {
-      setResettingPassword(false);
-    }
-  };
-
-  // 💬 WhatsApp Outreach Message Builder
+  // 💬 WhatsApp Outreach
   const getOutreachText = () => {
     const name = outreachContactName.trim() || 'Sir / Ma’am';
     const hotel = outreachHotelName.trim() || 'Your Hotel';
@@ -346,863 +486,1039 @@ const SalesDashboard = () => {
       return `🏨 *Namaste ${name} ji!*
 Greetings from *NexisParkX Hotel SaaS* ✨
 
-We help hotels like *${hotel}* run seamless 100% digital front desks:
-⚡ *AI OCR Scanner* - Auto-fills Guest Name, ID, Address from Aadhaar/Passport in 2 seconds.
-📲 *Auto WhatsApp Bills* - Send digital receipts & check-in welcome directly to guest WhatsApp.
-💳 *Dynamic UPI QR* - Guests pay room-wise via GooglePay/PhonePe with automatic room settlement!
-🧹 *Housekeeping Board* - Track dirty/cleaned rooms in real-time.
-📊 *Live Revenue Dashboard* - Owner can check today’s collection from their phone anywhere.
+We help hotels like *${hotel}* run a 100% digital front desk:
+⚡ *AI OCR Scanner:* Auto-fills Guest Name, ID, Address from Aadhaar/Passport in 2 seconds.
+📲 *Auto WhatsApp Receipts:* Instant digital welcome & check-in bills on guest mobile.
+💳 *Dynamic UPI QR:* Guests pay room-wise via GooglePay/PhonePe with automatic room settlement!
+🧹 *Housekeeping Board:* Track cleaned/dirty rooms in real-time.
+📊 *Owner Multi-Property Dashboard:* Check today’s collections from anywhere on phone.
 
 Would you like a *Free 10-Minute Live Demo* at ${hotel}?
-Let us know a good time to visit! 🙏`;
-    }
-
-    if (selectedTemplate === 'trial_account') {
-      return `🎉 *Welcome ${name} ji to NexisParkX Hotel SaaS!*
-
-Your property *${hotel}* has been set up with your free trial account:
-🌐 *Software Login Link:* ${window.location.origin}/login
-👤 *Owner Login ID:* ${onboardForm.ownerEmail || 'Your Email'}
-🔑 *Temporary Password:* password123
-
-You can test check-ins, room allocation, and UPI payment right now on your mobile or desktop.
-Feel free to message me if you need any assistance! 🚀`;
+Please let us know your available time today! 🙏`;
     }
 
     return `Namaste ${name} ji, regarding our software demo for *${hotel}*, please let me know your available time today. Thank you!`;
   };
 
   const handleOpenWhatsAppOutreach = () => {
-    const cleanPhone = outreachPhone.replace(/\D/g, '').slice(-10);
-    if (!cleanPhone || cleanPhone.length !== 10) {
-      alert('Please enter a valid 10-digit WhatsApp number');
-      return;
-    }
-    const text = encodeURIComponent(getOutreachText());
-    window.open(`https://wa.me/91${cleanPhone}?text=${text}`, '_blank');
+    const clean = outreachPhone.replace(/\D/g, '').slice(-10);
+    if (!clean || clean.length !== 10) return alert('Enter valid 10-digit WhatsApp number');
+    window.open(`https://wa.me/91${clean}?text=${encodeURIComponent(getOutreachText())}`, '_blank');
   };
 
-  // --- FILTERED LIST CALCULATIONS ---
-  const filteredHotels = hotels.filter(h => {
-    const matchesSearch = 
-      h.name.toLowerCase().includes(hotelSearch.toLowerCase()) ||
-      (h.address && h.address.toLowerCase().includes(hotelSearch.toLowerCase())) ||
-      (h.contactNumber && h.contactNumber.includes(hotelSearch)) ||
-      (h.owner?.name && h.owner.name.toLowerCase().includes(hotelSearch.toLowerCase()));
+  // --- FILTERED CALCULATIONS ---
+  const q = searchQuery.toLowerCase();
 
-    if (!matchesSearch) return false;
+  const filteredOwners = owners.filter(o => {
+    const match = o.name.toLowerCase().includes(q) || o.email.toLowerCase().includes(q) || (o.phone && o.phone.includes(q));
+    if (!match) return false;
+    if (quickFilter === 'mine') return o.isMine;
+    return true;
+  });
 
-    if (hotelFilter === 'mine') return h.isMine;
-    if (hotelFilter === 'active') return h.planStatus === 'active';
-    if (hotelFilter === 'trial') return h.planStatus === 'trial' || h.plan === 'demo';
-    return true; // 'all'
+  const filteredHostels = hostels.filter(h => {
+    const match = 
+      h.name.toLowerCase().includes(q) ||
+      (h.address && h.address.toLowerCase().includes(q)) ||
+      (h.contactNumber && h.contactNumber.includes(q)) ||
+      (h.owner?.name && h.owner.name.toLowerCase().includes(q));
+
+    if (!match) return false;
+    if (quickFilter === 'mine') return h.isMine;
+    if (quickFilter === 'active') return h.planStatus === 'active';
+    if (quickFilter === 'trial') return h.planStatus === 'trial' || h.plan === 'demo';
+    return true;
+  });
+
+  const filteredStaff = staffUsers.filter(s => {
+    return s.name.toLowerCase().includes(q) || s.email.toLowerCase().includes(q) || (s.phone && s.phone.includes(q)) || (s.assignedHostel?.name && s.assignedHostel.name.toLowerCase().includes(q));
   });
 
   const filteredLeads = leads.filter(l => {
-    const matchesSearch = 
-      l.hotelName.toLowerCase().includes(leadSearch.toLowerCase()) ||
-      l.contactPerson.toLowerCase().includes(leadSearch.toLowerCase()) ||
-      l.phone.includes(leadSearch) ||
-      (l.city && l.city.toLowerCase().includes(leadSearch.toLowerCase()));
-
-    if (!matchesSearch) return false;
-    if (leadStatusFilter === 'all') return true;
-    return l.status === leadStatusFilter;
+    return l.hotelName.toLowerCase().includes(q) || l.contactPerson.toLowerCase().includes(q) || l.phone.includes(q) || (l.city && l.city.toLowerCase().includes(q));
   });
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white space-y-4">
-        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-sm font-bold text-slate-400">Loading Sales Command Center...</p>
+      <div className="flex flex-col justify-center items-center h-80 space-y-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-indigo-600"></div>
+        <p className="text-sm font-bold text-gray-500">Loading Sales Executive Headquarters...</p>
       </div>
     );
   }
 
   const agentName = stats?.agent?.name || user?.name || 'Executive';
   const monthlyTarget = stats?.agent?.monthlyTarget || 10;
-  const commissionRate = stats?.agent?.commissionRate || 15;
-  const thisMonthOnboarded = stats?.thisMonthOnboarded || 0;
-  const targetProgressPct = stats?.targetProgressPct || 0;
-  const commissionEarned = stats?.estimatedCommission || 0;
-  const myTotalRevenue = stats?.myTotalRevenue || 0;
+  const thisMonthOnboarded = stats?.agent?.thisMonthOnboarded || 0;
+  const targetProgressPct = stats?.agent?.targetProgressPct || 0;
+  const remainingTarget = stats?.agent?.remainingTarget || 0;
+  const daysLeft = stats?.agent?.daysRemainingInMonth || 0;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white pb-16">
+    <div className="space-y-8 animate-in fade-in duration-500 pb-16">
       
-      {/* 🚀 TOP COMMAND NAVBAR */}
-      <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 sm:px-8 py-3.5 flex flex-wrap items-center justify-between gap-3 shadow-lg">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white font-black text-xl">
-            ⚡
-          </div>
+      {/* 🚀 TOP HERO BANNER (Clean Modern White & Gradient Style) */}
+      <div className="bg-gradient-to-r from-gray-900 via-indigo-950 to-gray-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden border border-gray-800">
+        <div className="absolute right-0 top-0 -mt-12 -mr-12 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-base font-black tracking-tight text-white">NexisParkX Sales Command</h1>
-              <span className="px-2 py-0.5 text-[9px] font-black uppercase tracking-wider bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded-full">
-                Field Portal
+              <span className="px-3 py-1 bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                <Briefcase size={12} className="text-indigo-400" />
+                <span>Field Sales Command</span>
               </span>
+              <span className="text-xs text-gray-400 font-bold">· Welcome, {agentName}</span>
             </div>
-            <p className="text-[11px] text-slate-400 font-medium">
-              Welcome back, <strong className="text-white">{agentName}</strong>
+
+            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight mt-2">
+              Hotel Client Management & Onboarding
+            </h1>
+            <p className="text-xs sm:text-sm text-gray-300 font-medium max-w-2xl mt-1">
+              Create hotel owners, configure properties, add front desk staff, and launch live demos seamlessly on-site.
             </p>
           </div>
+
+          {/* Action CTAs */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              onClick={() => setIsCreateOwnerOpen(true)}
+              className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-1.5"
+            >
+              <Crown size={14} />
+              <span>+ Create Owner</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setPropertyForm(prev => ({ ...prev, owner: '' }));
+                setIsAddPropertyOpen(true);
+              }}
+              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-1.5"
+            >
+              <Building size={14} />
+              <span>+ Register Property</span>
+            </button>
+
+            <button
+              onClick={() => setIsCreateStaffOpen(true)}
+              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-1.5"
+            >
+              <Users size={14} />
+              <span>+ Add Staff</span>
+            </button>
+
+            <button
+              onClick={fetchData}
+              disabled={refreshing}
+              className="p-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl transition-colors border border-gray-700 active:scale-95"
+              title="Refresh Data"
+            >
+              <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 🎯 TARGET GAUGE & KEY METRICS (Clean White Cards) */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Monthly Target Progress Card */}
+        <div className="md:col-span-2 bg-white p-5 rounded-3xl border border-gray-200 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+                <Target size={14} className="text-indigo-600" />
+                <span>Monthly Hotel Onboarding Target</span>
+              </span>
+              <span className="text-xs font-black text-gray-900">
+                {thisMonthOnboarded} / {monthlyTarget} Hotels ({targetProgressPct}%)
+              </span>
+            </div>
+
+            <div className="w-full bg-gray-100 rounded-full h-3 mt-3 overflow-hidden border border-gray-200">
+              <div 
+                className="h-full bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full transition-all duration-700"
+                style={{ width: `${Math.max(4, targetProgressPct)}%` }}
+              ></div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between text-xs text-gray-500 font-semibold mt-3 pt-2 border-t border-gray-100">
+            <span>{remainingTarget > 0 ? `🎯 Need ${remainingTarget} more hotels to hit target` : '🎉 Monthly target achieved!'}</span>
+            <span className="text-amber-600 font-bold">{daysLeft} days remaining this month</span>
+          </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2.5">
+        {/* My Onboarded Hotels */}
+        <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-sm flex flex-col justify-between">
+          <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+            <Building size={14} className="text-blue-600" />
+            <span>My Onboarded Hotels</span>
+          </span>
+          <div className="my-2">
+            <p className="text-3xl font-black text-gray-900">{stats?.myHotelsCount || 0}</p>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-50 text-emerald-700 rounded-md">
+                {stats?.myActivePaidCount || 0} Paid
+              </span>
+              <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-50 text-amber-700 rounded-md">
+                {stats?.myTrialCount || 0} Trial
+              </span>
+            </div>
+          </div>
+          <span className="text-[10px] text-gray-400 font-medium">Properties tagged to you</span>
+        </div>
+
+        {/* Field Leads in Pipeline */}
+        <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-sm flex flex-col justify-between">
+          <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+            <Sparkles size={14} className="text-purple-600" />
+            <span>Active Field Prospects</span>
+          </span>
+          <div className="my-2">
+            <p className="text-3xl font-black text-purple-600">
+              {leads.filter(l => l.status !== 'won' && l.status !== 'lost').length}
+            </p>
+            <p className="text-[11px] text-gray-500 font-medium mt-1">Hotels in discussion / visit</p>
+          </div>
           <button
             onClick={() => setIsLeadModalOpen(true)}
-            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-indigo-300 font-bold text-xs rounded-xl border border-indigo-500/30 transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+            className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 text-left"
           >
-            <Target size={14} className="text-indigo-400" />
-            <span className="hidden sm:inline">+ Log Field Lead</span>
-          </button>
-
-          <button
-            onClick={() => setIsOnboardOpen(true)}
-            className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md shadow-indigo-600/30 active:scale-95 flex items-center gap-1.5"
-          >
-            <Plus size={15} className="stroke-[3]" />
-            <span>+ Onboard Hotel</span>
-          </button>
-
-          <button
-            onClick={fetchData}
-            disabled={refreshing}
-            title="Refresh Data"
-            className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all border border-slate-700 active:scale-95"
-          >
-            <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
-          </button>
-
-          <button
-            onClick={logout}
-            title="Sign Out"
-            className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl transition-all border border-red-500/20 active:scale-95"
-          >
-            <LogOut size={15} />
+            + Log new visit prospect →
           </button>
         </div>
-      </header>
+      </div>
 
-      {/* 📊 HERO PERFORMANCE METRICS & TARGET METER */}
-      <main className="max-w-7xl w-full mx-auto px-4 sm:px-8 mt-6 space-y-6">
-
-        {/* Motivational Sales Target & Commission Banner */}
-        <div className="bg-gradient-to-br from-indigo-950/80 via-slate-900 to-purple-950/50 p-6 rounded-3xl border border-indigo-500/20 shadow-xl relative overflow-hidden">
-          <div className="absolute right-0 top-0 -mt-8 -mr-8 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
-            {/* Target Gauge */}
-            <div className="md:col-span-2 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Trophy size={18} className="text-amber-400" />
-                  <span className="text-xs font-black uppercase tracking-wider text-indigo-300">
-                    Monthly Onboarding Target
-                  </span>
-                </div>
-                <span className="text-xs font-bold text-slate-300">
-                  <strong className="text-white text-base">{thisMonthOnboarded}</strong> / {monthlyTarget} Hotels ({targetProgressPct}%)
-                </span>
-              </div>
-
-              {/* Progress Bar */}
-              <div className="w-full bg-slate-800 rounded-full h-3.5 p-0.5 border border-slate-700 overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-400 rounded-full transition-all duration-700 shadow-sm"
-                  style={{ width: `${Math.max(5, targetProgressPct)}%` }}
-                ></div>
-              </div>
-
-              <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium">
-                <span>🔥 Keep pushing! Every hotel adds to your monthly sales incentive.</span>
-                <span className="text-amber-400 font-bold">14 Days Left This Month</span>
-              </div>
-            </div>
-
-            {/* Estimated Commission Card */}
-            <div className="bg-slate-900/90 p-4 rounded-2xl border border-indigo-500/30 flex flex-col justify-between shadow-inner">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                  <IndianRupee size={12} className="text-emerald-400" />
-                  <span>Est. Commission</span>
-                </span>
-                <span className="px-2 py-0.5 text-[9px] font-bold bg-emerald-500/20 text-emerald-400 rounded-md">
-                  {commissionRate}% Rate
-                </span>
-              </div>
-              <div className="my-2">
-                <p className="text-3xl font-black text-emerald-400">₹{commissionEarned.toLocaleString()}</p>
-                <p className="text-[10px] text-slate-400 font-medium mt-0.5">
-                  Calculated from ₹{myTotalRevenue.toLocaleString()} active client subscriptions
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 4 Quick Stat KPIs */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-sm">
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <Building size={13} className="text-blue-400" />
-              <span>My Onboarded Hotels</span>
-            </span>
-            <p className="text-2xl font-black text-white mt-1.5">{stats?.myHotelsCount || 0}</p>
-            <p className="text-[11px] text-slate-400 font-medium mt-0.5">Total registered properties</p>
-          </div>
-
-          <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-sm">
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <CheckCircle2 size={13} className="text-emerald-400" />
-              <span>Active Paid Clients</span>
-            </span>
-            <p className="text-2xl font-black text-emerald-400 mt-1.5">{stats?.myActivePaidCount || 0}</p>
-            <p className="text-[11px] text-slate-400 font-medium mt-0.5">Contributing to commission</p>
-          </div>
-
-          <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-sm">
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <Clock size={13} className="text-amber-400" />
-              <span>Free Demos / Trials</span>
-            </span>
-            <p className="text-2xl font-black text-amber-400 mt-1.5">{stats?.myTrialCount || 0}</p>
-            <p className="text-[11px] text-slate-400 font-medium mt-0.5">Ready for paid conversion</p>
-          </div>
-
-          <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-sm">
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <Target size={13} className="text-purple-400" />
-              <span>Active Leads Pipeline</span>
-            </span>
-            <p className="text-2xl font-black text-purple-400 mt-1.5">{leads.filter(l => l.status !== 'won' && l.status !== 'lost').length}</p>
-            <p className="text-[11px] text-slate-400 font-medium mt-0.5">Visits in progress</p>
-          </div>
-        </div>
-
-        {/* 🗂️ MAIN TABS NAVIGATION */}
-        <div className="flex border-b border-slate-800 gap-2">
-          <button
-            onClick={() => setActiveTab('hotels')}
-            className={`px-5 py-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all flex items-center gap-2 ${
-              activeTab === 'hotels'
-                ? 'border-indigo-500 text-white bg-slate-900/50 rounded-t-xl'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+      {/* 🗂️ MAIN TABS & FAST SEARCH (Clean Modern Gray Bar) */}
+      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 bg-gray-100/70 p-2 rounded-2xl border border-gray-200">
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+          <button 
+            onClick={() => setActiveTab('ecosystem')} 
+            className={`px-4 py-2.5 text-xs font-black rounded-xl transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+              activeTab === 'ecosystem' ? 'bg-white shadow-sm text-gray-900 ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-900'
             }`}
           >
-            <Building size={15} className="text-indigo-400" />
-            <span>My Hotels & Clients ({hotels.length})</span>
+            <Network size={15} className="text-purple-600" />
+            <span>Hotel Ecosystem</span>
+            <span className="px-2 py-0.5 text-[10px] rounded-full bg-purple-100 text-purple-700 font-bold ml-1">
+              Hierarchy Tree
+            </span>
           </button>
 
-          <button
-            onClick={() => setActiveTab('leads')}
-            className={`px-5 py-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all flex items-center gap-2 ${
-              activeTab === 'leads'
-                ? 'border-indigo-500 text-white bg-slate-900/50 rounded-t-xl'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+          <button 
+            onClick={() => setActiveTab('properties')} 
+            className={`px-4 py-2.5 text-xs font-black rounded-xl transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+              activeTab === 'properties' ? 'bg-white shadow-sm text-gray-900 ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-900'
             }`}
           >
-            <Target size={15} className="text-purple-400" />
-            <span>Field Leads Pipeline ({leads.length})</span>
+            <Building size={15} className="text-blue-600" />
+            <span>Properties ({hostels.length})</span>
           </button>
 
-          <button
-            onClick={() => setActiveTab('outreach')}
-            className={`px-5 py-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all flex items-center gap-2 ${
-              activeTab === 'outreach'
-                ? 'border-indigo-500 text-white bg-slate-900/50 rounded-t-xl'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+          <button 
+            onClick={() => setActiveTab('owners')} 
+            className={`px-4 py-2.5 text-xs font-black rounded-xl transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+              activeTab === 'owners' ? 'bg-white shadow-sm text-gray-900 ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-900'
             }`}
           >
-            <MessageSquare size={15} className="text-emerald-400" />
-            <span>WhatsApp Pitch & Brochure</span>
+            <Crown size={15} className="text-amber-600" />
+            <span>Owners ({owners.length})</span>
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('staff')} 
+            className={`px-4 py-2.5 text-xs font-black rounded-xl transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+              activeTab === 'staff' ? 'bg-white shadow-sm text-gray-900 ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            <Users size={15} className="text-indigo-600" />
+            <span>Staff ({staffUsers.length})</span>
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('leads')} 
+            className={`px-4 py-2.5 text-xs font-black rounded-xl transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+              activeTab === 'leads' ? 'bg-white shadow-sm text-gray-900 ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            <Target size={15} className="text-rose-600" />
+            <span>Field Leads ({leads.length})</span>
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('outreach')} 
+            className={`px-4 py-2.5 text-xs font-black rounded-xl transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+              activeTab === 'outreach' ? 'bg-white shadow-sm text-gray-900 ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            <MessageSquare size={15} className="text-emerald-600" />
+            <span>WhatsApp Pitch</span>
           </button>
         </div>
 
-        {/* ============================================================== */}
-        {/* TAB 1: 🏨 MY HOTELS & CLIENTS */}
-        {/* ============================================================== */}
-        {activeTab === 'hotels' && (
-          <div className="space-y-4">
-            {/* Filter & Search Bar */}
-            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-slate-900 p-3 rounded-2xl border border-slate-800">
-              <div className="flex gap-1 overflow-x-auto no-scrollbar">
-                <button
-                  onClick={() => setHotelFilter('mine')}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all whitespace-nowrap ${
-                    hotelFilter === 'mine' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  ⭐ Onboarded by Me ({hotels.filter(h => h.isMine).length})
-                </button>
-                <button
-                  onClick={() => setHotelFilter('all')}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all whitespace-nowrap ${
-                    hotelFilter === 'all' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  All Properties ({hotels.length})
-                </button>
-                <button
-                  onClick={() => setHotelFilter('active')}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all whitespace-nowrap ${
-                    hotelFilter === 'active' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Active Paid ({hotels.filter(h => h.planStatus === 'active').length})
-                </button>
-                <button
-                  onClick={() => setHotelFilter('trial')}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all whitespace-nowrap ${
-                    hotelFilter === 'trial' ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Trials / Demos ({hotels.filter(h => h.planStatus === 'trial' || h.plan === 'demo').length})
-                </button>
-              </div>
+        <div className="relative w-full sm:w-72">
+          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input 
+            type="text" 
+            placeholder="Search hotel, owner, staff, phone..." 
+            value={searchQuery} 
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-black outline-none transition-all placeholder:text-gray-400 placeholder:font-normal" 
+          />
+        </div>
+      </div>
 
-              <div className="relative w-full sm:w-64">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                <input
-                  type="text"
-                  placeholder="Search hotel or owner..."
-                  value={hotelSearch}
-                  onChange={e => setHotelSearch(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-medium text-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                />
-              </div>
+      {/* ============================================================== */}
+      {/* TAB 1: 🌐 HOTEL ECOSYSTEM - COMPLETE HIERARCHY TREE */}
+      {/* ============================================================== */}
+      {activeTab === 'ecosystem' && (
+        <div className="space-y-6">
+          {/* Quick Filter Bar */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Filter:</span>
+            {['all', 'mine', 'active', 'trial'].map(filterKey => (
+              <button
+                key={filterKey}
+                onClick={() => setQuickFilter(filterKey)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  quickFilter === filterKey 
+                    ? 'bg-black text-white shadow-sm' 
+                    : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                {filterKey === 'all' && 'All Ecosystem'}
+                {filterKey === 'mine' && '⭐ Onboarded by Me'}
+                {filterKey === 'active' && 'Active Paid'}
+                {filterKey === 'trial' && 'Free Trials / Demos'}
+              </button>
+            ))}
+          </div>
+
+          {filteredOwners.length === 0 ? (
+            <div className="bg-white rounded-3xl border border-gray-200 p-12 text-center shadow-sm">
+              <Users size={36} className="mx-auto text-gray-300 mb-3" />
+              <h3 className="text-sm font-black text-gray-700">No Hotel Ecosystem Clients Found</h3>
+              <p className="text-xs text-gray-400 max-w-sm mx-auto mt-1 mb-4">
+                Register hotel owners and properties to start tracking their operations and front desks.
+              </p>
+              <button
+                onClick={() => setIsCreateOwnerOpen(true)}
+                className="px-4 py-2 bg-purple-600 text-white font-black text-xs rounded-xl hover:bg-purple-700"
+              >
+                + Create Hotel Owner
+              </button>
             </div>
+          ) : (
+            filteredOwners.map(owner => {
+              const ownerHotels = filteredHostels.filter(h => (h.owner?._id || h.owner)?.toString() === owner._id.toString());
+              if (ownerHotels.length === 0 && quickFilter !== 'all') return null;
 
-            {/* Hotel Cards Grid */}
-            {filteredHotels.length === 0 ? (
-              <div className="bg-slate-900 rounded-3xl border border-slate-800 p-12 text-center">
-                <Building size={40} className="mx-auto text-slate-600 mb-3" />
-                <h3 className="text-base font-bold text-slate-300">No properties found</h3>
-                <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-4">
-                  No hotels match your current search or filter. Register a new hotel directly from field.
-                </p>
-                <button
-                  onClick={() => setIsOnboardOpen(true)}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition-all shadow-md"
-                >
-                  + Onboard New Hotel Now
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredHotels.map(h => (
-                  <div
-                    key={h._id}
-                    className="bg-slate-900 rounded-2xl border border-slate-800 hover:border-indigo-500/50 transition-all p-5 flex flex-col justify-between shadow-lg relative group"
-                  >
-                    <div>
-                      {/* Top Badges */}
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <span className={`px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider rounded-md ${
-                          h.planStatus === 'active' 
-                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
-                            : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                        }`}>
-                          {h.planStatus === 'active' ? '● Active Paid' : '⏳ Trial / Demo'}
-                        </span>
-
-                        {h.isMine && (
-                          <span className="px-2 py-0.5 text-[9px] font-black uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-md">
-                            ⭐ Onboarded By You
-                          </span>
-                        )}
+              return (
+                <div key={owner._id} className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
+                  {/* Owner Header Bar */}
+                  <div className="p-6 bg-gradient-to-r from-gray-50 via-purple-50/20 to-white border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div className="flex items-start sm:items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-purple-600 text-white flex items-center justify-center font-black text-lg shadow-sm">
+                        {owner.name.charAt(0).toUpperCase()}
                       </div>
-
-                      {/* Hotel Name & Address */}
-                      <h3 className="text-base font-black text-white group-hover:text-indigo-400 transition-colors">
-                        {h.name}
-                      </h3>
-                      <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5 truncate">
-                        <MapPin size={12} className="text-slate-500 shrink-0" />
-                        <span>{h.address || 'Address not provided'}</span>
-                      </p>
-
-                      {/* Owner Details */}
-                      <div className="mt-3.5 p-3 bg-slate-950/70 rounded-xl border border-slate-800/80 space-y-1 text-xs">
-                        <div className="flex items-center justify-between text-slate-300 font-bold">
-                          <span className="flex items-center gap-1.5 truncate">
-                            <Crown size={12} className="text-amber-400" />
-                            <span>{h.owner?.name || 'Owner N/A'}</span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-base font-black text-gray-900">{owner.name}</h3>
+                          <span className="px-2 py-0.5 text-[9px] font-black uppercase tracking-wider bg-purple-100 text-purple-700 rounded-md">
+                            Hotel Owner (Client)
                           </span>
-                          {h.owner?.phone && (
-                            <a 
-                              href={`https://wa.me/91${h.owner.phone.replace(/\D/g, '').slice(-10)}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-semibold text-[11px]"
-                              title="Message Owner on WhatsApp"
-                            >
-                              <MessageSquare size={12} /> WhatsApp
-                            </a>
+                          {owner.isMine && (
+                            <span className="px-2 py-0.5 text-[9px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-700 rounded-md">
+                              ⭐ Onboarded By You
+                            </span>
                           )}
                         </div>
-                        <p className="text-[11px] text-slate-400 truncate">{h.owner?.email || h.email || 'No email'}</p>
-                      </div>
-
-                      {/* Property Specs */}
-                      <div className="mt-3 grid grid-cols-2 gap-2 text-center text-xs">
-                        <div className="p-2 bg-slate-950/40 rounded-lg border border-slate-800">
-                          <span className="text-[10px] text-slate-500 uppercase font-black block">Rooms</span>
-                          <span className="font-bold text-slate-200">{h.roomCount || 0} configured</span>
-                        </div>
-                        <div className="p-2 bg-slate-950/40 rounded-lg border border-slate-800">
-                          <span className="text-[10px] text-slate-500 uppercase font-black block">Staff</span>
-                          <span className="font-bold text-slate-200">{h.staffCount || 0} users</span>
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 font-semibold mt-1">
+                          <span className="flex items-center gap-1 text-gray-700 font-bold">
+                            <Mail size={12} className="text-gray-400" /> {owner.email}
+                          </span>
+                          <span className="flex items-center gap-1 text-gray-700">
+                            <Phone size={12} className="text-gray-400" /> {owner.phone || 'No phone'}
+                          </span>
+                          <span className="text-purple-700 font-black">
+                            {ownerHotels.length} Properties Configured
+                          </span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Bottom Actions */}
-                    <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center gap-2">
+                    {/* Owner Quick Actions */}
+                    <div className="flex items-center gap-2">
                       <button
-                        onClick={() => handleSalesImpersonate(h._id)}
-                        disabled={impersonatingId === h._id}
-                        className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5 disabled:opacity-50"
+                        onClick={() => {
+                          setPropertyForm(prev => ({
+                            ...prev,
+                            owner: owner._id,
+                            contactNumber: owner.phone || '',
+                            email: owner.email || ''
+                          }));
+                          setIsAddPropertyOpen(true);
+                        }}
+                        className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-black text-xs rounded-xl transition-all border border-indigo-200 flex items-center gap-1"
                       >
-                        <Sparkles size={13} />
-                        <span>{impersonatingId === h._id ? 'Launching...' : '⚡ Launch Demo'}</span>
+                        <Plus size={13} className="stroke-[3]" />
+                        <span>Add Property</span>
                       </button>
-
-                      {h.owner?._id && (
-                        <button
-                          onClick={() => setResetModalData({ ownerId: h.owner._id, ownerName: h.owner.name, hotelName: h.name })}
-                          title="Reset Password for Owner"
-                          className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-400 rounded-xl transition-colors border border-slate-700"
-                        >
-                          <KeyRound size={15} />
-                        </button>
-                      )}
+                      <button
+                        onClick={() => openEditUserModal(owner)}
+                        className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-all border border-gray-200"
+                        title="Edit Owner Details"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={() => setResetModalData({ userId: owner._id, userName: owner.name, role: 'Owner' })}
+                        className="p-1.5 text-gray-500 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all border border-gray-200"
+                        title="Reset Owner Password"
+                      >
+                        <KeyRound size={14} />
+                      </button>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
 
-        {/* ============================================================== */}
-        {/* TAB 2: 🎯 FIELD LEADS & PROSPECTS PIPELINE */}
-        {/* ============================================================== */}
-        {activeTab === 'leads' && (
-          <div className="space-y-4">
-            {/* Filter & Search Bar */}
-            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-slate-900 p-3 rounded-2xl border border-slate-800">
-              <div className="flex gap-1 overflow-x-auto no-scrollbar">
-                {['all', 'new', 'demo_scheduled', 'demo_completed', 'won', 'lost'].map(st => (
-                  <button
-                    key={st}
-                    onClick={() => setLeadStatusFilter(st)}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all capitalize whitespace-nowrap ${
-                      leadStatusFilter === st ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    {st.replace('_', ' ')}
-                  </button>
-                ))}
-              </div>
+                  {/* Properties & Staff Tree */}
+                  <div className="p-6 space-y-4">
+                    {ownerHotels.length === 0 ? (
+                      <div className="p-6 bg-gray-50 rounded-2xl border border-dashed border-gray-200 text-center">
+                        <p className="text-xs text-gray-500 font-medium">No properties attached to this owner yet.</p>
+                        <button
+                          onClick={() => {
+                            setPropertyForm(prev => ({
+                              ...prev,
+                              owner: owner._id,
+                              contactNumber: owner.phone || '',
+                              email: owner.email || ''
+                            }));
+                            setIsAddPropertyOpen(true);
+                          }}
+                          className="mt-2 text-xs font-black text-indigo-600 hover:text-indigo-800"
+                        >
+                          + Attach First Property Now
+                        </button>
+                      </div>
+                    ) : (
+                      ownerHotels.map(hotel => (
+                        <div key={hotel._id} className="p-5 bg-gray-50/60 rounded-2xl border border-gray-200 space-y-4">
+                          {/* Property Details Bar */}
+                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <Building size={16} className="text-blue-600" />
+                                <h4 className="text-sm font-black text-gray-900">{hotel.name}</h4>
+                                <span className={`px-2 py-0.5 text-[9px] font-black rounded-md uppercase tracking-wider ${
+                                  hotel.planStatus === 'active' 
+                                    ? 'bg-emerald-100 text-emerald-800' 
+                                    : 'bg-amber-100 text-amber-800'
+                                }`}>
+                                  {hotel.planStatus === 'active' ? '● Active' : '⏳ Trial / Demo'}
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                                <MapPin size={11} className="text-gray-400" />
+                                <span>{hotel.address || 'Address not added'}</span>
+                                <span className="mx-1 text-gray-300">•</span>
+                                <Phone size={11} className="text-gray-400" />
+                                <span>{hotel.contactNumber || 'No contact'}</span>
+                              </p>
+                            </div>
 
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1 sm:w-56">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                  <input
-                    type="text"
-                    placeholder="Search prospect..."
-                    value={leadSearch}
-                    onChange={e => setLeadSearch(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-medium text-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                  />
+                            {/* Property Actions */}
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                onClick={() => handleSalesImpersonate(hotel._id)}
+                                disabled={impersonatingId === hotel._id}
+                                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-sm flex items-center gap-1 active:scale-95 disabled:opacity-50"
+                              >
+                                <Sparkles size={12} />
+                                <span>{impersonatingId === hotel._id ? 'Launching...' : '⚡ Launch Demo'}</span>
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setStaffForm(prev => ({ ...prev, assignedHostel: hotel._id }));
+                                  setIsCreateStaffOpen(true);
+                                }}
+                                className="px-2.5 py-1.5 bg-white hover:bg-gray-100 text-gray-700 font-bold text-xs rounded-xl border border-gray-200 flex items-center gap-1"
+                              >
+                                <Plus size={12} />
+                                <span>Add Staff</span>
+                              </button>
+
+                              <button
+                                onClick={() => openEditPropertyModal(hotel)}
+                                className="p-1.5 bg-white hover:bg-gray-100 text-gray-600 rounded-xl border border-gray-200"
+                                title="Edit Property Details"
+                              >
+                                <Pencil size={13} />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Feature Toggles & Capabilities */}
+                          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-200/70 text-xs">
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-1">
+                              Features:
+                            </span>
+
+                            <button
+                              onClick={() => handleToggleFeature(hotel._id, 'aiOcr')}
+                              className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1 border ${
+                                hotel.aiOcrEnabled !== false 
+                                  ? 'bg-purple-50 text-purple-700 border-purple-200' 
+                                  : 'bg-white text-gray-400 border-gray-200'
+                              }`}
+                            >
+                              <span>AI OCR Scanner</span>
+                              <span className="text-[10px]">{hotel.aiOcrEnabled !== false ? '✅' : '✕'}</span>
+                            </button>
+
+                            <button
+                              onClick={() => handleToggleFeature(hotel._id, 'whatsappSync')}
+                              className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1 border ${
+                                hotel.whatsappSyncEnabled !== false 
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                                  : 'bg-white text-gray-400 border-gray-200'
+                              }`}
+                            >
+                              <span>Auto WhatsApp Bills</span>
+                              <span className="text-[10px]">{hotel.whatsappSyncEnabled !== false ? '✅' : '✕'}</span>
+                            </button>
+
+                            <button
+                              onClick={() => handleToggleFeature(hotel._id, 'laundry')}
+                              className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1 border ${
+                                hotel.laundryEnabled !== false 
+                                  ? 'bg-blue-50 text-blue-700 border-blue-200' 
+                                  : 'bg-white text-gray-400 border-gray-200'
+                              }`}
+                            >
+                              <span>Laundry Board</span>
+                              <span className="text-[10px]">{hotel.laundryEnabled !== false ? '✅' : '✕'}</span>
+                            </button>
+
+                            {hotel.upiId && (
+                              <span className="px-2.5 py-1 bg-gray-100 text-gray-700 rounded-lg text-[11px] font-bold flex items-center gap-1">
+                                <QrCode size={11} className="text-gray-500" />
+                                <span>UPI: {hotel.upiId}</span>
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Front Desk Staff Members for this Hotel */}
+                          <div className="pt-2 border-t border-gray-200/70">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1">
+                                <Users size={12} className="text-indigo-600" />
+                                <span>Front Desk Staff ({hotel.staffMembers?.length || 0})</span>
+                              </span>
+                              <button
+                                onClick={() => {
+                                  setStaffForm(prev => ({ ...prev, assignedHostel: hotel._id }));
+                                  setIsCreateStaffOpen(true);
+                                }}
+                                className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800"
+                              >
+                                + Add Staff Member
+                              </button>
+                            </div>
+
+                            {(!hotel.staffMembers || hotel.staffMembers.length === 0) ? (
+                              <p className="text-xs text-gray-400 italic">No staff members created yet for this hotel.</p>
+                            ) : (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                                {hotel.staffMembers.map(staff => (
+                                  <div key={staff._id} className="p-2.5 bg-white rounded-xl border border-gray-200 flex items-center justify-between shadow-xs">
+                                    <div className="truncate">
+                                      <p className="text-xs font-black text-gray-900 truncate">{staff.name}</p>
+                                      <p className="text-[10px] text-gray-500 truncate">{staff.email}</p>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        onClick={() => openEditUserModal(staff)}
+                                        className="p-1 text-gray-400 hover:text-gray-700 rounded-md"
+                                        title="Edit Staff"
+                                      >
+                                        <Pencil size={11} />
+                                      </button>
+                                      <button
+                                        onClick={() => setResetModalData({ userId: staff._id, userName: staff.name, role: 'Staff' })}
+                                        className="p-1 text-gray-400 hover:text-amber-600 rounded-md"
+                                        title="Reset Staff Password"
+                                      >
+                                        <KeyRound size={11} />
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
-                <button
-                  onClick={() => setIsLeadModalOpen(true)}
-                  className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-500 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center gap-1 shrink-0"
-                >
-                  <Plus size={14} className="stroke-[3]" />
-                  <span>Add Lead</span>
-                </button>
-              </div>
-            </div>
+              );
+            })
+          )}
+        </div>
+      )}
 
-            {/* Leads List */}
-            {filteredLeads.length === 0 ? (
-              <div className="bg-slate-900 rounded-3xl border border-slate-800 p-12 text-center">
-                <Target size={40} className="mx-auto text-slate-600 mb-3" />
-                <h3 className="text-base font-bold text-slate-300">No leads found in this stage</h3>
-                <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-4">
-                  Log hotel owners you visit during field visits. Follow up, schedule demos, and convert them to clients!
-                </p>
-                <button
-                  onClick={() => setIsLeadModalOpen(true)}
-                  className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl transition-all shadow-md"
-                >
-                  + Add First Field Prospect
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredLeads.map(l => (
-                  <div
-                    key={l._id}
-                    className="bg-slate-900 rounded-2xl border border-slate-800 p-5 flex flex-col justify-between shadow-lg space-y-3"
-                  >
-                    <div>
-                      {/* Priority & Status */}
-                      <div className="flex items-center justify-between gap-2">
-                        <span className={`px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded-md ${
-                          l.priority === 'hot' 
-                            ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' 
-                            : l.priority === 'high'
-                            ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                            : 'bg-slate-800 text-slate-300'
-                        }`}>
-                          {l.priority === 'hot' ? '🔥 HOT PROSPECT' : `${l.priority} priority`}
-                        </span>
-
-                        <select
-                          value={l.status}
-                          onChange={e => handleUpdateLeadStatus(l._id, e.target.value)}
-                          className="px-2 py-1 bg-slate-950 border border-slate-800 rounded-lg text-[11px] font-bold text-indigo-300 outline-none"
-                        >
-                          <option value="new">New Lead</option>
-                          <option value="contacted">Contacted</option>
-                          <option value="demo_scheduled">Demo Scheduled</option>
-                          <option value="demo_completed">Demo Done</option>
-                          <option value="negotiation">Negotiation</option>
-                          <option value="won">Won (Converted)</option>
-                          <option value="lost">Lost</option>
-                        </select>
-                      </div>
-
-                      {/* Hotel Name & Contact Person */}
-                      <h4 className="text-base font-black text-white mt-2">{l.hotelName}</h4>
-                      <p className="text-xs text-slate-300 font-bold flex items-center gap-1.5 mt-0.5">
-                        <Users size={12} className="text-purple-400" />
-                        <span>{l.contactPerson}</span>
-                        {l.city && <span className="text-slate-500 font-normal">· {l.city}</span>}
-                      </p>
-
-                      {/* Phone & Direct Outreach buttons */}
-                      <div className="mt-2.5 flex items-center gap-2">
-                        <a
-                          href={`tel:${l.phone}`}
-                          className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-lg border border-slate-700 flex items-center gap-1"
-                        >
-                          <Phone size={11} className="text-emerald-400" />
-                          <span>{l.phone}</span>
-                        </a>
-                        <a
-                          href={`https://wa.me/91${l.phone.replace(/\D/g, '').slice(-10)}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="p-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded-lg border border-emerald-500/30"
-                          title="Message on WhatsApp"
-                        >
-                          <MessageSquare size={13} />
-                        </a>
-                      </div>
-
-                      {/* Notes / Current System */}
-                      <div className="mt-2.5 text-xs text-slate-400 space-y-1">
-                        <p className="text-[11px]">
-                          <strong>System:</strong> {l.currentSystem || 'Paper Register'} ({l.roomCount || 15} rooms)
-                        </p>
-                        {l.notes && (
-                          <p className="text-[11px] bg-slate-950/60 p-2 rounded-lg border border-slate-800 text-slate-300 italic">
-                            "{l.notes}"
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="pt-3 border-t border-slate-800 flex items-center gap-2">
-                      {l.status !== 'won' ? (
-                        <button
-                          onClick={() => convertLeadToClient(l)}
-                          className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-1"
-                        >
-                          <Trophy size={13} />
-                          <span>Convert to Client</span>
-                        </button>
-                      ) : (
-                        <span className="flex-1 py-1.5 text-center text-xs font-bold text-emerald-400 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
-                          ✅ Converted to Client
-                        </span>
-                      )}
-
-                      <button
-                        onClick={() => handleDeleteLead(l._id)}
-                        className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-colors"
-                        title="Delete Lead"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ============================================================== */}
-        {/* TAB 3: 💬 WHATSAPP PITCH & BROCHURE SENDER */}
-        {/* ============================================================== */}
-        {activeTab === 'outreach' && (
-          <div className="bg-slate-900 rounded-3xl border border-slate-800 p-6 shadow-xl space-y-6">
+      {/* ============================================================== */}
+      {/* TAB 2: 🏨 PROPERTIES DIRECTORY */}
+      {/* ============================================================== */}
+      {activeTab === 'properties' && (
+        <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
             <div>
-              <h2 className="text-lg font-black text-white flex items-center gap-2">
-                <MessageSquare size={18} className="text-emerald-400" />
-                <span>1-Click WhatsApp Pitch Generator</span>
-              </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Quickly send hotel brochures, demo invites, or trial credentials directly to hotel owners on WhatsApp.
-              </p>
+              <h2 className="text-lg font-black text-gray-900">Hotel Properties Directory</h2>
+              <p className="text-xs text-gray-500 font-medium">All properties configured in the ecosystem.</p>
             </div>
+            <button
+              onClick={() => {
+                setPropertyForm(prev => ({ ...prev, owner: '' }));
+                setIsAddPropertyOpen(true);
+              }}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center gap-1.5"
+            >
+              <Plus size={14} className="stroke-[3]" />
+              <span>+ Register Property</span>
+            </button>
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Left Controls */}
-              <div className="space-y-4">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm whitespace-nowrap">
+              <thead className="bg-white border-b border-gray-100">
+                <tr>
+                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Hotel Property</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Hotel Owner</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Rooms & Staff</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Plan & Status</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredHostels.map(h => (
+                  <tr key={h._id} className="hover:bg-gray-50/80 transition-colors">
+                    <td className="px-6 py-4">
+                      <div>
+                        <p className="font-black text-gray-900 text-sm flex items-center gap-1.5">
+                          <Building size={14} className="text-blue-600" />
+                          <span>{h.name}</span>
+                        </p>
+                        <p className="text-xs text-gray-500">{h.address || 'No address'}</p>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div>
+                        <p className="font-bold text-gray-900 text-xs">{h.owner?.name || 'Owner N/A'}</p>
+                        <p className="text-[11px] text-gray-500">{h.owner?.phone || h.owner?.email || ''}</p>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-xs font-bold text-gray-700">
+                      <span>{h.roomCount || 0} rooms</span>
+                      <span className="text-gray-400 font-normal block">{h.staffCount || 0} staff</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-md ${
+                        h.planStatus === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {h.planStatus === 'active' ? 'Active Paid' : 'Trial / Demo'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => handleSalesImpersonate(h._id)}
+                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-sm flex items-center gap-1"
+                        >
+                          <Sparkles size={12} />
+                          <span>Demo</span>
+                        </button>
+                        <button
+                          onClick={() => openEditPropertyModal(h)}
+                          className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* TAB 3: 👑 HOTEL OWNERS (ADMINS) */}
+      {/* ============================================================== */}
+      {activeTab === 'owners' && (
+        <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+            <div>
+              <h2 className="text-lg font-black text-gray-900">Hotel Owners (Clients)</h2>
+              <p className="text-xs text-gray-500 font-medium">Master logins for hotel owners.</p>
+            </div>
+            <button
+              onClick={() => setIsCreateOwnerOpen(true)}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center gap-1.5"
+            >
+              <Plus size={14} className="stroke-[3]" />
+              <span>+ Create Owner</span>
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm whitespace-nowrap">
+              <thead className="bg-white border-b border-gray-100">
+                <tr>
+                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Owner Name</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Login Email</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Phone</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Properties Owned</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredOwners.map(o => (
+                  <tr key={o._id} className="hover:bg-gray-50/80 transition-colors">
+                    <td className="px-6 py-4 font-black text-gray-900 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Crown size={14} className="text-amber-500" />
+                        <span>{o.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 font-bold text-gray-700 text-xs">{o.email}</td>
+                    <td className="px-6 py-4 text-xs font-semibold text-gray-600">{o.phone || 'No phone'}</td>
+                    <td className="px-6 py-4 text-center font-black text-gray-900">{o.ownedHostelsCount || 0}</td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => openEditUserModal(o)}
+                          className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200"
+                          title="Edit Details"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                        <button
+                          onClick={() => setResetModalData({ userId: o._id, userName: o.name, role: 'Owner' })}
+                          className="p-1.5 text-gray-500 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-colors border border-gray-200"
+                          title="Reset Password"
+                        >
+                          <KeyRound size={13} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* TAB 4: 🛎️ FRONT DESK STAFF */}
+      {/* ============================================================== */}
+      {activeTab === 'staff' && (
+        <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+            <div>
+              <h2 className="text-lg font-black text-gray-900">Front Desk Staff Members</h2>
+              <p className="text-xs text-gray-500 font-medium">Receptionist accounts attached to properties.</p>
+            </div>
+            <button
+              onClick={() => setIsCreateStaffOpen(true)}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center gap-1.5"
+            >
+              <Plus size={14} className="stroke-[3]" />
+              <span>+ Add Front Desk Staff</span>
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm whitespace-nowrap">
+              <thead className="bg-white border-b border-gray-100">
+                <tr>
+                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Staff Name</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Assigned Hotel</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Login Email</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Phone</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredStaff.map(s => (
+                  <tr key={s._id} className="hover:bg-gray-50/80 transition-colors">
+                    <td className="px-6 py-4 font-black text-gray-900 text-sm">{s.name}</td>
+                    <td className="px-6 py-4">
+                      <span className="font-bold text-gray-900 text-xs flex items-center gap-1">
+                        <Building size={13} className="text-blue-600" />
+                        <span>{s.assignedHostel?.name || 'Unassigned'}</span>
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 font-bold text-gray-700 text-xs">{s.email}</td>
+                    <td className="px-6 py-4 text-xs font-semibold text-gray-600">{s.phone || 'No phone'}</td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => openEditUserModal(s)}
+                          className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                        <button
+                          onClick={() => setResetModalData({ userId: s._id, userName: s.name, role: 'Staff' })}
+                          className="p-1.5 text-gray-500 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-colors border border-gray-200"
+                        >
+                          <KeyRound size={13} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* TAB 5: 🎯 FIELD LEADS & PROSPECTS */}
+      {/* ============================================================== */}
+      {activeTab === 'leads' && (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
+            <div>
+              <h2 className="text-base font-black text-gray-900">Field Prospects & Visit Tracker</h2>
+              <p className="text-xs text-gray-500">Record hotel visits and convert them with 1-click.</p>
+            </div>
+            <button
+              onClick={() => setIsLeadModalOpen(true)}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center gap-1.5"
+            >
+              <Plus size={14} className="stroke-[3]" />
+              <span>+ Add Field Prospect</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredLeads.map(lead => (
+              <div key={lead._id} className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm flex flex-col justify-between space-y-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                    Select Outreach Template
-                  </label>
-                  <div className="space-y-2">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedTemplate('brochure')}
-                      className={`w-full p-3 rounded-xl border text-left transition-all ${
-                        selectedTemplate === 'brochure'
-                          ? 'bg-indigo-600/20 border-indigo-500 text-white ring-1 ring-indigo-500'
-                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      <p className="font-bold text-xs">📄 Full Feature Brochure</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">AI OCR, WhatsApp receipts, UPI QR</p>
-                    </button>
+                  <div className="flex items-center justify-between">
+                    <span className={`px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded-md ${
+                      lead.priority === 'hot' ? 'bg-rose-100 text-rose-800' : 'bg-gray-100 text-gray-700'
+                    }`}>
+                      {lead.priority === 'hot' ? '🔥 Hot Prospect' : `${lead.priority} priority`}
+                    </span>
+                    <span className="text-[10px] font-bold text-gray-500 uppercase">{lead.status}</span>
+                  </div>
 
-                    <button
-                      type="button"
-                      onClick={() => setSelectedTemplate('trial_account')}
-                      className={`w-full p-3 rounded-xl border text-left transition-all ${
-                        selectedTemplate === 'trial_account'
-                          ? 'bg-indigo-600/20 border-indigo-500 text-white ring-1 ring-indigo-500'
-                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      <p className="font-bold text-xs">🔑 Trial Credentials Handover</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Login URL, Owner ID & Password</p>
-                    </button>
+                  <h3 className="text-base font-black text-gray-900 mt-2">{lead.hotelName}</h3>
+                  <p className="text-xs text-gray-600 font-bold mt-0.5">{lead.contactPerson} {lead.city && `· ${lead.city}`}</p>
+
+                  <div className="mt-2 text-xs text-gray-500 space-y-1">
+                    <p className="flex items-center gap-1 text-gray-700 font-bold">
+                      <Phone size={12} className="text-gray-400" /> {lead.phone}
+                    </p>
+                    <p className="text-[11px]">System: {lead.currentSystem} ({lead.roomCount} rooms)</p>
+                    {lead.notes && <p className="text-[11px] italic bg-gray-50 p-2 rounded-lg">"{lead.notes}"</p>}
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                    Owner Name
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Ramesh Kumar"
-                    value={outreachContactName}
-                    onChange={e => setOutreachContactName(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
+                <div className="pt-3 border-t border-gray-100 flex items-center gap-2">
+                  <button
+                    onClick={() => convertLeadToClient(lead)}
+                    className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-sm flex items-center justify-center gap-1"
+                  >
+                    <Trophy size={13} />
+                    <span>Convert to Client</span>
+                  </button>
+                  <a
+                    href={`https://wa.me/91${lead.phone.replace(/\D/g, '').slice(-10)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-xl border border-gray-200"
+                    title="WhatsApp"
+                  >
+                    <MessageSquare size={14} />
+                  </a>
                 </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                    Hotel / Property Name
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Hotel Grand Inn"
-                    value={outreachHotelName}
-                    onChange={e => setOutreachHotelName(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
+      {/* ============================================================== */}
+      {/* TAB 6: 💬 WHATSAPP PITCH GENERATOR */}
+      {/* ============================================================== */}
+      {activeTab === 'outreach' && (
+        <div className="bg-white rounded-3xl border border-gray-200 p-6 shadow-sm space-y-6">
+          <div>
+            <h2 className="text-lg font-black text-gray-900 flex items-center gap-2">
+              <MessageSquare size={18} className="text-emerald-600" />
+              <span>1-Click WhatsApp Pitch Generator</span>
+            </h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Send ready-to-share hotel brochures and demo invitations directly to hotel owners on WhatsApp.
+            </p>
+          </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                    Owner WhatsApp Number <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    placeholder="9876543210"
-                    value={outreachPhone}
-                    onChange={e => setOutreachPhone(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-
-                <button
-                  onClick={handleOpenWhatsAppOutreach}
-                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-emerald-600/30 active:scale-95 flex items-center justify-center gap-2"
-                >
-                  <Send size={14} />
-                  <span>Send via WhatsApp</span>
-                </button>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Owner Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Ramesh Kumar"
+                  value={outreachContactName}
+                  onChange={e => setOutreachContactName(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-black"
+                />
               </div>
 
-              {/* Right Live Preview */}
-              <div className="md:col-span-2 bg-slate-950 rounded-2xl border border-slate-800 p-5 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                      <MessageSquare size={12} className="text-emerald-400" />
-                      <span>Live WhatsApp Message Preview</span>
-                    </span>
-                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                      Formatted & Ready
-                    </span>
-                  </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Hotel Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Hotel Grand Inn"
+                  value={outreachHotelName}
+                  onChange={e => setOutreachHotelName(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-black"
+                />
+              </div>
 
-                  <pre className="mt-4 text-xs font-mono text-slate-300 whitespace-pre-wrap bg-slate-900/60 p-4 rounded-xl border border-slate-800/80 leading-relaxed max-h-96 overflow-y-auto">
-                    {getOutreachText()}
-                  </pre>
-                </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Owner WhatsApp Number *</label>
+                <input
+                  type="tel"
+                  placeholder="9876543210"
+                  value={outreachPhone}
+                  onChange={e => setOutreachPhone(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-black"
+                />
+              </div>
+
+              <button
+                onClick={handleOpenWhatsAppOutreach}
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2"
+              >
+                <Send size={14} />
+                <span>Send via WhatsApp</span>
+              </button>
+            </div>
+
+            <div className="md:col-span-2 bg-gray-50 rounded-2xl border border-gray-200 p-5 flex flex-col justify-between">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 block mb-2">
+                  Live WhatsApp Message Preview
+                </span>
+                <pre className="text-xs font-mono text-gray-800 whitespace-pre-wrap bg-white p-4 rounded-xl border border-gray-200 leading-relaxed max-h-96 overflow-y-auto">
+                  {getOutreachText()}
+                </pre>
               </div>
             </div>
           </div>
-        )}
-      </main>
+        </div>
+      )}
 
       {/* ============================================================== */}
-      {/* 🚀 MODAL 1: 1-STEP HOTEL & CLIENT ONBOARDING */}
+      {/* 👑 MODAL 1: CREATE HOTEL OWNER (ADMIN) */}
       {/* ============================================================== */}
-      {isOnboardOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-            <div className="p-5 bg-gradient-to-r from-indigo-900 to-purple-900 flex items-center justify-between">
+      {isCreateOwnerOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-gray-100 flex flex-col max-h-[90vh]">
+            <div className="p-6 bg-gradient-to-r from-gray-950 to-gray-900 text-white flex justify-between items-start">
               <div>
-                <span className="px-2 py-0.5 text-[9px] font-black uppercase tracking-wider bg-white/20 text-white rounded-full">
-                  1-Step Field Setup
+                <span className="text-[10px] font-black uppercase tracking-widest text-purple-400 bg-purple-500/20 px-2.5 py-0.5 rounded-full">
+                  Step 1 · Client Onboarding
                 </span>
-                <h3 className="text-base font-black text-white mt-1">Onboard Hotel Client</h3>
-                <p className="text-xs text-indigo-200 mt-0.5">Creates Owner account + Hotel property in 1 click.</p>
+                <h3 className="text-xl font-black text-white mt-1.5">Create New Hotel Owner (Admin)</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Creates master owner login for managing properties.</p>
               </div>
-              <button onClick={() => setIsOnboardOpen(false)} className="text-white/60 hover:text-white p-1">✕</button>
+              <button onClick={() => setIsCreateOwnerOpen(false)} className="text-gray-400 hover:text-white p-1">✕</button>
             </div>
 
-            <form onSubmit={handleOnboardSubmit} className="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Hotel / Property Name *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Royal Palace Hotel"
-                    value={onboardForm.hotelName}
-                    onChange={e => setOnboardForm({ ...onboardForm, hotelName: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">City / Address</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Station Road, Jaipur"
-                    value={onboardForm.hotelAddress}
-                    onChange={e => setOnboardForm({ ...onboardForm, hotelAddress: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
+            <form onSubmit={handleCreateOwner} className="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
+              <div>
+                <label className="block font-bold text-gray-700 uppercase mb-1">Owner Full Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Rajesh Sharma"
+                  value={ownerForm.name}
+                  onChange={e => setOwnerForm({ ...ownerForm, name: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 uppercase mb-1">Email Address (Login ID) *</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="e.g. rajesh@hotelroyal.com"
+                  value={ownerForm.email}
+                  onChange={e => setOwnerForm({ ...ownerForm, email: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Owner Full Name *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Rajesh Sharma"
-                    value={onboardForm.ownerName}
-                    onChange={e => setOnboardForm({ ...onboardForm, ownerName: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Owner Login Email *</label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="e.g. rajesh@hotelroyal.com"
-                    value={onboardForm.ownerEmail}
-                    onChange={e => setOnboardForm({ ...onboardForm, ownerEmail: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Owner Phone / WhatsApp</label>
+                  <label className="block font-bold text-gray-700 uppercase mb-1">Phone / WhatsApp</label>
                   <input
                     type="tel"
                     placeholder="9876543210"
-                    value={onboardForm.ownerPhone}
-                    onChange={e => setOnboardForm({ ...onboardForm, ownerPhone: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                    value={ownerForm.phone}
+                    onChange={e => setOwnerForm({ ...ownerForm, phone: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Temporary Password *</label>
+                  <label className="block font-bold text-gray-700 uppercase mb-1">Initial Password *</label>
                   <input
                     type="text"
                     required
                     placeholder="password123"
-                    value={onboardForm.ownerPassword}
-                    onChange={e => setOnboardForm({ ...onboardForm, ownerPassword: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                    value={ownerForm.password}
+                    onChange={e => setOwnerForm({ ...ownerForm, password: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Initial Plan Tier</label>
-                  <select
-                    value={onboardForm.plan}
-                    onChange={e => setOnboardForm({ ...onboardForm, plan: e.target.value, planPrice: e.target.value === 'demo' ? 0 : 2499 })}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="demo">Free 14-Day Demo / Trial</option>
-                    <option value="starter">Starter Plan (₹2,499/mo)</option>
-                    <option value="pro">Pro Plan (₹4,999/mo)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Max Rooms Capacity</label>
-                  <input
-                    type="number"
-                    value={onboardForm.maxRooms}
-                    onChange={e => setOnboardForm({ ...onboardForm, maxRooms: Number(e.target.value) })}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
+              <div className="p-3 bg-purple-50 rounded-2xl border border-purple-100 flex items-start gap-2.5 text-xs text-purple-900">
+                <Crown size={16} className="text-purple-600 shrink-0 mt-0.5" />
+                <p>
+                  <strong>Hotel Owner (Admin):</strong> Once created, you can immediately register and attach their hotel properties.
+                </p>
               </div>
 
-              <div className="pt-4 border-t border-slate-800 flex justify-end gap-2">
+              <div className="pt-4 border-t border-gray-100 flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsOnboardOpen(false)}
-                  className="px-4 py-2 border border-slate-700 text-slate-300 font-bold rounded-xl"
+                  onClick={() => setIsCreateOwnerOpen(false)}
+                  className="px-4 py-2.5 border border-gray-200 text-gray-700 font-bold rounded-xl text-xs hover:bg-gray-100"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={onboardingLoading}
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-wider rounded-xl shadow-md disabled:opacity-50"
+                  disabled={creatingOwner}
+                  className="px-6 py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md disabled:opacity-50"
                 >
-                  {onboardingLoading ? 'Registering...' : 'Register & Start Demo'}
+                  {creatingOwner ? 'Creating...' : 'Create Hotel Owner'}
                 </button>
               </div>
             </form>
@@ -1211,77 +1527,504 @@ Feel free to message me if you need any assistance! 🚀`;
       )}
 
       {/* ============================================================== */}
-      {/* 🎯 MODAL 2: ADD NEW FIELD PROSPECT LEAD */}
+      {/* 🏨 MODAL 2: REGISTER PROPERTY */}
       {/* ============================================================== */}
-      {isLeadModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-            <div className="p-5 bg-gradient-to-r from-purple-900 to-indigo-900 flex items-center justify-between">
+      {isAddPropertyOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-gray-100 flex flex-col max-h-[90vh]">
+            <div className="p-6 bg-gradient-to-r from-gray-950 to-gray-900 text-white flex justify-between items-start">
               <div>
-                <span className="px-2 py-0.5 text-[9px] font-black uppercase tracking-wider bg-white/20 text-white rounded-full">
-                  Field CRM
+                <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 bg-blue-500/20 px-2.5 py-0.5 rounded-full">
+                  Step 2 · Property Registration
                 </span>
-                <h3 className="text-base font-black text-white mt-1">Log Field Prospect Lead</h3>
-                <p className="text-xs text-purple-200 mt-0.5">Record hotel visits for follow-up and demo.</p>
+                <h3 className="text-xl font-black text-white mt-1.5">Register New Hotel Property</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Attach hotel property to a registered owner.</p>
               </div>
-              <button onClick={() => setIsLeadModalOpen(false)} className="text-white/60 hover:text-white p-1">✕</button>
+              <button onClick={() => setIsAddPropertyOpen(false)} className="text-gray-400 hover:text-white p-1">✕</button>
             </div>
 
-            <form onSubmit={handleCreateLead} className="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
+            <form onSubmit={handleCreateProperty} className="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
               <div>
-                <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Hotel Name *</label>
+                <label className="block font-bold text-gray-700 uppercase mb-1">Hotel Property Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Hotel Royal Orchid"
+                  value={propertyForm.name}
+                  onChange={e => setPropertyForm({ ...propertyForm, name: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 uppercase mb-1">Select Hotel Owner (Admin) *</label>
+                <select
+                  required
+                  value={propertyForm.owner}
+                  onChange={e => setPropertyForm({ ...propertyForm, owner: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                >
+                  <option value="">-- Choose Hotel Owner --</option>
+                  {owners.map(o => (
+                    <option key={o._id} value={o._id}>{o.name} ({o.email})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 uppercase mb-1">Property Address</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Opposite Railway Station, Jaipur"
+                  value={propertyForm.address}
+                  onChange={e => setPropertyForm({ ...propertyForm, address: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-gray-700 uppercase mb-1">Contact Phone</label>
+                  <input
+                    type="tel"
+                    placeholder="9876543210"
+                    value={propertyForm.contactNumber}
+                    onChange={e => setPropertyForm({ ...propertyForm, contactNumber: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-gray-700 uppercase mb-1">Max Rooms Capacity</label>
+                  <input
+                    type="number"
+                    value={propertyForm.maxRooms}
+                    onChange={e => setPropertyForm({ ...propertyForm, maxRooms: Number(e.target.value) })}
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-gray-700 uppercase mb-1">UPI ID for Direct QR</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. hotelroyal@upi"
+                    value={propertyForm.upiId}
+                    onChange={e => setPropertyForm({ ...propertyForm, upiId: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-gray-700 uppercase mb-1">UPI Payee Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Hotel Royal Orchid"
+                    value={propertyForm.upiPayeeName}
+                    onChange={e => setPropertyForm({ ...propertyForm, upiPayeeName: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-gray-100 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddPropertyOpen(false)}
+                  className="px-4 py-2.5 border border-gray-200 text-gray-700 font-bold rounded-xl text-xs hover:bg-gray-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingProperty}
+                  className="px-6 py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md disabled:opacity-50"
+                >
+                  {creatingProperty ? 'Registering...' : 'Register Property'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* 🛎️ MODAL 3: ADD FRONT DESK STAFF */}
+      {/* ============================================================== */}
+      {isCreateStaffOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-gray-100 flex flex-col max-h-[90vh]">
+            <div className="p-6 bg-gradient-to-r from-gray-950 to-gray-900 text-white flex justify-between items-start">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400 bg-indigo-500/20 px-2.5 py-0.5 rounded-full">
+                  Step 3 · Staff Allocation
+                </span>
+                <h3 className="text-xl font-black text-white mt-1.5">Add Front Desk Staff</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Creates receptionist account for check-in operations.</p>
+              </div>
+              <button onClick={() => setIsCreateStaffOpen(false)} className="text-gray-400 hover:text-white p-1">✕</button>
+            </div>
+
+            <form onSubmit={handleCreateStaff} className="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
+              <div>
+                <label className="block font-bold text-gray-700 uppercase mb-1">Staff Full Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Pooja Verma"
+                  value={staffForm.name}
+                  onChange={e => setStaffForm({ ...staffForm, name: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 uppercase mb-1">Assign to Hotel Property *</label>
+                <select
+                  required
+                  value={staffForm.assignedHostel}
+                  onChange={e => setStaffForm({ ...staffForm, assignedHostel: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                >
+                  <option value="">-- Choose Assigned Hotel --</option>
+                  {hostels.map(h => (
+                    <option key={h._id} value={h._id}>{h.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 uppercase mb-1">Staff Login Email *</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="e.g. frontdesk@hotelroyal.com"
+                  value={staffForm.email}
+                  onChange={e => setStaffForm({ ...staffForm, email: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-gray-700 uppercase mb-1">Phone Number</label>
+                  <input
+                    type="tel"
+                    placeholder="9876543210"
+                    value={staffForm.phone}
+                    onChange={e => setStaffForm({ ...staffForm, phone: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-gray-700 uppercase mb-1">Initial Password *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="password123"
+                    value={staffForm.password}
+                    onChange={e => setStaffForm({ ...staffForm, password: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-gray-100 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateStaffOpen(false)}
+                  className="px-4 py-2.5 border border-gray-200 text-gray-700 font-bold rounded-xl text-xs hover:bg-gray-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingStaff}
+                  className="px-6 py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md disabled:opacity-50"
+                >
+                  {creatingStaff ? 'Creating...' : 'Create Staff Member'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* ✏️ MODAL 4: EDIT PROPERTY DETAILS */}
+      {/* ============================================================== */}
+      {editingProperty && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+            <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+              <Pencil size={16} className="text-blue-600" />
+              <span>Edit Property Details</span>
+            </h3>
+
+            <form onSubmit={handleSaveEditProperty} className="space-y-3 text-xs font-bold">
+              <div>
+                <label className="block text-gray-700 uppercase mb-1">Property Name</label>
+                <input
+                  type="text"
+                  required
+                  value={editPropertyForm.name}
+                  onChange={e => setEditPropertyForm({ ...editPropertyForm, name: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-700 uppercase mb-1">Address</label>
+                <input
+                  type="text"
+                  value={editPropertyForm.address}
+                  onChange={e => setEditPropertyForm({ ...editPropertyForm, address: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-700 uppercase mb-1">Contact Phone</label>
+                  <input
+                    type="tel"
+                    value={editPropertyForm.contactNumber}
+                    onChange={e => setEditPropertyForm({ ...editPropertyForm, contactNumber: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 uppercase mb-1">Max Rooms</label>
+                  <input
+                    type="number"
+                    value={editPropertyForm.maxRooms}
+                    onChange={e => setEditPropertyForm({ ...editPropertyForm, maxRooms: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-700 uppercase mb-1">UPI ID</label>
+                  <input
+                    type="text"
+                    value={editPropertyForm.upiId}
+                    onChange={e => setEditPropertyForm({ ...editPropertyForm, upiId: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 uppercase mb-1">UPI Payee Name</label>
+                  <input
+                    type="text"
+                    value={editPropertyForm.upiPayeeName}
+                    onChange={e => setEditPropertyForm({ ...editPropertyForm, upiPayeeName: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingProperty(null)}
+                  className="px-4 py-2 border border-gray-200 text-gray-700 rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEditProperty}
+                  className="px-5 py-2 bg-black text-white font-black rounded-xl"
+                >
+                  {savingEditProperty ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* 👤 MODAL 5: EDIT USER DETAILS */}
+      {/* ============================================================== */}
+      {editingUser && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+              <Pencil size={16} className="text-purple-600" />
+              <span>Edit User Details</span>
+            </h3>
+
+            <form onSubmit={handleSaveEditUser} className="space-y-3 text-xs font-bold">
+              <div>
+                <label className="block text-gray-700 uppercase mb-1">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  value={editUserForm.name}
+                  onChange={e => setEditUserForm({ ...editUserForm, name: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-700 uppercase mb-1">Email (Login ID)</label>
+                <input
+                  type="email"
+                  required
+                  value={editUserForm.email}
+                  onChange={e => setEditUserForm({ ...editUserForm, email: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-700 uppercase mb-1">Phone Number</label>
+                <input
+                  type="tel"
+                  value={editUserForm.phone}
+                  onChange={e => setEditUserForm({ ...editUserForm, phone: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingUser(null)}
+                  className="px-4 py-2 border border-gray-200 text-gray-700 rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEditUser}
+                  className="px-5 py-2 bg-black text-white font-black rounded-xl"
+                >
+                  {savingEditUser ? 'Saving...' : 'Save User'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* 🔑 MODAL 6: RESET PASSWORD */}
+      {/* ============================================================== */}
+      {resetModalData && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+              <KeyRound size={16} className="text-amber-500" />
+              <span>Reset Password</span>
+            </h3>
+            <p className="text-xs text-gray-500">
+              Update password for <strong>{resetModalData.userName}</strong> ({resetModalData.role}).
+            </p>
+
+            <form onSubmit={handleResetPasswordSubmit} className="space-y-4 text-xs font-bold">
+              <div>
+                <label className="block text-gray-700 uppercase mb-1">New Password</label>
+                <input
+                  type="text"
+                  required
+                  value={newPasswordVal}
+                  onChange={e => setNewPasswordVal(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setResetModalData(null)}
+                  className="px-4 py-2 border border-gray-200 text-gray-700 rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={resettingPassword}
+                  className="px-4 py-2 bg-amber-600 text-white font-black rounded-xl hover:bg-amber-700"
+                >
+                  {resettingPassword ? 'Updating...' : 'Set Password'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* 🎯 MODAL 7: ADD FIELD PROSPECT LEAD */}
+      {/* ============================================================== */}
+      {isLeadModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+            <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+              <Target size={18} className="text-purple-600" />
+              <span>Log Field Prospect Lead</span>
+            </h3>
+            <p className="text-xs text-gray-500">Record hotel visits and follow-ups on the ground.</p>
+
+            <form onSubmit={handleCreateLead} className="space-y-3 text-xs font-bold">
+              <div>
+                <label className="block text-gray-700 uppercase mb-1">Hotel Name *</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. Hotel Sunshine"
                   value={leadForm.hotelName}
                   onChange={e => setLeadForm({ ...leadForm, hotelName: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Contact Person Name *</label>
+                  <label className="block text-gray-700 uppercase mb-1">Contact Person Name *</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. Vikram Singh"
                     value={leadForm.contactPerson}
                     onChange={e => setLeadForm({ ...leadForm, contactPerson: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Phone Number *</label>
+                  <label className="block text-gray-700 uppercase mb-1">Phone Number *</label>
                   <input
                     type="tel"
                     required
                     placeholder="9876543210"
                     value={leadForm.phone}
                     onChange={e => setLeadForm({ ...leadForm, phone: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">City / Area</label>
+                  <label className="block text-gray-700 uppercase mb-1">City / Location</label>
                   <input
                     type="text"
                     placeholder="e.g. Udaipur"
                     value={leadForm.city}
                     onChange={e => setLeadForm({ ...leadForm, city: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Priority</label>
+                  <label className="block text-gray-700 uppercase mb-1">Priority</label>
                   <select
                     value={leadForm.priority}
                     onChange={e => setLeadForm({ ...leadForm, priority: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
                   >
                     <option value="hot">🔥 Hot (High Interest)</option>
                     <option value="high">High</option>
@@ -1291,104 +2034,31 @@ Feel free to message me if you need any assistance! 🚀`;
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Current System</label>
-                  <select
-                    value={leadForm.currentSystem}
-                    onChange={e => setLeadForm({ ...leadForm, currentSystem: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:ring-2 focus:ring-purple-500"
-                  >
-                    <option value="Paper Register">Paper Register</option>
-                    <option value="Excel / Sheets">Excel / Sheets</option>
-                    <option value="Old Desktop Software">Old Desktop Software</option>
-                    <option value="Other Cloud SaaS">Other Cloud SaaS</option>
-                    <option value="None">None</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Approx Rooms Count</label>
-                  <input
-                    type="number"
-                    value={leadForm.roomCount}
-                    onChange={e => setLeadForm({ ...leadForm, roomCount: Number(e.target.value) })}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-              </div>
-
               <div>
-                <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Visit Notes & Discussion</label>
+                <label className="block text-gray-700 uppercase mb-1">Visit Notes</label>
                 <textarea
                   rows={2}
-                  placeholder="e.g. Owner interested in Aadhaar OCR scanner and automatic WhatsApp bills..."
+                  placeholder="Notes from hotel visit..."
                   value={leadForm.notes}
                   onChange={e => setLeadForm({ ...leadForm, notes: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-medium text-white outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
                 ></textarea>
               </div>
 
-              <div className="pt-4 border-t border-slate-800 flex justify-end gap-2">
+              <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
                 <button
                   type="button"
                   onClick={() => setIsLeadModalOpen(false)}
-                  className="px-4 py-2 border border-slate-700 text-slate-300 font-bold rounded-xl"
+                  className="px-4 py-2 border border-gray-200 text-gray-700 rounded-xl"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={savingLead}
-                  className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white font-black uppercase tracking-wider rounded-xl shadow-md disabled:opacity-50"
+                  className="px-5 py-2 bg-purple-600 text-white font-black rounded-xl hover:bg-purple-700"
                 >
                   {savingLead ? 'Saving...' : 'Save Prospect'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ============================================================== */}
-      {/* 🔑 MODAL 3: RESET CLIENT PASSWORD */}
-      {/* ============================================================== */}
-      {resetModalData && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <h3 className="text-base font-black text-white flex items-center gap-2">
-              <KeyRound size={16} className="text-amber-400" />
-              <span>Reset Client Password</span>
-            </h3>
-            <p className="text-xs text-slate-400">
-              Update master password for <strong>{resetModalData.ownerName}</strong> ({resetModalData.hotelName}).
-            </p>
-
-            <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">New Password</label>
-                <input
-                  type="text"
-                  required
-                  value={newPasswordVal}
-                  onChange={e => setNewPasswordVal(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:ring-2 focus:ring-amber-500"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setResetModalData(null)}
-                  className="px-4 py-2 border border-slate-700 text-slate-300 font-bold rounded-xl text-xs"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={resettingPassword}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white font-black uppercase tracking-wider rounded-xl text-xs shadow-md disabled:opacity-50"
-                >
-                  {resettingPassword ? 'Updating...' : 'Set Password'}
                 </button>
               </div>
             </form>

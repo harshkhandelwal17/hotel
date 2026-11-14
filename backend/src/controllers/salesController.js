@@ -7,16 +7,15 @@ const jwt = require('jsonwebtoken');
 const env = require('../config/env');
 
 /**
- * 📊 Get Logged-in Sales Executive's Personal Performance Metrics
- * (STRICT PRIVACY: Shows only this agent's numbers, never total company revenue)
+ * 📊 Get Logged-in Sales Executive's Target & Performance Metrics
+ * (STRICT PRIVACY: Shows only this agent's target & numbers, no platform revenue)
  */
 exports.getSalesStats = async (req, res, next) => {
   try {
     const salesUserId = req.user.id;
 
-    const agentUser = await User.findById(salesUserId).select('name email phone monthlyTargetHotels commissionRate').lean();
+    const agentUser = await User.findById(salesUserId).select('name email phone monthlyTargetHotels').lean();
     const monthlyTarget = agentUser?.monthlyTargetHotels || 10;
-    const commissionRate = agentUser?.commissionRate || 15;
 
     // Current month boundaries
     const now = new Date();
@@ -33,7 +32,7 @@ exports.getSalesStats = async (req, res, next) => {
       demoLeads,
       wonLeads
     ] = await Promise.all([
-      Hostel.find({ onboardedBy: salesUserId }).select('plan planStatus planPrice createdAt name'),
+      Hostel.find({ onboardedBy: salesUserId }).select('plan planStatus createdAt name'),
       Hostel.countDocuments({ onboardedBy: salesUserId, planStatus: 'active' }),
       Hostel.countDocuments({
         onboardedBy: salesUserId,
@@ -49,13 +48,12 @@ exports.getSalesStats = async (req, res, next) => {
       SalesLead.countDocuments({ salesAgent: salesUserId, status: 'won' })
     ]);
 
-    // Calculate this sales person's total generated revenue from active paid subscriptions
-    const myTotalRevenue = myHotels
-      .filter(h => h.planStatus === 'active')
-      .reduce((sum, h) => sum + (Number(h.planPrice) || 0), 0);
-
-    const estimatedCommission = Math.round((myTotalRevenue * commissionRate) / 100);
     const targetProgressPct = Math.min(100, Math.round((thisMonthOnboarded / monthlyTarget) * 100));
+    const remainingTarget = Math.max(0, monthlyTarget - thisMonthOnboarded);
+
+    // Days remaining in month
+    const totalDaysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const daysRemainingInMonth = Math.max(0, totalDaysInMonth - now.getDate());
 
     // Get recent 5 onboardings
     const recentHotels = await Hostel.find({ onboardedBy: salesUserId })
@@ -70,15 +68,14 @@ exports.getSalesStats = async (req, res, next) => {
         agent: {
           name: agentUser?.name,
           monthlyTarget,
-          commissionRate
+          thisMonthOnboarded,
+          targetProgressPct,
+          remainingTarget,
+          daysRemainingInMonth
         },
         myHotelsCount: myHotels.length,
         myActivePaidCount: myActiveHotels,
         myTrialCount: myTrialHotels,
-        myTotalRevenue,
-        estimatedCommission,
-        thisMonthOnboarded,
-        targetProgressPct,
         pipeline: {
           totalLeads,
           activeLeads,
@@ -94,42 +91,28 @@ exports.getSalesStats = async (req, res, next) => {
 };
 
 /**
- * 🏨 Get Hotels Directory for Sales (View and Troubleshoot)
+ * 🌐 Get Sales Ecosystem: Owners, Hostels, and Staff Users
+ * (Gives Sales rep full ecosystem view for their accounts and properties)
  */
-exports.getSalesHotels = async (req, res, next) => {
+exports.getSalesEcosystem = async (req, res, next) => {
   try {
     const salesUserId = req.user.id;
-    const { mineOnly, search } = req.query;
 
-    const query = {};
-    if (mineOnly === 'true') {
-      query.onboardedBy = salesUserId;
-    }
-
-    if (search && search.trim() !== '') {
-      const term = search.trim();
-      const regex = new RegExp(term, 'i');
-      query.$or = [
-        { name: regex },
-        { address: regex },
-        { contactNumber: regex }
-      ];
-    }
-
-    const hostels = await Hostel.find(query)
-      .populate('owner', 'name email phone')
+    // 1. Get all hostels
+    const allHostels = await Hostel.find()
+      .populate('owner', 'name email phone isActive')
       .populate('onboardedBy', 'name email')
       .sort('-createdAt')
       .lean();
 
     const now = new Date();
 
-    const enriched = await Promise.all(
-      hostels.map(async (h) => {
+    const enrichedHostels = await Promise.all(
+      allHostels.map(async (h) => {
         const [roomCount, staffMembers] = await Promise.all([
           Room.countDocuments({ hostel: h._id }),
           User.find({ assignedHostel: h._id, role: 'receptionist' })
-            .select('name email phone isActive')
+            .select('name email phone isActive createdAt')
             .lean()
         ]);
 
@@ -150,10 +133,36 @@ exports.getSalesHotels = async (req, res, next) => {
       })
     );
 
+    // 2. Get Owners (Admins)
+    const owners = await User.find({ role: 'admin' })
+      .select('name email phone isActive createdAt onboardedBy')
+      .sort('-createdAt')
+      .lean();
+
+    const enrichedOwners = owners.map(o => {
+      const ownedHostels = enrichedHostels.filter(h => (h.owner?._id || h.owner)?.toString() === o._id.toString());
+      const isMine = o.onboardedBy?.toString() === salesUserId || ownedHostels.some(h => h.isMine);
+      return {
+        ...o,
+        ownedHostelsCount: ownedHostels.length,
+        isMine
+      };
+    });
+
+    // 3. Get Staff (Receptionists)
+    const staffUsers = await User.find({ role: 'receptionist' })
+      .select('name email phone isActive createdAt assignedHostel onboardedBy')
+      .populate('assignedHostel', 'name contactNumber')
+      .sort('-createdAt')
+      .lean();
+
     res.status(200).json({
       success: true,
-      count: enriched.length,
-      data: enriched
+      data: {
+        hostels: enrichedHostels,
+        owners: enrichedOwners,
+        staffUsers
+      }
     });
   } catch (err) {
     next(err);
@@ -161,75 +170,90 @@ exports.getSalesHotels = async (req, res, next) => {
 };
 
 /**
- * 🚀 1-Step Onsite Onboarding: Register Hotel Owner + Hotel Property
+ * 👑 Create Hotel Owner (Admin)
  */
-exports.onboardHotelClient = async (req, res, next) => {
+exports.createSalesOwner = async (req, res, next) => {
+  try {
+    const salesUserId = req.user.id;
+    const { name, email, phone, password } = req.body;
+
+    if (!name || !email) {
+      return res.status(400).json({ success: false, message: 'Name and email are required' });
+    }
+
+    const existing = await User.findOne({ email: email.toLowerCase().trim() });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'User with this email already exists' });
+    }
+
+    const user = await User.create({
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      phone: phone ? phone.trim() : undefined,
+      password: password || 'password123',
+      role: 'admin',
+      onboardedBy: salesUserId
+    });
+
+    res.status(201).json({
+      success: true,
+      message: `✅ Hotel Owner "${user.name}" created successfully!`,
+      data: user
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * 🏨 Create Hotel Property (attaching to an Owner)
+ */
+exports.createSalesProperty = async (req, res, next) => {
   try {
     const salesUserId = req.user.id;
     const {
-      ownerName,
-      ownerEmail,
-      ownerPhone,
-      ownerPassword,
-      hotelName,
-      hotelAddress,
-      hotelContact,
+      name,
+      address,
+      contactNumber,
+      email,
+      owner,
       plan = 'demo',
-      planPrice = 0,
-      billingCycle = 'monthly',
       maxRooms = 20,
+      upiId,
+      upiPayeeName,
       leadId
     } = req.body;
 
-    if (!ownerName || !ownerEmail) {
-      return res.status(400).json({ success: false, message: 'Owner name and email are required' });
+    if (!name || !name.trim()) {
+      return res.status(400).json({ success: false, message: 'Hotel name is required' });
     }
-    if (!hotelName) {
-      return res.status(400).json({ success: false, message: 'Hotel/Property name is required' });
-    }
-
-    // 1. Check or Create Owner (Admin)
-    let owner = await User.findOne({ email: ownerEmail.toLowerCase().trim() });
     if (!owner) {
-      owner = await User.create({
-        name: ownerName.trim(),
-        email: ownerEmail.toLowerCase().trim(),
-        password: ownerPassword || 'hotel123456',
-        phone: ownerPhone || hotelContact || '',
-        role: 'admin',
-        onboardedBy: salesUserId
-      });
-    } else {
-      if (!owner.phone && (ownerPhone || hotelContact)) {
-        owner.phone = ownerPhone || hotelContact;
-        await owner.save();
-      }
+      return res.status(400).json({ success: false, message: 'Please select a Hotel Owner (Admin)' });
     }
 
-    // Calculate default trial / plan dates (14 days for demo, 30 days for others)
-    const durationDays = plan === 'demo' ? 14 : (billingCycle === 'yearly' ? 365 : 30);
+    const durationDays = plan === 'demo' ? 14 : 30;
     const planStartDate = new Date();
     const planEndDate = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000);
 
-    // 2. Register Property attached to Owner & tagged with Sales Person
     const hostel = await Hostel.create({
-      name: hotelName.trim(),
-      address: hotelAddress || 'N/A',
-      contactNumber: hotelContact || ownerPhone || 'N/A',
-      email: ownerEmail.toLowerCase().trim(),
-      owner: owner._id,
+      name: name.trim(),
+      address: address || 'N/A',
+      contactNumber: contactNumber || 'N/A',
+      email: email ? email.toLowerCase().trim() : undefined,
+      owner,
       onboardedBy: salesUserId,
       plan,
       planStatus: plan === 'demo' ? 'trial' : 'active',
-      planPrice: Number(planPrice) || (plan === 'demo' ? 0 : 2499),
-      billingCycle,
+      planPrice: plan === 'demo' ? 0 : 2499,
+      billingCycle: 'monthly',
       planStartDate,
       planEndDate,
       maxRooms: Number(maxRooms) || 20,
+      upiId: upiId ? upiId.trim() : undefined,
+      upiPayeeName: upiPayeeName ? upiPayeeName.trim() : undefined,
       isActive: true
     });
 
-    // 3. If attached to a Sales Lead, mark lead as WON
     if (leadId) {
       await SalesLead.findByIdAndUpdate(leadId, {
         status: 'won',
@@ -240,16 +264,148 @@ exports.onboardHotelClient = async (req, res, next) => {
 
     res.status(201).json({
       success: true,
-      message: `✅ Hotel "${hostel.name}" and Owner "${owner.name}" successfully onboarded!`,
-      data: {
-        owner: {
-          _id: owner._id,
-          name: owner.name,
-          email: owner.email,
-          phone: owner.phone
-        },
-        hostel
-      }
+      message: `✅ Property "${hostel.name}" created successfully!`,
+      data: hostel
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * 🛎️ Create Front Desk Staff (Receptionist) assigned to a Hotel
+ */
+exports.createSalesStaff = async (req, res, next) => {
+  try {
+    const salesUserId = req.user.id;
+    const { name, email, phone, password, assignedHostel } = req.body;
+
+    if (!name || !email) {
+      return res.status(400).json({ success: false, message: 'Staff name and email are required' });
+    }
+    if (!assignedHostel) {
+      return res.status(400).json({ success: false, message: 'Please select assigned property for staff' });
+    }
+
+    const existing = await User.findOne({ email: email.toLowerCase().trim() });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'User with this email already exists' });
+    }
+
+    const user = await User.create({
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      phone: phone ? phone.trim() : undefined,
+      password: password || 'password123',
+      role: 'receptionist',
+      assignedHostel,
+      onboardedBy: salesUserId
+    });
+
+    res.status(201).json({
+      success: true,
+      message: `✅ Front desk staff "${user.name}" created successfully!`,
+      data: user
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * ✏️ Update Property Details
+ */
+exports.updateSalesProperty = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { name, address, contactNumber, email, owner, upiId, upiPayeeName, maxRooms } = req.body;
+
+    const hostel = await Hostel.findById(id);
+    if (!hostel) {
+      return res.status(404).json({ success: false, message: 'Property not found' });
+    }
+
+    if (name) hostel.name = name.trim();
+    if (address !== undefined) hostel.address = address.trim();
+    if (contactNumber !== undefined) hostel.contactNumber = contactNumber.trim();
+    if (email !== undefined) hostel.email = email.toLowerCase().trim();
+    if (owner) hostel.owner = owner;
+    if (upiId !== undefined) hostel.upiId = upiId.trim();
+    if (upiPayeeName !== undefined) hostel.upiPayeeName = upiPayeeName.trim();
+    if (maxRooms !== undefined) hostel.maxRooms = Number(maxRooms);
+
+    await hostel.save();
+
+    res.status(200).json({
+      success: true,
+      message: `✅ Property "${hostel.name}" updated successfully`,
+      data: hostel
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * ✏️ Update User / Owner / Staff Details
+ */
+exports.updateSalesUser = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { name, email, phone } = req.body;
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (user.role === 'superadmin') {
+      return res.status(403).json({ success: false, message: 'Cannot modify superadmin' });
+    }
+
+    if (name) user.name = name.trim();
+    if (email) user.email = email.toLowerCase().trim();
+    if (phone !== undefined) user.phone = phone.trim();
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: `✅ User "${user.name}" updated successfully`,
+      data: user
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * ⚙️ Toggle Property Feature (AI OCR, WhatsApp Sync, Laundry)
+ */
+exports.toggleSalesPropertyFeature = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { feature } = req.body; // 'aiOcr' | 'whatsappSync' | 'laundry'
+
+    const hostel = await Hostel.findById(id);
+    if (!hostel) {
+      return res.status(404).json({ success: false, message: 'Property not found' });
+    }
+
+    if (feature === 'aiOcr') {
+      hostel.aiOcrEnabled = !hostel.aiOcrEnabled;
+    } else if (feature === 'whatsappSync') {
+      hostel.whatsappSyncEnabled = !hostel.whatsappSyncEnabled;
+    } else if (feature === 'laundry') {
+      hostel.laundryEnabled = !hostel.laundryEnabled;
+    }
+
+    await hostel.save();
+
+    res.status(200).json({
+      success: true,
+      message: `✅ Feature updated for ${hostel.name}`,
+      data: hostel
     });
   } catch (err) {
     next(err);
@@ -285,7 +441,6 @@ exports.salesImpersonate = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Target property or user not found' });
     }
 
-    // Fallback if targetUser not found on hostel
     if (!targetUser && hostel) {
       targetUser = await User.findOne({ assignedHostel: hostel._id, role: 'receptionist' });
     }
@@ -310,19 +465,19 @@ exports.salesImpersonate = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      message: `⚡ Demo/Support Mode launched for ${hostel.name}`,
+      message: `⚡ Demo/Support Mode launched for ${hostel ? hostel.name : targetUser.name}`,
       token,
       user: {
         _id: targetUser._id,
         name: targetUser.name,
         email: targetUser.email,
         role: targetUser.role,
-        assignedHostel: hostel._id
+        assignedHostel: hostel ? hostel._id : targetUser.assignedHostel
       },
-      hostel: {
+      hostel: hostel ? {
         _id: hostel._id,
         name: hostel.name
-      },
+      } : null,
       returnUrl: '/sales'
     });
   } catch (err) {
@@ -331,16 +486,17 @@ exports.salesImpersonate = async (req, res, next) => {
 };
 
 /**
- * 🔑 Reset Client Hotel Owner Password
+ * 🔑 Reset Client Hotel Owner / Staff Password
  */
 exports.resetClientPassword = async (req, res, next) => {
   try {
-    const { ownerId, newPassword } = req.body;
-    if (!ownerId) {
-      return res.status(400).json({ success: false, message: 'Owner ID is required' });
+    const { userId, ownerId, newPassword } = req.body;
+    const targetId = userId || ownerId;
+    if (!targetId) {
+      return res.status(400).json({ success: false, message: 'User ID is required' });
     }
 
-    const targetUser = await User.findById(ownerId);
+    const targetUser = await User.findById(targetId);
     if (!targetUser) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }

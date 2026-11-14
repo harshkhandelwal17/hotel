@@ -1,8 +1,13 @@
 const express = require('express');
 const {
   getSalesStats,
-  getSalesHotels,
-  onboardHotelClient,
+  getSalesEcosystem,
+  createSalesOwner,
+  createSalesProperty,
+  createSalesStaff,
+  updateSalesProperty,
+  updateSalesUser,
+  toggleSalesPropertyFeature,
   salesImpersonate,
   resetClientPassword,
   getSalesLeads,
@@ -19,8 +24,17 @@ router.use(protect);
 router.use(authorize('sales', 'superadmin'));
 
 router.get('/stats', getSalesStats);
-router.get('/hostels', getSalesHotels);
-router.post('/onboard', onboardHotelClient);
+router.get('/ecosystem', getSalesEcosystem);
+
+// Ecosystem Management: Owner, Property, Staff creation & edit
+router.post('/owners', createSalesOwner);
+router.post('/properties', createSalesProperty);
+router.post('/staff', createSalesStaff);
+router.put('/properties/:id', updateSalesProperty);
+router.put('/properties/:id/toggle-feature', toggleSalesPropertyFeature);
+router.put('/users/:id', updateSalesUser);
+
+// 1-Click Launch Demo & Password Reset
 router.post('/impersonate', salesImpersonate);
 router.put('/reset-password', resetClientPassword);
 
