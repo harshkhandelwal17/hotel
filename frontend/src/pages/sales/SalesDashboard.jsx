@@ -2454,7 +2454,7 @@ Please let us know your available time today! 🙏`;
         onClose={() => setIsOnboardingWizardOpen(false)}
         initialData={onboardingInitialData}
         ownersList={owners}
-        salesAgentsList={salesData?.leaderboard?.map(l => l.agent).filter(Boolean) || []}
+        salesAgentsList={user ? [user] : []}
         currentUserRole="sales"
         onSuccess={fetchData}
         onImpersonate={handleSalesImpersonate}
