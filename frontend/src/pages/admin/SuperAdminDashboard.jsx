@@ -43,7 +43,6 @@ import {
 } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import SuperAdminHero from '../../components/superadmin/SuperAdminHero';
 import SuperAdminStats from '../../components/superadmin/SuperAdminStats';
 import EcosystemView from '../../components/superadmin/EcosystemView';
 import SubscriptionsView from '../../components/superadmin/SubscriptionsView';
