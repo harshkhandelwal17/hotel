@@ -26,6 +26,33 @@ const hostelSchema = new mongoose.Schema({
     type: String,
     maxlength: [500, 'Description can not be more than 500 characters']
   },
+  propertyType: {
+    type: String,
+    enum: ['hotel', 'resort', 'homestay', 'guesthouse', 'hostel', 'villa', 'other'],
+    default: 'hotel'
+  },
+  logo: {
+    type: String,
+    default: ''
+  },
+  city: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  pincode: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  checkInTime: {
+    type: String,
+    default: '12:00 PM'
+  },
+  checkOutTime: {
+    type: String,
+    default: '11:00 AM'
+  },
   isActive: {
     type: Boolean,
     default: true

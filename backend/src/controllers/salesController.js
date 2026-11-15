@@ -309,7 +309,16 @@ exports.createSalesProperty = async (req, res, next) => {
     const salesUserId = req.user.id;
     const {
       name,
+      propertyType = 'hotel',
+      logo,
       address,
+      city,
+      state,
+      pincode,
+      checkInTime,
+      checkOutTime,
+      gstEnabled,
+      gstin,
       contactNumber,
       email,
       owner,
@@ -338,7 +347,16 @@ exports.createSalesProperty = async (req, res, next) => {
 
     const hostel = await Hostel.create({
       name: name.trim(),
+      propertyType: propertyType || 'hotel',
+      logo: logo || undefined,
       address: address || 'N/A',
+      city: city ? city.trim() : undefined,
+      state: state ? state.trim() : undefined,
+      pincode: pincode ? pincode.trim() : undefined,
+      checkInTime: checkInTime || '12:00 PM',
+      checkOutTime: checkOutTime || '11:00 AM',
+      gstEnabled: Boolean(gstEnabled),
+      gstin: gstin ? gstin.trim().toUpperCase() : undefined,
       contactNumber: contactNumber || 'N/A',
       email: email ? email.toLowerCase().trim() : undefined,
       owner,

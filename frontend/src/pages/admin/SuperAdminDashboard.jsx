@@ -48,6 +48,7 @@ import SuperAdminStats from '../../components/superadmin/SuperAdminStats';
 import EcosystemView from '../../components/superadmin/EcosystemView';
 import SubscriptionsView from '../../components/superadmin/SubscriptionsView';
 import SalesTeamView from '../../components/superadmin/SalesTeamView';
+import OnboardingWizardModal from '../../components/common/OnboardingWizardModal';
 
 const SuperAdminDashboard = () => {
   // --- 1. ALL HOOKS STRICTLY AT THE TOP ---
@@ -67,6 +68,10 @@ const SuperAdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('ecosystem');
   const [searchQuery, setSearchQuery] = useState('');
   const [quickFilter, setQuickFilter] = useState('all');
+
+  // 🚀 Fast Client Onboarding Modal State
+  const [isOnboardingWizardOpen, setIsOnboardingWizardOpen] = useState(false);
+  const [onboardingInitialData, setOnboardingInitialData] = useState({});
 
   // 👤 Create New Hotel Owner (Admin) Modal State
   const [isCreateOwnerOpen, setIsCreateOwnerOpen] = useState(false);
@@ -332,12 +337,14 @@ const SuperAdminDashboard = () => {
     }
   };
 
-  const handleImpersonate = async (targetUserId, e) => {
+  const handleImpersonate = async (target, e) => {
     if (e && typeof e.preventDefault === 'function') {
       e.preventDefault();
       e.stopPropagation();
     }
     
+    const targetUserId = typeof target === 'object' && target !== null ? target.userId : target;
+
     if (!targetUserId) {
       alert('⚠️ User ID is missing');
       return;
@@ -671,13 +678,14 @@ const SuperAdminDashboard = () => {
 
               <button
                 onClick={() => {
-                  setNewPropertyForm(prev => ({ ...prev, owner: '', assignedSalesAgent: '' }));
-                  setIsAddPropertyOpen(true);
+                  setOnboardingInitialData({});
+                  setIsOnboardingWizardOpen(true);
                 }}
                 className="px-3.5 py-2 bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-xs active:scale-95 flex items-center gap-1.5 cursor-pointer shrink-0"
+                title="Launch Fast Client Onboarding Wizard"
               >
-                <Plus size={14} className="stroke-[3]" />
-                <span>Register Hotel</span>
+                <Sparkles size={14} className="text-amber-300" />
+                <span>+ Onboard Hotel</span>
               </button>
 
               <button
@@ -830,6 +838,10 @@ const SuperAdminDashboard = () => {
           onOpenRegisterProperty={() => {
             setNewPropertyForm(prev => ({ ...prev, owner: '' }));
             setIsAddPropertyOpen(true);
+          }}
+          onOpenOnboardingWizard={() => {
+            setOnboardingInitialData({});
+            setIsOnboardingWizardOpen(true);
           }}
           impersonating={impersonating}
           quickFilter={quickFilter}
@@ -2510,6 +2522,18 @@ const SuperAdminDashboard = () => {
         </div>,
         document.body
       )}
+
+      {/* 🚀 COMPREHENSIVE CLIENT ONBOARDING & 7-DAY DEMO LAUNCH WIZARD */}
+      <OnboardingWizardModal
+        isOpen={isOnboardingWizardOpen}
+        onClose={() => setIsOnboardingWizardOpen(false)}
+        initialData={onboardingInitialData}
+        ownersList={hotelOwners}
+        salesAgentsList={users.filter(u => u.role === 'sales')}
+        currentUserRole="superadmin"
+        onSuccess={fetchData}
+        onImpersonate={handleImpersonate}
+      />
     </div>
   );
 };

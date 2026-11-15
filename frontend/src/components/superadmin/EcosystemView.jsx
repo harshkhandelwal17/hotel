@@ -25,6 +25,7 @@ const EcosystemView = ({
   onOpenCreateStaffForHotel,
   onOpenCreateOwner,
   onOpenRegisterProperty,
+  onOpenOnboardingWizard,
   impersonating = false,
   quickFilter = 'all'
 }) => {
@@ -116,6 +117,15 @@ const EcosystemView = ({
               </select>
             </div>
           )}
+
+          <button
+            onClick={() => onOpenOnboardingWizard ? onOpenOnboardingWizard() : (onOpenRegisterProperty && onOpenRegisterProperty())}
+            className="px-3 py-1.5 bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer shrink-0"
+            title="Launch Fast Client Onboarding Wizard"
+          >
+            <Sparkles size={13} className="text-amber-300" />
+            <span>+ Onboard Hotel</span>
+          </button>
         </div>
       </div>
 
