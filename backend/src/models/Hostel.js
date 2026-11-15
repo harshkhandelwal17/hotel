@@ -160,7 +160,7 @@ const hostelSchema = new mongoose.Schema({
   // 🎟️ SUBSCRIPTION & BILLING PLAN DETAILS
   plan: {
     type: String,
-    enum: ['demo', 'starter', 'professional', 'enterprise'],
+    enum: ['demo', 'monthly', 'yearly', 'annual', 'starter', 'professional', 'enterprise', 'custom'],
     default: 'demo'
   },
   planStatus: {
@@ -180,9 +180,17 @@ const hostelSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  discountAmount: {
+    type: Number,
+    default: 0
+  },
+  extraCharges: {
+    type: Number,
+    default: 0
+  },
   billingCycle: {
     type: String,
-    enum: ['trial', 'monthly', 'quarterly', 'yearly', 'lifetime'],
+    enum: ['trial', 'monthly', 'quarterly', 'yearly', 'lifetime', 'annual'],
     default: 'trial'
   },
   maxRooms: {

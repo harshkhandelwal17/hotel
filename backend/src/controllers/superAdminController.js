@@ -407,7 +407,7 @@ exports.toggleHostelStatus = async (req, res, next) => {
 };
 exports.updateHostelPlan = async (req, res, next) => {
   try {
-    const { plan, planStatus, planStartDate, planEndDate, planPrice, billingCycle, maxRooms, planNotes } = req.body;
+    const { plan, planStatus, planStartDate, planEndDate, planPrice, billingCycle, maxRooms, planNotes, discountAmount, extraCharges } = req.body;
     const hostel = await Hostel.findById(req.params.id);
     if (!hostel) return res.status(404).json({ success: false, message: 'Property not found' });
 
@@ -415,7 +415,9 @@ exports.updateHostelPlan = async (req, res, next) => {
     if (planStatus !== undefined) hostel.planStatus = planStatus;
     if (planStartDate !== undefined) hostel.planStartDate = planStartDate;
     if (planEndDate !== undefined) hostel.planEndDate = planEndDate;
-    if (planPrice !== undefined) hostel.planPrice = planPrice;
+    if (planPrice !== undefined) hostel.planPrice = Number(planPrice) || 0;
+    if (discountAmount !== undefined) hostel.discountAmount = Number(discountAmount) || 0;
+    if (extraCharges !== undefined) hostel.extraCharges = Number(extraCharges) || 0;
     if (billingCycle !== undefined) hostel.billingCycle = billingCycle;
     if (maxRooms !== undefined) hostel.maxRooms = maxRooms;
     if (planNotes !== undefined) hostel.planNotes = planNotes;

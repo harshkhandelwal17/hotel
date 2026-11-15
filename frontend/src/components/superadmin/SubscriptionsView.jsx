@@ -190,9 +190,31 @@ const SubscriptionsView = ({
                     </td>
 
                     <td className="px-6 py-4">
-                      <span className="px-2.5 py-1 text-xs font-black uppercase tracking-wider rounded-lg bg-indigo-50 text-indigo-800 border border-indigo-200">
-                        {h.plan || 'Starter'}
+                      <span className={`px-2.5 py-1 text-xs font-black uppercase tracking-wider rounded-lg border ${
+                        h.plan === 'demo'
+                          ? 'bg-amber-50 text-amber-800 border-amber-200'
+                          : h.plan === 'yearly' || h.plan === 'annual'
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                          : 'bg-indigo-50 text-indigo-800 border-indigo-200'
+                      }`}>
+                        {h.plan === 'demo'
+                          ? '7-Day Free Trial'
+                          : h.plan === 'yearly' || h.plan === 'annual'
+                          ? 'Annual (₹800/mo)'
+                          : h.plan === 'monthly'
+                          ? 'Monthly (₹1k/mo)'
+                          : (h.plan || 'Monthly')}
                       </span>
+                      {h.discountAmount > 0 && (
+                        <span className="text-[10px] text-emerald-600 font-bold block mt-0.5">
+                          -₹{h.discountAmount} discount
+                        </span>
+                      )}
+                      {h.extraCharges > 0 && (
+                        <span className="text-[10px] text-blue-600 font-bold block mt-0.5">
+                          +₹{h.extraCharges} add-ons
+                        </span>
+                      )}
                     </td>
 
                     <td className="px-6 py-4">
@@ -201,7 +223,7 @@ const SubscriptionsView = ({
                           ₹{(h.planPrice || 0).toLocaleString()}
                         </span>
                         <span className="text-[10px] text-gray-400 block uppercase font-bold">
-                          /{h.billingCycle || 'monthly'}
+                          /{h.billingCycle || (h.plan === 'yearly' ? 'yearly' : 'monthly')}
                         </span>
                       </div>
                     </td>

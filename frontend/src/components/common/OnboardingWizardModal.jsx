@@ -86,10 +86,14 @@ const OnboardingWizardModal = ({
     gstin: '',
     assignedSalesAgent: '',
 
-    // Step 3: Plan & Optional Staff
+    // Step 3: Plan & Custom Pricing & Optional Staff
     plan: 'demo',
     planDays: 7,
+    basePrice: 0,
+    discountAmount: 0,
+    extraCharges: 0,
     planPrice: 0,
+    planNotes: '7-Day Free Live Trial',
     billingCycle: 'trial',
 
     staffId: '',
@@ -159,6 +163,61 @@ const OnboardingWizardModal = ({
     } finally {
       setUploadingLogo(false);
     }
+  };
+
+  // 🎟️ Plan Selection & Dynamic Pricing Helpers
+  const handleSelectPlan = (planType) => {
+    let base = 0;
+    let days = 7;
+    let cycle = 'trial';
+    let notes = '';
+
+    if (planType === 'demo') {
+      base = 0;
+      days = 7;
+      cycle = 'trial';
+      notes = '7-Day Free Live Trial';
+    } else if (planType === 'monthly') {
+      base = 1000;
+      days = 30;
+      cycle = 'monthly';
+      notes = 'Monthly Plan (₹1,000/mo)';
+    } else if (planType === 'yearly' || planType === 'annual') {
+      base = 9600; // ₹800/mo * 12
+      days = 365;
+      cycle = 'yearly';
+      notes = 'Annual Plan (₹800/mo · Billed ₹9,600/yr)';
+    }
+
+    const discount = Number(wizardData.discountAmount) || 0;
+    const extra = Number(wizardData.extraCharges) || 0;
+    const finalPrice = Math.max(0, base - discount + extra);
+
+    setWizardData(prev => ({
+      ...prev,
+      plan: planType,
+      planDays: days,
+      basePrice: base,
+      planPrice: planType === 'demo' ? 0 : finalPrice,
+      billingCycle: cycle,
+      planNotes: notes
+    }));
+  };
+
+  const handlePriceAdjustment = (field, value) => {
+    const numVal = Number(value) || 0;
+    setWizardData(prev => {
+      const updated = { ...prev, [field]: numVal };
+      if (prev.plan === 'demo') return updated;
+      const base = Number(updated.basePrice) || (prev.plan === 'yearly' ? 9600 : 1000);
+      const discount = field === 'discountAmount' ? numVal : (Number(updated.discountAmount) || 0);
+      const extra = field === 'extraCharges' ? numVal : (Number(updated.extraCharges) || 0);
+      const calculated = Math.max(0, base - discount + extra);
+      return {
+        ...updated,
+        planPrice: calculated
+      };
+    });
   };
 
   // 1️⃣ SUBMIT STEP 1: Owner Details
@@ -231,8 +290,9 @@ const OnboardingWizardModal = ({
       const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
       const token = localStorage.getItem('token');
       const isDemo = wizardData.plan === 'demo';
-      const durationDays = isDemo ? 7 : (wizardData.planDays || 30);
-      const planPrice = isDemo ? 0 : (wizardData.plan === 'starter' ? 2499 : wizardData.plan === 'professional' ? 4999 : 7999);
+      const isYearly = wizardData.plan === 'yearly' || wizardData.plan === 'annual';
+      const durationDays = isDemo ? 7 : (isYearly ? 365 : 30);
+      const planPrice = isDemo ? 0 : Number(wizardData.planPrice || 0);
       const startDate = new Date();
       const endDate = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000);
 
@@ -253,7 +313,10 @@ const OnboardingWizardModal = ({
         planStartDate: startDate.toISOString().split('T')[0],
         planEndDate: endDate.toISOString().split('T')[0],
         planPrice,
-        billingCycle: isDemo ? 'trial' : 'monthly',
+        discountAmount: Number(wizardData.discountAmount) || 0,
+        extraCharges: Number(wizardData.extraCharges) || 0,
+        planNotes: wizardData.planNotes || (isDemo ? '7-Day Free Live Trial' : (isYearly ? 'Annual Plan (₹800/mo)' : 'Monthly Plan (₹1,000/mo)')),
+        billingCycle: isDemo ? 'trial' : (isYearly ? 'yearly' : 'monthly'),
         maxRooms: Number(wizardData.maxRooms) || 20,
         upiId: wizardData.upiId ? wizardData.upiId.trim() : undefined,
         upiPayeeName: wizardData.upiPayeeName ? wizardData.upiPayeeName.trim() : undefined,
@@ -308,6 +371,10 @@ const OnboardingWizardModal = ({
         staffPhone: createdStaff?.phone || null,
         staffPassword: wizardData.staffPassword || 'password123',
         plan: wizardData.plan,
+        planPrice,
+        discountAmount: Number(wizardData.discountAmount) || 0,
+        extraCharges: Number(wizardData.extraCharges) || 0,
+        planNotes: wizardData.planNotes || '',
         planDays: durationDays,
         expiryDate: endDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
       });
@@ -799,15 +866,21 @@ const OnboardingWizardModal = ({
           {/* ============================================================== */}
           {step === 3 && (
             <form onSubmit={handleStep3Submit} className="space-y-4">
-              {/* Plan Cards */}
+              {/* Plan Selection Cards */}
               <div>
-                <label className="block font-bold text-gray-700 uppercase mb-1.5">
-                  Choose Subscription Plan (Default: 7-Day Demo) *
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block font-bold text-gray-700 uppercase">
+                    Choose Subscription Plan *
+                  </label>
+                  <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">
+                    {wizardData.plan === 'demo' ? '⭐ 7-Day Free Trial' : wizardData.plan === 'yearly' ? '🔥 Annual (₹800/mo)' : '⚡ Monthly (₹1,000/mo)'}
+                  </span>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  {/* Demo Plan Card */}
+                  {/* Plan 1: 7-Day Free Trial */}
                   <div
-                    onClick={() => setWizardData({ ...wizardData, plan: 'demo', planDays: 7, planPrice: 0 })}
+                    onClick={() => handleSelectPlan('demo')}
                     className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer relative ${
                       wizardData.plan === 'demo'
                         ? 'border-indigo-600 bg-indigo-50/50 shadow-sm'
@@ -815,40 +888,121 @@ const OnboardingWizardModal = ({
                     }`}
                   >
                     <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-full bg-indigo-600 text-white text-[9px] font-black uppercase">
-                      Default
+                      Free Trial
                     </span>
-                    <p className="font-extrabold text-slate-900 text-sm">7-Day Free Demo</p>
+                    <p className="font-extrabold text-slate-900 text-sm">7-Day Free Trial</p>
                     <p className="text-base font-black text-indigo-600 mt-0.5">₹0 <span className="text-[10px] text-slate-500 font-semibold">/ 7 Days</span></p>
-                    <p className="text-[10px] text-slate-500 mt-1">Full AI scanning, live bills & multi-user testing.</p>
+                    <p className="text-[10px] text-slate-500 mt-1">Full live AI scanning, room billing & testing before purchase.</p>
                   </div>
 
-                  {/* Starter Plan Card */}
+                  {/* Plan 2: Monthly (₹1,000/month) */}
                   <div
-                    onClick={() => setWizardData({ ...wizardData, plan: 'starter', planDays: 30, planPrice: 2499 })}
-                    className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer ${
-                      wizardData.plan === 'starter'
+                    onClick={() => handleSelectPlan('monthly')}
+                    className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer relative ${
+                      wizardData.plan === 'monthly'
                         ? 'border-slate-950 bg-slate-50 shadow-sm'
                         : 'border-slate-200 hover:border-slate-300 bg-white'
                     }`}
                   >
-                    <p className="font-extrabold text-slate-900 text-sm">Starter</p>
-                    <p className="text-base font-black text-slate-900 mt-0.5">₹2,499 <span className="text-[10px] text-slate-500 font-semibold">/ month</span></p>
-                    <p className="text-[10px] text-slate-500 mt-1">Up to 25 rooms, WhatsApp receipts & direct UPI.</p>
+                    <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-full bg-slate-800 text-white text-[9px] font-black uppercase">
+                      Monthly
+                    </span>
+                    <p className="font-extrabold text-slate-900 text-sm">Monthly Plan</p>
+                    <p className="text-base font-black text-slate-900 mt-0.5">₹1,000 <span className="text-[10px] text-slate-500 font-semibold">/ month</span></p>
+                    <p className="text-[10px] text-slate-500 mt-1">Billed ₹1,000 every 30 days. Pay-as-you-go flexibility.</p>
                   </div>
 
-                  {/* Pro Plan Card */}
+                  {/* Plan 3: Annual (₹800/month = ₹9,600/year) */}
                   <div
-                    onClick={() => setWizardData({ ...wizardData, plan: 'professional', planDays: 30, planPrice: 4999 })}
-                    className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer ${
-                      wizardData.plan === 'professional'
-                        ? 'border-slate-950 bg-slate-50 shadow-sm'
+                    onClick={() => handleSelectPlan('yearly')}
+                    className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer relative ${
+                      wizardData.plan === 'yearly' || wizardData.plan === 'annual'
+                        ? 'border-emerald-600 bg-emerald-50/50 shadow-sm ring-1 ring-emerald-600'
                         : 'border-slate-200 hover:border-slate-300 bg-white'
                     }`}
                   >
-                    <p className="font-extrabold text-slate-900 text-sm">Professional</p>
-                    <p className="text-base font-black text-slate-900 mt-0.5">₹4,999 <span className="text-[10px] text-slate-500 font-semibold">/ month</span></p>
-                    <p className="text-[10px] text-slate-500 mt-1">Unlimited rooms, laundry sync & multi-staff.</p>
+                    <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] font-black uppercase">
+                      Save 20%
+                    </span>
+                    <p className="font-extrabold text-slate-900 text-sm">Annual Plan</p>
+                    <p className="text-base font-black text-emerald-700 mt-0.5">
+                      ₹800 <span className="text-[10px] text-slate-500 font-semibold">/ mo (₹9,600/yr)</span>
+                    </p>
+                    <p className="text-[10px] text-emerald-800 mt-1">1 Year upfront at ₹800/mo. Save ₹2,400 vs monthly.</p>
                   </div>
+                </div>
+              </div>
+
+              {/* 🏷️ CUSTOM PRICING, DISCOUNT & CHARGES ADJUSTMENT */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                    <Receipt size={14} className="text-slate-600" />
+                    <span>Pricing, Discount & Extra Charges</span>
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded-lg">
+                    Base: ₹{(wizardData.basePrice || 0).toLocaleString()} {wizardData.plan === 'yearly' ? '/yr' : wizardData.plan === 'monthly' ? '/mo' : ''}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div>
+                    <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1">
+                      - Special Discount (₹)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="0"
+                      value={wizardData.discountAmount || ''}
+                      onChange={e => handlePriceAdjustment('discountAmount', e.target.value)}
+                      disabled={wizardData.plan === 'demo'}
+                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl font-bold text-xs text-emerald-700 outline-none focus:ring-2 focus:ring-black disabled:opacity-50"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-blue-800 uppercase mb-1">
+                      + Extra / Add-on Charges (₹)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="0"
+                      value={wizardData.extraCharges || ''}
+                      onChange={e => handlePriceAdjustment('extraCharges', e.target.value)}
+                      disabled={wizardData.plan === 'demo'}
+                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl font-bold text-xs text-blue-700 outline-none focus:ring-2 focus:ring-black disabled:opacity-50"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-900 uppercase mb-1">
+                      = Final Billed Amount (₹) *
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      required
+                      value={wizardData.planPrice}
+                      onChange={e => setWizardData({ ...wizardData, planPrice: Number(e.target.value) || 0 })}
+                      disabled={wizardData.plan === 'demo'}
+                      className="w-full px-3 py-1.5 bg-white border-2 border-slate-900 rounded-xl font-black text-xs text-slate-950 outline-none focus:ring-2 focus:ring-black disabled:opacity-50"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
+                    Discount / Add-on Notes (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. ₹200 introductory discount applied / Includes biometric setup"
+                    value={wizardData.planNotes}
+                    onChange={e => setWizardData({ ...wizardData, planNotes: e.target.value })}
+                    className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl font-medium text-xs outline-none focus:ring-2 focus:ring-black"
+                  />
                 </div>
               </div>
 
@@ -960,7 +1114,17 @@ const OnboardingWizardModal = ({
                     {createdSummary.hotelName} is Ready & Live!
                   </h4>
                   <p className="text-[11px] text-emerald-800 mt-0.5">
-                    Plan: <strong>{createdSummary.plan === 'demo' ? '7-Day Free Demo' : createdSummary.plan}</strong> · Valid until <strong>{createdSummary.expiryDate}</strong>
+                    Plan: <strong>
+                      {createdSummary.plan === 'demo'
+                        ? '7-Day Free Trial (₹0)'
+                        : createdSummary.plan === 'yearly' || createdSummary.plan === 'annual'
+                        ? 'Annual Plan (₹800/mo · ₹9,600/yr)'
+                        : 'Monthly Plan (₹1,000/mo)'}
+                    </strong>
+                    {createdSummary.plan !== 'demo' && (
+                      <span className="ml-1 text-emerald-950 font-bold">· Billed: ₹{(createdSummary.planPrice || 0).toLocaleString()}</span>
+                    )}
+                    {' '}· Valid until <strong>{createdSummary.expiryDate}</strong>
                   </p>
                 </div>
               </div>
@@ -1046,7 +1210,13 @@ const OnboardingWizardModal = ({
                 {createdSummary.ownerPhone && (
                   <a
                     href={`https://wa.me/91${createdSummary.ownerPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-                      `Namaste ${createdSummary.ownerName} ji! 🙏\n\nCongratulations, your hotel *${createdSummary.hotelName}* is now live on NXHotel PMS.\n\n🌐 Portal: ${window.location.origin}/login\n👤 Login Email: ${createdSummary.ownerEmail}\n🔑 Password: ${createdSummary.ownerPassword}\n🎟️ Plan: 7-Day Free Live Demo\n\nFeel free to explore your counter check-ins and invoice generation!`
+                      `Namaste ${createdSummary.ownerName} ji! 🙏\n\nCongratulations, your hotel *${createdSummary.hotelName}* is now live on NXHotel PMS.\n\n🌐 Portal: ${window.location.origin}/login\n👤 Login Email: ${createdSummary.ownerEmail}\n🔑 Password: ${createdSummary.ownerPassword}\n🎟️ Plan: ${
+                        createdSummary.plan === 'demo'
+                          ? '7-Day Free Trial (₹0)'
+                          : createdSummary.plan === 'yearly' || createdSummary.plan === 'annual'
+                          ? `Annual Plan (₹800/mo · Billed ₹${(createdSummary.planPrice || 9600).toLocaleString()}/yr)`
+                          : `Monthly Plan (₹${(createdSummary.planPrice || 1000).toLocaleString()}/mo)`
+                      }\n📅 Valid Until: ${createdSummary.expiryDate}\n\nFeel free to explore your counter check-ins and invoice generation!`
                     )}`}
                     target="_blank"
                     rel="noreferrer"

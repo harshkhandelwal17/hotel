@@ -429,11 +429,13 @@ const SuperAdminDashboard = () => {
     const startIso = h.planStartDate ? new Date(h.planStartDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
     const endIso = h.planEndDate ? new Date(h.planEndDate).toISOString().split('T')[0] : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     setPlanForm({
-      plan: h.plan || 'starter',
+      plan: h.plan || 'monthly',
       planStatus: h.planStatus || 'active',
       planStartDate: startIso,
       planEndDate: endIso,
-      planPrice: h.planPrice || 0,
+      planPrice: h.planPrice !== undefined ? h.planPrice : 1000,
+      discountAmount: h.discountAmount || 0,
+      extraCharges: h.extraCharges || 0,
       billingCycle: h.billingCycle || 'monthly',
       maxRooms: h.maxRooms || 20,
       planNotes: h.planNotes || ''
@@ -2079,10 +2081,10 @@ const SuperAdminDashboard = () => {
                     value={planForm.plan}
                     onChange={e => setPlanForm({ ...planForm, plan: e.target.value })}
                   >
-                    <option value="demo">Demo / Free Trial</option>
-                    <option value="starter">Starter Plan</option>
-                    <option value="professional">Professional Plan</option>
-                    <option value="enterprise">Enterprise Plan</option>
+                    <option value="demo">7-Day Free Trial (₹0)</option>
+                    <option value="monthly">Monthly Plan (₹1,000 / mo)</option>
+                    <option value="yearly">Annual Plan (₹800 / mo · ₹9,600 / yr)</option>
+                    <option value="custom">Custom Plan</option>
                   </select>
                 </div>
 
@@ -2132,7 +2134,7 @@ const SuperAdminDashboard = () => {
                     ⚡ Quick Renewal Presets
                   </span>
                   <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                    Auto-Calculates Expiry & Sets Active
+                    Auto-Calculates Expiry & Rate
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -2143,30 +2145,16 @@ const SuperAdminDashboard = () => {
                       d.setDate(d.getDate() + 30);
                       setPlanForm(prev => ({
                         ...prev,
+                        plan: 'monthly',
                         planEndDate: d.toISOString().split('T')[0],
                         billingCycle: 'monthly',
+                        planPrice: 1000,
                         planStatus: 'active'
                       }));
                     }}
                     className="px-3 py-1.5 bg-white hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl border border-emerald-300 transition-all shadow-2xs active:scale-95 cursor-pointer"
                   >
-                    + 30 Days (Monthly)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const d = new Date();
-                      d.setDate(d.getDate() + 90);
-                      setPlanForm(prev => ({
-                        ...prev,
-                        planEndDate: d.toISOString().split('T')[0],
-                        billingCycle: 'quarterly',
-                        planStatus: 'active'
-                      }));
-                    }}
-                    className="px-3 py-1.5 bg-white hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl border border-emerald-300 transition-all shadow-2xs active:scale-95 cursor-pointer"
-                  >
-                    + 90 Days (Quarterly)
+                    + Monthly Plan (₹1,000 / 30 Days)
                   </button>
                   <button
                     type="button"
@@ -2175,30 +2163,81 @@ const SuperAdminDashboard = () => {
                       d.setDate(d.getDate() + 365);
                       setPlanForm(prev => ({
                         ...prev,
+                        plan: 'yearly',
                         planEndDate: d.toISOString().split('T')[0],
                         billingCycle: 'yearly',
+                        planPrice: 9600,
                         planStatus: 'active'
                       }));
                     }}
                     className="px-3 py-1.5 bg-white hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl border border-emerald-300 transition-all shadow-2xs active:scale-95 cursor-pointer"
                   >
-                    + 365 Days (1 Year)
+                    + Annual Plan (₹800/mo · ₹9,600 / 1 Year)
                   </button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">Amount (₹)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
-                    value={planForm.planPrice}
-                    onChange={e => setPlanForm({ ...planForm, planPrice: Number(e.target.value) })}
-                  />
-                </div>
+              {/* Pricing, Discount & Add-on Controls */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 block">
+                  Pricing, Discount & Extra Charges
+                </span>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-emerald-700 uppercase mb-1">- Discount (₹)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl font-bold text-xs text-emerald-700 outline-none focus:ring-2 focus:ring-black"
+                      value={planForm.discountAmount || ''}
+                      onChange={e => {
+                        const disc = Number(e.target.value) || 0;
+                        const base = planForm.plan === 'yearly' ? 9600 : 1000;
+                        const extra = Number(planForm.extraCharges) || 0;
+                        setPlanForm({
+                          ...planForm,
+                          discountAmount: disc,
+                          planPrice: Math.max(0, base - disc + extra)
+                        });
+                      }}
+                    />
+                  </div>
 
+                  <div>
+                    <label className="block text-[10px] font-bold text-blue-700 uppercase mb-1">+ Extra / Add-ons (₹)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl font-bold text-xs text-blue-700 outline-none focus:ring-2 focus:ring-black"
+                      value={planForm.extraCharges || ''}
+                      onChange={e => {
+                        const extra = Number(e.target.value) || 0;
+                        const base = planForm.plan === 'yearly' ? 9600 : 1000;
+                        const disc = Number(planForm.discountAmount) || 0;
+                        setPlanForm({
+                          ...planForm,
+                          extraCharges: extra,
+                          planPrice: Math.max(0, base - disc + extra)
+                        });
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-900 uppercase mb-1">= Final Billed (₹) *</label>
+                    <input
+                      type="number"
+                      min="0"
+                      required
+                      className="w-full px-3 py-2 bg-white border-2 border-slate-900 rounded-xl font-black text-xs outline-none focus:ring-2 focus:ring-black"
+                      value={planForm.planPrice}
+                      onChange={e => setPlanForm({ ...planForm, planPrice: Number(e.target.value) || 0 })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">Billing Cycle</label>
                   <select

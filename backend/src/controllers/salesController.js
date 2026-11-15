@@ -327,11 +327,14 @@ exports.createSalesProperty = async (req, res, next) => {
       planStartDate,
       planEndDate,
       planPrice,
-      billingCycle = 'monthly',
+      discountAmount = 0,
+      extraCharges = 0,
+      billingCycle,
       maxRooms = 20,
       upiId,
       upiPayeeName,
-      leadId
+      leadId,
+      planNotes
     } = req.body;
 
     if (!name || !name.trim()) {
@@ -341,9 +344,17 @@ exports.createSalesProperty = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Please select a Hotel Owner (Admin)' });
     }
 
-    const durationDays = plan === 'demo' ? 7 : 30;
+    const isDemo = plan === 'demo';
+    const isYearly = plan === 'yearly' || plan === 'annual';
+    const durationDays = isDemo ? 7 : (isYearly ? 365 : 30);
     const startDate = planStartDate ? new Date(planStartDate) : new Date();
     const endDate = planEndDate ? new Date(planEndDate) : new Date(startDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
+
+    // Default pricing: Demo = ₹0, Monthly = ₹1000, Yearly = ₹9600 (₹800/mo)
+    const defaultBasePrice = isDemo ? 0 : (isYearly ? 9600 : 1000);
+    const resolvedPrice = planPrice !== undefined 
+      ? Number(planPrice) 
+      : Math.max(0, defaultBasePrice - Number(discountAmount || 0) + Number(extraCharges || 0));
 
     const hostel = await Hostel.create({
       name: name.trim(),
@@ -363,12 +374,15 @@ exports.createSalesProperty = async (req, res, next) => {
       onboardedBy: salesUserId,
       assignedSalesAgent: salesUserId,
       plan,
-      planStatus: planStatus || (plan === 'demo' ? 'trial' : 'active'),
-      planPrice: planPrice !== undefined ? Number(planPrice) : (plan === 'demo' ? 0 : 2499),
-      billingCycle: plan === 'demo' ? 'trial' : billingCycle,
+      planStatus: planStatus || (isDemo ? 'trial' : 'active'),
+      planPrice: resolvedPrice,
+      discountAmount: Number(discountAmount) || 0,
+      extraCharges: Number(extraCharges) || 0,
+      billingCycle: isDemo ? 'trial' : (billingCycle || (isYearly ? 'yearly' : 'monthly')),
       planStartDate: startDate,
       planEndDate: endDate,
       maxRooms: Number(maxRooms) || 20,
+      planNotes: planNotes || (isDemo ? '7-Day Free Live Trial' : (isYearly ? 'Annual Plan (₹800/mo)' : 'Monthly Plan (₹1,000/mo)')),
       upiId: upiId ? upiId.trim() : undefined,
       upiPayeeName: upiPayeeName ? upiPayeeName.trim() : undefined,
       isActive: true
@@ -837,7 +851,7 @@ exports.deleteSalesLead = async (req, res, next) => {
  */
 exports.updateSalesPropertyPlan = async (req, res, next) => {
   try {
-    const { plan, planStatus, planStartDate, planEndDate, planPrice, billingCycle, maxRooms, planNotes } = req.body;
+    const { plan, planStatus, planStartDate, planEndDate, planPrice, billingCycle, maxRooms, planNotes, discountAmount, extraCharges } = req.body;
     const hostel = await Hostel.findById(req.params.id);
     if (!hostel) return res.status(404).json({ success: false, message: 'Property not found' });
 
@@ -850,6 +864,8 @@ exports.updateSalesPropertyPlan = async (req, res, next) => {
     if (planStartDate !== undefined) hostel.planStartDate = planStartDate;
     if (planEndDate !== undefined) hostel.planEndDate = planEndDate;
     if (planPrice !== undefined) hostel.planPrice = Number(planPrice) || 0;
+    if (discountAmount !== undefined) hostel.discountAmount = Number(discountAmount) || 0;
+    if (extraCharges !== undefined) hostel.extraCharges = Number(extraCharges) || 0;
     if (billingCycle !== undefined) hostel.billingCycle = billingCycle;
     if (maxRooms !== undefined) hostel.maxRooms = Number(maxRooms) || 20;
     if (planNotes !== undefined) hostel.planNotes = planNotes;
