@@ -94,7 +94,7 @@ const EcosystemView = ({
           {salesAgents.length > 0 && (
             <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 shadow-2xs">
               <Briefcase size={13} className="text-slate-600 shrink-0" />
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 shrink-0">Sales Rep:</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 shrink-0">Filter By Sales Rep:</span>
               <select
                 value={salesFilter}
                 onChange={(e) => setSalesFilter(e.target.value)}
@@ -114,29 +114,6 @@ const EcosystemView = ({
                   );
                 })}
               </select>
-            </div>
-          )}
-
-          {(onOpenCreateOwner || onOpenRegisterProperty) && (
-            <div className="flex items-center gap-2 shrink-0 flex-wrap">
-              {onOpenCreateOwner && (
-                <button
-                  onClick={onOpenCreateOwner}
-                  className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-all shadow-2xs active:scale-95 flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Plus size={14} className="stroke-[2.5]" />
-                  <span>+ New Owner</span>
-                </button>
-              )}
-              {onOpenRegisterProperty && (
-                <button
-                  onClick={onOpenRegisterProperty}
-                  className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 font-bold text-xs rounded-xl transition-all shadow-2xs active:scale-95 flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Building size={14} />
-                  <span>+ Register Hotel</span>
-                </button>
-              )}
             </div>
           )}
         </div>

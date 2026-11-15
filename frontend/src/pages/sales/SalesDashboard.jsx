@@ -721,7 +721,7 @@ Please let us know your available time today! 🙏`;
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 antialiased">
       {/* 💼 CLEAN ENTERPRISE TOP NAVBAR FOR FIELD SALES */}
       <header className="sticky top-0 z-40 bg-white border-b border-slate-200/90 shadow-2xs">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="w-full max-w-[1720px] mx-auto px-3 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 gap-3">
             {/* Left: Brand & Role */}
             <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
@@ -767,7 +767,7 @@ Please let us know your available time today! 🙏`;
                 className="px-3.5 py-2 bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-xs active:scale-95 flex items-center gap-1.5 cursor-pointer shrink-0"
               >
                 <Plus size={14} className="stroke-[3]" />
-                <span>+ Register Hotel</span>
+                <span>Register Hotel</span>
               </button>
 
               <button
@@ -840,7 +840,7 @@ Please let us know your available time today! 🙏`;
       </header>
 
       {/* Main Body */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <main className="w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Mobile search bar */}
         <div className="md:hidden relative w-full">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -853,94 +853,93 @@ Please let us know your available time today! 🙏`;
           />
         </div>
 
-        {/* 🎯 TARGET GAUGE & KEY METRICS (Responsive Grid) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          {/* Monthly Target Progress Card */}
-          <div className="sm:col-span-2 bg-white p-5 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                  <Target size={14} className="text-slate-700" />
-                  <span>Monthly Hotel Onboarding Target</span>
-                </span>
-                <span className="text-xs font-bold text-slate-900">
-                  {thisMonthOnboarded} / {monthlyTarget} Hotels ({targetProgressPct}%)
-                </span>
-              </div>
-
-              <div className="w-full bg-slate-100 rounded-full h-2.5 mt-3 overflow-hidden border border-slate-200">
-                <div 
-                  className="h-full bg-slate-900 rounded-full transition-all duration-700"
-                  style={{ width: `${Math.max(4, targetProgressPct)}%` }}
-                ></div>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between text-xs text-slate-500 font-medium mt-3 pt-2 border-t border-slate-100 gap-1">
-              <span>{remainingTarget > 0 ? `🎯 Need ${remainingTarget} more hotels` : '🎉 Target achieved!'}</span>
-              <span className="text-slate-600 font-bold">{daysLeft} days left in month</span>
-            </div>
-          </div>
-
-          {/* My Managed Portfolio Hotels */}
-          <div className="bg-white p-5 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <Building size={14} className="text-slate-700" />
-              <span>My Managed Portfolio</span>
-            </span>
-            <div className="my-2">
-              <p className="text-2xl sm:text-3xl font-extrabold text-slate-900">{stats?.myHotelsCount || 0}</p>
-              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                <span className="px-2 py-0.5 text-[10px] font-bold bg-slate-100 text-slate-700 rounded-md border border-slate-200">
-                  {stats?.onboardedByMeCount || 0} Closed by You
-                </span>
-                <span className="px-2 py-0.5 text-[10px] font-bold bg-purple-50 text-purple-700 rounded-md border border-purple-200">
-                  {stats?.assignedByAdminCount || 0} Assigned by Admin
-                </span>
-              </div>
-            </div>
-            <span className="text-[10px] text-slate-400 font-medium">Hotels you manage & support</span>
-          </div>
-
-          {/* Follow-up Alerts & Leads */}
-          <div className="bg-white p-5 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Clock size={14} className="text-rose-600" />
-                <span>Follow-ups Required</span>
-              </span>
-              {todayFollowUpsCount > 0 && (
-                <span className="px-2 py-0.5 text-[9px] font-bold bg-rose-50 text-rose-700 rounded-full border border-rose-200 animate-pulse">
-                  {todayFollowUpsCount} Today
-                </span>
-              )}
-            </div>
-            <div className="my-2">
-              <p className="text-2xl sm:text-3xl font-extrabold text-rose-600">
-                {todayFollowUpsCount + overdueFollowUpsCount}
-              </p>
-              <p className="text-[11px] text-slate-500 font-medium mt-1">
-                {overdueFollowUpsCount > 0 ? `⚠️ ${overdueFollowUpsCount} overdue · ` : ''}
-                {todayFollowUpsCount} scheduled today
-              </p>
-            </div>
-            <button
-              onClick={() => {
-                setActiveTab('leads');
-                setLeadFilterTab(todayFollowUpsCount > 0 ? 'today' : 'all');
-              }}
-              className="text-[11px] font-bold text-slate-800 hover:text-black text-left cursor-pointer"
-            >
-              View follow-up queue →
-            </button>
-          </div>
-        </div>
-
       {/* ============================================================== */}
       {/* TAB 1: 🌐 HOTEL ECOSYSTEM - COMPLETE HIERARCHY TREE */}
       {/* ============================================================== */}
       {activeTab === 'ecosystem' && (
         <div className="space-y-4 sm:space-y-6">
+          {/* 🎯 TARGET GAUGE & KEY METRICS (Responsive Grid) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            {/* Monthly Target Progress Card */}
+            <div className="sm:col-span-2 bg-white p-5 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <Target size={14} className="text-slate-700" />
+                    <span>Monthly Hotel Onboarding Target</span>
+                  </span>
+                  <span className="text-xs font-bold text-slate-900">
+                    {thisMonthOnboarded} / {monthlyTarget} Hotels ({targetProgressPct}%)
+                  </span>
+                </div>
+
+                <div className="w-full bg-slate-100 rounded-full h-2.5 mt-3 overflow-hidden border border-slate-200">
+                  <div 
+                    className="h-full bg-slate-900 rounded-full transition-all duration-700"
+                    style={{ width: `${Math.max(4, targetProgressPct)}%` }}
+                  ></div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between text-xs text-slate-500 font-medium mt-3 pt-2 border-t border-slate-100 gap-1">
+                <span>{remainingTarget > 0 ? `🎯 Need ${remainingTarget} more hotels` : '🎉 Target achieved!'}</span>
+                <span className="text-slate-600 font-bold">{daysLeft} days left in month</span>
+              </div>
+            </div>
+
+            {/* My Managed Portfolio Hotels */}
+            <div className="bg-white p-5 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <Building size={14} className="text-slate-700" />
+                <span>My Managed Portfolio</span>
+              </span>
+              <div className="my-2">
+                <p className="text-2xl sm:text-3xl font-extrabold text-slate-900">{stats?.myHotelsCount || 0}</p>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <span className="px-2 py-0.5 text-[10px] font-bold bg-slate-100 text-slate-700 rounded-md border border-slate-200">
+                    {stats?.onboardedByMeCount || 0} Closed by You
+                  </span>
+                  <span className="px-2 py-0.5 text-[10px] font-bold bg-purple-50 text-purple-700 rounded-md border border-purple-200">
+                    {stats?.assignedByAdminCount || 0} Assigned by Admin
+                  </span>
+                </div>
+              </div>
+              <span className="text-[10px] text-slate-400 font-medium">Hotels you manage & support</span>
+            </div>
+
+            {/* Follow-up Alerts & Leads */}
+            <div className="bg-white p-5 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                  <Clock size={14} className="text-rose-600" />
+                  <span>Follow-ups Required</span>
+                </span>
+                {todayFollowUpsCount > 0 && (
+                  <span className="px-2 py-0.5 text-[9px] font-bold bg-rose-50 text-rose-700 rounded-full border border-rose-200 animate-pulse">
+                    {todayFollowUpsCount} Today
+                  </span>
+                )}
+              </div>
+              <div className="my-2">
+                <p className="text-2xl sm:text-3xl font-extrabold text-rose-600">
+                  {todayFollowUpsCount + overdueFollowUpsCount}
+                </p>
+                <p className="text-[11px] text-slate-500 font-medium mt-1">
+                  {overdueFollowUpsCount > 0 ? `⚠️ ${overdueFollowUpsCount} overdue · ` : ''}
+                  {todayFollowUpsCount} scheduled today
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setActiveTab('leads');
+                  setLeadFilterTab(todayFollowUpsCount > 0 ? 'today' : 'all');
+                }}
+                className="text-[11px] font-bold text-slate-800 hover:text-black text-left cursor-pointer"
+              >
+                View follow-up queue →
+              </button>
+            </div>
+          </div>
           {/* Quick Filter Bar */}
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
             <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mr-1">Filter:</span>

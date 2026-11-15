@@ -607,7 +607,7 @@ const SuperAdminDashboard = () => {
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 antialiased">
       {/* 🏛️ CLEAN ENTERPRISE TOP NAVBAR */}
       <header className="sticky top-0 z-40 bg-white border-b border-slate-200/90 shadow-2xs">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="w-full max-w-[1720px] mx-auto px-3 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 gap-3">
             {/* Left: Brand & Badge */}
             <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
@@ -646,7 +646,7 @@ const SuperAdminDashboard = () => {
                 className="px-3.5 py-2 bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-xs active:scale-95 flex items-center gap-1.5 cursor-pointer shrink-0"
               >
                 <Plus size={14} className="stroke-[3]" />
-                <span>+ Register Hotel</span>
+                <span>Register Hotel</span>
               </button>
 
               <button
@@ -664,7 +664,7 @@ const SuperAdminDashboard = () => {
                 className="hidden sm:inline-flex px-3 py-2 bg-white hover:bg-slate-50 text-slate-750 font-bold text-xs rounded-xl border border-slate-200 transition-all shadow-2xs active:scale-95 items-center gap-1.5 cursor-pointer shrink-0"
               >
                 <Crown size={13} />
-                <span>+ Owner</span>
+                <span>New Owner</span>
               </button>
 
               <button
@@ -729,7 +729,7 @@ const SuperAdminDashboard = () => {
       </header>
 
       {/* Main Body */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <main className="w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Mobile search bar */}
         <div className="md:hidden relative w-full">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -742,8 +742,13 @@ const SuperAdminDashboard = () => {
           />
         </div>
 
-        {/* 📊 Top Enterprise Metrics Bar */}
-        <SuperAdminStats
+      {/* ============================================================== */}
+      {/* TAB 0: 🌐 HOTEL ECOSYSTEM - COMPLETE HIERARCHY TREE */}
+      {/* ============================================================== */}
+      {activeTab === 'ecosystem' && (
+        <div className="space-y-6">
+          {/* 📊 Top Enterprise Metrics Bar */}
+          <SuperAdminStats
             stats={stats}
             hotelOwnersCount={hotelOwners.length}
             hostelsCount={stats?.totalHostels || hostels.length}
@@ -754,15 +759,11 @@ const SuperAdminDashboard = () => {
             onQuickFilterChange={setQuickFilter}
           />
 
-      {/* ============================================================== */}
-      {/* TAB 0: 🌐 HOTEL ECOSYSTEM - COMPLETE HIERARCHY TREE */}
-      {/* ============================================================== */}
-      {activeTab === 'ecosystem' && (
-        <EcosystemView
-          owners={filteredOwners}
-          hostels={hostels}
-          users={users}
-          salesAgents={users.filter(u => u.role === 'sales')}
+          <EcosystemView
+            owners={filteredOwners}
+            hostels={hostels}
+            users={users}
+            salesAgents={users.filter(u => u.role === 'sales')}
           onAssignSalesAgent={handleAssignSalesAgent}
           onImpersonate={handleImpersonate}
           onResetPassword={handleResetPassword}
@@ -793,6 +794,7 @@ const SuperAdminDashboard = () => {
           impersonating={impersonating}
           quickFilter={quickFilter}
         />
+        </div>
       )}
 
       {/* ============================================================== */}
