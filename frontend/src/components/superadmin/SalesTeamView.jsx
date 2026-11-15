@@ -57,7 +57,8 @@ const SalesTeamView = ({
   const [savingSettings, setSavingSettings] = useState(false);
 
   const leaderboard = salesData?.leaderboard || [];
-  const totalAgents = salesData?.totalAgents || 0;
+  const agents = leaderboard.map(item => item.agent).filter(Boolean);
+  const totalAgents = salesData?.totalAgents || agents.length;
   const totalSalesRevenue = salesData?.totalSalesRevenue || 0;
   const totalHotelsBySales = salesData?.totalHotelsBySales || 0;
   const totalCommissionPayout = salesData?.totalCommissionPayout || 0;
