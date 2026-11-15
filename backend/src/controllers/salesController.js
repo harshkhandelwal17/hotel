@@ -314,6 +314,11 @@ exports.createSalesProperty = async (req, res, next) => {
       email,
       owner,
       plan = 'demo',
+      planStatus,
+      planStartDate,
+      planEndDate,
+      planPrice,
+      billingCycle = 'monthly',
       maxRooms = 20,
       upiId,
       upiPayeeName,
@@ -327,9 +332,9 @@ exports.createSalesProperty = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Please select a Hotel Owner (Admin)' });
     }
 
-    const durationDays = plan === 'demo' ? 14 : 30;
-    const planStartDate = new Date();
-    const planEndDate = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000);
+    const durationDays = plan === 'demo' ? 7 : 30;
+    const startDate = planStartDate ? new Date(planStartDate) : new Date();
+    const endDate = planEndDate ? new Date(planEndDate) : new Date(startDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
 
     const hostel = await Hostel.create({
       name: name.trim(),
@@ -340,11 +345,11 @@ exports.createSalesProperty = async (req, res, next) => {
       onboardedBy: salesUserId,
       assignedSalesAgent: salesUserId,
       plan,
-      planStatus: plan === 'demo' ? 'trial' : 'active',
-      planPrice: plan === 'demo' ? 0 : 2499,
-      billingCycle: 'monthly',
-      planStartDate,
-      planEndDate,
+      planStatus: planStatus || (plan === 'demo' ? 'trial' : 'active'),
+      planPrice: planPrice !== undefined ? Number(planPrice) : (plan === 'demo' ? 0 : 2499),
+      billingCycle: plan === 'demo' ? 'trial' : billingCycle,
+      planStartDate: startDate,
+      planEndDate: endDate,
       maxRooms: Number(maxRooms) || 20,
       upiId: upiId ? upiId.trim() : undefined,
       upiPayeeName: upiPayeeName ? upiPayeeName.trim() : undefined,
