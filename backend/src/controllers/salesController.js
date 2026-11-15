@@ -51,7 +51,7 @@ exports.getSalesStats = async (req, res, next) => {
       todayFollowUps,
       overdueFollowUps
     ] = await Promise.all([
-      Hostel.find({ $or: [{ onboardedBy: salesUserId }, { assignedSalesAgent: salesUserId }] }).select('plan planStatus createdAt name'),
+      Hostel.find({ $or: [{ onboardedBy: salesUserId }, { assignedSalesAgent: salesUserId }] }).select('plan planStatus planPrice planEndDate createdAt name'),
       Hostel.countDocuments({ $or: [{ onboardedBy: salesUserId }, { assignedSalesAgent: salesUserId }], planStatus: 'active' }),
       Hostel.countDocuments({
         $and: [
@@ -88,6 +88,26 @@ exports.getSalesStats = async (req, res, next) => {
     const totalDaysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const daysRemainingInMonth = Math.max(0, totalDaysInMonth - now.getDate());
 
+    // Subscription Expiry & Portfolio Collections Calculation
+    const in7Days = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    let expiringSoonCount = 0;
+    let expiredCount = 0;
+    let totalPortfolioRevenue = 0;
+
+    myHotels.forEach(h => {
+      if (h.planStatus === 'active') {
+        totalPortfolioRevenue += (h.planPrice || 0);
+      }
+      const end = h.planEndDate ? new Date(h.planEndDate) : null;
+      if (end) {
+        if (end < now || h.planStatus === 'expired') {
+          expiredCount++;
+        } else if (end <= in7Days) {
+          expiringSoonCount++;
+        }
+      }
+    });
+
     // Get recent 5 onboardings/managed
     const recentHotels = await Hostel.find({ $or: [{ onboardedBy: salesUserId }, { assignedSalesAgent: salesUserId }] })
       .populate('owner', 'name email phone')
@@ -111,6 +131,9 @@ exports.getSalesStats = async (req, res, next) => {
         myHotelsCount: myHotels.length,
         myActivePaidCount: myActiveHotels,
         myTrialCount: myTrialHotels,
+        expiringSoonCount,
+        expiredCount,
+        totalPortfolioRevenue,
         onboardedByMeCount,
         assignedByAdminCount,
         pipeline: {

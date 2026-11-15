@@ -641,6 +641,44 @@ Please let us know your available time today! 🙏`;
     window.open(`https://wa.me/91${clean}?text=${encodeURIComponent(getOutreachText())}`, '_blank');
   };
 
+  // 💬 Quick 1-Click WhatsApp Renewal Pitch / Reminder to Hotel Owner
+  const sendRenewalWhatsApp = (hotel) => {
+    const phone = hotel.owner?.phone || hotel.contactNumber;
+    const cleanPhone = phone ? phone.replace(/\D/g, '').slice(-10) : '';
+    if (!cleanPhone || cleanPhone.length !== 10) {
+      alert('⚠️ Hotel owner or property contact phone number is missing or invalid.');
+      return;
+    }
+    const ownerName = hotel.owner?.name || 'Hotel Owner';
+    const planName = (hotel.plan || 'Starter').toUpperCase();
+    const price = hotel.planPrice !== undefined ? hotel.planPrice : 2499;
+    const endDate = hotel.planEndDate 
+      ? new Date(hotel.planEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) 
+      : 'Soon';
+    const isExp = hotel.isExpired || (hotel.daysRemaining !== undefined && hotel.daysRemaining <= 0);
+    const statusNote = isExp
+      ? `has expired (${Math.abs(hotel.daysRemaining || 0)} days ago)`
+      : `is expiring on *${endDate}* (${hotel.daysRemaining} days remaining)`;
+
+    const text = [
+      `🏨 *NXHotel Software Subscription - Renewal Notice*`,
+      `Namaste *${ownerName}* ji,`,
+      `This is regarding your property *${hotel.name}*.`,
+      ``,
+      `Your current subscription plan:`,
+      `• *Plan:* ${planName} Plan`,
+      `• *Price:* ₹${price.toLocaleString()} / month`,
+      `• *Status:* ${statusNote}`,
+      ``,
+      `Kindly confirm your subscription renewal so your front desk, room bookings, guest check-ins, and UPI billing continue without interruption. 🙏`,
+      ``,
+      `Please let me know if you would like me to process your renewal today!`,
+      `- *${agentName}* (Field Executive, NXHotel)`
+    ].join('\n');
+
+    window.open(`https://wa.me/91${cleanPhone}?text=${encodeURIComponent(text)}`, '_blank');
+  };
+
   // --- FILTERED CALCULATIONS ---
   const q = searchQuery.toLowerCase();
   const now = new Date();
@@ -658,6 +696,14 @@ Please let us know your available time today! 🙏`;
       const owned = hostels.filter(h => (h.owner?._id || h.owner)?.toString() === o._id.toString());
       return owned.some(h => h.isAssignedToMe && !h.isOnboardedByMe);
     }
+    if (quickFilter === 'expiringSoon') {
+      const owned = hostels.filter(h => (h.owner?._id || h.owner)?.toString() === o._id.toString());
+      return owned.some(h => h.daysRemaining !== undefined && h.daysRemaining > 0 && h.daysRemaining <= 7);
+    }
+    if (quickFilter === 'expired') {
+      const owned = hostels.filter(h => (h.owner?._id || h.owner)?.toString() === o._id.toString());
+      return owned.some(h => h.isExpired || (h.daysRemaining !== undefined && h.daysRemaining <= 0));
+    }
     return true;
   });
 
@@ -673,6 +719,8 @@ Please let us know your available time today! 🙏`;
     if (quickFilter === 'assigned') return h.isAssignedToMe && !h.isOnboardedByMe;
     if (quickFilter === 'active') return h.planStatus === 'active';
     if (quickFilter === 'trial') return h.planStatus === 'trial' || h.plan === 'demo';
+    if (quickFilter === 'expiringSoon') return h.daysRemaining !== undefined && h.daysRemaining > 0 && h.daysRemaining <= 7;
+    if (quickFilter === 'expired') return h.isExpired || (h.daysRemaining !== undefined && h.daysRemaining <= 0);
     return true;
   });
 
@@ -940,17 +988,31 @@ Please let us know your available time today! 🙏`;
                 <span>My Managed Portfolio</span>
               </span>
               <div className="my-2">
-                <p className="text-2xl sm:text-3xl font-extrabold text-slate-900">{stats?.myHotelsCount || 0}</p>
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <div className="flex items-baseline gap-2">
+                  <p className="text-2xl sm:text-3xl font-extrabold text-slate-900">{stats?.myHotelsCount || 0}</p>
+                  {(stats?.totalPortfolioRevenue || 0) > 0 && (
+                    <span className="text-xs font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                      ₹{(stats?.totalPortfolioRevenue || 0).toLocaleString()} /mo
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                   <span className="px-2 py-0.5 text-[10px] font-bold bg-slate-100 text-slate-700 rounded-md border border-slate-200">
-                    {stats?.onboardedByMeCount || 0} Closed by You
+                    {stats?.myActivePaidCount || 0} Paid
                   </span>
-                  <span className="px-2 py-0.5 text-[10px] font-bold bg-purple-50 text-purple-700 rounded-md border border-purple-200">
-                    {stats?.assignedByAdminCount || 0} Assigned by Admin
-                  </span>
+                  {(stats?.expiringSoonCount || 0) > 0 && (
+                    <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-50 text-amber-700 rounded-md border border-amber-200 animate-pulse">
+                      ⚠️ {stats.expiringSoonCount} Expiring Soon
+                    </span>
+                  )}
+                  {(stats?.expiredCount || 0) > 0 && (
+                    <span className="px-2 py-0.5 text-[10px] font-bold bg-rose-50 text-rose-700 rounded-md border border-rose-200">
+                      ❌ {stats.expiredCount} Expired
+                    </span>
+                  )}
                 </div>
               </div>
-              <span className="text-[10px] text-slate-400 font-medium">Hotels you manage & support</span>
+              <span className="text-[10px] text-slate-400 font-medium">Hotels you manage & collect renewals from</span>
             </div>
 
             {/* Follow-up Alerts & Leads */}
@@ -989,21 +1051,27 @@ Please let us know your available time today! 🙏`;
           {/* Quick Filter Bar */}
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
             <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mr-1">Filter:</span>
-            {['all', 'onboarded', 'assigned', 'active', 'trial'].map(filterKey => (
+            {[
+              { id: 'all', label: `All Portfolio (${stats?.myHotelsCount || 0})` },
+              { id: 'active', label: `● Active Paid (${stats?.myActivePaidCount || 0})` },
+              { id: 'expiringSoon', label: `⚠️ Expiring Soon (${stats?.expiringSoonCount || 0})`, alert: (stats?.expiringSoonCount || 0) > 0 },
+              { id: 'expired', label: `❌ Expired (${stats?.expiredCount || 0})`, alert: (stats?.expiredCount || 0) > 0 },
+              { id: 'trial', label: `⏳ Free Trials (${stats?.myTrialCount || 0})` },
+              { id: 'onboarded', label: `✨ Closed by Me (${stats?.onboardedByMeCount || 0})` },
+              { id: 'assigned', label: `👑 Assigned by Admin (${stats?.assignedByAdminCount || 0})` }
+            ].map(f => (
               <button
-                key={filterKey}
-                onClick={() => setQuickFilter(filterKey)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-                  quickFilter === filterKey 
-                    ? 'bg-black text-white shadow-sm' 
-                    : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                key={f.id}
+                onClick={() => setQuickFilter(f.id)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                  quickFilter === f.id 
+                    ? 'bg-slate-900 text-white shadow-xs' 
+                    : f.alert 
+                    ? 'bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100'
+                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`}
               >
-                {filterKey === 'all' && `All Portfolio (${stats?.myHotelsCount || 0})`}
-                {filterKey === 'onboarded' && `✨ Closed by Me (${stats?.onboardedByMeCount || 0})`}
-                {filterKey === 'assigned' && `👑 Assigned by Admin (${stats?.assignedByAdminCount || 0})`}
-                {filterKey === 'active' && '● Active Paid'}
-                {filterKey === 'trial' && '⏳ Free Trials / Demos'}
+                {f.label}
               </button>
             ))}
           </div>
@@ -1149,11 +1217,21 @@ Please let us know your available time today! 🙏`;
                                   </span>
                                 )}
                                 <span className={`px-2 py-0.5 text-[9px] font-bold rounded uppercase tracking-wider ${
-                                  hotel.planStatus === 'active' 
+                                  hotel.isExpired || (hotel.daysRemaining !== undefined && hotel.daysRemaining <= 0)
+                                    ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                                    : hotel.daysRemaining !== undefined && hotel.daysRemaining <= 7
+                                    ? 'bg-amber-100 text-amber-800 border border-amber-300 animate-pulse'
+                                    : hotel.planStatus === 'active' 
                                     ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
-                                    : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                    : 'bg-blue-50 text-blue-700 border border-blue-200'
                                 }`}>
-                                  {hotel.planStatus === 'active' ? '● Active Paid' : '⏳ Trial / Demo'}
+                                  {hotel.isExpired || (hotel.daysRemaining !== undefined && hotel.daysRemaining <= 0)
+                                    ? '❌ Expired'
+                                    : hotel.daysRemaining !== undefined && hotel.daysRemaining <= 7
+                                    ? '⚠️ Expiring Soon'
+                                    : hotel.planStatus === 'active'
+                                    ? '● Active Paid'
+                                    : '⏳ Free Trial'}
                                 </span>
                                 <span className={`px-2 py-0.5 text-[9px] font-bold rounded uppercase tracking-wider ${
                                   hotel.isActive !== false ? 'bg-slate-100 text-slate-700 border border-slate-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
@@ -1171,12 +1249,42 @@ Please let us know your available time today! 🙏`;
                                   <Phone size={11} className="text-slate-400 shrink-0" />
                                   <span>{hotel.contactNumber || 'No contact'}</span>
                                 </span>
-                                <span className="text-slate-300">•</span>
-                                <span className="flex items-center gap-1">
-                                  <CreditCard size={11} className="text-slate-600 shrink-0" />
-                                  <span className="font-bold text-slate-700">Tier: {(hotel.plan || 'Starter').toUpperCase()}</span>
-                                </span>
                               </p>
+
+                              {/* 💰 PLAN, PRICE & EXPIRY SNAPSHOT */}
+                              <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-slate-100 text-xs">
+                                <div className="flex items-center gap-1.5 font-bold">
+                                  <CreditCard size={13} className="text-slate-700 shrink-0" />
+                                  <span className="text-slate-900 font-extrabold uppercase">{(hotel.plan || 'Starter')}</span>
+                                  <span className="px-1.5 py-0.2 bg-emerald-50 text-emerald-700 rounded font-black text-[11px] border border-emerald-200">
+                                    ₹{(hotel.planPrice !== undefined ? hotel.planPrice : (hotel.plan === 'demo' ? 0 : 2499)).toLocaleString()} / {hotel.billingCycle || 'mo'}
+                                  </span>
+                                </div>
+
+                                <span className="text-slate-300 hidden sm:inline">•</span>
+
+                                <div className="flex items-center gap-1.5">
+                                  <Clock size={12} className="text-slate-400 shrink-0" />
+                                  <span className="text-slate-600 font-medium text-[11px]">
+                                    {hotel.planEndDate 
+                                      ? `Valid Till: ${new Date(hotel.planEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                                      : 'Validity: Not configured'}
+                                  </span>
+                                  {hotel.daysRemaining !== undefined && (
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                                      hotel.isExpired || hotel.daysRemaining <= 0
+                                        ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                                        : hotel.daysRemaining <= 7
+                                        ? 'bg-amber-100 text-amber-800 border border-amber-300 animate-pulse'
+                                        : 'bg-slate-100 text-slate-700 border border-slate-200'
+                                    }`}>
+                                      {hotel.isExpired || hotel.daysRemaining <= 0
+                                        ? `Expired ${Math.abs(hotel.daysRemaining)}d ago`
+                                        : `${hotel.daysRemaining} days left`}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
                             </div>
 
                             {/* Property Actions - Responsive Grid on Mobile */}
@@ -1191,12 +1299,25 @@ Please let us know your available time today! 🙏`;
                               </button>
 
                               <button
+                                onClick={() => sendRenewalWhatsApp(hotel)}
+                                className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs rounded-xl border border-emerald-200 flex items-center justify-center gap-1 cursor-pointer transition-all active:scale-95"
+                                title="Send WhatsApp Renewal Notice to Owner"
+                              >
+                                <MessageSquare size={12} />
+                                <span className="hidden sm:inline">WhatsApp</span>
+                              </button>
+
+                              <button
                                 onClick={() => openPlanModal(hotel)}
-                                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl border border-slate-200 flex items-center justify-center gap-1 transition-all cursor-pointer"
+                                className={`px-3 py-1.5 font-bold text-xs rounded-xl flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                                  hotel.isExpired || (hotel.daysRemaining !== undefined && hotel.daysRemaining <= 7)
+                                    ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-2xs'
+                                    : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200'
+                                }`}
                                 title="Assign or Modify Subscription Plan"
                               >
                                 <CreditCard size={12} />
-                                <span>Plan</span>
+                                <span>{hotel.isExpired ? 'Renew Plan' : 'Plan'}</span>
                               </button>
 
                               <button
@@ -1590,13 +1711,45 @@ Please let us know your available time today! 🙏`;
                       <span className="text-gray-400 font-normal block">{h.staffCount || 0} staff</span>
                     </td>
                     <td className="px-4 sm:px-6 py-4">
-                      <div className="space-y-0.5">
-                        <span className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-md inline-block ${
-                          h.planStatus === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                        }`}>
-                          {h.planStatus === 'active' ? 'Active Paid' : 'Trial / Demo'}
-                        </span>
-                        <p className="text-[11px] text-gray-500 font-bold">Tier: {(h.plan || 'Starter').toUpperCase()}</p>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className={`px-2 py-0.5 text-[10px] font-black uppercase tracking-wider rounded-md ${
+                            h.isExpired || (h.daysRemaining !== undefined && h.daysRemaining <= 0)
+                              ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                              : h.daysRemaining !== undefined && h.daysRemaining <= 7
+                              ? 'bg-amber-100 text-amber-800 border border-amber-300 animate-pulse'
+                              : h.planStatus === 'active'
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                              : 'bg-blue-100 text-blue-800 border border-blue-200'
+                          }`}>
+                            {h.isExpired || (h.daysRemaining !== undefined && h.daysRemaining <= 0)
+                              ? '❌ Expired'
+                              : h.daysRemaining !== undefined && h.daysRemaining <= 7
+                              ? '⚠️ Expiring Soon'
+                              : h.planStatus === 'active'
+                              ? '● Active Paid'
+                              : '⏳ Free Trial'}
+                          </span>
+                          <span className="font-extrabold text-xs text-slate-900">
+                            ₹{(h.planPrice !== undefined ? h.planPrice : (h.plan === 'demo' ? 0 : 2499)).toLocaleString()} / {h.billingCycle || 'mo'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 font-bold">Tier: {(h.plan || 'Starter').toUpperCase()}</p>
+                        <div className="text-[11px] text-slate-500 flex items-center gap-1">
+                          <Clock size={11} className="text-slate-400" />
+                          <span>
+                            {h.planEndDate 
+                              ? `Ends: ${new Date(h.planEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`
+                              : 'No expiry set'}
+                          </span>
+                          {h.daysRemaining !== undefined && (
+                            <span className={`font-bold ml-1 ${
+                              h.isExpired || h.daysRemaining <= 0 ? 'text-rose-600' : h.daysRemaining <= 7 ? 'text-amber-600' : 'text-slate-600'
+                            }`}>
+                              ({h.isExpired || h.daysRemaining <= 0 ? `Expired ${Math.abs(h.daysRemaining)}d ago` : `${h.daysRemaining}d left`})
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="px-4 sm:px-6 py-4 text-right">
@@ -1610,11 +1763,24 @@ Please let us know your available time today! 🙏`;
                         </button>
 
                         <button
+                          onClick={() => sendRenewalWhatsApp(h)}
+                          className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all border border-emerald-200 cursor-pointer"
+                          title="Send WhatsApp Renewal Notice to Owner"
+                        >
+                          <MessageSquare size={13} />
+                        </button>
+
+                        <button
                           onClick={() => openPlanModal(h)}
-                          className="px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs rounded-xl border border-purple-200"
-                          title="Assign Plan"
+                          className={`px-2.5 py-1.5 font-bold text-xs rounded-xl flex items-center gap-1 transition-all cursor-pointer ${
+                            h.isExpired || (h.daysRemaining !== undefined && h.daysRemaining <= 7)
+                              ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-2xs'
+                              : 'bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200'
+                          }`}
+                          title="Assign or Renew Plan"
                         >
                           <CreditCard size={12} />
+                          <span>{h.isExpired ? 'Renew' : 'Plan'}</span>
                         </button>
 
                         <button
@@ -2210,6 +2376,90 @@ Please let us know your available time today! 🙏`;
             </div>
 
             <form onSubmit={handleSavePlan} className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 text-xs font-bold">
+              {/* Current Status Banner */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Current Setup</span>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="font-extrabold text-slate-900 text-sm uppercase">{(selectedPlanHotel.plan || 'Starter')}</span>
+                    <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                      ₹{(selectedPlanHotel.planPrice || (selectedPlanHotel.plan === 'demo' ? 0 : 2499)).toLocaleString()} / {selectedPlanHotel.billingCycle || 'mo'}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Expiry Date</span>
+                  <span className="text-xs font-bold text-slate-700">
+                    {selectedPlanHotel.planEndDate ? new Date(selectedPlanHotel.planEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not set'}
+                  </span>
+                </div>
+              </div>
+
+              {/* ⚡ 1-Click Renewal Extenders */}
+              <div className="p-3.5 bg-slate-950 text-white rounded-2xl space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 block">
+                  ⚡ 1-Click Renewal Quick Extenders:
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const base = planForm.planEndDate && new Date(planForm.planEndDate) > new Date()
+                        ? new Date(planForm.planEndDate)
+                        : new Date();
+                      const next = new Date(base.getTime() + 30 * 24 * 60 * 60 * 1000);
+                      setPlanForm(prev => ({
+                        ...prev,
+                        planStatus: 'active',
+                        planStartDate: prev.planStartDate || new Date().toISOString().split('T')[0],
+                        planEndDate: next.toISOString().split('T')[0]
+                      }));
+                    }}
+                    className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
+                  >
+                    +30 Days (Renew 1 Month)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const base = planForm.planEndDate && new Date(planForm.planEndDate) > new Date()
+                        ? new Date(planForm.planEndDate)
+                        : new Date();
+                      const next = new Date(base.getTime() + 90 * 24 * 60 * 60 * 1000);
+                      setPlanForm(prev => ({
+                        ...prev,
+                        planStatus: 'active',
+                        billingCycle: 'quarterly',
+                        planStartDate: prev.planStartDate || new Date().toISOString().split('T')[0],
+                        planEndDate: next.toISOString().split('T')[0]
+                      }));
+                    }}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
+                  >
+                    +90 Days (Quarterly)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const base = planForm.planEndDate && new Date(planForm.planEndDate) > new Date()
+                        ? new Date(planForm.planEndDate)
+                        : new Date();
+                      const next = new Date(base.getTime() + 365 * 24 * 60 * 60 * 1000);
+                      setPlanForm(prev => ({
+                        ...prev,
+                        planStatus: 'active',
+                        billingCycle: 'yearly',
+                        planStartDate: prev.planStartDate || new Date().toISOString().split('T')[0],
+                        planEndDate: next.toISOString().split('T')[0]
+                      }));
+                    }}
+                    className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
+                  >
+                    +1 Year (Annual)
+                  </button>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-gray-700 uppercase mb-1">Plan Tier</label>
