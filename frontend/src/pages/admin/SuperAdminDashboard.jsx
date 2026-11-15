@@ -604,265 +604,146 @@ const SuperAdminDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex font-sans text-slate-800 antialiased w-full">
-      {/* 📱 Mobile Sidebar Backdrop */}
-      {isMobileSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-40 lg:hidden"
-          onClick={() => setIsMobileSidebarOpen(false)}
-        />
-      )}
-
-      {/* 🏛️ ENTERPRISE LEFT SIDEBAR */}
-      <aside className={`fixed lg:sticky top-0 left-0 z-50 h-screen w-64 xl:w-72 bg-slate-950 text-slate-200 border-r border-slate-850 flex flex-col justify-between transition-transform duration-300 ease-in-out shrink-0 ${
-        isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-      }`}>
-        {/* Top Header & Brand */}
-        <div className="flex flex-col min-h-0">
-          <div className="p-5 border-b border-slate-850 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-750 flex items-center justify-center text-white shrink-0 shadow-inner">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 antialiased">
+      {/* 🏛️ CLEAN ENTERPRISE TOP NAVBAR */}
+      <header className="sticky top-0 z-40 bg-white border-b border-slate-200/90 shadow-2xs">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16 gap-3">
+            {/* Left: Brand & Badge */}
+            <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+              <div className="w-9 h-9 rounded-xl bg-slate-950 text-white flex items-center justify-center font-bold shadow-xs">
                 <Hexagon size={18} className="stroke-[2.5]" />
               </div>
-              <div className="min-w-0">
+              <div>
                 <div className="flex items-center gap-1.5">
-                  <h1 className="font-extrabold text-white text-base tracking-tight">NX<span className="text-slate-400">Hotel</span></h1>
-                  <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700">
-                    SaaS
+                  <h1 className="font-extrabold text-slate-950 text-base tracking-tight">NX<span className="text-slate-400">Hotel</span></h1>
+                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                    Super Admin
                   </span>
                 </div>
-                <p className="text-[10px] font-medium text-slate-400 truncate mt-0.5">Super Admin Headquarters</p>
+                <p className="text-[10px] text-slate-400 font-medium hidden sm:block">Headquarters Command Console</p>
               </div>
             </div>
 
-            {/* Mobile Close Button */}
-            <button 
-              onClick={() => setIsMobileSidebarOpen(false)}
-              className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 cursor-pointer"
-            >
-              <X size={18} />
-            </button>
+            {/* Right: Search, Actions, Profile */}
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="relative hidden md:block w-52 lg:w-64">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search platform..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:ring-1 focus:ring-slate-900 focus:bg-white outline-none transition-all placeholder:text-slate-400"
+                />
+              </div>
+
+              <button
+                onClick={() => {
+                  setNewPropertyForm(prev => ({ ...prev, owner: '', assignedSalesAgent: '' }));
+                  setIsAddPropertyOpen(true);
+                }}
+                className="px-3.5 py-2 bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-xs active:scale-95 flex items-center gap-1.5 cursor-pointer shrink-0"
+              >
+                <Plus size={14} className="stroke-[3]" />
+                <span>+ Register Hotel</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setNewOwnerForm({
+                    name: '',
+                    email: '',
+                    phone: '',
+                    password: 'password123',
+                    role: 'admin',
+                    assignedHostel: null
+                  });
+                  setIsCreateOwnerOpen(true);
+                }}
+                className="hidden sm:inline-flex px-3 py-2 bg-white hover:bg-slate-50 text-slate-750 font-bold text-xs rounded-xl border border-slate-200 transition-all shadow-2xs active:scale-95 items-center gap-1.5 cursor-pointer shrink-0"
+              >
+                <Crown size={13} />
+                <span>+ Owner</span>
+              </button>
+
+              <button
+                onClick={fetchData}
+                disabled={loading}
+                className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl border border-slate-200 transition-all cursor-pointer shrink-0"
+                title="Refresh Data"
+              >
+                <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+              </button>
+
+              {/* User Profile / Logout */}
+              <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
+                <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-800 font-bold text-xs flex items-center justify-center shrink-0">
+                  {user?.name?.charAt(0) || 'A'}
+                </div>
+                <button
+                  onClick={() => logout ? logout() : (localStorage.clear(), window.location.href = '/login')}
+                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                  title="Logout"
+                >
+                  <LogOut size={15} />
+                </button>
+              </div>
+            </div>
           </div>
 
-          {/* Quick Action Button in Sidebar */}
-          <div className="p-4 pb-2">
-            <button
-              onClick={() => {
-                setNewPropertyForm(prev => ({ ...prev, owner: '', assignedSalesAgent: '' }));
-                setIsAddPropertyOpen(true);
-                setIsMobileSidebarOpen(false);
-              }}
-              className="w-full py-2.5 px-3 bg-white hover:bg-slate-100 text-slate-950 font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-sm active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Plus size={14} className="stroke-[3]" />
-              <span>Register Hotel</span>
-            </button>
-          </div>
-
-          {/* Navigation Links */}
-          <div className="p-3 space-y-5 overflow-y-auto flex-1 no-scrollbar">
-            {/* Core Management Group */}
-            <div>
-              <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Core Platform</p>
-              <nav className="space-y-1">
-                {[
-                  { id: 'ecosystem', name: 'Hotel Hierarchy', icon: Network, badge: 'Tree' },
-                  { id: 'hostels', name: 'Properties', icon: Building, badge: hostels.length },
-                  { id: 'owners', name: 'Hotel Owners', icon: Crown, badge: hotelOwners.length },
-                  { id: 'all-users', name: 'Staff & Logins', icon: Users, badge: users.length },
-                ].map(item => {
-                  const Icon = item.icon;
-                  const isActive = activeTab === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        setActiveTab(item.id);
-                        setIsMobileSidebarOpen(false);
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
-                        isActive
-                          ? 'bg-slate-850 text-white shadow-xs border border-slate-750'
-                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Icon size={16} className={isActive ? 'text-white' : 'text-slate-500'} />
-                        <span>{item.name}</span>
-                      </div>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                        isActive ? 'bg-slate-750 text-slate-200' : 'bg-slate-900 text-slate-500'
-                      }`}>
-                        {item.badge}
-                      </span>
-                    </button>
-                  );
-                })}
-              </nav>
-            </div>
-
-            {/* Commercial & Growth Group */}
-            <div>
-              <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Commercial & Growth</p>
-              <nav className="space-y-1">
-                {[
-                  { id: 'subscriptions', name: 'SaaS Subscriptions', icon: CreditCard, badge: `₹${((stats?.totalSaasRevenue || 0)/1000).toFixed(0)}k` },
-                  { id: 'sales', name: 'Sales Executives', icon: Trophy, badge: salesUsers.length },
-                ].map(item => {
-                  const Icon = item.icon;
-                  const isActive = activeTab === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        setActiveTab(item.id);
-                        setIsMobileSidebarOpen(false);
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
-                        isActive
-                          ? 'bg-slate-850 text-white shadow-xs border border-slate-750'
-                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Icon size={16} className={isActive ? 'text-white' : 'text-slate-500'} />
-                        <span>{item.name}</span>
-                      </div>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                        isActive ? 'bg-slate-750 text-slate-200' : 'bg-slate-900 text-slate-500'
-                      }`}>
-                        {item.badge}
-                      </span>
-                    </button>
-                  );
-                })}
-              </nav>
-            </div>
+          {/* 🗂️ HORIZONTAL SEGMENTED PILL TABS BAR */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-2.5 border-t border-slate-100">
+            {[
+              { id: 'ecosystem', name: 'Hierarchy Tree', icon: Network, badge: 'Full' },
+              { id: 'hostels', name: 'Properties', icon: Building, badge: hostels.length },
+              { id: 'owners', name: 'Owners', icon: Crown, badge: hotelOwners.length },
+              { id: 'subscriptions', name: 'Subscriptions', icon: CreditCard, badge: `₹${((stats?.totalSaasRevenue || 0)/1000).toFixed(0)}k` },
+              { id: 'sales', name: 'Sales Team', icon: Trophy, badge: salesUsers.length },
+              { id: 'all-users', name: 'Staff Logins', icon: Users, badge: users.length },
+            ].map(tab => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer shrink-0 ${
+                    isActive
+                      ? 'bg-slate-950 text-white shadow-xs'
+                      : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200'
+                  }`}
+                >
+                  <Icon size={14} className={isActive ? 'text-white' : 'text-slate-500'} />
+                  <span>{tab.name}</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                    isActive ? 'bg-slate-800 text-slate-200' : 'bg-slate-100 text-slate-500'
+                  }`}>
+                    {tab.badge}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
+      </header>
 
-        {/* Sidebar Footer: System Status & User Profile */}
-        <div className="p-4 border-t border-slate-850 bg-slate-950/80 space-y-3">
-          <div className="flex items-center justify-between px-1 text-[11px] font-medium text-slate-400">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>All Systems Live</span>
-            </span>
-            <span className="text-slate-500 text-[10px]">v2.6 Enterprise</span>
-          </div>
-
-          <div className="flex items-center justify-between p-2 rounded-xl bg-slate-900 border border-slate-800">
-            <div className="flex items-center gap-2.5 min-w-0 mr-2">
-              <div className="w-8 h-8 rounded-lg bg-slate-800 text-slate-200 font-bold text-xs flex items-center justify-center shrink-0">
-                {user?.name?.charAt(0) || 'A'}
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-bold text-white truncate">{user?.name || 'Super Admin'}</p>
-                <p className="text-[10px] text-slate-400 truncate">{user?.email || 'admin@hotel.com'}</p>
-              </div>
-            </div>
-            <button
-              onClick={() => logout ? logout() : (localStorage.clear(), window.location.href = '/login')}
-              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-850 rounded-lg transition-colors cursor-pointer"
-              title="Logout"
-            >
-              <LogOut size={15} />
-            </button>
-          </div>
+      {/* Main Body */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        {/* Mobile search bar */}
+        <div className="md:hidden relative w-full">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search platform..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:ring-1 focus:ring-slate-900 outline-none"
+          />
         </div>
-      </aside>
 
-      {/* 🚀 WORKSPACE MAIN CONTAINER */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Sticky Navigation Bar */}
-        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-6 py-3.5 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <button
-              onClick={() => setIsMobileSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 cursor-pointer"
-              aria-label="Open navigation sidebar"
-            >
-              <Menu size={18} />
-            </button>
-
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight capitalize">
-                {activeTab === 'ecosystem' && 'Hotel Business Hierarchy'}
-                {activeTab === 'subscriptions' && 'SaaS Subscription Plans & Revenue'}
-                {activeTab === 'sales' && 'Field Sales Team Leaderboard'}
-                {activeTab === 'owners' && 'Hotel Owners (Clients)'}
-                {activeTab === 'hostels' && 'Registered Hotel Properties'}
-                {activeTab === 'all-users' && 'Staff Accounts & Access Controls'}
-              </h2>
-              <p className="hidden sm:block text-xs text-slate-500 font-medium">
-                {activeTab === 'ecosystem' && 'Multi-tenant architecture: Owner ➔ Properties ➔ Front Desk Staff'}
-                {activeTab === 'subscriptions' && 'Recurring subscription charges, billing cycles & expiration tracking'}
-                {activeTab === 'sales' && 'Field executive targets, property onboarding & lead follow-up performance'}
-                {activeTab === 'owners' && 'Hotel owner profiles, property count, and client management'}
-                {activeTab === 'hostels' && 'Properties directory, room counts, live stays and feature switches'}
-                {activeTab === 'all-users' && 'Manage receptionists, owners, and sales executive credentials'}
-              </p>
-            </div>
-          </div>
-
-          {/* Search & Actions */}
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="relative hidden md:block w-56 lg:w-72">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search platform..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:ring-1 focus:ring-slate-900 focus:bg-white outline-none transition-all placeholder:text-slate-400"
-              />
-            </div>
-
-            <button
-              onClick={fetchData}
-              disabled={loading}
-              className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all cursor-pointer disabled:opacity-50"
-              title="Refresh Data"
-            >
-              <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
-            </button>
-
-            <button
-              onClick={() => {
-                setNewOwnerForm({
-                  name: '',
-                  email: '',
-                  phone: '',
-                  password: 'password123',
-                  role: 'admin',
-                  assignedHostel: null
-                });
-                setIsCreateOwnerOpen(true);
-              }}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-2xs transition-all active:scale-95 cursor-pointer"
-            >
-              <Plus size={14} className="stroke-[2.5]" />
-              <span>+ New Owner</span>
-            </button>
-          </div>
-        </header>
-
-        {/* Main Body Content */}
-        <main className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1600px] w-full mx-auto flex-1">
-          {/* Mobile search bar */}
-          <div className="md:hidden relative w-full">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search platform..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:ring-1 focus:ring-slate-900 outline-none"
-            />
-          </div>
-
-          {/* 📊 Top Enterprise Metrics Bar */}
-          <SuperAdminStats
+        {/* 📊 Top Enterprise Metrics Bar */}
+        <SuperAdminStats
             stats={stats}
             hotelOwnersCount={hotelOwners.length}
             hostelsCount={stats?.totalHostels || hostels.length}
@@ -1620,7 +1501,6 @@ const SuperAdminDashboard = () => {
         </div>
       )}
       </main>
-      </div>
 
       {/* ============================================================== */}
       {/* 👤 MODAL 1: CREATE USER (OWNER / SALES / STAFF) */}

@@ -718,352 +718,223 @@ Please let us know your available time today! 🙏`;
   const overdueFollowUpsCount = stats?.pipeline?.overdueFollowUps || 0;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex font-sans text-slate-800 antialiased w-full">
-      {/* 📱 Mobile Sidebar Backdrop */}
-      {isMobileSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-40 lg:hidden"
-          onClick={() => setIsMobileSidebarOpen(false)}
-        />
-      )}
-
-      {/* 🏛️ ENTERPRISE LEFT SIDEBAR */}
-      <aside className={`fixed lg:sticky top-0 left-0 z-50 h-screen w-64 xl:w-72 bg-slate-950 text-slate-200 border-r border-slate-850 flex flex-col justify-between transition-transform duration-300 ease-in-out shrink-0 ${
-        isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-      }`}>
-        {/* Top Header & Brand */}
-        <div className="flex flex-col min-h-0">
-          <div className="p-5 border-b border-slate-850 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-750 flex items-center justify-center text-white shrink-0 shadow-inner">
-                <Hexagon size={18} className="stroke-[2.5]" />
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 antialiased">
+      {/* 💼 CLEAN ENTERPRISE TOP NAVBAR FOR FIELD SALES */}
+      <header className="sticky top-0 z-40 bg-white border-b border-slate-200/90 shadow-2xs">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16 gap-3">
+            {/* Left: Brand & Role */}
+            <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+              <div className="w-9 h-9 rounded-xl bg-slate-950 text-white flex items-center justify-center font-bold shadow-xs">
+                <Briefcase size={18} />
               </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <h1 className="font-extrabold text-white text-base tracking-tight">NX<span className="text-slate-400">Hotel</span></h1>
-                  <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700">
-                    Sales
-                  </span>
-                </div>
-                <p className="text-[10px] font-medium text-slate-400 truncate mt-0.5">Field Sales Console</p>
-              </div>
-            </div>
-
-            {/* Mobile Close Button */}
-            <button 
-              onClick={() => setIsMobileSidebarOpen(false)}
-              className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 cursor-pointer"
-            >
-              <X size={18} />
-            </button>
-          </div>
-
-          {/* Quick Action Button in Sidebar */}
-          <div className="p-4 pb-2">
-            <button
-              onClick={() => {
-                setPropertyForm(prev => ({ ...prev, owner: '' }));
-                setIsAddPropertyOpen(true);
-                setIsMobileSidebarOpen(false);
-              }}
-              className="w-full py-2.5 px-3 bg-white hover:bg-slate-100 text-slate-950 font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-sm active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Plus size={14} className="stroke-[3]" />
-              <span>Register Hotel</span>
-            </button>
-          </div>
-
-          {/* Navigation Links */}
-          <div className="p-3 space-y-5 overflow-y-auto flex-1 no-scrollbar">
-            {/* Core Management Group */}
-            <div>
-              <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Portfolio & Hierarchy</p>
-              <nav className="space-y-1">
-                {[
-                  { id: 'ecosystem', name: 'Hotel Hierarchy', icon: Network, badge: 'Tree' },
-                  { id: 'properties', name: 'Hotel Properties', icon: Building, badge: hostels.length },
-                  { id: 'owners', name: 'Client Owners', icon: Crown, badge: owners.length },
-                  { id: 'staff', name: 'Front Desk Staff', icon: Users, badge: staffUsers.length },
-                ].map(item => {
-                  const Icon = item.icon;
-                  const isActive = activeTab === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        setActiveTab(item.id);
-                        setIsMobileSidebarOpen(false);
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
-                        isActive
-                          ? 'bg-slate-850 text-white shadow-xs border border-slate-750'
-                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Icon size={16} className={isActive ? 'text-white' : 'text-slate-500'} />
-                        <span>{item.name}</span>
-                      </div>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                        isActive ? 'bg-slate-750 text-slate-200' : 'bg-slate-900 text-slate-500'
-                      }`}>
-                        {item.badge}
-                      </span>
-                    </button>
-                  );
-                })}
-              </nav>
-            </div>
-
-            {/* Sales CRM & Outreach Group */}
-            <div>
-              <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Sales CRM & Outreach</p>
-              <nav className="space-y-1">
-                {[
-                  { 
-                    id: 'leads', 
-                    name: 'Leads & Follow-ups', 
-                    icon: Target, 
-                    badge: (todayFollowUpsCount + overdueFollowUpsCount > 0) ? `${todayFollowUpsCount + overdueFollowUpsCount}` : leads.length 
-                  },
-                  { id: 'outreach', name: 'WhatsApp Pitch', icon: MessageSquare, badge: 'Direct' },
-                ].map(item => {
-                  const Icon = item.icon;
-                  const isActive = activeTab === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        setActiveTab(item.id);
-                        setIsMobileSidebarOpen(false);
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
-                        isActive
-                          ? 'bg-slate-850 text-white shadow-xs border border-slate-750'
-                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Icon size={16} className={isActive ? 'text-white' : 'text-slate-500'} />
-                        <span>{item.name}</span>
-                      </div>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                        isActive ? 'bg-slate-750 text-slate-200' : 'bg-slate-900 text-slate-500'
-                      }`}>
-                        {item.badge}
-                      </span>
-                    </button>
-                  );
-                })}
-              </nav>
-            </div>
-          </div>
-        </div>
-
-        {/* Sidebar Footer: Target Progress & User Profile */}
-        <div className="p-4 border-t border-slate-850 bg-slate-950/80 space-y-3">
-          <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
-            <div className="flex items-center justify-between text-[11px] font-bold text-slate-300">
-              <span className="flex items-center gap-1">
-                <Target size={12} className="text-slate-400" />
-                <span>Monthly Target</span>
-              </span>
-              <span className="text-white font-extrabold">{thisMonthOnboarded}/{monthlyTarget} ({targetProgressPct}%)</span>
-            </div>
-            <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-              <div 
-                className="h-full bg-white rounded-full transition-all duration-500"
-                style={{ width: `${Math.max(5, targetProgressPct)}%` }}
-              />
-            </div>
-            <div className="flex justify-between items-center text-[10px] text-slate-400">
-              <span>{remainingTarget > 0 ? `${remainingTarget} more needed` : 'Target Met 🎉'}</span>
-              <span>{daysLeft}d left</span>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between p-2 rounded-xl bg-slate-900 border border-slate-800">
-            <div className="flex items-center gap-2.5 min-w-0 mr-2">
-              <div className="w-8 h-8 rounded-lg bg-slate-800 text-slate-200 font-bold text-xs flex items-center justify-center shrink-0">
-                {user?.name?.charAt(0) || 'S'}
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-bold text-white truncate">{user?.name || 'Sales Agent'}</p>
-                <p className="text-[10px] text-slate-400 truncate">{user?.email || 'sales@hotel.com'}</p>
-              </div>
-            </div>
-            <button
-              onClick={() => logout ? logout() : (localStorage.clear(), window.location.href = '/login')}
-              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-850 rounded-lg transition-colors cursor-pointer"
-              title="Logout"
-            >
-              <LogOut size={15} />
-            </button>
-          </div>
-        </div>
-      </aside>
-
-      {/* 🚀 WORKSPACE MAIN CONTAINER */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Sticky Navigation Bar */}
-        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-6 py-3.5 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <button
-              onClick={() => setIsMobileSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100 border border-slate-200 cursor-pointer"
-              title="Open Menu"
-            >
-              <Menu size={18} />
-            </button>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400 truncate">
-                <span>Sales Console</span>
-                <span>/</span>
-                <span className="capitalize">{activeTab}</span>
-              </div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-900 truncate">
-                {activeTab === 'ecosystem' && 'Hotel Hierarchy & Accounts'}
-                {activeTab === 'properties' && 'Hotel Properties Management'}
-                {activeTab === 'owners' && 'Hotel Owners (Client Admins)'}
-                {activeTab === 'staff' && 'Front Desk Staff (Receptionists)'}
-                {activeTab === 'leads' && 'Field Leads & Follow-up CRM'}
-                {activeTab === 'outreach' && 'WhatsApp Outreach & Pitches'}
-              </h2>
-            </div>
-          </div>
-
-          {/* Right controls: Live Search & Action CTAs */}
-          <div className="flex items-center gap-2">
-            <div className="relative w-36 sm:w-56 md:w-64">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search hotel, owner, staff..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:ring-1 focus:ring-slate-900 focus:bg-white outline-none transition-all placeholder:text-slate-400"
-              />
-            </div>
-
-            <button
-              onClick={() => setIsCreateOwnerOpen(true)}
-              className="hidden sm:inline-flex px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-2xs active:scale-95 items-center gap-1.5 cursor-pointer shrink-0"
-            >
-              <Crown size={13} />
-              <span>+ Owner</span>
-            </button>
-
-            <button
-              onClick={() => setIsCreateStaffOpen(true)}
-              className="hidden sm:inline-flex px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-2xs active:scale-95 items-center gap-1.5 cursor-pointer shrink-0"
-            >
-              <Users size={13} />
-              <span>+ Staff</span>
-            </button>
-
-            <button
-              onClick={() => setIsLeadModalOpen(true)}
-              className="hidden sm:inline-flex px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-2xs active:scale-95 items-center gap-1.5 cursor-pointer shrink-0"
-            >
-              <Target size={13} />
-              <span>+ Lead</span>
-            </button>
-
-            <button
-              onClick={fetchData}
-              disabled={refreshing}
-              className="p-2 text-slate-600 hover:text-slate-950 hover:bg-slate-100 rounded-xl border border-slate-200 transition-colors cursor-pointer shrink-0"
-              title="Refresh Data"
-            >
-              <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
-            </button>
-          </div>
-        </header>
-
-        {/* Scrollable Viewport */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl w-full mx-auto">
-          {/* 🎯 TARGET GAUGE & KEY METRICS (Responsive Grid) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            {/* Monthly Target Progress Card */}
-            <div className="sm:col-span-2 bg-white p-5 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
               <div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                    <Target size={14} className="text-slate-700" />
-                    <span>Monthly Hotel Onboarding Target</span>
-                  </span>
-                  <span className="text-xs font-bold text-slate-900">
-                    {thisMonthOnboarded} / {monthlyTarget} Hotels ({targetProgressPct}%)
+                <div className="flex items-center gap-1.5">
+                  <h1 className="font-extrabold text-slate-950 text-base tracking-tight">NX<span className="text-slate-400">Hotel</span></h1>
+                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                    Field Sales
                   </span>
                 </div>
-
-                <div className="w-full bg-slate-100 rounded-full h-2.5 mt-3 overflow-hidden border border-slate-200">
-                  <div 
-                    className="h-full bg-slate-900 rounded-full transition-all duration-700"
-                    style={{ width: `${Math.max(4, targetProgressPct)}%` }}
-                  ></div>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center justify-between text-xs text-slate-500 font-medium mt-3 pt-2 border-t border-slate-100 gap-1">
-                <span>{remainingTarget > 0 ? `🎯 Need ${remainingTarget} more hotels` : '🎉 Target achieved!'}</span>
-                <span className="text-slate-600 font-bold">{daysLeft} days left in month</span>
+                <p className="text-[10px] text-slate-400 font-medium hidden sm:block">Client Management & Onboarding</p>
               </div>
             </div>
 
-            {/* My Managed Portfolio Hotels */}
-            <div className="bg-white p-5 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Building size={14} className="text-slate-700" />
-                <span>My Managed Portfolio</span>
-              </span>
-              <div className="my-2">
-                <p className="text-2xl sm:text-3xl font-extrabold text-slate-900">{stats?.myHotelsCount || 0}</p>
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <span className="px-2 py-0.5 text-[10px] font-bold bg-slate-100 text-slate-700 rounded-md border border-slate-200">
-                    {stats?.onboardedByMeCount || 0} Closed by You
-                  </span>
-                  <span className="px-2 py-0.5 text-[10px] font-bold bg-purple-50 text-purple-700 rounded-md border border-purple-200">
-                    {stats?.assignedByAdminCount || 0} Assigned by Admin
-                  </span>
-                </div>
+            {/* Right: Search, Target chip, Primary CTAs, Profile */}
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* Target pill */}
+              <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-xl border border-slate-200 text-xs">
+                <Target size={13} className="text-slate-600" />
+                <span className="font-bold text-slate-900">{thisMonthOnboarded}/{monthlyTarget}</span>
+                <span className="text-slate-400">({targetProgressPct}%)</span>
               </div>
-              <span className="text-[10px] text-slate-400 font-medium">Hotels you manage & support</span>
-            </div>
 
-            {/* Follow-up Alerts & Leads */}
-            <div className="bg-white p-5 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                  <Clock size={14} className="text-rose-600" />
-                  <span>Follow-ups Required</span>
-                </span>
-                {todayFollowUpsCount > 0 && (
-                  <span className="px-2 py-0.5 text-[9px] font-bold bg-rose-50 text-rose-700 rounded-full border border-rose-200 animate-pulse">
-                    {todayFollowUpsCount} Today
-                  </span>
-                )}
+              <div className="relative hidden md:block w-48 lg:w-56">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search portfolio..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:ring-1 focus:ring-slate-900 focus:bg-white outline-none transition-all placeholder:text-slate-400"
+                />
               </div>
-              <div className="my-2">
-                <p className="text-2xl sm:text-3xl font-extrabold text-rose-600">
-                  {todayFollowUpsCount + overdueFollowUpsCount}
-                </p>
-                <p className="text-[11px] text-slate-500 font-medium mt-1">
-                  {overdueFollowUpsCount > 0 ? `⚠️ ${overdueFollowUpsCount} overdue · ` : ''}
-                  {todayFollowUpsCount} scheduled today
-                </p>
-              </div>
+
               <button
                 onClick={() => {
-                  setActiveTab('leads');
-                  setLeadFilterTab(todayFollowUpsCount > 0 ? 'today' : 'all');
+                  setPropertyForm(prev => ({ ...prev, owner: '' }));
+                  setIsAddPropertyOpen(true);
                 }}
-                className="text-[11px] font-bold text-slate-800 hover:text-black text-left cursor-pointer"
+                className="px-3.5 py-2 bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-xs active:scale-95 flex items-center gap-1.5 cursor-pointer shrink-0"
               >
-                View follow-up queue →
+                <Plus size={14} className="stroke-[3]" />
+                <span>+ Register Hotel</span>
               </button>
+
+              <button
+                onClick={() => setIsLeadModalOpen(true)}
+                className="hidden sm:inline-flex px-3 py-2 bg-white hover:bg-slate-50 text-slate-750 font-bold text-xs rounded-xl border border-slate-200 transition-all shadow-2xs active:scale-95 items-center gap-1.5 cursor-pointer shrink-0"
+              >
+                <Target size={13} />
+                <span>+ Lead</span>
+              </button>
+
+              <button
+                onClick={fetchData}
+                disabled={refreshing}
+                className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl border border-slate-200 transition-all cursor-pointer shrink-0"
+                title="Refresh Data"
+              >
+                <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
+              </button>
+
+              {/* User Profile / Logout */}
+              <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
+                <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-800 font-bold text-xs flex items-center justify-center shrink-0">
+                  {user?.name?.charAt(0) || 'S'}
+                </div>
+                <button
+                  onClick={() => logout ? logout() : (localStorage.clear(), window.location.href = '/login')}
+                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                  title="Logout"
+                >
+                  <LogOut size={15} />
+                </button>
+              </div>
             </div>
           </div>
+
+          {/* 🗂️ HORIZONTAL SEGMENTED PILL TABS BAR */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-2.5 border-t border-slate-100">
+            {[
+              { id: 'ecosystem', name: 'Hierarchy Tree', icon: Network, badge: 'Portfolio' },
+              { id: 'leads', name: 'Leads CRM', icon: Target, badge: todayFollowUpsCount + overdueFollowUpsCount > 0 ? `${todayFollowUpsCount + overdueFollowUpsCount}` : leads.length },
+              { id: 'properties', name: 'Properties', icon: Building, badge: hostels.length },
+              { id: 'owners', name: 'Owners', icon: Crown, badge: owners.length },
+              { id: 'staff', name: 'Staff Logins', icon: Users, badge: staffUsers.length },
+              { id: 'outreach', name: 'WhatsApp Pitch', icon: MessageSquare, badge: 'Pitch' },
+            ].map(tab => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer shrink-0 ${
+                    isActive
+                      ? 'bg-slate-950 text-white shadow-xs'
+                      : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200'
+                  }`}
+                >
+                  <Icon size={14} className={isActive ? 'text-white' : 'text-slate-500'} />
+                  <span>{tab.name}</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                    isActive ? 'bg-slate-800 text-slate-200' : 'bg-slate-100 text-slate-500'
+                  }`}>
+                    {tab.badge}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </header>
+
+      {/* Main Body */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        {/* Mobile search bar */}
+        <div className="md:hidden relative w-full">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search portfolio..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:ring-1 focus:ring-slate-900 outline-none"
+          />
+        </div>
+
+        {/* 🎯 TARGET GAUGE & KEY METRICS (Responsive Grid) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          {/* Monthly Target Progress Card */}
+          <div className="sm:col-span-2 bg-white p-5 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                  <Target size={14} className="text-slate-700" />
+                  <span>Monthly Hotel Onboarding Target</span>
+                </span>
+                <span className="text-xs font-bold text-slate-900">
+                  {thisMonthOnboarded} / {monthlyTarget} Hotels ({targetProgressPct}%)
+                </span>
+              </div>
+
+              <div className="w-full bg-slate-100 rounded-full h-2.5 mt-3 overflow-hidden border border-slate-200">
+                <div 
+                  className="h-full bg-slate-900 rounded-full transition-all duration-700"
+                  style={{ width: `${Math.max(4, targetProgressPct)}%` }}
+                ></div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between text-xs text-slate-500 font-medium mt-3 pt-2 border-t border-slate-100 gap-1">
+              <span>{remainingTarget > 0 ? `🎯 Need ${remainingTarget} more hotels` : '🎉 Target achieved!'}</span>
+              <span className="text-slate-600 font-bold">{daysLeft} days left in month</span>
+            </div>
+          </div>
+
+          {/* My Managed Portfolio Hotels */}
+          <div className="bg-white p-5 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <Building size={14} className="text-slate-700" />
+              <span>My Managed Portfolio</span>
+            </span>
+            <div className="my-2">
+              <p className="text-2xl sm:text-3xl font-extrabold text-slate-900">{stats?.myHotelsCount || 0}</p>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <span className="px-2 py-0.5 text-[10px] font-bold bg-slate-100 text-slate-700 rounded-md border border-slate-200">
+                  {stats?.onboardedByMeCount || 0} Closed by You
+                </span>
+                <span className="px-2 py-0.5 text-[10px] font-bold bg-purple-50 text-purple-700 rounded-md border border-purple-200">
+                  {stats?.assignedByAdminCount || 0} Assigned by Admin
+                </span>
+              </div>
+            </div>
+            <span className="text-[10px] text-slate-400 font-medium">Hotels you manage & support</span>
+          </div>
+
+          {/* Follow-up Alerts & Leads */}
+          <div className="bg-white p-5 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <Clock size={14} className="text-rose-600" />
+                <span>Follow-ups Required</span>
+              </span>
+              {todayFollowUpsCount > 0 && (
+                <span className="px-2 py-0.5 text-[9px] font-bold bg-rose-50 text-rose-700 rounded-full border border-rose-200 animate-pulse">
+                  {todayFollowUpsCount} Today
+                </span>
+              )}
+            </div>
+            <div className="my-2">
+              <p className="text-2xl sm:text-3xl font-extrabold text-rose-600">
+                {todayFollowUpsCount + overdueFollowUpsCount}
+              </p>
+              <p className="text-[11px] text-slate-500 font-medium mt-1">
+                {overdueFollowUpsCount > 0 ? `⚠️ ${overdueFollowUpsCount} overdue · ` : ''}
+                {todayFollowUpsCount} scheduled today
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setActiveTab('leads');
+                setLeadFilterTab(todayFollowUpsCount > 0 ? 'today' : 'all');
+              }}
+              className="text-[11px] font-bold text-slate-800 hover:text-black text-left cursor-pointer"
+            >
+              View follow-up queue →
+            </button>
+          </div>
+        </div>
 
       {/* ============================================================== */}
       {/* TAB 1: 🌐 HOTEL ECOSYSTEM - COMPLETE HIERARCHY TREE */}
@@ -2863,53 +2734,6 @@ Please let us know your available time today! 🙏`;
         </div>
       )}
 
-      {/* 📱 MOBILE FLOATING ACTION BAR (Fixed on Mobile Phones for Instant Thumb Access) */}
-      <div className="fixed bottom-3 left-3 right-3 z-40 sm:hidden bg-white/95 backdrop-blur-md border border-gray-200/90 rounded-2xl p-2 shadow-2xl flex items-center justify-around">
-        <button
-          onClick={() => setIsCreateOwnerOpen(true)}
-          className="flex flex-col items-center gap-0.5 text-purple-700 p-1"
-        >
-          <Crown size={16} />
-          <span className="text-[10px] font-black">+ Owner</span>
-        </button>
-
-        <button
-          onClick={() => {
-            setPropertyForm(prev => ({ ...prev, owner: '' }));
-            setIsAddPropertyOpen(true);
-          }}
-          className="flex flex-col items-center gap-0.5 text-indigo-700 p-1"
-        >
-          <Building size={16} />
-          <span className="text-[10px] font-black">+ Hotel</span>
-        </button>
-
-        <button
-          onClick={() => setIsCreateStaffOpen(true)}
-          className="flex flex-col items-center gap-0.5 text-blue-700 p-1"
-        >
-          <Users size={16} />
-          <span className="text-[10px] font-black">+ Staff</span>
-        </button>
-
-        <button
-          onClick={() => setIsLeadModalOpen(true)}
-          className="flex flex-col items-center gap-0.5 text-rose-700 p-1"
-        >
-          <Target size={16} />
-          <span className="text-[10px] font-black">+ Lead</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('outreach')}
-          className="flex flex-col items-center gap-0.5 text-emerald-700 p-1"
-        >
-          <MessageSquare size={16} />
-          <span className="text-[10px] font-black">Pitch</span>
-        </button>
-      </div>
-
-      </div>
     </div>
   );
 };
