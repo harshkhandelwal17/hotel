@@ -15,6 +15,7 @@ import {
   Sparkles, 
   LogOut, 
   ShieldCheck, 
+  ShieldAlert,
   Users, 
   BedDouble, 
   RefreshCw, 
@@ -717,8 +718,43 @@ Please let us know your available time today! 🙏`;
   const todayFollowUpsCount = stats?.pipeline?.todayFollowUps || 0;
   const overdueFollowUpsCount = stats?.pipeline?.overdueFollowUps || 0;
 
+  const isImpersonating = !!(localStorage.getItem('superAdminToken'));
+  const isSuperAdminUser = user?.role === 'superadmin';
+
+  const handleReturnToSuperAdmin = () => {
+    const saToken = localStorage.getItem('superAdminToken');
+    const returnUrl = localStorage.getItem('impersonateReturnUrl') || '/superadmin';
+    if (saToken) {
+      localStorage.setItem('token', saToken);
+      localStorage.removeItem('superAdminToken');
+      localStorage.removeItem('impersonateReturnUrl');
+      localStorage.removeItem('user');
+      window.location.href = returnUrl;
+    } else {
+      window.location.href = '/superadmin';
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 antialiased">
+      {/* ⚠️ IMPERSONATION BANNER */}
+      {isImpersonating && (
+        <div className="bg-amber-600 px-4 py-2 text-xs font-bold uppercase tracking-wider flex items-center justify-between text-white shadow-xs z-50 sticky top-0">
+          <span className="flex items-center gap-2 min-w-0">
+            <ShieldAlert size={14} className="shrink-0" />
+            <span className="truncate">
+              Super Admin Impersonation: Logged in as Field Sales Executive <strong>{user?.name}</strong> ({user?.email})
+            </span>
+          </span>
+          <button
+            onClick={handleReturnToSuperAdmin}
+            className="bg-black/30 hover:bg-black/50 px-3 py-1 rounded-lg text-white font-bold transition-all active:scale-95 cursor-pointer shrink-0 ml-2"
+          >
+            Return to Super Admin HQ →
+          </button>
+        </div>
+      )}
+
       {/* 💼 CLEAN ENTERPRISE TOP NAVBAR FOR FIELD SALES */}
       <header className="sticky top-0 z-40 bg-white border-b border-slate-200/90 shadow-2xs">
         <div className="w-full max-w-[1720px] mx-auto px-3 sm:px-6 lg:px-8">
@@ -758,6 +794,16 @@ Please let us know your available time today! 🙏`;
                   className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:ring-1 focus:ring-slate-900 focus:bg-white outline-none transition-all placeholder:text-slate-400"
                 />
               </div>
+
+              {isSuperAdminUser && (
+                <a
+                  href="/superadmin"
+                  className="hidden sm:inline-flex px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-all shadow-2xs active:scale-95 items-center gap-1.5 cursor-pointer shrink-0"
+                  title="Return to Super Admin Headquarters Console"
+                >
+                  <span>← Back to HQ</span>
+                </a>
+              )}
 
               <button
                 onClick={() => {

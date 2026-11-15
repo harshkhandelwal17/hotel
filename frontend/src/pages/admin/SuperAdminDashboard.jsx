@@ -373,7 +373,13 @@ const SuperAdminDashboard = () => {
         localStorage.setItem('adminGlobalProperty', 'all');
       }
 
-      window.location.href = '/dashboard';
+      if (targetUser.role === 'sales') {
+        window.location.href = '/sales';
+      } else if (targetUser.role === 'superadmin') {
+        window.location.href = '/superadmin';
+      } else {
+        window.location.href = '/dashboard';
+      }
     } catch (err) {
       console.error('Impersonation error:', err);
       alert(err.response?.data?.message || err.message || 'Impersonation failed');
@@ -667,6 +673,15 @@ const SuperAdminDashboard = () => {
                 <span>New Owner</span>
               </button>
 
+              <a
+                href="/sales"
+                className="hidden lg:inline-flex px-3 py-2 bg-white hover:bg-slate-50 text-slate-750 font-bold text-xs rounded-xl border border-slate-200 transition-all shadow-2xs active:scale-95 items-center gap-1.5 cursor-pointer shrink-0"
+                title="Directly launch Field Sales Operations Portal"
+              >
+                <Briefcase size={13} className="text-slate-600" />
+                <span>Sales Portal</span>
+              </a>
+
               <button
                 onClick={fetchData}
                 disabled={loading}
@@ -816,6 +831,8 @@ const SuperAdminDashboard = () => {
           salesData={salesTeamData}
           onOpenCreateSalesAgent={openCreateSalesAgent}
           onResetPassword={handleResetPassword}
+          onImpersonate={handleImpersonate}
+          impersonating={impersonating}
           onRefresh={fetchData}
           loading={loading}
         />

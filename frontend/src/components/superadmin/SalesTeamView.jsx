@@ -20,7 +20,8 @@ import {
   Target,
   Settings,
   MessageSquare,
-  Sparkles
+  Sparkles,
+  LogIn
 } from 'lucide-react';
 
 const SalesTeamView = ({
@@ -28,7 +29,9 @@ const SalesTeamView = ({
   onOpenCreateSalesAgent,
   onResetPassword,
   onRefresh,
-  loading
+  loading,
+  onImpersonate,
+  impersonating
 }) => {
   const [search, setSearch] = useState('');
   const [expandedAgentId, setExpandedAgentId] = useState(null);
@@ -172,6 +175,14 @@ const SalesTeamView = ({
                 className="w-full pl-8 pr-3 py-1.5 bg-white border border-gray-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-black outline-none"
               />
             </div>
+            <a
+              href="/sales"
+              className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-all shadow-2xs active:scale-95 flex items-center gap-1.5 cursor-pointer shrink-0"
+              title="Open Field Sales Operations Portal as Super Admin"
+            >
+              <ExternalLink size={13} />
+              <span>Open Sales Console</span>
+            </a>
             <button
               onClick={onOpenCreateSalesAgent}
               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-1.5 shrink-0"
@@ -314,6 +325,17 @@ const SalesTeamView = ({
                         {/* Actions */}
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
+                            {onImpersonate && (
+                              <button
+                                onClick={(e) => onImpersonate(agent._id, e)}
+                                disabled={impersonating || agent.isActive === false}
+                                title={`Login directly as ${agent.name} (Field Sales)`}
+                                className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center gap-1 active:scale-95 disabled:opacity-50 cursor-pointer shrink-0"
+                              >
+                                <LogIn size={13} />
+                                <span>Login As</span>
+                              </button>
+                            )}
                             {waUrl && (
                               <a
                                 href={waUrl}
