@@ -82,6 +82,7 @@ const SuperAdminDashboard = () => {
     contactNumber: '',
     email: '',
     owner: '',
+    assignedSalesAgent: '',
     upiId: '',
     upiPayeeName: '',
     plan: 'starter',
@@ -260,6 +261,20 @@ const SuperAdminDashboard = () => {
     }
   };
 
+  const handleAssignSalesAgent = async (hostelId, salesAgentId) => {
+    try {
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      const res = await axios.put(`${API}/api/superadmin/hostels/${hostelId}/assign-sales`, {
+        salesAgentId: salesAgentId || null
+      });
+      if (res.data.success) {
+        setHostels(prev => prev.map(h => h._id === hostelId ? { ...h, assignedSalesAgent: res.data.data.assignedSalesAgent } : h));
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to assign sales representative');
+    }
+  };
+
   const handleDeleteHostel = async (hostelId, name) => {
     if (!window.confirm(`⚠️ DANGER: Are you sure you want to completely delete "${name}"?\nAll associated data will be removed. This cannot be undone.`)) return;
     
@@ -430,6 +445,7 @@ const SuperAdminDashboard = () => {
       contactNumber: h.contactNumber || '',
       email: h.email || '',
       owner: h.owner?._id || h.owner || '',
+      assignedSalesAgent: h.assignedSalesAgent?._id || (typeof h.assignedSalesAgent === 'string' ? h.assignedSalesAgent : ''),
       upiId: h.upiId || '',
       upiPayeeName: h.upiPayeeName || ''
     });
@@ -715,6 +731,8 @@ const SuperAdminDashboard = () => {
           owners={filteredOwners}
           hostels={hostels}
           users={users}
+          salesAgents={users.filter(u => u.role === 'sales')}
+          onAssignSalesAgent={handleAssignSalesAgent}
           onImpersonate={handleImpersonate}
           onResetPassword={handleResetPassword}
           onEditUser={openEditUserModal}
@@ -1025,6 +1043,7 @@ const SuperAdminDashboard = () => {
                 <tr>
                   <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Property Details</th>
                   <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Owner (Admin)</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Sales Rep</th>
                   <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Plan & Pricing</th>
                   <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Validity & Status</th>
                   <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Property Access</th>
@@ -1094,6 +1113,36 @@ const SuperAdminDashboard = () => {
                               <div className="text-[10px] font-medium text-gray-400 italic">No owner phone</div>
                             );
                           })()}
+                        </div>
+                      </td>
+
+                      {/* Sales Rep / Account Manager */}
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col gap-1.5 min-w-[150px]">
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-gray-900">
+                            <Briefcase size={12} className="text-purple-600 shrink-0" />
+                            <span className="truncate max-w-[130px]">
+                              {h.assignedSalesAgent?.name || h.onboardedBy?.name || 'Direct (No Rep)'}
+                            </span>
+                            {h.assignedSalesAgent && (
+                              <span className="text-[9px] bg-purple-100 text-purple-800 font-bold px-1 rounded shrink-0">
+                                Assigned
+                              </span>
+                            )}
+                          </div>
+                          <select
+                            value={h.assignedSalesAgent?._id || (typeof h.assignedSalesAgent === 'string' ? h.assignedSalesAgent : '')}
+                            onChange={(e) => handleAssignSalesAgent(h._id, e.target.value)}
+                            className="px-2 py-1 bg-gray-50 border border-gray-200 rounded-lg text-[10px] font-bold text-gray-700 outline-none focus:ring-1 focus:ring-black cursor-pointer shadow-2xs"
+                            title="Assign Sales Executive"
+                          >
+                            <option value="">— Direct / None —</option>
+                            {users.filter(u => u.role === 'sales').map(sa => (
+                              <option key={sa._id} value={sa._id}>
+                                {sa.name}
+                              </option>
+                            ))}
+                          </select>
                         </div>
                       </td>
 
@@ -1668,6 +1717,29 @@ const SuperAdminDashboard = () => {
                 </p>
               </div>
 
+              {/* Assigned Sales Representative (Optional) */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                  <span>Assigned Sales Representative (Optional)</span>
+                  <span className="text-[10px] text-purple-600 font-bold bg-purple-50 px-2 py-0.5 rounded-full">CRM Manager</span>
+                </label>
+                <select
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                  value={newPropertyForm.assignedSalesAgent || ''}
+                  onChange={e => setNewPropertyForm({ ...newPropertyForm, assignedSalesAgent: e.target.value })}
+                >
+                  <option value="">— Direct / None (Managed by Super Admin) —</option>
+                  {users.filter(u => u.role === 'sales').map(sa => (
+                    <option key={sa._id} value={sa._id}>
+                      {sa.name} ({sa.email})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-gray-500 mt-1">
+                  If assigned, this hotel will appear in this sales rep's portal and they can manage demos, staff, and plans for it.
+                </p>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
                   Property Name <span className="text-red-500">*</span>
@@ -2139,6 +2211,26 @@ const SuperAdminDashboard = () => {
                   {hotelOwners.map(u => (
                     <option key={u._id} value={u._id}>
                       {u.name} ({u.email})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Assigned Sales Representative */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                  <span>Assigned Sales Representative</span>
+                  <span className="text-[10px] text-purple-600 font-bold bg-purple-50 px-2 py-0.5 rounded-full">CRM Manager</span>
+                </label>
+                <select
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
+                  value={editPropertyForm.assignedSalesAgent || ''}
+                  onChange={e => setEditPropertyForm({ ...editPropertyForm, assignedSalesAgent: e.target.value })}
+                >
+                  <option value="">— Direct / None (Managed by Super Admin) —</option>
+                  {users.filter(u => u.role === 'sales').map(sa => (
+                    <option key={sa._id} value={sa._id}>
+                      {sa.name} ({sa.email})
                     </option>
                   ))}
                 </select>

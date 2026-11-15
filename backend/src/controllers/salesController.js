@@ -7,6 +7,18 @@ const jwt = require('jsonwebtoken');
 const env = require('../config/env');
 
 /**
+ * 🔒 Verify if sales user is permitted to manage this property
+ */
+const canManageHostel = (user, hostel) => {
+  if (!user || !hostel) return false;
+  if (user.role === 'superadmin') return true;
+  const userIdStr = (user._id || user.id)?.toString();
+  const onboardedByStr = (hostel.onboardedBy?._id || hostel.onboardedBy)?.toString();
+  const assignedAgentStr = (hostel.assignedSalesAgent?._id || hostel.assignedSalesAgent)?.toString();
+  return onboardedByStr === userIdStr || assignedAgentStr === userIdStr;
+};
+
+/**
  * 📊 Get Logged-in Sales Executive's Target & Performance Metrics
  * (STRICT PRIVACY: Shows only this agent's target & numbers, no platform revenue)
  */
@@ -30,6 +42,8 @@ exports.getSalesStats = async (req, res, next) => {
       myActiveHotels, 
       myTrialHotels, 
       thisMonthOnboarded,
+      onboardedByMeCount,
+      assignedByAdminCount,
       totalLeads,
       activeLeads,
       demoLeads,
@@ -37,16 +51,20 @@ exports.getSalesStats = async (req, res, next) => {
       todayFollowUps,
       overdueFollowUps
     ] = await Promise.all([
-      Hostel.find({ onboardedBy: salesUserId }).select('plan planStatus createdAt name'),
-      Hostel.countDocuments({ onboardedBy: salesUserId, planStatus: 'active' }),
+      Hostel.find({ $or: [{ onboardedBy: salesUserId }, { assignedSalesAgent: salesUserId }] }).select('plan planStatus createdAt name'),
+      Hostel.countDocuments({ $or: [{ onboardedBy: salesUserId }, { assignedSalesAgent: salesUserId }], planStatus: 'active' }),
       Hostel.countDocuments({
-        onboardedBy: salesUserId,
-        $or: [{ planStatus: 'trial' }, { plan: 'demo' }]
+        $and: [
+          { $or: [{ onboardedBy: salesUserId }, { assignedSalesAgent: salesUserId }] },
+          { $or: [{ planStatus: 'trial' }, { plan: 'demo' }] }
+        ]
       }),
       Hostel.countDocuments({
         onboardedBy: salesUserId,
         createdAt: { $gte: startOfMonth, $lte: endOfMonth }
       }),
+      Hostel.countDocuments({ onboardedBy: salesUserId }),
+      Hostel.countDocuments({ assignedSalesAgent: salesUserId, onboardedBy: { $ne: salesUserId } }),
       SalesLead.countDocuments({ salesAgent: salesUserId }),
       SalesLead.countDocuments({ salesAgent: salesUserId, status: { $nin: ['won', 'lost'] } }),
       SalesLead.countDocuments({ salesAgent: salesUserId, status: { $in: ['demo_scheduled', 'demo_completed'] } }),
@@ -70,9 +88,11 @@ exports.getSalesStats = async (req, res, next) => {
     const totalDaysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const daysRemainingInMonth = Math.max(0, totalDaysInMonth - now.getDate());
 
-    // Get recent 5 onboardings
-    const recentHotels = await Hostel.find({ onboardedBy: salesUserId })
+    // Get recent 5 onboardings/managed
+    const recentHotels = await Hostel.find({ $or: [{ onboardedBy: salesUserId }, { assignedSalesAgent: salesUserId }] })
       .populate('owner', 'name email phone')
+      .populate('onboardedBy', 'name email')
+      .populate('assignedSalesAgent', 'name email')
       .sort('-createdAt')
       .limit(5)
       .lean();
@@ -91,6 +111,8 @@ exports.getSalesStats = async (req, res, next) => {
         myHotelsCount: myHotels.length,
         myActivePaidCount: myActiveHotels,
         myTrialCount: myTrialHotels,
+        onboardedByMeCount,
+        assignedByAdminCount,
         pipeline: {
           totalLeads,
           activeLeads,
@@ -114,11 +136,18 @@ exports.getSalesStats = async (req, res, next) => {
 exports.getSalesEcosystem = async (req, res, next) => {
   try {
     const salesUserId = req.user.id;
+    const isSuperAdmin = req.user.role === 'superadmin';
 
-    // 1. Get all hostels
-    const allHostels = await Hostel.find()
+    // 1. Get hostels:
+    // Sales person sees hotels they onboarded PLUS hotels assigned to them by Super Admin
+    const hostelQuery = isSuperAdmin 
+      ? {} 
+      : { $or: [{ onboardedBy: salesUserId }, { assignedSalesAgent: salesUserId }] };
+
+    const allHostels = await Hostel.find(hostelQuery)
       .populate('owner', 'name email phone isActive')
-      .populate('onboardedBy', 'name email')
+      .populate('onboardedBy', 'name email phone')
+      .populate('assignedSalesAgent', 'name email phone')
       .sort('-createdAt')
       .lean();
 
@@ -136,7 +165,10 @@ exports.getSalesEcosystem = async (req, res, next) => {
         const endDate = h.planEndDate ? new Date(h.planEndDate) : null;
         const isExpired = h.planStatus === 'expired' || (endDate && endDate < now);
         const daysRemaining = endDate ? Math.ceil((endDate - now) / (1000 * 60 * 60 * 24)) : 0;
-        const isMine = h.onboardedBy?._id?.toString() === salesUserId || h.onboardedBy?.toString() === salesUserId;
+        
+        const isOnboardedByMe = (h.onboardedBy?._id || h.onboardedBy)?.toString() === salesUserId;
+        const isAssignedToMe = (h.assignedSalesAgent?._id || h.assignedSalesAgent)?.toString() === salesUserId;
+        const isMine = isSuperAdmin || isOnboardedByMe || isAssignedToMe;
 
         return {
           ...h,
@@ -145,20 +177,33 @@ exports.getSalesEcosystem = async (req, res, next) => {
           staffMembers,
           isExpired: Boolean(isExpired),
           daysRemaining,
-          isMine
+          isMine,
+          isOnboardedByMe,
+          isAssignedToMe
         };
       })
     );
 
-    // 2. Get Owners (Admins)
-    const owners = await User.find({ role: 'admin' })
+    // 2. Get Owners (Admins) for these hotels
+    const ownerIds = enrichedHostels.map(h => (h.owner?._id || h.owner)?.toString()).filter(Boolean);
+    const ownerQuery = isSuperAdmin 
+      ? { role: 'admin' } 
+      : { 
+          role: 'admin', 
+          $or: [
+            { _id: { $in: ownerIds } },
+            { onboardedBy: salesUserId }
+          ] 
+        };
+
+    const owners = await User.find(ownerQuery)
       .select('name email phone isActive createdAt onboardedBy')
       .sort('-createdAt')
       .lean();
 
     const enrichedOwners = owners.map(o => {
       const ownedHostels = enrichedHostels.filter(h => (h.owner?._id || h.owner)?.toString() === o._id.toString());
-      const isMine = o.onboardedBy?.toString() === salesUserId || ownedHostels.some(h => h.isMine);
+      const isMine = isSuperAdmin || o.onboardedBy?.toString() === salesUserId || ownedHostels.some(h => h.isMine);
       return {
         ...o,
         ownedHostelsCount: ownedHostels.length,
@@ -166,8 +211,19 @@ exports.getSalesEcosystem = async (req, res, next) => {
       };
     });
 
-    // 3. Get Staff (Receptionists)
-    const staffUsers = await User.find({ role: 'receptionist' })
+    // 3. Get Staff (Receptionists) for these hotels
+    const hostelIds = enrichedHostels.map(h => h._id);
+    const staffQuery = isSuperAdmin 
+      ? { role: 'receptionist' } 
+      : { 
+          role: 'receptionist',
+          $or: [
+            { assignedHostel: { $in: hostelIds } },
+            { onboardedBy: salesUserId }
+          ]
+        };
+
+    const staffUsers = await User.find(staffQuery)
       .select('name email phone isActive createdAt assignedHostel onboardedBy')
       .populate('assignedHostel', 'name contactNumber')
       .sort('-createdAt')
@@ -259,6 +315,7 @@ exports.createSalesProperty = async (req, res, next) => {
       email: email ? email.toLowerCase().trim() : undefined,
       owner,
       onboardedBy: salesUserId,
+      assignedSalesAgent: salesUserId,
       plan,
       planStatus: plan === 'demo' ? 'trial' : 'active',
       planPrice: plan === 'demo' ? 0 : 2499,
@@ -342,6 +399,10 @@ exports.updateSalesProperty = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Property not found' });
     }
 
+    if (!canManageHostel(req.user, hostel)) {
+      return res.status(403).json({ success: false, message: 'Not authorized to manage this property' });
+    }
+
     if (name) hostel.name = name.trim();
     if (address !== undefined) hostel.address = address.trim();
     if (contactNumber !== undefined) hostel.contactNumber = contactNumber.trim();
@@ -409,6 +470,10 @@ exports.toggleSalesPropertyFeature = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Property not found' });
     }
 
+    if (!canManageHostel(req.user, hostel)) {
+      return res.status(403).json({ success: false, message: 'Not authorized to manage this property' });
+    }
+
     if (feature === 'aiOcr') {
       hostel.aiOcrEnabled = !hostel.aiOcrEnabled;
     } else if (feature === 'whatsappSync') {
@@ -456,6 +521,10 @@ exports.salesImpersonate = async (req, res, next) => {
 
     if (!hostel && !targetUser) {
       return res.status(404).json({ success: false, message: 'Target property or user not found' });
+    }
+
+    if (hostel && !canManageHostel(req.user, hostel)) {
+      return res.status(403).json({ success: false, message: 'Not authorized to access this property' });
     }
 
     if (!targetUser && hostel) {
@@ -677,6 +746,10 @@ exports.updateSalesPropertyPlan = async (req, res, next) => {
     const hostel = await Hostel.findById(req.params.id);
     if (!hostel) return res.status(404).json({ success: false, message: 'Property not found' });
 
+    if (!canManageHostel(req.user, hostel)) {
+      return res.status(403).json({ success: false, message: 'Not authorized to manage this property' });
+    }
+
     if (plan !== undefined) hostel.plan = plan;
     if (planStatus !== undefined) hostel.planStatus = planStatus;
     if (planStartDate !== undefined) hostel.planStartDate = planStartDate;
@@ -705,6 +778,10 @@ exports.toggleSalesPropertyStatus = async (req, res, next) => {
   try {
     const hostel = await Hostel.findById(req.params.id);
     if (!hostel) return res.status(404).json({ success: false, message: 'Property not found' });
+
+    if (!canManageHostel(req.user, hostel)) {
+      return res.status(403).json({ success: false, message: 'Not authorized to manage this property' });
+    }
     hostel.isActive = hostel.isActive === false ? true : false;
     await hostel.save();
     res.status(200).json({

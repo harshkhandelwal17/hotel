@@ -217,6 +217,8 @@ exports.getAllHostels = async (req, res, next) => {
   try {
     const hostels = await Hostel.find()
       .populate('owner', 'name email phone')
+      .populate('assignedSalesAgent', 'name email phone role')
+      .populate('onboardedBy', 'name email phone role')
       .sort('-createdAt')
       .lean();
 
@@ -530,6 +532,40 @@ exports.updateSalesAgentSettings = async (req, res, next) => {
       success: true,
       message: `✅ Settings updated for ${agent.name}`,
       data: agent
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * 💼 Super Admin Assign or Reassign Sales Representative to a Hotel
+ */
+exports.assignHostelSalesAgent = async (req, res, next) => {
+  try {
+    const { salesAgentId } = req.body;
+    const hostel = await Hostel.findById(req.params.id);
+    if (!hostel) return res.status(404).json({ success: false, message: 'Property not found' });
+
+    if (salesAgentId && salesAgentId !== 'unassigned') {
+      const salesUser = await User.findById(salesAgentId);
+      if (!salesUser) {
+        return res.status(404).json({ success: false, message: 'Sales agent not found' });
+      }
+      hostel.assignedSalesAgent = salesUser._id;
+    } else {
+      hostel.assignedSalesAgent = null;
+    }
+
+    await hostel.save();
+    await hostel.populate('assignedSalesAgent', 'name email phone role');
+    await hostel.populate('onboardedBy', 'name email phone role');
+    await hostel.populate('owner', 'name email phone');
+
+    res.status(200).json({
+      success: true,
+      message: hostel.assignedSalesAgent ? `Property assigned to ${hostel.assignedSalesAgent.name}` : 'Sales assignment cleared (Direct/No Sales Rep)',
+      data: hostel
     });
   } catch (err) {
     next(err);

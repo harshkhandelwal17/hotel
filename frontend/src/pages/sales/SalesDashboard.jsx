@@ -644,7 +644,14 @@ Please let us know your available time today! 🙏`;
   const filteredOwners = owners.filter(o => {
     const match = o.name.toLowerCase().includes(q) || o.email.toLowerCase().includes(q) || (o.phone && o.phone.includes(q));
     if (!match) return false;
-    if (quickFilter === 'mine') return o.isMine;
+    if (quickFilter === 'onboarded') {
+      const owned = hostels.filter(h => (h.owner?._id || h.owner)?.toString() === o._id.toString());
+      return o.onboardedBy?.toString() === user?._id || owned.some(h => h.isOnboardedByMe);
+    }
+    if (quickFilter === 'assigned') {
+      const owned = hostels.filter(h => (h.owner?._id || h.owner)?.toString() === o._id.toString());
+      return owned.some(h => h.isAssignedToMe && !h.isOnboardedByMe);
+    }
     return true;
   });
 
@@ -656,7 +663,8 @@ Please let us know your available time today! 🙏`;
       (h.owner?.name && h.owner.name.toLowerCase().includes(q));
 
     if (!match) return false;
-    if (quickFilter === 'mine') return h.isMine;
+    if (quickFilter === 'onboarded' || quickFilter === 'mine') return h.isOnboardedByMe;
+    if (quickFilter === 'assigned') return h.isAssignedToMe && !h.isOnboardedByMe;
     if (quickFilter === 'active') return h.planStatus === 'active';
     if (quickFilter === 'trial') return h.planStatus === 'trial' || h.plan === 'demo';
     return true;
@@ -799,24 +807,24 @@ Please let us know your available time today! 🙏`;
           </div>
         </div>
 
-        {/* My Onboarded Hotels */}
+        {/* My Managed Portfolio Hotels */}
         <div className="bg-white p-5 rounded-2xl sm:rounded-3xl border border-gray-200 shadow-sm flex flex-col justify-between">
           <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
             <Building size={14} className="text-blue-600" />
-            <span>My Onboarded Hotels</span>
+            <span>My Active Portfolio</span>
           </span>
           <div className="my-2">
             <p className="text-2xl sm:text-3xl font-black text-gray-900">{stats?.myHotelsCount || 0}</p>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-50 text-emerald-700 rounded-md">
-                {stats?.myActivePaidCount || 0} Paid
+                {stats?.onboardedByMeCount || 0} Closed by You
               </span>
-              <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-50 text-amber-700 rounded-md">
-                {stats?.myTrialCount || 0} Trial
+              <span className="px-2 py-0.5 text-[10px] font-bold bg-purple-50 text-purple-700 rounded-md">
+                {stats?.assignedByAdminCount || 0} Assigned by Admin
               </span>
             </div>
           </div>
-          <span className="text-[10px] text-gray-400 font-medium">Properties tagged to you</span>
+          <span className="text-[10px] text-gray-400 font-medium">Hotels you manage & support</span>
         </div>
 
         {/* Follow-up Alerts & Leads */}
@@ -945,7 +953,7 @@ Please let us know your available time today! 🙏`;
           {/* Quick Filter Bar */}
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
             <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mr-1">Filter:</span>
-            {['all', 'mine', 'active', 'trial'].map(filterKey => (
+            {['all', 'onboarded', 'assigned', 'active', 'trial'].map(filterKey => (
               <button
                 key={filterKey}
                 onClick={() => setQuickFilter(filterKey)}
@@ -955,10 +963,11 @@ Please let us know your available time today! 🙏`;
                     : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
                 }`}
               >
-                {filterKey === 'all' && 'All Ecosystem'}
-                {filterKey === 'mine' && '⭐ Onboarded by Me'}
-                {filterKey === 'active' && 'Active Paid'}
-                {filterKey === 'trial' && 'Free Trials / Demos'}
+                {filterKey === 'all' && `All Portfolio (${stats?.myHotelsCount || 0})`}
+                {filterKey === 'onboarded' && `✨ Closed by Me (${stats?.onboardedByMeCount || 0})`}
+                {filterKey === 'assigned' && `👑 Assigned by Admin (${stats?.assignedByAdminCount || 0})`}
+                {filterKey === 'active' && '● Active Paid'}
+                {filterKey === 'trial' && '⏳ Free Trials / Demos'}
               </button>
             ))}
           </div>
@@ -1093,6 +1102,16 @@ Please let us know your available time today! 🙏`;
                               <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                                 <Building size={16} className="text-blue-600 shrink-0" />
                                 <h4 className="text-sm font-black text-gray-900">{hotel.name}</h4>
+                                {hotel.isAssignedToMe && !hotel.isOnboardedByMe && (
+                                  <span className="px-2 py-0.5 text-[9px] font-black rounded-md uppercase tracking-wider bg-purple-100 text-purple-800 border border-purple-200">
+                                    👑 Assigned by Admin
+                                  </span>
+                                )}
+                                {hotel.isOnboardedByMe && (
+                                  <span className="px-2 py-0.5 text-[9px] font-black rounded-md uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                    ✨ Closed by You
+                                  </span>
+                                )}
                                 <span className={`px-2 py-0.5 text-[9px] font-black rounded-md uppercase tracking-wider ${
                                   hotel.planStatus === 'active' 
                                     ? 'bg-emerald-100 text-emerald-800' 
@@ -1507,9 +1526,19 @@ Please let us know your available time today! 🙏`;
                   <tr key={h._id} className="hover:bg-gray-50/80 transition-colors">
                     <td className="px-4 sm:px-6 py-4">
                       <div>
-                        <p className="font-black text-gray-900 text-sm flex items-center gap-1.5">
+                        <p className="font-black text-gray-900 text-sm flex items-center gap-1.5 flex-wrap">
                           <Building size={14} className="text-blue-600 shrink-0" />
                           <span>{h.name}</span>
+                          {h.isAssignedToMe && !h.isOnboardedByMe && (
+                            <span className="px-1.5 py-0.2 text-[9px] font-black rounded uppercase bg-purple-100 text-purple-800 border border-purple-200">
+                              👑 Assigned by Admin
+                            </span>
+                          )}
+                          {h.isOnboardedByMe && (
+                            <span className="px-1.5 py-0.2 text-[9px] font-black rounded uppercase bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              ✨ Closed by You
+                            </span>
+                          )}
                         </p>
                         <p className="text-xs text-gray-500">{h.address || 'No address'}</p>
                       </div>

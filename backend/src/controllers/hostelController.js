@@ -24,6 +24,12 @@ exports.createHostel = async (req, res, next) => {
     }
     if (req.user) {
       payload.onboardedBy = payload.onboardedBy || req.user._id;
+      if (req.user.role === 'sales') {
+        payload.assignedSalesAgent = req.user._id;
+      }
+    }
+    if (payload.assignedSalesAgent === '' || payload.assignedSalesAgent === 'unassigned') {
+      delete payload.assignedSalesAgent;
     }
     const hostel = await Hostel.create(payload);
 
@@ -49,10 +55,17 @@ exports.getHostels = async (req, res, next) => {
       query = Hostel.find({ owner: req.user.id });
     } else if (req.user.role === 'superadmin') {
       query = Hostel.find();
+    } else if (req.user.role === 'sales') {
+      query = Hostel.find({
+        $or: [{ onboardedBy: req.user.id }, { assignedSalesAgent: req.user.id }]
+      });
     } else {
       query = Hostel.find({ _id: req.user.assignedHostel });
     }
-    const hostels = await query;
+    const hostels = await query
+      .populate('owner', 'name email phone')
+      .populate('assignedSalesAgent', 'name email phone')
+      .populate('onboardedBy', 'name email phone');
     res.status(200).json({ success: true, data: hostels });
   } catch (error) {
     next(error);
@@ -64,16 +77,21 @@ exports.getHostel = async (req, res, next) => {
     let query = { _id: req.params.id };
     if (req.user.role === 'admin') {
       query.owner = req.user.id;
-    } else {
+    } else if (req.user.role === 'sales') {
+      query.$or = [{ onboardedBy: req.user.id }, { assignedSalesAgent: req.user.id }];
+    } else if (req.user.role !== 'superadmin') {
       // Receptionist can only access their assigned hostel
-      if (req.user.assignedHostel.toString() !== req.params.id) {
+      if (req.user.assignedHostel?.toString() !== req.params.id) {
         return res.status(403).json({ success: false, message: 'Not authorized to access this hostel' });
       }
     }
     
-    const hostel = await Hostel.findOne(query);
+    const hostel = await Hostel.findOne(query)
+      .populate('owner', 'name email phone')
+      .populate('assignedSalesAgent', 'name email phone')
+      .populate('onboardedBy', 'name email phone');
     if (!hostel) {
-      return res.status(404).json({ success: false, message: 'Hostel not found or not owned by you' });
+      return res.status(404).json({ success: false, message: 'Hostel not found or not owned/managed by you' });
     }
     res.status(200).json({ success: true, data: hostel });
   } catch (error) {
@@ -86,10 +104,12 @@ exports.updateHostel = async (req, res, next) => {
     let query = { _id: req.params.id };
     if (req.user.role === 'admin') {
       query.owner = req.user.id;
+    } else if (req.user.role === 'sales') {
+      query.$or = [{ onboardedBy: req.user.id }, { assignedSalesAgent: req.user.id }];
     }
     let updateData = { ...req.body };
     if (req.user.role !== 'superadmin') {
-      // Normal admins cannot alter plan, dates, or pricing!
+      // Normal admins & sales cannot alter core plan properties through this generic endpoint
       delete updateData.plan;
       delete updateData.planStatus;
       delete updateData.planStartDate;
@@ -98,6 +118,11 @@ exports.updateHostel = async (req, res, next) => {
       delete updateData.billingCycle;
       delete updateData.maxRooms;
       delete updateData.owner;
+      delete updateData.assignedSalesAgent;
+    } else {
+      if (updateData.assignedSalesAgent === '' || updateData.assignedSalesAgent === 'unassigned' || updateData.assignedSalesAgent === null) {
+        updateData.assignedSalesAgent = null;
+      }
     }
 
     if (updateData.email === '' || updateData.email === null) {

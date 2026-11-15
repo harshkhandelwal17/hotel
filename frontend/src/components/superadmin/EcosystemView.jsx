@@ -1,15 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Crown, Building, Users, Mail, Phone, LogIn, KeyRound, 
   Pencil, Plus, Lock, Unlock, Sparkles, MessageSquare, 
   Shirt, ArrowRight, ExternalLink, Calendar, CheckCircle2, AlertTriangle, Clock,
-  Network
+  Network, Briefcase
 } from 'lucide-react';
 
 const EcosystemView = ({ 
   owners = [], 
   hostels = [], 
   users = [], 
+  salesAgents = [],
+  onAssignSalesAgent,
   onImpersonate, 
   onResetPassword, 
   onEditUser, 
@@ -26,6 +28,7 @@ const EcosystemView = ({
   impersonating = false,
   quickFilter = 'all'
 }) => {
+  const [salesFilter, setSalesFilter] = useState('all');
 
   const getRenewalWhatsAppUrl = (owner, hotel) => {
     const phone = owner.phone ? owner.phone.replace(/\D/g, '').slice(-10) : '';
@@ -50,20 +53,31 @@ const EcosystemView = ({
     return `https://wa.me/91${phone}?text=${encodeURIComponent(msg)}`;
   };
 
-  // Filter hostels if a quick filter is active
+  // Filter hostels if a quick filter or sales filter is active
   const filterHotel = (h) => {
-    if (quickFilter === 'all') return true;
-    if (quickFilter === 'active') return h.isActive !== false && !h.isExpired && h.planStatus !== 'trial';
-    if (quickFilter === 'expiringSoon') return h.daysRemaining >= 0 && h.daysRemaining <= 7 && !h.isExpired;
-    if (quickFilter === 'expired') return h.isExpired;
-    if (quickFilter === 'locked') return h.isActive === false;
+    if (quickFilter === 'active' && (h.isActive === false || h.isExpired || h.planStatus === 'trial')) return false;
+    if (quickFilter === 'expiringSoon' && !(h.daysRemaining >= 0 && h.daysRemaining <= 7 && !h.isExpired)) return false;
+    if (quickFilter === 'expired' && !h.isExpired) return false;
+    if (quickFilter === 'locked' && h.isActive !== false) return false;
+
+    if (salesFilter !== 'all') {
+      const assignedId = (h.assignedSalesAgent?._id || h.assignedSalesAgent)?.toString();
+      const onboardedId = (h.onboardedBy?._id || h.onboardedBy)?.toString();
+
+      if (salesFilter === 'unassigned') {
+        if (assignedId || onboardedId) return false;
+      } else {
+        if (assignedId !== salesFilter && onboardedId !== salesFilter) return false;
+      }
+    }
+
     return true;
   };
 
   return (
     <div className="space-y-6">
-      {/* Ecosystem Header Card with Fast Actions */}
-      <div className="bg-white rounded-3xl border border-gray-200 p-5 sm:p-6 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      {/* Ecosystem Header Card with Fast Actions & Sales Filter */}
+      <div className="bg-white rounded-3xl border border-gray-200 p-5 sm:p-6 shadow-xs flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div className="flex items-center gap-3">
           <span className="p-2.5 rounded-2xl bg-purple-100 text-purple-700 shrink-0">
             <Network size={22} />
@@ -76,28 +90,56 @@ const EcosystemView = ({
           </div>
         </div>
 
-        {(onOpenCreateOwner || onOpenRegisterProperty) && (
-          <div className="flex items-center gap-2 shrink-0 flex-wrap">
-            {onOpenCreateOwner && (
-              <button
-                onClick={onOpenCreateOwner}
-                className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-xs active:scale-95 flex items-center gap-1.5 cursor-pointer"
+        <div className="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-end flex-wrap">
+          {salesAgents.length > 0 && (
+            <div className="flex items-center gap-2 bg-purple-50/80 border border-purple-200/70 rounded-2xl px-3 py-1.5 shadow-2xs">
+              <Briefcase size={14} className="text-purple-600 shrink-0" />
+              <span className="text-[11px] font-black uppercase tracking-wider text-purple-900 shrink-0">Sales Rep:</span>
+              <select
+                value={salesFilter}
+                onChange={(e) => setSalesFilter(e.target.value)}
+                className="bg-transparent font-bold text-xs text-purple-950 outline-none cursor-pointer"
               >
-                <Plus size={14} className="stroke-[3]" />
-                <span>+ New Owner</span>
-              </button>
-            )}
-            {onOpenRegisterProperty && (
-              <button
-                onClick={onOpenRegisterProperty}
-                className="px-3.5 py-2 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-xs active:scale-95 flex items-center gap-1.5 cursor-pointer"
-              >
-                <Building size={14} />
-                <span>+ Register Hotel</span>
-              </button>
-            )}
-          </div>
-        )}
+                <option value="all">All Portfolios ({hostels.length} Hotels)</option>
+                <option value="unassigned">Direct / Unassigned ({hostels.filter(h => !(h.assignedSalesAgent || h.onboardedBy)).length})</option>
+                {salesAgents.map(sa => {
+                  const count = hostels.filter(h => 
+                    (h.assignedSalesAgent?._id || h.assignedSalesAgent)?.toString() === sa._id.toString() ||
+                    (h.onboardedBy?._id || h.onboardedBy)?.toString() === sa._id.toString()
+                  ).length;
+                  return (
+                    <option key={sa._id} value={sa._id}>
+                      {sa.name} ({count} Hotels)
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          )}
+
+          {(onOpenCreateOwner || onOpenRegisterProperty) && (
+            <div className="flex items-center gap-2 shrink-0 flex-wrap">
+              {onOpenCreateOwner && (
+                <button
+                  onClick={onOpenCreateOwner}
+                  className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-xs active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Plus size={14} className="stroke-[3]" />
+                  <span>+ New Owner</span>
+                </button>
+              )}
+              {onOpenRegisterProperty && (
+                <button
+                  onClick={onOpenRegisterProperty}
+                  className="px-3.5 py-2 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-xs active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Building size={14} />
+                  <span>+ Register Hotel</span>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {owners.length === 0 ? (
@@ -306,6 +348,43 @@ const EcosystemView = ({
                                   </a>
                                 )}
                               </div>
+                            </div>
+
+                            {/* 💼 Sales Representative / Account Manager Assignment */}
+                            <div className="mt-3 p-2.5 rounded-xl bg-purple-50/70 border border-purple-100 flex items-center justify-between gap-2 flex-wrap">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <Briefcase size={12} className="text-purple-600 shrink-0" />
+                                <span className="text-[11px] font-bold text-gray-500">Sales Rep:</span>
+                                <span className="text-[11px] font-black text-gray-900 truncate">
+                                  {h.assignedSalesAgent?.name || h.onboardedBy?.name || 'Direct (No Rep)'}
+                                </span>
+                                {h.assignedSalesAgent && (
+                                  <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-purple-200/80 text-purple-900 shrink-0">
+                                    Assigned
+                                  </span>
+                                )}
+                                {h.onboardedBy && !h.assignedSalesAgent && (
+                                  <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 shrink-0">
+                                    Onboarded
+                                  </span>
+                                )}
+                              </div>
+
+                              {onAssignSalesAgent && (
+                                <select
+                                  value={h.assignedSalesAgent?._id || (typeof h.assignedSalesAgent === 'string' ? h.assignedSalesAgent : '')}
+                                  onChange={(e) => onAssignSalesAgent(h._id, e.target.value)}
+                                  className="px-2 py-1 bg-white border border-purple-200 rounded-lg text-[10px] font-bold text-purple-900 outline-none focus:ring-1 focus:ring-purple-600 cursor-pointer shadow-2xs"
+                                  title="Assign or reassign hotel to a Sales Executive"
+                                >
+                                  <option value="">— Direct / None —</option>
+                                  {salesAgents.map(sa => (
+                                    <option key={sa._id} value={sa._id}>
+                                      {sa.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
                             </div>
 
                             {/* Live Stats: Rooms & Active Guests */}
