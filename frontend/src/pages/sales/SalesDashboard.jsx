@@ -495,7 +495,9 @@ const SalesDashboard = () => {
       localStorage.setItem('user', JSON.stringify(targetUser));
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
-      if (targetUser.assignedHostel) {
+      if (payload.hostelId) {
+        localStorage.setItem('adminGlobalProperty', payload.hostelId);
+      } else if (targetUser.assignedHostel) {
         const assignedId = typeof targetUser.assignedHostel === 'object' ? targetUser.assignedHostel._id : targetUser.assignedHostel;
         localStorage.setItem('adminGlobalProperty', assignedId);
       } else {

@@ -88,4 +88,8 @@ const seedData = async () => {
   }
 };
 
-seedData();
+if (require.main === module) {
+  seedData();
+}
+
+module.exports = seedData;

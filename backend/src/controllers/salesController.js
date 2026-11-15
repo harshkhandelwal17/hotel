@@ -547,7 +547,9 @@ exports.salesImpersonate = async (req, res, next) => {
       if (targetUser.isActive === false) {
         return res.status(400).json({ success: false, message: 'Cannot login: Account is currently deactivated.' });
       }
-      if (targetUser.assignedHostel) {
+      if (hostelId) {
+        hostel = await Hostel.findById(hostelId);
+      } else if (targetUser.assignedHostel) {
         hostel = await Hostel.findById(targetUser.assignedHostel);
       } else if (targetUser.role === 'admin') {
         hostel = await Hostel.findOne({
@@ -570,6 +572,13 @@ exports.salesImpersonate = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Not authorized to access this property or user account' });
     }
 
+    if (!hostel && targetUser && req.user.role !== 'superadmin') {
+      const isUserOnboardedByMe = targetUser.onboardedBy?.toString() === req.user.id;
+      if (!isUserOnboardedByMe) {
+        return res.status(403).json({ success: false, message: 'Not authorized to access this user account' });
+      }
+    }
+
     if (!targetUser && hostel) {
       targetUser = await User.findOne({ assignedHostel: hostel._id, role: 'receptionist' });
     }
@@ -587,7 +596,11 @@ exports.salesImpersonate = async (req, res, next) => {
 
     // Generate valid JWT token for target user
     const token = jwt.sign(
-      { id: targetUser._id, role: targetUser.role },
+      { 
+        id: targetUser._id, 
+        role: targetUser.role,
+        tokenVersion: targetUser.tokenVersion || 0 
+      },
       env.jwtSecret,
       { expiresIn: '12h' }
     );
