@@ -77,28 +77,28 @@ const EcosystemView = ({
   return (
     <div className="space-y-6">
       {/* Ecosystem Header Card with Fast Actions & Sales Filter */}
-      <div className="bg-white rounded-3xl border border-gray-200 p-5 sm:p-6 shadow-xs flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+      <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div className="flex items-center gap-3">
-          <span className="p-2.5 rounded-2xl bg-purple-100 text-purple-700 shrink-0">
-            <Network size={22} />
-          </span>
+          <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-800 flex items-center justify-center shrink-0">
+            <Network size={20} />
+          </div>
           <div>
-            <h2 className="text-base sm:text-lg font-black text-gray-900">Hotel Business Ecosystem</h2>
-            <p className="text-xs text-gray-500 font-medium mt-0.5">
-              Multi-tenant architecture: Owner (Admin) ➔ Properties Managed ➔ Assigned Front Desk Staff (Receptionists)
+            <h2 className="text-base sm:text-lg font-bold text-slate-900">Hotel Business Hierarchy</h2>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              Multi-tenant architecture: Owner ➔ Registered Properties ➔ Front Desk Staff
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-end flex-wrap">
+        <div className="flex items-center gap-2.5 w-full lg:w-auto justify-between lg:justify-end flex-wrap">
           {salesAgents.length > 0 && (
-            <div className="flex items-center gap-2 bg-purple-50/80 border border-purple-200/70 rounded-2xl px-3 py-1.5 shadow-2xs">
-              <Briefcase size={14} className="text-purple-600 shrink-0" />
-              <span className="text-[11px] font-black uppercase tracking-wider text-purple-900 shrink-0">Sales Rep:</span>
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 shadow-2xs">
+              <Briefcase size={13} className="text-slate-600 shrink-0" />
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 shrink-0">Sales Rep:</span>
               <select
                 value={salesFilter}
                 onChange={(e) => setSalesFilter(e.target.value)}
-                className="bg-transparent font-bold text-xs text-purple-950 outline-none cursor-pointer"
+                className="bg-transparent font-bold text-xs text-slate-900 outline-none cursor-pointer"
               >
                 <option value="all">All Portfolios ({hostels.length} Hotels)</option>
                 <option value="unassigned">Direct / Unassigned ({hostels.filter(h => !(h.assignedSalesAgent || h.onboardedBy)).length})</option>
@@ -122,16 +122,16 @@ const EcosystemView = ({
               {onOpenCreateOwner && (
                 <button
                   onClick={onOpenCreateOwner}
-                  className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-xs active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                  className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-all shadow-2xs active:scale-95 flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Plus size={14} className="stroke-[3]" />
+                  <Plus size={14} className="stroke-[2.5]" />
                   <span>+ New Owner</span>
                 </button>
               )}
               {onOpenRegisterProperty && (
                 <button
                   onClick={onOpenRegisterProperty}
-                  className="px-3.5 py-2 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-xs active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                  className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 font-bold text-xs rounded-xl transition-all shadow-2xs active:scale-95 flex items-center gap-1.5 cursor-pointer"
                 >
                   <Building size={14} />
                   <span>+ Register Hotel</span>
@@ -162,38 +162,38 @@ const EcosystemView = ({
           const displayPhone = owner.phone || propContact || '';
 
           return (
-            <div key={owner._id} className="bg-white rounded-3xl border border-gray-200 shadow-xs overflow-hidden transition-all hover:shadow-md">
+            <div key={owner._id} className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden transition-all hover:border-slate-300">
               {/* 👑 OWNER BANNER ROW */}
-              <div className="p-5 sm:p-6 bg-gradient-to-r from-gray-900 via-gray-950 to-black text-white flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="p-5 sm:p-6 bg-slate-900 text-white flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="w-12 h-12 rounded-2xl bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center justify-center font-black text-lg shrink-0">
+                  <div className="w-11 h-11 rounded-xl bg-slate-800 text-slate-200 border border-slate-700 flex items-center justify-center font-bold text-base shrink-0">
                     {owner.name.charAt(0).toUpperCase()}
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-base sm:text-lg font-black tracking-tight truncate">{owner.name}</h3>
-                      <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-400/30 flex items-center gap-1">
-                        <Crown size={10} />
+                      <h3 className="text-base sm:text-lg font-bold tracking-tight truncate">{owner.name}</h3>
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700 flex items-center gap-1">
+                        <Crown size={10} className="text-slate-400" />
                         <span>Hotel Owner</span>
                       </span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-gray-300">
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-800 text-slate-300">
                         {totalPropsCount} {totalPropsCount === 1 ? 'Property' : 'Properties'}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-3 text-xs text-gray-400 font-medium mt-1.5 flex-wrap">
-                      <span className="flex items-center gap-1 text-gray-300 font-bold">
-                        <Mail size={12} className="text-gray-400" />
+                    <div className="flex items-center gap-3 text-xs text-slate-400 font-medium mt-1.5 flex-wrap">
+                      <span className="flex items-center gap-1 text-slate-300 font-medium">
+                        <Mail size={12} className="text-slate-400" />
                         {owner.email}
                       </span>
                       {displayPhone && (
-                        <a href={`tel:${displayPhone}`} className="flex items-center gap-1 text-emerald-400 hover:underline font-mono font-bold">
+                        <a href={`tel:${displayPhone}`} className="flex items-center gap-1 text-emerald-400 hover:underline font-mono font-medium">
                           <Phone size={12} />
                           {displayPhone}
                         </a>
                       )}
-                      <span className="text-gray-500">
-                        • Total SaaS Fee: <strong className="text-amber-400">₹{totalRevenueForOwner.toLocaleString()}</strong>
+                      <span className="text-slate-400">
+                        • SaaS Collections: <strong className="text-white">₹{totalRevenueForOwner.toLocaleString()}</strong>
                       </span>
                     </div>
                   </div>
@@ -204,7 +204,7 @@ const EcosystemView = ({
                   <button
                     onClick={(e) => onImpersonate(owner._id, e)}
                     disabled={impersonating || owner.isActive === false}
-                    className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer disabled:opacity-50"
+                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer disabled:opacity-50"
                     title={owner.isActive === false ? 'Account is locked' : 'Login directly into this Hotel Owner account'}
                   >
                     <LogIn size={13} />
@@ -213,23 +213,23 @@ const EcosystemView = ({
 
                   <button
                     onClick={() => onResetPassword(owner._id, owner.name)}
-                    className="p-2 bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white rounded-xl transition-all cursor-pointer"
+                    className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded-xl transition-all cursor-pointer"
                     title="Reset Password to default (123456)"
                   >
-                    <KeyRound size={15} />
+                    <KeyRound size={14} />
                   </button>
 
                   <button
                     onClick={() => onEditUser(owner, displayPhone)}
-                    className="p-2 bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white rounded-xl transition-all cursor-pointer"
+                    className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded-xl transition-all cursor-pointer"
                     title="Edit Owner Phone & Name"
                   >
-                    <Pencil size={15} />
+                    <Pencil size={14} />
                   </button>
 
                   <button
                     onClick={() => onOpenAddProperty(owner._id)}
-                    className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                    className="px-3 py-1.5 bg-white text-slate-900 hover:bg-slate-100 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
                   >
                     <Plus size={13} />
                     <span>Add Hotel</span>
@@ -238,7 +238,7 @@ const EcosystemView = ({
               </div>
 
               {/* 🏨 NESTED PROPERTIES */}
-              <div className="p-5 sm:p-6 bg-gray-50/60">
+              <div className="p-5 sm:p-6 bg-slate-50/50">
                 {ownerProps.length === 0 ? (
                   <div className="p-8 text-center border-2 border-dashed border-gray-200 rounded-2xl bg-white text-gray-400">
                     <Building size={32} className="mx-auto mb-2 opacity-40 text-gray-400" />
@@ -302,35 +302,35 @@ const EcosystemView = ({
                             </div>
 
                             {/* SaaS Plan & Billing Card */}
-                            <div className="mt-3 p-3 rounded-xl bg-gray-50/80 border border-gray-100 flex items-center justify-between gap-2 flex-wrap">
+                            <div className="mt-3 p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-2 flex-wrap">
                               <div>
                                 <div className="flex items-center gap-2">
-                                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-200/70 text-slate-800">
                                     {h.plan || 'Starter'} Plan
                                   </span>
-                                  <span className="text-xs font-black text-gray-900">
-                                    ₹{(h.planPrice || 0).toLocaleString()} <span className="text-[10px] text-gray-500 font-normal">/{h.billingCycle || 'mo'}</span>
+                                  <span className="text-xs font-bold text-slate-900">
+                                    ₹{(h.planPrice || 0).toLocaleString()} <span className="text-[10px] text-slate-500 font-normal">/{h.billingCycle || 'mo'}</span>
                                   </span>
                                 </div>
-                                <p className="text-[10px] text-gray-500 font-medium mt-1">
+                                <p className="text-[10px] text-slate-500 font-medium mt-1">
                                   {endDate ? `Expires: ${new Date(endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}` : 'No expiry set'}
                                 </p>
                               </div>
 
                               <div className="flex items-center gap-1.5">
-                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                                   isExpired 
-                                    ? 'bg-red-100 text-red-800 border border-red-200' 
+                                    ? 'bg-rose-50 text-rose-700 border border-rose-200' 
                                     : daysRemaining <= 7 
-                                    ? 'bg-amber-100 text-amber-800 border border-amber-200' 
-                                    : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                    ? 'bg-amber-50 text-amber-700 border border-amber-200' 
+                                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                 }`}>
                                   {isExpired ? '⚠️ Expired' : `${daysRemaining}d left`}
                                 </span>
 
                                 <button
                                   onClick={() => onOpenPlanModal(h)}
-                                  className="px-2.5 py-1 text-[11px] font-black text-indigo-600 hover:text-indigo-800 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors cursor-pointer"
+                                  className="px-2.5 py-1 text-[11px] font-bold text-slate-800 hover:text-black bg-white border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
                                 >
                                   Edit Plan
                                 </button>
@@ -340,7 +340,7 @@ const EcosystemView = ({
                                     href={waReminderUrl}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="p-1 px-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-[10px] font-bold flex items-center gap-1 transition-colors shadow-2xs"
+                                    className="p-1 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold flex items-center gap-1 transition-colors shadow-2xs"
                                     title="Send WhatsApp Renewal Reminder to Owner"
                                   >
                                     <MessageSquare size={10} />
@@ -351,20 +351,20 @@ const EcosystemView = ({
                             </div>
 
                             {/* 💼 Sales Representative / Account Manager Assignment */}
-                            <div className="mt-3 p-2.5 rounded-xl bg-purple-50/70 border border-purple-100 flex items-center justify-between gap-2 flex-wrap">
+                            <div className="mt-3 p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-2 flex-wrap">
                               <div className="flex items-center gap-1.5 min-w-0">
-                                <Briefcase size={12} className="text-purple-600 shrink-0" />
-                                <span className="text-[11px] font-bold text-gray-500">Sales Rep:</span>
-                                <span className="text-[11px] font-black text-gray-900 truncate">
+                                <Briefcase size={12} className="text-slate-500 shrink-0" />
+                                <span className="text-[11px] font-medium text-slate-500">Sales Rep:</span>
+                                <span className="text-[11px] font-bold text-slate-900 truncate">
                                   {h.assignedSalesAgent?.name || h.onboardedBy?.name || 'Direct (No Rep)'}
                                 </span>
                                 {h.assignedSalesAgent && (
-                                  <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-purple-200/80 text-purple-900 shrink-0">
+                                  <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-200 text-slate-800 shrink-0">
                                     Assigned
                                   </span>
                                 )}
                                 {h.onboardedBy && !h.assignedSalesAgent && (
-                                  <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 shrink-0">
+                                  <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-200 text-slate-800 shrink-0">
                                     Onboarded
                                   </span>
                                 )}
@@ -374,7 +374,7 @@ const EcosystemView = ({
                                 <select
                                   value={h.assignedSalesAgent?._id || (typeof h.assignedSalesAgent === 'string' ? h.assignedSalesAgent : '')}
                                   onChange={(e) => onAssignSalesAgent(h._id, e.target.value)}
-                                  className="px-2 py-1 bg-white border border-purple-200 rounded-lg text-[10px] font-bold text-purple-900 outline-none focus:ring-1 focus:ring-purple-600 cursor-pointer shadow-2xs"
+                                  className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-800 outline-none focus:ring-1 focus:ring-black cursor-pointer shadow-2xs"
                                   title="Assign or reassign hotel to a Sales Executive"
                                 >
                                   <option value="">— Direct / None —</option>
@@ -389,32 +389,32 @@ const EcosystemView = ({
 
                             {/* Live Stats: Rooms & Active Guests */}
                             <div className="mt-3 grid grid-cols-2 gap-2 text-center text-xs">
-                              <div className="p-2 rounded-xl bg-gray-50 border border-gray-100">
-                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Total Rooms</span>
-                                <span className="font-black text-gray-900 text-sm">{h.roomCount || 0} Rooms</span>
+                              <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+                                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Total Rooms</span>
+                                <span className="font-bold text-slate-900 text-sm">{h.roomCount || 0} Rooms</span>
                               </div>
-                              <div className="p-2 rounded-xl bg-gray-50 border border-gray-100">
-                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Active Stays</span>
-                                <span className="font-black text-emerald-600 text-sm">{h.activeStaysCount || 0} Checked In</span>
+                              <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+                                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Active Stays</span>
+                                <span className="font-bold text-slate-900 text-sm">{h.activeStaysCount || 0} Checked In</span>
                               </div>
                             </div>
 
                             {/* Feature Toggles */}
-                            <div className="mt-3 flex items-center justify-between gap-1 pt-2 border-t border-gray-100 text-[10px]">
+                            <div className="mt-3 flex items-center justify-between gap-1 pt-2 border-t border-slate-100 text-[10px]">
                               <button
                                 onClick={() => onToggleAiOcr(h._id)}
                                 className={`px-2 py-1 rounded-lg font-bold flex items-center gap-1 transition-all cursor-pointer ${
-                                  h.aiOcrEnabled ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-gray-100 text-gray-400'
+                                  h.aiOcrEnabled ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                                 }`}
                               >
                                 <Sparkles size={11} />
-                                <span>AI OCR: {h.aiOcrEnabled ? 'ON' : 'OFF'}</span>
+                                <span>AI Scanner: {h.aiOcrEnabled ? 'ON' : 'OFF'}</span>
                               </button>
 
                               <button
                                 onClick={() => onToggleWhatsAppSync(h._id)}
                                 className={`px-2 py-1 rounded-lg font-bold flex items-center gap-1 transition-all cursor-pointer ${
-                                  h.whatsappSyncEnabled ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-gray-100 text-gray-400'
+                                  h.whatsappSyncEnabled ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                                 }`}
                               >
                                 <MessageSquare size={11} />
@@ -424,7 +424,7 @@ const EcosystemView = ({
                               <button
                                 onClick={() => onToggleLaundry(h._id)}
                                 className={`px-2 py-1 rounded-lg font-bold flex items-center gap-1 transition-all cursor-pointer ${
-                                  h.laundryEnabled ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-gray-100 text-gray-400'
+                                  h.laundryEnabled ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                                 }`}
                               >
                                 <Shirt size={11} />

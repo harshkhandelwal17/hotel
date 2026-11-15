@@ -19,141 +19,127 @@ const SuperAdminStats = ({
       label: 'Hotel Owners', 
       value: hotelOwnersCount, 
       icon: Crown, 
-      color: 'text-purple-600', 
-      bg: 'bg-purple-50', 
-      sub: 'Admins / Clients',
-      filterKey: 'all'
+      sub: 'Verified Clients'
     },
     { 
-      label: 'Properties', 
+      label: 'Total Properties', 
       value: hostelsCount, 
       icon: Building, 
-      color: 'text-blue-600', 
-      bg: 'bg-blue-50', 
-      sub: `${activeHostelsCount} Active`,
-      filterKey: 'all'
+      sub: `${activeHostelsCount} Active Properties`
     },
     { 
-      label: 'SaaS Plan Revenue', 
+      label: 'Platform ARR / Revenue', 
       value: `₹${(stats?.totalSaasRevenue || 0).toLocaleString()}`, 
       icon: IndianRupee, 
-      color: 'text-emerald-600', 
-      bg: 'bg-emerald-50', 
-      sub: 'Platform Earnings',
-      filterKey: 'all'
+      sub: 'Subscription Collections'
     },
     { 
       label: 'Active Subscriptions', 
       value: stats?.activeSubscriptions || 0, 
       icon: CheckCircle2, 
-      color: 'text-emerald-600', 
-      bg: 'bg-emerald-50', 
-      sub: `${stats?.expiringSoonSubscriptions || 0} Expiring in 7d`,
-      filterKey: 'active'
+      sub: `${stats?.expiringSoonSubscriptions || 0} Expiring in 7 Days`
     },
     { 
       label: 'Reception Staff', 
       value: staffCount, 
       icon: Users, 
-      color: 'text-indigo-600', 
-      bg: 'bg-indigo-50', 
-      sub: 'Assigned Users',
-      filterKey: 'all'
+      sub: 'Active User Accounts'
     },
     { 
-      label: 'Total Rooms', 
+      label: 'Total Hotel Rooms', 
       value: stats?.totalRooms || 0, 
       icon: BedDouble, 
-      color: 'text-cyan-600', 
-      bg: 'bg-cyan-50', 
-      sub: `${stats?.activeStays || 0} Occupied`,
-      filterKey: 'all'
+      sub: `${stats?.activeStays || 0} Occupied Stays`
     }
   ];
 
   return (
     <div className="space-y-3">
-      {/* 6 High Impact Metric Cards */}
+      {/* 6 Clean Enterprise Metric Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
         {cards.map((s, i) => (
           <div 
             key={i} 
-            className="bg-white p-4 sm:p-5 rounded-3xl border border-gray-100 shadow-sm flex flex-col items-center text-center hover:-translate-y-1 transition-transform"
+            className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition-all flex flex-col justify-between"
           >
-            <div className={`p-3 rounded-2xl ${s.bg} ${s.color} mb-2`}>
-              <s.icon size={22} />
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{s.label}</span>
+              <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+                <s.icon size={16} />
+              </div>
             </div>
-            <h3 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">{s.value}</h3>
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">{s.label}</p>
-            {s.sub && <p className="text-[9px] font-bold text-gray-500 mt-0.5">{s.sub}</p>}
+            <div>
+              <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">{s.value}</h3>
+              {s.sub && <p className="text-[11px] font-medium text-slate-400 mt-0.5 truncate">{s.sub}</p>}
+            </div>
           </div>
         ))}
       </div>
 
-      {/* Quick Status Filter Bar (Instant Focus for SaaS Super Admins) */}
+      {/* Quick Status Filter Bar */}
       {onQuickFilterChange && (
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
-          <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 mr-1 shrink-0">
-            Quick Filter:
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1 shrink-0">
+            Status:
           </span>
 
           <button
             onClick={() => onQuickFilterChange('all')}
-            className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
               quickFilter === 'all'
-                ? 'bg-black text-white shadow-xs'
-                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
             }`}
           >
-            All ({hostelsCount})
-          </button>
-
-          <button
-            onClick={() => onQuickFilterChange('expiringSoon')}
-            className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1 ${
-              quickFilter === 'expiringSoon'
-                ? 'bg-amber-500 text-white shadow-xs'
-                : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200'
-            }`}
-          >
-            <Clock size={12} />
-            <span>Expiring in 7 Days ({stats?.expiringSoonSubscriptions || 0})</span>
-          </button>
-
-          <button
-            onClick={() => onQuickFilterChange('expired')}
-            className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1 ${
-              quickFilter === 'expired'
-                ? 'bg-red-600 text-white shadow-xs'
-                : 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'
-            }`}
-          >
-            <AlertTriangle size={12} />
-            <span>Expired ({stats?.expiredSubscriptions || 0})</span>
+            All Properties ({hostelsCount})
           </button>
 
           <button
             onClick={() => onQuickFilterChange('active')}
-            className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
               quickFilter === 'active'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
             }`}
           >
-            <CheckCircle2 size={12} />
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
             <span>Active Paid ({stats?.activeSubscriptions || 0})</span>
           </button>
 
           <button
-            onClick={() => onQuickFilterChange('locked')}
-            className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1 ${
-              quickFilter === 'locked'
-                ? 'bg-gray-900 text-white shadow-xs'
-                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+            onClick={() => onQuickFilterChange('expiringSoon')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              quickFilter === 'expiringSoon'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'bg-white text-amber-700 hover:bg-amber-50/50 border border-amber-200'
             }`}
           >
-            <Lock size={12} />
-            <span>Locked / Inactive ({lockedHostelsCount})</span>
+            <Clock size={12} className="text-amber-600" />
+            <span>Expiring Soon ({stats?.expiringSoonSubscriptions || 0})</span>
+          </button>
+
+          <button
+            onClick={() => onQuickFilterChange('expired')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              quickFilter === 'expired'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'bg-white text-rose-700 hover:bg-rose-50/50 border border-rose-200'
+            }`}
+          >
+            <AlertTriangle size={12} className="text-rose-600" />
+            <span>Expired ({stats?.expiredSubscriptions || 0})</span>
+          </button>
+
+          <button
+            onClick={() => onQuickFilterChange('locked')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              quickFilter === 'locked'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+            }`}
+          >
+            <Lock size={12} className="text-slate-400" />
+            <span>Locked ({lockedHostelsCount})</span>
           </button>
         </div>
       )}

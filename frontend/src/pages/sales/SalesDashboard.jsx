@@ -741,7 +741,7 @@ Please let us know your available time today! 🙏`;
           <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
             <button
               onClick={() => setIsCreateOwnerOpen(true)}
-              className="flex-1 sm:flex-initial px-3.5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5"
+              className="flex-1 sm:flex-initial px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-2xs active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Crown size={14} />
               <span>+ Owner</span>
@@ -752,7 +752,7 @@ Please let us know your available time today! 🙏`;
                 setPropertyForm(prev => ({ ...prev, owner: '' }));
                 setIsAddPropertyOpen(true);
               }}
-              className="flex-1 sm:flex-initial px-3.5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5"
+              className="flex-1 sm:flex-initial px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-2xs active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Building size={14} />
               <span>+ Property</span>
@@ -760,7 +760,7 @@ Please let us know your available time today! 🙏`;
 
             <button
               onClick={() => setIsCreateStaffOpen(true)}
-              className="flex-1 sm:flex-initial px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5"
+              className="flex-1 sm:flex-initial px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-2xs active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Users size={14} />
               <span>+ Staff</span>
@@ -769,7 +769,7 @@ Please let us know your available time today! 🙏`;
             <button
               onClick={fetchData}
               disabled={refreshing}
-              className="p-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl transition-colors border border-gray-700 active:scale-95"
+              className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors border border-slate-700 active:scale-95 cursor-pointer"
               title="Refresh Data"
             >
               <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
@@ -781,29 +781,29 @@ Please let us know your available time today! 🙏`;
       {/* 🎯 TARGET GAUGE & KEY METRICS (Responsive Grid) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Monthly Target Progress Card */}
-        <div className="sm:col-span-2 bg-white p-5 rounded-2xl sm:rounded-3xl border border-gray-200 shadow-sm flex flex-col justify-between">
+        <div className="sm:col-span-2 bg-white p-5 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
-                <Target size={14} className="text-indigo-600" />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <Target size={14} className="text-slate-700" />
                 <span>Monthly Hotel Onboarding Target</span>
               </span>
-              <span className="text-xs font-black text-gray-900">
+              <span className="text-xs font-bold text-slate-900">
                 {thisMonthOnboarded} / {monthlyTarget} Hotels ({targetProgressPct}%)
               </span>
             </div>
 
-            <div className="w-full bg-gray-100 rounded-full h-3 mt-3 overflow-hidden border border-gray-200">
+            <div className="w-full bg-slate-100 rounded-full h-2.5 mt-3 overflow-hidden border border-slate-200">
               <div 
-                className="h-full bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full transition-all duration-700"
+                className="h-full bg-slate-900 rounded-full transition-all duration-700"
                 style={{ width: `${Math.max(4, targetProgressPct)}%` }}
               ></div>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between text-xs text-gray-500 font-semibold mt-3 pt-2 border-t border-gray-100 gap-1">
+          <div className="flex flex-wrap items-center justify-between text-xs text-slate-500 font-medium mt-3 pt-2 border-t border-slate-100 gap-1">
             <span>{remainingTarget > 0 ? `🎯 Need ${remainingTarget} more hotels` : '🎉 Target achieved!'}</span>
-            <span className="text-amber-600 font-bold">{daysLeft} days left in month</span>
+            <span className="text-slate-600 font-bold">{daysLeft} days left in month</span>
           </div>
         </div>
 

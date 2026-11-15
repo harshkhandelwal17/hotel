@@ -81,9 +81,7 @@ function App() {
 
           {/* Superadmin Headquarters only */}
           <Route element={<ProtectedRoute allowedRoles={['superadmin']} />}>
-            <Route element={<AppLayout />}>
-              <Route path="/superadmin" element={<SuperAdminDashboard />} />
-            </Route>
+            <Route path="/superadmin" element={<SuperAdminDashboard />} />
           </Route>
 
           {/* Sales Executive Portal */}
