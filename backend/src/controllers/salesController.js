@@ -539,15 +539,26 @@ exports.salesImpersonate = async (req, res, next) => {
     let hostel = null;
     let targetUser = null;
 
-    if (hostelId) {
+    if (userId) {
+      targetUser = await User.findById(userId);
+      if (!targetUser) {
+        return res.status(404).json({ success: false, message: 'User not found' });
+      }
+      if (targetUser.isActive === false) {
+        return res.status(400).json({ success: false, message: 'Cannot login: Account is currently deactivated.' });
+      }
+      if (targetUser.assignedHostel) {
+        hostel = await Hostel.findById(targetUser.assignedHostel);
+      } else if (targetUser.role === 'admin') {
+        hostel = await Hostel.findOne({
+          owner: targetUser._id,
+          $or: [{ onboardedBy: req.user.id }, { assignedSalesAgent: req.user.id }]
+        }) || await Hostel.findOne({ owner: targetUser._id });
+      }
+    } else if (hostelId) {
       hostel = await Hostel.findById(hostelId).populate('owner');
       if (hostel) {
         targetUser = hostel.owner;
-      }
-    } else if (userId) {
-      targetUser = await User.findById(userId);
-      if (targetUser) {
-        hostel = await Hostel.findOne({ owner: targetUser._id }) || await Hostel.findById(targetUser.assignedHostel);
       }
     }
 
@@ -556,7 +567,7 @@ exports.salesImpersonate = async (req, res, next) => {
     }
 
     if (hostel && !canManageHostel(req.user, hostel)) {
-      return res.status(403).json({ success: false, message: 'Not authorized to access this property' });
+      return res.status(403).json({ success: false, message: 'Not authorized to access this property or user account' });
     }
 
     if (!targetUser && hostel) {
@@ -641,10 +652,18 @@ exports.resetClientPassword = async (req, res, next) => {
  */
 exports.getSalesLeads = async (req, res, next) => {
   try {
-    const salesUserId = req.user.id;
-    const { status, priority, search } = req.query;
+    const isSuperAdmin = req.user.role === 'superadmin';
+    const { status, priority, search, agentId } = req.query;
 
-    const query = { salesAgent: salesUserId };
+    const query = {};
+    if (isSuperAdmin) {
+      if (agentId && agentId !== 'all') {
+        query.salesAgent = agentId;
+      }
+    } else {
+      query.salesAgent = req.user.id;
+    }
+
     if (status && status !== 'all') query.status = status;
     if (priority && priority !== 'all') query.priority = priority;
 
@@ -659,7 +678,11 @@ exports.getSalesLeads = async (req, res, next) => {
       ];
     }
 
-    const leads = await SalesLead.find(query).sort('-createdAt').lean();
+    const leads = await SalesLead.find(query)
+      .populate('salesAgent', 'name email phone')
+      .sort('-updatedAt')
+      .lean();
+
     res.status(200).json({
       success: true,
       count: leads.length,
@@ -732,7 +755,9 @@ exports.createSalesLead = async (req, res, next) => {
 exports.updateSalesLead = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const lead = await SalesLead.findOne({ _id: id, salesAgent: req.user.id });
+    const isSuperAdmin = req.user.role === 'superadmin';
+    const leadQuery = isSuperAdmin ? { _id: id } : { _id: id, salesAgent: req.user.id };
+    const lead = await SalesLead.findOne(leadQuery);
     if (!lead) {
       return res.status(404).json({ success: false, message: 'Lead not found or unauthorized' });
     }
@@ -754,7 +779,9 @@ exports.updateSalesLead = async (req, res, next) => {
 exports.deleteSalesLead = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const lead = await SalesLead.findOne({ _id: id, salesAgent: req.user.id });
+    const isSuperAdmin = req.user.role === 'superadmin';
+    const leadQuery = isSuperAdmin ? { _id: id } : { _id: id, salesAgent: req.user.id };
+    const lead = await SalesLead.findOne(leadQuery);
     if (!lead) {
       return res.status(404).json({ success: false, message: 'Lead not found or unauthorized' });
     }
@@ -852,8 +879,10 @@ exports.toggleSalesUserStatus = async (req, res, next) => {
 exports.addLeadFollowUp = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { note, nextFollowUpDate, status } = req.body;
-    const lead = await SalesLead.findOne({ _id: id, salesAgent: req.user.id });
+    const { note, nextFollowUpDate, status, priority } = req.body;
+    const isSuperAdmin = req.user.role === 'superadmin';
+    const leadQuery = isSuperAdmin ? { _id: id } : { _id: id, salesAgent: req.user.id };
+    const lead = await SalesLead.findOne(leadQuery);
     if (!lead) return res.status(404).json({ success: false, message: 'Lead not found or unauthorized' });
 
     if (note && note.trim()) {
@@ -861,12 +890,14 @@ exports.addLeadFollowUp = async (req, res, next) => {
         note: note.trim(),
         followUpDate: nextFollowUpDate ? new Date(nextFollowUpDate) : undefined,
         status: status || lead.status,
+        by: req.user.name || (isSuperAdmin ? 'Super Admin' : 'Sales Executive'),
         createdAt: new Date()
       });
       lead.notes = note.trim();
     }
     if (nextFollowUpDate) lead.nextFollowUpDate = new Date(nextFollowUpDate);
     if (status) lead.status = status;
+    if (priority) lead.priority = priority;
 
     await lead.save();
 

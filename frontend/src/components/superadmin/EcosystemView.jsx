@@ -119,21 +119,42 @@ const EcosystemView = ({
         </div>
       </div>
 
-      {owners.length === 0 ? (
-        <div className="p-12 text-center bg-white rounded-3xl border border-gray-200 text-gray-400">
-          <Users size={36} className="mx-auto mb-2 opacity-30 text-gray-400" />
-          <p className="font-bold text-gray-700 text-sm">No hotel owners found matching search criteria</p>
-        </div>
-      ) : (
-        owners.map((owner) => {
+      {/* Calculate visible owners matching active status and rep filters */}
+      {(() => {
+        const displayedOwners = owners.map(owner => {
           let ownerProps = hostels.filter(h => (h.owner?._id || h.owner) === owner._id);
           const totalPropsCount = ownerProps.length;
-          
-          if (quickFilter !== 'all') {
+          if (quickFilter !== 'all' || salesFilter !== 'all') {
             ownerProps = ownerProps.filter(filterHotel);
-            if (ownerProps.length === 0) return null; // Hide owner if none of their hotels match the filter
           }
+          return { owner, ownerProps, totalPropsCount };
+        }).filter(item => (quickFilter === 'all' && salesFilter === 'all') || item.ownerProps.length > 0);
 
+        if (displayedOwners.length === 0) {
+          const filterLabel = quickFilter === 'active' ? 'Active Paid' :
+                              quickFilter === 'expiringSoon' ? 'Expiring Soon' :
+                              quickFilter === 'expired' ? 'Expired' :
+                              quickFilter === 'locked' ? 'Locked / Inactive' : quickFilter;
+          return (
+            <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 text-slate-400">
+              <Building size={36} className="mx-auto mb-2 opacity-30 text-slate-400" />
+              <p className="font-bold text-slate-700 text-sm">
+                {quickFilter !== 'all' 
+                  ? `No properties match the "${filterLabel}" status filter`
+                  : salesFilter !== 'all'
+                  ? 'No properties found for the selected sales representative'
+                  : 'No hotel owners found matching search criteria'}
+              </p>
+              <p className="text-xs text-slate-400 mt-1">
+                {quickFilter !== 'all' || salesFilter !== 'all'
+                  ? 'Switch back to "All Properties" or "All Portfolios" to view your complete hotel hierarchy.'
+                  : 'Create a new hotel owner account using the button above to begin onboarding.'}
+              </p>
+            </div>
+          );
+        }
+
+        return displayedOwners.map(({ owner, ownerProps, totalPropsCount }) => {
           const totalRevenueForOwner = ownerProps.reduce((sum, h) => sum + (Number(h.planPrice) || 0), 0);
           const propContact = ownerProps.find(p => p.contactNumber && p.contactNumber !== 'N/A' && p.contactNumber.trim() !== '')?.contactNumber;
           const displayPhone = owner.phone || propContact || '';
@@ -459,8 +480,8 @@ const EcosystemView = ({
               </div>
             </div>
           );
-        })
-      )}
+        });
+      })()}
     </div>
   );
 };

@@ -174,10 +174,12 @@ const SalesDashboard = () => {
 
   // 📅 Modal 9: Log Follow-up for Lead
   const [followUpModalLead, setFollowUpModalLead] = useState(null);
+  const [historyModalLead, setHistoryModalLead] = useState(null);
   const [followUpForm, setFollowUpForm] = useState({
     note: '',
     nextFollowUpDate: '',
-    status: 'contacted'
+    status: 'contacted',
+    priority: 'medium'
   });
   const [savingFollowUp, setSavingFollowUp] = useState(false);
 
@@ -461,22 +463,24 @@ const SalesDashboard = () => {
     }
   };
 
-  // ⚡ 1-Click Launch Demo Mode
-  const handleSalesImpersonate = async (hostelId, e) => {
+  // ⚡ 1-Click Launch Demo / Staff Support Mode
+  const handleSalesImpersonate = async (target, e) => {
     if (e && typeof e.preventDefault === 'function') {
       e.preventDefault();
       e.stopPropagation();
     }
-    if (!hostelId) return alert('Property ID is missing');
+    const payload = typeof target === 'object' ? target : { hostelId: target };
+    if (!payload.hostelId && !payload.userId) return alert('Target ID is missing');
 
-    if (!window.confirm('Launch Demo / Support Mode for this hotel?\nYou can return anytime by clicking "Return to Sales Portal" on the top banner.')) {
+    const name = payload.userName || payload.hotelName || 'this account';
+    if (!window.confirm(`Log in as ${name} for live support and desk management?\nYou can return anytime by clicking "Return to Sales Portal" on the top banner.`)) {
       return;
     }
 
     try {
-      setImpersonatingId(hostelId);
+      setImpersonatingId(payload.userId || payload.hostelId);
       const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
-      const res = await axios.post(`${API}/api/sales/impersonate`, { hostelId });
+      const res = await axios.post(`${API}/api/sales/impersonate`, payload);
       const { token, user: targetUser } = res.data;
 
       if (!token) throw new Error('No authentication token received');
@@ -500,7 +504,8 @@ const SalesDashboard = () => {
 
       window.location.href = '/dashboard';
     } catch (err) {
-      alert(err.response?.data?.message || err.message || 'Failed to launch demo mode');
+      alert(err.response?.data?.message || err.message || 'Failed to login as user');
+    } finally {
       setImpersonatingId(null);
     }
   };
@@ -566,7 +571,8 @@ const SalesDashboard = () => {
     setFollowUpForm({
       note: '',
       nextFollowUpDate: lead.nextFollowUpDate ? new Date(lead.nextFollowUpDate).toISOString().split('T')[0] : tomorrow,
-      status: lead.status || 'contacted'
+      status: lead.status || 'contacted',
+      priority: lead.priority || 'medium'
     });
   };
 
@@ -744,6 +750,15 @@ Please let us know your available time today! 🙏`;
     }
     if (leadFilterTab === 'demo') {
       return l.status === 'demo_scheduled' || l.status === 'demo_completed';
+    }
+    if (leadFilterTab === 'hot') {
+      return l.priority === 'hot' && l.status !== 'won' && l.status !== 'lost';
+    }
+    if (leadFilterTab === 'won') {
+      return l.status === 'won';
+    }
+    if (leadFilterTab === 'lost') {
+      return l.status === 'lost';
     }
     return true;
   });
@@ -1174,6 +1189,16 @@ Please let us know your available time today! 🙏`;
                       >
                         <KeyRound size={14} />
                       </button>
+
+                      <button
+                        onClick={(e) => handleSalesImpersonate({ userId: owner._id, userName: owner.name, role: 'Owner' }, e)}
+                        disabled={impersonatingId === owner._id || owner.isActive === false}
+                        className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center gap-1 active:scale-95 cursor-pointer shrink-0 disabled:opacity-50"
+                        title={`Login directly as Owner ${owner.name}`}
+                      >
+                        <LogIn size={12} />
+                        <span className="hidden sm:inline">Login As Owner</span>
+                      </button>
                     </div>
                   </div>
 
@@ -1434,6 +1459,15 @@ Please let us know your available time today! 🙏`;
                                     </div>
                                     <div className="flex items-center gap-1 shrink-0">
                                       <button
+                                        onClick={(e) => handleSalesImpersonate({ userId: staff._id, userName: staff.name, role: 'Receptionist' }, e)}
+                                        disabled={impersonatingId === staff._id || staff.isActive === false}
+                                        className="px-2 py-1 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer active:scale-95 disabled:opacity-50"
+                                        title={`Log in as Front Desk Staff ${staff.name}`}
+                                      >
+                                        <LogIn size={10} />
+                                        <span>Login</span>
+                                      </button>
+                                      <button
                                         onClick={() => openEditUserModal(staff)}
                                         className="p-1 text-gray-400 hover:text-gray-700 rounded-md"
                                         title="Edit Staff"
@@ -1532,7 +1566,27 @@ Please let us know your available time today! 🙏`;
               }`}
             >
               <Sparkles size={12} />
-              <span>Demos Scheduled / Completed</span>
+              <span>Demos</span>
+            </button>
+
+            <button
+              onClick={() => setLeadFilterTab('hot')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                leadFilterTab === 'hot' ? 'bg-rose-700 text-white shadow-sm' : 'bg-white border border-gray-200 text-rose-700 hover:bg-rose-50'
+              }`}
+            >
+              <Flame size={12} className="text-rose-500" />
+              <span>Hot Prospects</span>
+            </button>
+
+            <button
+              onClick={() => setLeadFilterTab('won')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                leadFilterTab === 'won' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-white border border-gray-200 text-emerald-700 hover:bg-emerald-50'
+              }`}
+            >
+              <Trophy size={12} />
+              <span>Won Deals</span>
             </button>
           </div>
 
@@ -1617,10 +1671,20 @@ Please let us know your available time today! 🙏`;
                     <div className="pt-3 border-t border-gray-100 flex items-center gap-2">
                       <button
                         onClick={() => openFollowUpModal(lead)}
-                        className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1 shrink-0"
+                        className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-all shadow-2xs flex items-center justify-center gap-1 shrink-0 cursor-pointer"
+                        title="Log New Follow-up Discussion"
                       >
                         <Clock size={12} />
-                        <span>Follow-up</span>
+                        <span>+ Follow-up</span>
+                      </button>
+
+                      <button
+                        onClick={() => setHistoryModalLead(lead)}
+                        className="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 transition-all flex items-center justify-center gap-1 shrink-0 cursor-pointer"
+                        title="View Full Follow-up Interaction History"
+                      >
+                        <History size={12} />
+                        <span>History ({lead.followUpHistory?.length || 0})</span>
                       </button>
 
                       {lead.status !== 'won' ? (
@@ -1844,6 +1908,15 @@ Please let us know your available time today! 🙏`;
                     <td className="px-4 sm:px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
+                          onClick={(e) => handleSalesImpersonate({ userId: o._id, userName: o.name, role: 'Owner' }, e)}
+                          disabled={impersonatingId === o._id || o.isActive === false}
+                          className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center gap-1 active:scale-95 cursor-pointer shrink-0 disabled:opacity-50"
+                          title={`Log in directly as Owner ${o.name}`}
+                        >
+                          <LogIn size={12} />
+                          <span>Login As</span>
+                        </button>
+                        <button
                           onClick={() => openEditUserModal(o)}
                           className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200"
                           title="Edit Details"
@@ -1911,6 +1984,15 @@ Please let us know your available time today! 🙏`;
                     <td className="px-4 sm:px-6 py-4 text-xs font-semibold text-gray-600">{s.phone || 'No phone'}</td>
                     <td className="px-4 sm:px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={(e) => handleSalesImpersonate({ userId: s._id, userName: s.name, role: 'Staff' }, e)}
+                          disabled={impersonatingId === s._id || s.isActive === false}
+                          className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center gap-1 active:scale-95 cursor-pointer shrink-0 disabled:opacity-50"
+                          title={`Log in directly as Front Desk Staff ${s.name}`}
+                        >
+                          <LogIn size={12} />
+                          <span>Login As</span>
+                        </button>
                         <button
                           onClick={() => openEditUserModal(s)}
                           className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200"
@@ -2962,7 +3044,7 @@ Please let us know your available time today! 🙏`;
                 ></textarea>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-gray-700 uppercase mb-1">Next Follow-up Date *</label>
                   <input
@@ -2972,10 +3054,42 @@ Please let us know your available time today! 🙏`;
                     onChange={e => setFollowUpForm({ ...followUpForm, nextFollowUpDate: e.target.value })}
                     className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
                   />
+                  <div className="flex gap-1 mt-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                        setFollowUpForm(prev => ({ ...prev, nextFollowUpDate: d }));
+                      }}
+                      className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-bold"
+                    >
+                      +1d
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                        setFollowUpForm(prev => ({ ...prev, nextFollowUpDate: d }));
+                      }}
+                      className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-bold"
+                    >
+                      +2d
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                        setFollowUpForm(prev => ({ ...prev, nextFollowUpDate: d }));
+                      }}
+                      className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-bold"
+                    >
+                      +7d
+                    </button>
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-gray-700 uppercase mb-1">Update Stage Status</label>
+                  <label className="block text-gray-700 uppercase mb-1">Update Stage</label>
                   <select
                     value={followUpForm.status}
                     onChange={e => setFollowUpForm({ ...followUpForm, status: e.target.value })}
@@ -2989,18 +3103,32 @@ Please let us know your available time today! 🙏`;
                     <option value="lost">Lost</option>
                   </select>
                 </div>
+
+                <div>
+                  <label className="block text-gray-700 uppercase mb-1">Lead Priority</label>
+                  <select
+                    value={followUpForm.priority}
+                    onChange={e => setFollowUpForm({ ...followUpForm, priority: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
+                  >
+                    <option value="hot">🔥 Hot Prospect</option>
+                    <option value="high">High Priority</option>
+                    <option value="medium">Medium Priority</option>
+                    <option value="low">Low Priority</option>
+                  </select>
+                </div>
               </div>
 
               {/* Past follow-up history if any */}
               {followUpModalLead.followUpHistory && followUpModalLead.followUpHistory.length > 0 && (
                 <div className="mt-3 pt-3 border-t border-gray-100">
-                  <span className="text-[10px] text-gray-400 uppercase tracking-widest block mb-2">Previous Interactions</span>
+                  <span className="text-[10px] text-gray-400 uppercase tracking-widest block mb-2">Previous Interactions Timeline</span>
                   <div className="space-y-1.5 max-h-36 overflow-y-auto">
                     {followUpModalLead.followUpHistory.map((hist, i) => (
                       <div key={i} className="p-2 bg-gray-50 rounded-xl border border-gray-100 text-[11px]">
-                        <p className="text-gray-800 font-medium">{hist.note}</p>
+                        <p className="text-gray-800 font-medium">"{hist.note}"</p>
                         <span className="text-[10px] text-gray-400 block mt-0.5">
-                          {new Date(hist.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} · Stage: {hist.status}
+                          {new Date(hist.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} {hist.by && `· by ${hist.by}`} · Stage: {hist.status?.replace('_', ' ')}
                         </span>
                       </div>
                     ))}
@@ -3012,19 +3140,129 @@ Please let us know your available time today! 🙏`;
                 <button
                   type="button"
                   onClick={() => setFollowUpModalLead(null)}
-                  className="px-4 py-2 border border-gray-200 text-gray-700 rounded-xl text-xs"
+                  className="px-4 py-2 border border-gray-200 text-gray-700 rounded-xl text-xs font-bold"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={savingFollowUp}
-                  className="px-5 py-2 bg-rose-600 text-white font-black rounded-xl text-xs hover:bg-rose-700 disabled:opacity-50"
+                  className="px-5 py-2 bg-slate-950 text-white font-black rounded-xl text-xs hover:bg-slate-800 disabled:opacity-50"
                 >
                   {savingFollowUp ? 'Logging...' : 'Save Follow-up'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* 📜 MODAL: FULL LEAD FOLLOW-UP TIMELINE & HISTORY */}
+      {/* ============================================================== */}
+      {historyModalLead && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 text-left max-h-[92dvh] sm:max-h-[88vh] overflow-y-auto">
+            <div className="flex justify-between items-start pb-3 border-b border-gray-100">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className={`px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded-md ${
+                    historyModalLead.priority === 'hot' ? 'bg-rose-100 text-rose-800' : 'bg-gray-100 text-gray-700'
+                  }`}>
+                    {historyModalLead.priority} priority
+                  </span>
+                  <span className="px-2 py-0.5 text-[9px] font-bold rounded-md uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200">
+                    {historyModalLead.status?.replace('_', ' ')}
+                  </span>
+                </div>
+                <h3 className="text-lg font-black text-gray-900 mt-1">{historyModalLead.hotelName}</h3>
+                <p className="text-xs text-gray-500 font-medium">
+                  {historyModalLead.contactPerson} · {historyModalLead.phone} {historyModalLead.city && `· ${historyModalLead.city}`}
+                </p>
+              </div>
+              <button onClick={() => setHistoryModalLead(null)} className="text-gray-400 hover:text-gray-600 p-1">
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Quick Details */}
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Current System</span>
+                <p className="font-bold text-slate-800 mt-0.5">{historyModalLead.currentSystem || 'Paper Register'}</p>
+              </div>
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Room Count</span>
+                <p className="font-bold text-slate-800 mt-0.5">{historyModalLead.roomCount || 15} Rooms</p>
+              </div>
+              <div className="col-span-2 pt-2 border-t border-slate-200/60 flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-500">Next Scheduled Follow-up:</span>
+                <span className="font-extrabold text-slate-900">
+                  {historyModalLead.nextFollowUpDate ? new Date(historyModalLead.nextFollowUpDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'None scheduled'}
+                </span>
+              </div>
+            </div>
+
+            {/* Timeline of Follow-ups */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                  <History size={13} className="text-slate-600" />
+                  <span>Interaction Timeline ({historyModalLead.followUpHistory?.length || 0})</span>
+                </h4>
+                <button
+                  onClick={() => {
+                    const l = historyModalLead;
+                    setHistoryModalLead(null);
+                    openFollowUpModal(l);
+                  }}
+                  className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg transition-all"
+                >
+                  + Add Interaction
+                </button>
+              </div>
+
+              {(!historyModalLead.followUpHistory || historyModalLead.followUpHistory.length === 0) ? (
+                <div className="p-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-center">
+                  <p className="text-xs text-slate-400">No follow-up calls or visits logged yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+                  {historyModalLead.followUpHistory.map((item, idx) => (
+                    <div key={idx} className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-1 relative pl-4 border-l-4 border-l-slate-800">
+                      <div className="flex items-center justify-between text-[11px] text-slate-400">
+                        <span className="font-bold text-slate-900">
+                          {item.by || 'Sales Representative'}
+                        </span>
+                        <span>{new Date(item.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                      <p className="text-xs text-slate-800 font-medium">"{item.note}"</p>
+                      <div className="flex items-center gap-2 pt-1 text-[10px] text-slate-500">
+                        {item.status && (
+                          <span className="px-1.5 py-0.2 bg-slate-100 text-slate-700 rounded font-bold uppercase">
+                            Stage: {item.status.replace('_', ' ')}
+                          </span>
+                        )}
+                        {item.followUpDate && (
+                          <span className="text-slate-400">
+                            Next: {new Date(item.followUpDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-gray-100 flex justify-end">
+              <button
+                onClick={() => setHistoryModalLead(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -498,6 +498,11 @@ exports.getSalesTeamPerformance = async (req, res, next) => {
     const totalTeamWon = teamPerformance.reduce((sum, p) => sum + p.wonLeadsCount, 0);
     const overallConversion = totalTeamLeads > 0 ? Math.round((totalTeamWon / totalTeamLeads) * 100) : 0;
 
+    const allLeads = await SalesLead.find()
+      .populate('salesAgent', 'name email phone')
+      .sort('-updatedAt')
+      .lean();
+
     res.status(200).json({
       success: true,
       data: {
@@ -510,7 +515,8 @@ exports.getSalesTeamPerformance = async (req, res, next) => {
           totalTeamWon,
           overallConversion
         },
-        leaderboard: teamPerformance
+        leaderboard: teamPerformance,
+        allLeads
       }
     });
   } catch (err) {

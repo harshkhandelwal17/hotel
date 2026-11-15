@@ -21,7 +21,12 @@ import {
   Settings,
   MessageSquare,
   Sparkles,
-  LogIn
+  LogIn,
+  History,
+  Calendar,
+  Flame,
+  Filter,
+  X
 } from 'lucide-react';
 
 const SalesTeamView = ({
@@ -33,6 +38,12 @@ const SalesTeamView = ({
   onImpersonate,
   impersonating
 }) => {
+  const [viewMode, setViewMode] = useState('leaderboard'); // 'leaderboard' | 'leads'
+  const [selectedAgentFilter, setSelectedAgentFilter] = useState('all');
+  const [leadStatusFilter, setLeadStatusFilter] = useState('all');
+  const [leadSearch, setLeadSearch] = useState('');
+  const [selectedHistoryLead, setSelectedHistoryLead] = useState(null);
+
   const [search, setSearch] = useState('');
   const [expandedAgentId, setExpandedAgentId] = useState(null);
 
@@ -59,6 +70,45 @@ const SalesTeamView = ({
     const email = item.agent?.email?.toLowerCase() || '';
     const phone = item.agent?.phone || '';
     return name.includes(q) || email.includes(q) || phone.includes(q);
+  });
+
+  const allLeads = salesData?.allLeads || [];
+
+  const filteredTeamLeads = allLeads.filter(lead => {
+    if (selectedAgentFilter !== 'all' && (lead.salesAgent?._id || lead.salesAgent)?.toString() !== selectedAgentFilter) {
+      return false;
+    }
+    if (leadStatusFilter === 'today') {
+      if (!lead.nextFollowUpDate) return false;
+      const d = new Date(lead.nextFollowUpDate);
+      const now = new Date();
+      const s = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+      const e = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+      return d >= s && d <= e && lead.status !== 'won' && lead.status !== 'lost';
+    }
+    if (leadStatusFilter === 'hot') {
+      return lead.priority === 'hot' && lead.status !== 'won' && lead.status !== 'lost';
+    }
+    if (leadStatusFilter === 'demo') {
+      return lead.status === 'demo_scheduled' || lead.status === 'demo_completed';
+    }
+    if (leadStatusFilter === 'won') {
+      return lead.status === 'won';
+    }
+    if (leadStatusFilter === 'lost') {
+      return lead.status === 'lost';
+    }
+
+    if (leadSearch.trim()) {
+      const q = leadSearch.toLowerCase();
+      const hotel = lead.hotelName?.toLowerCase() || '';
+      const person = lead.contactPerson?.toLowerCase() || '';
+      const phone = lead.phone || '';
+      const city = lead.city?.toLowerCase() || '';
+      const agent = lead.salesAgent?.name?.toLowerCase() || '';
+      return hotel.includes(q) || person.includes(q) || phone.includes(q) || city.includes(q) || agent.includes(q);
+    }
+    return true;
   });
 
   const toggleExpand = (agentId) => {
@@ -148,7 +198,61 @@ const SalesTeamView = ({
         </div>
       </div>
 
+      {/* 🧭 VIEW MODE SWITCHER: Leaderboard vs Prospects & Follow-up History */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-2.5 rounded-2xl border border-slate-200 shadow-2xs">
+        <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl">
+          <button
+            onClick={() => setViewMode('leaderboard')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              viewMode === 'leaderboard'
+                ? 'bg-white text-slate-950 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Trophy size={14} className={viewMode === 'leaderboard' ? 'text-amber-500' : 'text-slate-400'} />
+            <span>Sales Leaderboard & Reps</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-600 font-bold">
+              {agents.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setViewMode('leads')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              viewMode === 'leads'
+                ? 'bg-white text-slate-950 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Calendar size={14} className={viewMode === 'leads' ? 'text-indigo-600' : 'text-slate-400'} />
+            <span>Team Prospects & Follow-ups</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-indigo-50 text-indigo-700 font-bold">
+              {allLeads.length}
+            </span>
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          <a
+            href="/sales"
+            className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-all shadow-2xs active:scale-95 flex items-center gap-1.5 cursor-pointer"
+            title="Open Field Sales Operations Portal as Super Admin"
+          >
+            <ExternalLink size={13} />
+            <span>Open Sales Console</span>
+          </a>
+          <button
+            onClick={onOpenCreateSalesAgent}
+            className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-2xs active:scale-95 flex items-center gap-1.5 cursor-pointer"
+          >
+            <Plus size={14} className="stroke-[3]" />
+            <span>+ Add Sales Rep</span>
+          </button>
+        </div>
+      </div>
+
       {/* 🏆 Sales Team Leaderboard Table */}
+      {viewMode === 'leaderboard' && (
       <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="p-6 border-b border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
@@ -175,21 +279,6 @@ const SalesTeamView = ({
                 className="w-full pl-8 pr-3 py-1.5 bg-white border border-gray-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-black outline-none"
               />
             </div>
-            <a
-              href="/sales"
-              className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-all shadow-2xs active:scale-95 flex items-center gap-1.5 cursor-pointer shrink-0"
-              title="Open Field Sales Operations Portal as Super Admin"
-            >
-              <ExternalLink size={13} />
-              <span>Open Sales Console</span>
-            </a>
-            <button
-              onClick={onOpenCreateSalesAgent}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-1.5 shrink-0"
-            >
-              <Plus size={14} className="stroke-[3]" />
-              <span>+ Add Sales Executive</span>
-            </button>
           </div>
         </div>
 
@@ -451,6 +540,292 @@ const SalesTeamView = ({
           </div>
         )}
       </div>
+      )}
+
+      {/* 🎯 Team Prospects & Lead Follow-ups Pipeline (Super Admin Surveillance View) */}
+      {viewMode === 'leads' && (
+        <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
+          {/* Header & Filters */}
+          <div className="p-6 border-b border-gray-100 bg-gray-50/50 space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Calendar size={18} className="text-indigo-600" />
+                  <h2 className="text-lg font-black text-gray-900">Team Prospect Pipeline & Follow-up History</h2>
+                  <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-700 rounded-md">
+                    Surveillance
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 font-medium mt-0.5">
+                  Full visibility into all hotel leads, sales rep touchpoints, scheduled calls, and follow-up interaction history.
+                </p>
+              </div>
+
+              {/* Agent Filter Dropdown */}
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider shrink-0 hidden sm:inline">Rep:</span>
+                <select
+                  value={selectedAgentFilter}
+                  onChange={e => setSelectedAgentFilter(e.target.value)}
+                  className="w-full sm:w-auto px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-800 outline-none focus:ring-2 focus:ring-black"
+                >
+                  <option value="all">All Sales Reps ({agents.length})</option>
+                  {agents.map(a => (
+                    <option key={a._id} value={a._id}>{a.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Sub-Filter Pills & Search */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                {[
+                  { id: 'all', label: `All Prospects (${allLeads.length})` },
+                  { id: 'today', label: `⏰ Today's Calls` },
+                  { id: 'hot', label: `🔥 Hot Leads` },
+                  { id: 'demo', label: `⚡ Demos` },
+                  { id: 'won', label: `🏆 Converted` },
+                  { id: 'lost', label: `❌ Lost` },
+                ].map(f => (
+                  <button
+                    key={f.id}
+                    onClick={() => setLeadStatusFilter(f.id)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                      leadStatusFilter === f.id
+                        ? 'bg-slate-900 text-white shadow-xs'
+                        : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="relative w-full sm:w-64">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search hotel, owner, city, rep..."
+                  value={leadSearch}
+                  onChange={e => setLeadSearch(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 bg-white border border-gray-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-black outline-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Leads Table */}
+          {filteredTeamLeads.length === 0 ? (
+            <div className="p-12 text-center text-gray-400">
+              <Calendar size={36} className="mx-auto mb-2 opacity-30 text-gray-400" />
+              <p className="font-bold text-gray-700 text-sm">No prospect leads match this filter</p>
+              <p className="text-xs text-gray-400 mt-1">Try switching rep or status filter to see other pipeline stages.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50/75 text-[10px] font-black uppercase tracking-wider text-gray-500">
+                    <th className="py-3 px-5">Hotel / Prospect</th>
+                    <th className="py-3 px-4">Decision Maker / Contact</th>
+                    <th className="py-3 px-4">Assigned Sales Rep</th>
+                    <th className="py-3 px-4">Stage & Priority</th>
+                    <th className="py-3 px-4">Follow-up Schedule & Notes</th>
+                    <th className="py-3 px-5 text-right">Audit Trail</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 font-medium">
+                  {filteredTeamLeads.map(lead => {
+                    const historyCount = lead.followUpHistory?.length || 0;
+                    const cleanPhone = (lead.phone || '').replace(/\D/g, '').slice(-10);
+                    return (
+                      <tr key={lead._id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3.5 px-5">
+                          <div className="font-bold text-slate-900 text-sm">{lead.hotelName}</div>
+                          <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
+                            {lead.city && <span>📍 {lead.city}</span>}
+                            {lead.roomCount > 0 && <span>• 🛏️ {lead.roomCount} Rooms</span>}
+                            {lead.currentSoftware && <span>• Using: {lead.currentSoftware}</span>}
+                          </div>
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          <div className="font-bold text-slate-900">{lead.contactPerson || 'N/A'}</div>
+                          <div className="flex items-center gap-2 mt-1">
+                            {lead.phone && (
+                              <a
+                                href={`tel:${lead.phone}`}
+                                className="text-blue-600 hover:underline flex items-center gap-1 font-semibold text-[11px]"
+                              >
+                                <Phone size={11} />
+                                <span>{lead.phone}</span>
+                              </a>
+                            )}
+                            {cleanPhone && (
+                              <a
+                                href={`https://wa.me/91${cleanPhone}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-emerald-600 hover:text-emerald-700 font-bold text-[10px] bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200"
+                                title="Chat on WhatsApp"
+                              >
+                                WA
+                              </a>
+                            )}
+                          </div>
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                            <span className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold text-[10px]">
+                              {lead.salesAgent?.name?.charAt(0) || 'S'}
+                            </span>
+                            <span>{lead.salesAgent?.name || 'Unassigned'}</span>
+                          </div>
+                          {lead.salesAgent?.phone && (
+                            <div className="text-[10px] text-slate-400 mt-0.5">{lead.salesAgent.phone}</div>
+                          )}
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                              lead.status === 'won' ? 'bg-emerald-100 text-emerald-800' :
+                              lead.status === 'lost' ? 'bg-rose-100 text-rose-700' :
+                              lead.status.includes('demo') ? 'bg-indigo-100 text-indigo-700' :
+                              lead.status === 'negotiation' || lead.status === 'proposal_sent' ? 'bg-amber-100 text-amber-800' :
+                              'bg-slate-100 text-slate-700'
+                            }`}>
+                              {lead.status?.replace('_', ' ')}
+                            </span>
+
+                            <span className={`px-1.5 py-0.2 rounded text-[9px] font-black uppercase ${
+                              lead.priority === 'hot' ? 'bg-rose-50 text-rose-700 border border-rose-200' :
+                              lead.priority === 'warm' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                              'bg-slate-50 text-slate-600 border border-slate-200'
+                            }`}>
+                              {lead.priority || 'warm'}
+                            </span>
+                          </div>
+                        </td>
+
+                        <td className="py-3.5 px-4 max-w-xs">
+                          {lead.nextFollowUpDate ? (
+                            <div className="font-bold text-indigo-600 flex items-center gap-1">
+                              <Clock size={11} />
+                              <span>{new Date(lead.nextFollowUpDate).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 text-[11px]">No follow-up set</span>
+                          )}
+                          {lead.notes && (
+                            <p className="text-[11px] text-slate-600 truncate mt-0.5" title={lead.notes}>
+                              "{lead.notes}"
+                            </p>
+                          )}
+                        </td>
+
+                        <td className="py-3.5 px-5 text-right">
+                          <button
+                            onClick={() => setSelectedHistoryLead(lead)}
+                            className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-bold transition-all inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            <History size={12} className="text-indigo-600" />
+                            <span>Timeline ({historyCount})</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 📜 LEAD INTERACTION HISTORY AUDIT TRAIL MODAL (Super Admin) */}
+      {selectedHistoryLead && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] flex flex-col text-left">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+              <div>
+                <div className="flex items-center gap-2">
+                  <History size={20} className="text-indigo-600" />
+                  <h3 className="text-base font-black text-gray-900">
+                    Lead Follow-up History & Surveillance
+                  </h3>
+                </div>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Prospect: <strong className="text-gray-900">{selectedHistoryLead.hotelName}</strong> ({selectedHistoryLead.contactPerson || 'Owner'})
+                  {selectedHistoryLead.salesAgent?.name && (
+                    <span> • Rep: <strong className="text-indigo-600">{selectedHistoryLead.salesAgent.name}</strong></span>
+                  )}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedHistoryLead(null)}
+                className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+              {(!selectedHistoryLead.followUpHistory || selectedHistoryLead.followUpHistory.length === 0) ? (
+                <div className="p-8 text-center text-gray-400 border-2 border-dashed border-gray-200 rounded-2xl">
+                  <History size={32} className="mx-auto mb-2 opacity-30" />
+                  <p className="text-xs font-bold text-gray-600">No previous follow-up logs recorded yet.</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">When the sales rep logs calls, notes or visits, the full audit trail will display here.</p>
+                </div>
+              ) : (
+                <div className="relative border-l-2 border-indigo-200 ml-3 pl-4 space-y-4 py-2">
+                  {selectedHistoryLead.followUpHistory.slice().reverse().map((entry, idx) => (
+                    <div key={idx} className="relative group">
+                      <div className="absolute -left-[23px] top-1 w-3.5 h-3.5 rounded-full bg-white border-2 border-indigo-600 shadow-xs"></div>
+                      <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-1.5">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-slate-900">{entry.by || selectedHistoryLead.salesAgent?.name || 'Sales Rep'}</span>
+                            {entry.stage && (
+                              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-700 uppercase">
+                                {entry.stage.replace('_', ' ')}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            {new Date(entry.date).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-700 font-medium whitespace-pre-wrap leading-relaxed">
+                          {entry.notes || 'No note left.'}
+                        </p>
+                        {entry.nextFollowUpDate && (
+                          <div className="text-[10px] font-semibold text-indigo-600 flex items-center gap-1 pt-1 border-t border-slate-200/60">
+                            <Clock size={10} />
+                            <span>Scheduled Next Follow-up: {new Date(entry.nextFollowUpDate).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-gray-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedHistoryLead(null)}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl cursor-pointer"
+              >
+                Close Audit View
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ⚙️ EDIT SALES AGENT SETTINGS MODAL */}
       {editingAgent && (
