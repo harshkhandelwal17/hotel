@@ -361,6 +361,15 @@ exports.createSalesStaff = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Please select assigned property for staff' });
     }
 
+    const hostel = await Hostel.findById(assignedHostel);
+    if (!hostel) {
+      return res.status(404).json({ success: false, message: 'Assigned property not found' });
+    }
+
+    if (!canManageHostel(req.user, hostel)) {
+      return res.status(403).json({ success: false, message: 'Unauthorized: You can only assign staff to properties in your portfolio' });
+    }
+
     const existing = await User.findOne({ email: email.toLowerCase().trim() });
     if (existing) {
       return res.status(400).json({ success: false, message: 'User with this email already exists' });

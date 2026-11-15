@@ -445,19 +445,26 @@ exports.getSalesTeamPerformance = async (req, res, next) => {
     const teamPerformance = await Promise.all(
       salesAgents.map(async (agent) => {
         const [hotels, totalLeads, wonLeads] = await Promise.all([
-          Hostel.find({ onboardedBy: agent._id })
-            .select('name address plan planStatus planPrice createdAt contactNumber')
+          Hostel.find({ $or: [{ onboardedBy: agent._id }, { assignedSalesAgent: agent._id }] })
+            .select('name address plan planStatus planPrice createdAt contactNumber onboardedBy assignedSalesAgent')
             .lean(),
           SalesLead.countDocuments({ salesAgent: agent._id }),
           SalesLead.countDocuments({ salesAgent: agent._id, status: 'won' })
         ]);
 
-        const totalRevenue = hotels
+        const enrichedHotels = hotels.map(h => ({
+          ...h,
+          isOnboardedByAgent: (h.onboardedBy?._id || h.onboardedBy)?.toString() === agent._id.toString(),
+          isAssignedByAdmin: (h.assignedSalesAgent?._id || h.assignedSalesAgent)?.toString() === agent._id.toString() &&
+                             (h.onboardedBy?._id || h.onboardedBy)?.toString() !== agent._id.toString()
+        }));
+
+        const totalRevenue = enrichedHotels
           .filter(h => h.planStatus === 'active')
           .reduce((sum, h) => sum + (Number(h.planPrice) || 0), 0);
 
-        const activeHotels = hotels.filter(h => h.planStatus === 'active').length;
-        const trialHotels = hotels.filter(h => h.planStatus === 'trial' || h.plan === 'demo').length;
+        const activeHotels = enrichedHotels.filter(h => h.planStatus === 'active').length;
+        const trialHotels = enrichedHotels.filter(h => h.planStatus === 'trial' || h.plan === 'demo').length;
         const commissionRate = agent.commissionRate || 15;
         const monthlyTarget = agent.monthlyTargetHotels || 10;
         const commissionEarned = Math.round((totalRevenue * commissionRate) / 100);
@@ -467,14 +474,16 @@ exports.getSalesTeamPerformance = async (req, res, next) => {
           monthlyTarget,
           commissionRate,
           commissionEarned,
-          hotelsCount: hotels.length,
+          hotelsCount: enrichedHotels.length,
           activeHotelsCount: activeHotels,
           trialHotelsCount: trialHotels,
+          onboardedCount: enrichedHotels.filter(h => h.isOnboardedByAgent).length,
+          assignedCount: enrichedHotels.filter(h => h.isAssignedByAdmin).length,
           totalRevenueGenerated: totalRevenue,
           leadsCount: totalLeads,
           wonLeadsCount: wonLeads,
           conversionRate: totalLeads > 0 ? Math.round((wonLeads / totalLeads) * 100) : 0,
-          hotels
+          hotels: enrichedHotels
         };
       })
     );

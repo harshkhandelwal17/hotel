@@ -359,41 +359,57 @@ const SalesTeamView = ({
                         <tr>
                           <td colSpan={8} className="px-6 py-4 bg-gray-50/70 border-y border-gray-200">
                             <div className="space-y-3">
-                              <div className="flex items-center justify-between">
-                                <h4 className="text-xs font-black uppercase tracking-wider text-gray-700 flex items-center gap-1.5">
-                                  <Building size={14} className="text-indigo-600" />
-                                  <span>Properties Onboarded by {agent.name} ({item.hotels.length})</span>
-                                </h4>
-                                <span className="text-xs font-bold text-gray-500">
-                                  Total Revenue from Agent: <strong className="text-emerald-700">₹{item.totalRevenueGenerated.toLocaleString()}</strong>
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                                    <Building size={14} className="text-slate-700" />
+                                    <span>Managed Portfolio ({item.hotels.length})</span>
+                                  </h4>
+                                  <span className="px-2 py-0.5 text-[9px] font-bold bg-slate-100 text-slate-700 rounded-md">
+                                    {item.onboardedCount || 0} Closed · {item.assignedCount || 0} Assigned
+                                  </span>
+                                </div>
+                                <span className="text-xs font-bold text-slate-500">
+                                  Active Subscriptions: <strong className="text-emerald-700">₹{item.totalRevenueGenerated.toLocaleString()}</strong>
                                 </span>
                               </div>
 
                               {item.hotels.length === 0 ? (
-                                <p className="text-xs text-gray-400 italic py-2">
-                                  No properties onboarded yet. Agent is ready for field demos.
+                                <p className="text-xs text-slate-400 italic py-2">
+                                  No properties in portfolio yet. Ready for assignments or field demos.
                                 </p>
                               ) : (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                                   {item.hotels.map(h => (
-                                    <div key={h._id} className="p-3 bg-white rounded-2xl border border-gray-200 shadow-xs flex flex-col justify-between">
+                                    <div key={h._id} className="p-3 bg-white rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
                                       <div>
                                         <div className="flex justify-between items-start gap-2">
-                                          <p className="font-black text-gray-900 text-xs truncate">{h.name}</p>
-                                          <span className={`px-2 py-0.5 text-[9px] font-black rounded-md uppercase tracking-wider shrink-0 ${
-                                            h.planStatus === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                                          <p className="font-bold text-slate-900 text-xs truncate">{h.name}</p>
+                                          <span className={`px-2 py-0.5 text-[9px] font-bold rounded-md uppercase tracking-wider shrink-0 ${
+                                            h.planStatus === 'active' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
                                           }`}>
                                             {h.planStatus || 'trial'}
                                           </span>
                                         </div>
-                                        <p className="text-[10px] text-gray-400 truncate mt-0.5">{h.address || 'No address'}</p>
+                                        <div className="flex items-center gap-1.5 mt-1">
+                                          {h.isAssignedByAdmin ? (
+                                            <span className="px-1.5 py-0.5 text-[9px] font-bold bg-purple-50 text-purple-700 rounded border border-purple-200">
+                                              👑 Assigned by Admin
+                                            </span>
+                                          ) : (
+                                            <span className="px-1.5 py-0.5 text-[9px] font-bold bg-slate-100 text-slate-700 rounded border border-slate-200">
+                                              ✨ Closed by Agent
+                                            </span>
+                                          )}
+                                        </div>
+                                        <p className="text-[10px] text-slate-400 truncate mt-1">{h.address || 'No address'}</p>
                                       </div>
 
-                                      <div className="mt-3 pt-2 border-t border-gray-100 flex items-center justify-between text-xs">
-                                        <span className="font-black text-gray-800 text-[11px]">
+                                      <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                                        <span className="font-bold text-slate-700 text-[11px]">
                                           {h.plan ? h.plan.toUpperCase() : 'STARTER'}
                                         </span>
-                                        <span className="font-black text-emerald-600 text-xs">
+                                        <span className="font-bold text-emerald-700 text-xs">
                                           ₹{(h.planPrice || 0).toLocaleString()}
                                         </span>
                                       </div>

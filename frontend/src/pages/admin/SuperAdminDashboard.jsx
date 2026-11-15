@@ -359,6 +359,7 @@ const SuperAdminDashboard = () => {
       const currentToken = localStorage.getItem('token');
       if (!localStorage.getItem('superAdminToken') && currentToken) {
         localStorage.setItem('superAdminToken', currentToken);
+        localStorage.setItem('impersonateReturnUrl', '/superadmin');
       }
 
       localStorage.setItem('token', token);
