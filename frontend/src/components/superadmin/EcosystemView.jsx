@@ -312,13 +312,29 @@ const EcosystemView = ({
                             {/* SaaS Plan & Billing Card */}
                             <div className="mt-3 p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-2 flex-wrap">
                               <div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-200/70 text-slate-800">
-                                    {h.plan || 'Starter'} Plan
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border ${
+                                    h.plan === 'demo'
+                                      ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                      : h.plan === 'yearly' || h.plan === 'annual'
+                                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                      : 'bg-indigo-50 text-indigo-800 border-indigo-200'
+                                  }`}>
+                                    {h.plan === 'demo' ? '7-Day Free Trial' : h.plan === 'yearly' || h.plan === 'annual' ? 'Annual Plan' : 'Monthly Plan'}
                                   </span>
                                   <span className="text-xs font-bold text-slate-900">
-                                    ₹{(h.planPrice || 0).toLocaleString()} <span className="text-[10px] text-slate-500 font-normal">/{h.billingCycle || 'mo'}</span>
+                                    ₹{(h.planPrice !== undefined ? h.planPrice : (h.plan === 'demo' ? 0 : (h.plan === 'yearly' || h.plan === 'annual' ? 9600 : 1000))).toLocaleString()} <span className="text-[10px] text-slate-500 font-normal">/{h.billingCycle || 'mo'}</span>
                                   </span>
+                                  {h.discountAmount > 0 && (
+                                    <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                                      -₹{h.discountAmount}
+                                    </span>
+                                  )}
+                                  {h.extraCharges > 0 && (
+                                    <span className="text-[10px] text-blue-600 font-bold bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200">
+                                      +₹{h.extraCharges}
+                                    </span>
+                                  )}
                                 </div>
                                 <p className="text-[10px] text-slate-500 font-medium mt-1">
                                   {endDate ? `Expires: ${new Date(endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}` : 'No expiry set'}

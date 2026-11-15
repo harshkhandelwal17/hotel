@@ -333,6 +333,7 @@ exports.createSalesProperty = async (req, res, next) => {
       maxRooms = 20,
       upiId,
       upiPayeeName,
+      assignedSalesAgent,
       leadId,
       planNotes
     } = req.body;
@@ -356,6 +357,10 @@ exports.createSalesProperty = async (req, res, next) => {
       ? Number(planPrice) 
       : Math.max(0, defaultBasePrice - Number(discountAmount || 0) + Number(extraCharges || 0));
 
+    const finalAssignedSalesAgent = req.user.role === 'sales' 
+      ? salesUserId 
+      : (assignedSalesAgent && assignedSalesAgent !== 'unassigned' ? assignedSalesAgent : undefined);
+
     const hostel = await Hostel.create({
       name: name.trim(),
       propertyType: propertyType || 'hotel',
@@ -372,7 +377,7 @@ exports.createSalesProperty = async (req, res, next) => {
       email: email ? email.toLowerCase().trim() : undefined,
       owner,
       onboardedBy: salesUserId,
-      assignedSalesAgent: salesUserId,
+      assignedSalesAgent: finalAssignedSalesAgent,
       plan,
       planStatus: planStatus || (isDemo ? 'trial' : 'active'),
       planPrice: resolvedPrice,
@@ -786,7 +791,7 @@ exports.createSalesLead = async (req, res, next) => {
       priority: priority || 'medium',
       nextFollowUpDate: nextFollowUpDate ? new Date(nextFollowUpDate) : undefined,
       notes: notes ? notes.trim() : undefined,
-      estimatedValue: Number(estimatedValue) || 2499
+      estimatedValue: Number(estimatedValue) || 1000
     });
 
     res.status(201).json({

@@ -96,11 +96,11 @@ const SuperAdminDashboard = () => {
     assignedSalesAgent: '',
     upiId: '',
     upiPayeeName: '',
-    plan: 'starter',
+    plan: 'monthly',
     planStatus: 'active',
     planStartDate: new Date().toISOString().split('T')[0],
     planEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    planPrice: 2499,
+    planPrice: 1000,
     billingCycle: 'monthly',
     maxRooms: 25
   });
@@ -243,11 +243,11 @@ const SuperAdminDashboard = () => {
         owner: '',
         upiId: '',
         upiPayeeName: '',
-        plan: 'starter',
+        plan: 'monthly',
         planStatus: 'active',
         planStartDate: new Date().toISOString().split('T')[0],
         planEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        planPrice: 2499,
+        planPrice: 1000,
         billingCycle: 'monthly',
         maxRooms: 25
       });
@@ -1248,17 +1248,22 @@ const SuperAdminDashboard = () => {
                       {/* Plan & Pricing */}
                       <td className="px-6 py-4">
                         <div className="flex flex-col gap-1">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider w-max ${
-                            h.plan === 'enterprise' ? 'bg-indigo-100 text-indigo-700' :
-                            h.plan === 'professional' ? 'bg-purple-100 text-purple-700' :
-                            h.plan === 'starter' ? 'bg-blue-100 text-blue-700' :
-                            'bg-amber-100 text-amber-800'
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider w-max border ${
+                            h.plan === 'demo' ? 'bg-amber-50 text-amber-800 border-amber-200' :
+                            h.plan === 'yearly' || h.plan === 'annual' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
+                            'bg-indigo-50 text-indigo-800 border-indigo-200'
                           }`}>
-                            {h.plan || 'Starter'} Plan ({h.billingCycle || 'monthly'})
+                            {h.plan === 'demo' ? '7-Day Free Trial' : h.plan === 'yearly' || h.plan === 'annual' ? 'Annual Plan (₹800/mo)' : 'Monthly Plan'}
                           </span>
                           <span className="text-[11px] font-bold text-gray-600">
-                            ₹{h.planPrice || 0} · Max {h.maxRooms || 20} Rooms
+                            ₹{(h.planPrice !== undefined ? h.planPrice : (h.plan === 'demo' ? 0 : (h.plan === 'yearly' || h.plan === 'annual' ? 9600 : 1000))).toLocaleString()} · Max {h.maxRooms || 20} Rooms
                           </span>
+                          {h.discountAmount > 0 && (
+                            <span className="text-[10px] font-bold text-emerald-600">-₹{h.discountAmount} discount</span>
+                          )}
+                          {h.extraCharges > 0 && (
+                            <span className="text-[10px] font-bold text-blue-600">+₹{h.extraCharges} add-ons</span>
+                          )}
                         </div>
                       </td>
 

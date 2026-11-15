@@ -324,6 +324,7 @@ const OnboardingWizardModal = ({
         gstin: wizardData.gstin ? wizardData.gstin.trim().toUpperCase() : undefined,
         checkInTime: wizardData.checkInTime || '12:00 PM',
         checkOutTime: wizardData.checkOutTime || '11:00 AM',
+        assignedSalesAgent: wizardData.assignedSalesAgent || undefined,
         leadId: wizardData.leadId || undefined
       };
 
@@ -744,6 +745,28 @@ const OnboardingWizardModal = ({
                   className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-bold outline-none focus:ring-2 focus:ring-black"
                 />
               </div>
+
+              {/* Optional Sales Representative Assignment (SuperAdmin only) */}
+              {currentUserRole === 'superadmin' && salesAgentsList.length > 0 && (
+                <div>
+                  <label className="block font-bold text-gray-700 uppercase mb-1 flex items-center justify-between">
+                    <span>Assigned Sales Representative</span>
+                    <span className="text-[10px] text-purple-600 font-bold bg-purple-50 px-2 py-0.5 rounded-full">CRM Portfolio</span>
+                  </label>
+                  <select
+                    value={wizardData.assignedSalesAgent}
+                    onChange={e => setWizardData({ ...wizardData, assignedSalesAgent: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-bold outline-none focus:ring-2 focus:ring-black cursor-pointer"
+                  >
+                    <option value="">— Direct / None (Managed by Super Admin) —</option>
+                    {salesAgentsList.map(sa => (
+                      <option key={sa._id} value={sa._id}>
+                        {sa.name} ({sa.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Direct UPI Billing for Guests */}
               <div className="p-3 bg-emerald-50/60 border border-emerald-200 rounded-xl space-y-2">

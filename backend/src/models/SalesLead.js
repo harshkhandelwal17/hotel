@@ -68,7 +68,7 @@ const salesLeadSchema = new mongoose.Schema({
   }],
   estimatedValue: {
     type: Number,
-    default: 2499
+    default: 1000
   },
   convertedHostel: {
     type: mongoose.Schema.ObjectId,

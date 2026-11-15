@@ -120,11 +120,13 @@ const SalesDashboard = () => {
   // 🎟️ Modal 4: Plan Assignment & Subscription Management (Like Super Admin)
   const [selectedPlanHotel, setSelectedPlanHotel] = useState(null);
   const [planForm, setPlanForm] = useState({
-    plan: 'starter',
+    plan: 'monthly',
     planStatus: 'active',
     planStartDate: '',
     planEndDate: '',
-    planPrice: 2499,
+    planPrice: 1000,
+    discountAmount: 0,
+    extraCharges: 0,
     billingCycle: 'monthly',
     maxRooms: 20,
     planNotes: ''
@@ -366,15 +368,19 @@ const SalesDashboard = () => {
   const openPlanModal = (hotel) => {
     setSelectedPlanHotel(hotel);
     const startIso = hotel.planStartDate ? new Date(hotel.planStartDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
-    const endIso = hotel.planEndDate ? new Date(hotel.planEndDate).toISOString().split('T')[0] : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const defaultDays = hotel.plan === 'demo' ? 7 : (hotel.plan === 'yearly' || hotel.plan === 'annual' ? 365 : 30);
+    const endIso = hotel.planEndDate ? new Date(hotel.planEndDate).toISOString().split('T')[0] : new Date(Date.now() + defaultDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const fallbackPrice = hotel.plan === 'demo' ? 0 : (hotel.plan === 'yearly' || hotel.plan === 'annual' ? 9600 : 1000);
 
     setPlanForm({
-      plan: hotel.plan || 'demo',
-      planStatus: hotel.planStatus || 'trial',
+      plan: hotel.plan || 'monthly',
+      planStatus: hotel.planStatus || (hotel.plan === 'demo' ? 'trial' : 'active'),
       planStartDate: startIso,
       planEndDate: endIso,
-      planPrice: hotel.planPrice || (hotel.plan === 'demo' ? 0 : 2499),
-      billingCycle: hotel.billingCycle || 'monthly',
+      planPrice: hotel.planPrice !== undefined ? hotel.planPrice : fallbackPrice,
+      discountAmount: hotel.discountAmount || 0,
+      extraCharges: hotel.extraCharges || 0,
+      billingCycle: hotel.billingCycle || (hotel.plan === 'demo' ? 'trial' : (hotel.plan === 'yearly' || hotel.plan === 'annual' ? 'yearly' : 'monthly')),
       maxRooms: hotel.maxRooms || 20,
       planNotes: hotel.planNotes || ''
     });
@@ -774,8 +780,9 @@ Please let us know your available time today! 🙏`;
       return;
     }
     const ownerName = hotel.owner?.name || 'Hotel Owner';
-    const planName = (hotel.plan || 'Starter').toUpperCase();
-    const price = hotel.planPrice !== undefined ? hotel.planPrice : 2499;
+    const planName = hotel.plan === 'demo' ? '7-Day Free Trial' : hotel.plan === 'yearly' || hotel.plan === 'annual' ? 'Annual Plan (₹800/mo)' : 'Monthly Plan';
+    const fallbackPrice = hotel.plan === 'demo' ? 0 : (hotel.plan === 'yearly' || hotel.plan === 'annual' ? 9600 : 1000);
+    const price = hotel.planPrice !== undefined ? hotel.planPrice : fallbackPrice;
     const endDate = hotel.planEndDate 
       ? new Date(hotel.planEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) 
       : 'Soon';
@@ -1407,10 +1414,28 @@ Please let us know your available time today! 🙏`;
                               <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-slate-100 text-xs">
                                 <div className="flex items-center gap-1.5 font-bold">
                                   <CreditCard size={13} className="text-slate-700 shrink-0" />
-                                  <span className="text-slate-900 font-extrabold uppercase">{(hotel.plan || 'Starter')}</span>
-                                  <span className="px-1.5 py-0.2 bg-emerald-50 text-emerald-700 rounded font-black text-[11px] border border-emerald-200">
-                                    ₹{(hotel.planPrice !== undefined ? hotel.planPrice : (hotel.plan === 'demo' ? 0 : 2499)).toLocaleString()} / {hotel.billingCycle || 'mo'}
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider border ${
+                                    hotel.plan === 'demo'
+                                      ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                      : hotel.plan === 'yearly' || hotel.plan === 'annual'
+                                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                      : 'bg-indigo-50 text-indigo-800 border-indigo-200'
+                                  }`}>
+                                    {hotel.plan === 'demo' ? '7-Day Free Trial' : hotel.plan === 'yearly' || hotel.plan === 'annual' ? 'Annual Plan' : 'Monthly Plan'}
                                   </span>
+                                  <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded font-black text-[11px] border border-emerald-200">
+                                    ₹{(hotel.planPrice !== undefined ? hotel.planPrice : (hotel.plan === 'demo' ? 0 : (hotel.plan === 'yearly' || hotel.plan === 'annual' ? 9600 : 1000))).toLocaleString()} / {hotel.billingCycle || 'mo'}
+                                  </span>
+                                  {hotel.discountAmount > 0 && (
+                                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50/80 px-1 rounded">
+                                      -₹{hotel.discountAmount}
+                                    </span>
+                                  )}
+                                  {hotel.extraCharges > 0 && (
+                                    <span className="text-[10px] font-bold text-blue-600 bg-blue-50/80 px-1 rounded">
+                                      +₹{hotel.extraCharges}
+                                    </span>
+                                  )}
                                 </div>
 
                                 <span className="text-slate-300 hidden sm:inline">•</span>
@@ -1965,10 +1990,12 @@ Please let us know your available time today! 🙏`;
                               : '⏳ Free Trial'}
                           </span>
                           <span className="font-extrabold text-xs text-slate-900">
-                            ₹{(h.planPrice !== undefined ? h.planPrice : (h.plan === 'demo' ? 0 : 2499)).toLocaleString()} / {h.billingCycle || 'mo'}
+                            ₹{(h.planPrice !== undefined ? h.planPrice : (h.plan === 'demo' ? 0 : (h.plan === 'yearly' || h.plan === 'annual' ? 9600 : 1000))).toLocaleString()} / {h.billingCycle || 'mo'}
                           </span>
                         </div>
-                        <p className="text-[11px] text-slate-500 font-bold">Tier: {(h.plan || 'Starter').toUpperCase()}</p>
+                        <p className="text-[11px] text-slate-500 font-bold">
+                          Tier: {h.plan === 'demo' ? '7-Day Free Trial' : (h.plan === 'yearly' || h.plan === 'annual' ? 'Annual Plan (₹800/mo)' : 'Monthly Plan')}
+                        </p>
                         <div className="text-[11px] text-slate-500 flex items-center gap-1">
                           <Clock size={11} className="text-slate-400" />
                           <span>
@@ -2358,8 +2385,8 @@ Please let us know your available time today! 🙏`;
                   const stationerySaved = Math.min(3000, Math.max(1200, Math.round(roiRooms * 60)));
                   const leakageSaved = Math.round(monthlyRoomNights * (roiAdr * 0.025));
                   const totalMonthlyGain = (hoursSaved * 120) + stationerySaved + leakageSaved;
-                  const netGain = totalMonthlyGain - 2499;
-                  const roiMultiplier = (totalMonthlyGain / 2499).toFixed(1);
+                  const netGain = totalMonthlyGain - 1000;
+                  const roiMultiplier = (totalMonthlyGain / 1000).toFixed(1);
 
                   return (
                     <>
@@ -2396,7 +2423,7 @@ Please let us know your available time today! 🙏`;
                             ₹{totalMonthlyGain.toLocaleString()} <span className="text-xs font-normal text-slate-400">/ month benefit</span>
                           </div>
                           <p className="text-xs text-slate-300 mt-0.5">
-                            Against Software Fee of ₹2,499/mo ➔ <strong>Net Monthly Gain: +₹{netGain.toLocaleString()} ({roiMultiplier}x ROI)</strong>
+                            Against Software Fee of ₹1,000/mo (₹800/mo on Annual) ➔ <strong>Net Monthly Gain: +₹{netGain.toLocaleString()} ({roiMultiplier}x ROI)</strong>
                           </p>
                         </div>
 
@@ -2416,7 +2443,7 @@ Please let us know your available time today! 🙏`;
                               `🛡️ *Prevented Unbilled Rooms & Theft:* ~₹${leakageSaved.toLocaleString()} / month`,
                               `──────────────────────`,
                               `💰 *Total Monthly Value Created:* ₹${totalMonthlyGain.toLocaleString()} / month`,
-                              `🎯 *Software Investment:* Only ₹2,499 / month`,
+                              `🎯 *Software Investment:* Only ₹1,000 / month (or ₹800/mo on Annual Plan)`,
                               `🚀 *Net Monthly Profit Increase:* +₹${netGain.toLocaleString()} (${roiMultiplier}x Guaranteed ROI!)`,
                               `──────────────────────`,
                               `Would you like to start a *Free 7-Day Trial* at ${hotel} to test this live? 🙏`
@@ -2809,9 +2836,11 @@ Please let us know your available time today! 🙏`;
                 <div>
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Current Setup</span>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className="font-extrabold text-slate-900 text-sm uppercase">{(selectedPlanHotel.plan || 'Starter')}</span>
+                    <span className="font-extrabold text-slate-900 text-sm uppercase">
+                      {selectedPlanHotel.plan === 'demo' ? '7-Day Free Trial' : (selectedPlanHotel.plan === 'yearly' || selectedPlanHotel.plan === 'annual' ? 'Annual (₹800/mo)' : 'Monthly Plan')}
+                    </span>
                     <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                      ₹{(selectedPlanHotel.planPrice || (selectedPlanHotel.plan === 'demo' ? 0 : 2499)).toLocaleString()} / {selectedPlanHotel.billingCycle || 'mo'}
+                      ₹{(selectedPlanHotel.planPrice !== undefined ? selectedPlanHotel.planPrice : (selectedPlanHotel.plan === 'demo' ? 0 : (selectedPlanHotel.plan === 'yearly' || selectedPlanHotel.plan === 'annual' ? 9600 : 1000))).toLocaleString()} / {selectedPlanHotel.billingCycle || 'mo'}
                     </span>
                   </div>
                 </div>
@@ -2823,67 +2852,56 @@ Please let us know your available time today! 🙏`;
                 </div>
               </div>
 
-              {/* ⚡ 1-Click Renewal Extenders */}
-              <div className="p-3.5 bg-slate-950 text-white rounded-2xl space-y-2">
-                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 block">
-                  ⚡ 1-Click Renewal Quick Extenders:
-                </span>
+              {/* ⚡ Quick Renewal Presets */}
+              <div className="p-3 bg-emerald-50/60 border border-emerald-200/80 rounded-2xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-900">
+                    ⚡ Quick Renewal Presets
+                  </span>
+                  <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                    Auto-Calculates Expiry & Rate
+                  </span>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => {
-                      const base = planForm.planEndDate && new Date(planForm.planEndDate) > new Date()
-                        ? new Date(planForm.planEndDate)
-                        : new Date();
-                      const next = new Date(base.getTime() + 30 * 24 * 60 * 60 * 1000);
+                      const d = new Date();
+                      d.setDate(d.getDate() + 30);
+                      const disc = Number(planForm.discountAmount) || 0;
+                      const extra = Number(planForm.extraCharges) || 0;
                       setPlanForm(prev => ({
                         ...prev,
-                        planStatus: 'active',
-                        planStartDate: prev.planStartDate || new Date().toISOString().split('T')[0],
-                        planEndDate: next.toISOString().split('T')[0]
+                        plan: 'monthly',
+                        planEndDate: d.toISOString().split('T')[0],
+                        billingCycle: 'monthly',
+                        planPrice: Math.max(0, 1000 - disc + extra),
+                        planStatus: 'active'
                       }));
                     }}
-                    className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
+                    className="px-3 py-1.5 bg-white hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl border border-emerald-300 transition-all shadow-2xs active:scale-95 cursor-pointer"
                   >
-                    +30 Days (Renew 1 Month)
+                    + Monthly Plan (₹1,000 / 30 Days)
                   </button>
                   <button
                     type="button"
                     onClick={() => {
-                      const base = planForm.planEndDate && new Date(planForm.planEndDate) > new Date()
-                        ? new Date(planForm.planEndDate)
-                        : new Date();
-                      const next = new Date(base.getTime() + 90 * 24 * 60 * 60 * 1000);
+                      const d = new Date();
+                      d.setDate(d.getDate() + 365);
+                      const disc = Number(planForm.discountAmount) || 0;
+                      const extra = Number(planForm.extraCharges) || 0;
                       setPlanForm(prev => ({
                         ...prev,
-                        planStatus: 'active',
-                        billingCycle: 'quarterly',
-                        planStartDate: prev.planStartDate || new Date().toISOString().split('T')[0],
-                        planEndDate: next.toISOString().split('T')[0]
-                      }));
-                    }}
-                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
-                  >
-                    +90 Days (Quarterly)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const base = planForm.planEndDate && new Date(planForm.planEndDate) > new Date()
-                        ? new Date(planForm.planEndDate)
-                        : new Date();
-                      const next = new Date(base.getTime() + 365 * 24 * 60 * 60 * 1000);
-                      setPlanForm(prev => ({
-                        ...prev,
-                        planStatus: 'active',
+                        plan: 'yearly',
+                        planEndDate: d.toISOString().split('T')[0],
                         billingCycle: 'yearly',
-                        planStartDate: prev.planStartDate || new Date().toISOString().split('T')[0],
-                        planEndDate: next.toISOString().split('T')[0]
+                        planPrice: Math.max(0, 9600 - disc + extra),
+                        planStatus: 'active'
                       }));
                     }}
-                    className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
+                    className="px-3 py-1.5 bg-white hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl border border-emerald-300 transition-all shadow-2xs active:scale-95 cursor-pointer"
                   >
-                    +1 Year (Annual)
+                    + Annual Plan (₹800/mo · ₹9,600 / 1 Year)
                   </button>
                 </div>
               </div>
@@ -2895,16 +2913,28 @@ Please let us know your available time today! 🙏`;
                     value={planForm.plan}
                     onChange={e => {
                       const p = e.target.value;
-                      const price = p === 'demo' ? 0 : p === 'starter' ? 2499 : p === 'standard' ? 3999 : 6999;
-                      setPlanForm({ ...planForm, plan: p, planPrice: price, planStatus: p === 'demo' ? 'trial' : 'active' });
+                      const basePrice = p === 'demo' ? 0 : (p === 'yearly' || p === 'annual' ? 9600 : 1000);
+                      const disc = Number(planForm.discountAmount) || 0;
+                      const extra = Number(planForm.extraCharges) || 0;
+                      const days = p === 'demo' ? 7 : (p === 'yearly' || p === 'annual' ? 365 : 30);
+                      const d = new Date();
+                      d.setDate(d.getDate() + days);
+
+                      setPlanForm({
+                        ...planForm,
+                        plan: p,
+                        planPrice: p === 'demo' ? 0 : Math.max(0, basePrice - disc + extra),
+                        billingCycle: p === 'demo' ? 'trial' : (p === 'yearly' || p === 'annual' ? 'yearly' : 'monthly'),
+                        planStatus: p === 'demo' ? 'trial' : 'active',
+                        planEndDate: d.toISOString().split('T')[0]
+                      });
                     }}
                     className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
                   >
-                    <option value="demo">Free Trial / Demo (14 Days)</option>
-                    <option value="starter">Starter Plan (₹2,499/mo)</option>
-                    <option value="standard">Standard Plan (₹3,999/mo)</option>
-                    <option value="growth">Growth Plan (₹6,999/mo)</option>
-                    <option value="enterprise">Enterprise Custom</option>
+                    <option value="demo">Free Trial / Demo (7 Days - ₹0)</option>
+                    <option value="monthly">Monthly Plan (₹1,000 / month)</option>
+                    <option value="yearly">Annual Plan (₹800/mo · ₹9,600 / year)</option>
+                    <option value="enterprise">Custom Enterprise Plan</option>
                   </select>
                 </div>
 
@@ -2923,17 +2953,67 @@ Please let us know your available time today! 🙏`;
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-gray-700 uppercase mb-1">Amount Charged (₹)</label>
-                  <input
-                    type="number"
-                    value={planForm.planPrice}
-                    onChange={e => setPlanForm({ ...planForm, planPrice: e.target.value })}
-                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
-                  />
-                </div>
+              {/* Pricing, Discount & Add-on Controls */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 block">
+                  Pricing, Discount & Extra Charges
+                </span>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-emerald-700 uppercase mb-1">- Discount (₹)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl font-bold text-xs text-emerald-700 outline-none focus:ring-2 focus:ring-black"
+                      value={planForm.discountAmount || ''}
+                      onChange={e => {
+                        const disc = Number(e.target.value) || 0;
+                        const base = planForm.plan === 'yearly' || planForm.plan === 'annual' ? 9600 : (planForm.plan === 'demo' ? 0 : 1000);
+                        const extra = Number(planForm.extraCharges) || 0;
+                        setPlanForm({
+                          ...planForm,
+                          discountAmount: disc,
+                          planPrice: Math.max(0, base - disc + extra)
+                        });
+                      }}
+                    />
+                  </div>
 
+                  <div>
+                    <label className="block text-[10px] font-bold text-blue-700 uppercase mb-1">+ Extra / Add-ons (₹)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl font-bold text-xs text-blue-700 outline-none focus:ring-2 focus:ring-black"
+                      value={planForm.extraCharges || ''}
+                      onChange={e => {
+                        const extra = Number(e.target.value) || 0;
+                        const base = planForm.plan === 'yearly' || planForm.plan === 'annual' ? 9600 : (planForm.plan === 'demo' ? 0 : 1000);
+                        const disc = Number(planForm.discountAmount) || 0;
+                        setPlanForm({
+                          ...planForm,
+                          extraCharges: extra,
+                          planPrice: Math.max(0, base - disc + extra)
+                        });
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-900 uppercase mb-1">= Final Billed (₹) *</label>
+                    <input
+                      type="number"
+                      min="0"
+                      required
+                      className="w-full px-3 py-2 bg-white border-2 border-slate-900 rounded-xl font-black text-xs outline-none focus:ring-2 focus:ring-black"
+                      value={planForm.planPrice}
+                      onChange={e => setPlanForm({ ...planForm, planPrice: Number(e.target.value) || 0 })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-gray-700 uppercase mb-1">Billing Cycle</label>
                   <select
@@ -2941,10 +3021,21 @@ Please let us know your available time today! 🙏`;
                     onChange={e => setPlanForm({ ...planForm, billingCycle: e.target.value })}
                     className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
                   >
+                    <option value="trial">Trial</option>
                     <option value="monthly">Monthly</option>
                     <option value="quarterly">Quarterly</option>
                     <option value="yearly">Yearly (Annual)</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 uppercase mb-1">Max Rooms Capacity Limit</label>
+                  <input
+                    type="number"
+                    value={planForm.maxRooms}
+                    onChange={e => setPlanForm({ ...planForm, maxRooms: Number(e.target.value) || 20 })}
+                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
+                  />
                 </div>
               </div>
 
@@ -2971,20 +3062,10 @@ Please let us know your available time today! 🙏`;
               </div>
 
               <div>
-                <label className="block text-gray-700 uppercase mb-1">Max Rooms Capacity Limit</label>
-                <input
-                  type="number"
-                  value={planForm.maxRooms}
-                  onChange={e => setPlanForm({ ...planForm, maxRooms: e.target.value })}
-                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
-                />
-              </div>
-
-              <div>
                 <label className="block text-gray-700 uppercase mb-1">Plan Notes / Remarks</label>
                 <input
                   type="text"
-                  placeholder="e.g. 14-day free trial assigned during field visit"
+                  placeholder="e.g. 7-day free trial assigned during demo session"
                   value={planForm.planNotes}
                   onChange={e => setPlanForm({ ...planForm, planNotes: e.target.value })}
                   className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
