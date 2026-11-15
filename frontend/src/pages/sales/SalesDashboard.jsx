@@ -45,7 +45,9 @@ import {
   CheckCircle,
   X,
   Hexagon,
-  Menu
+  Menu,
+  Download,
+  Calculator
 } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -182,6 +184,28 @@ const SalesDashboard = () => {
     priority: 'medium'
   });
   const [savingFollowUp, setSavingFollowUp] = useState(false);
+
+  // ✏️ Modal 10: Edit Lead
+  const [editingLead, setEditingLead] = useState(null);
+  const [editLeadForm, setEditLeadForm] = useState({
+    hotelName: '',
+    contactPerson: '',
+    phone: '',
+    email: '',
+    city: '',
+    address: '',
+    roomCount: 15,
+    currentSystem: '',
+    status: 'new_lead',
+    priority: 'warm',
+    notes: ''
+  });
+  const [savingEditLead, setSavingEditLead] = useState(false);
+
+  // 🧮 ROI Calculator State
+  const [roiRooms, setRoiRooms] = useState(25);
+  const [roiAdr, setRoiAdr] = useState(1800);
+  const [roiOccupancy, setRoiOccupancy] = useState(65);
 
   // 💬 WhatsApp Outreach
   const [outreachPhone, setOutreachPhone] = useState('');
@@ -594,6 +618,91 @@ const SalesDashboard = () => {
     } finally {
       setSavingFollowUp(false);
     }
+  };
+
+  // ⚡ Quick Stage Update
+  const handleQuickUpdateStage = async (leadId, newStatus) => {
+    try {
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      await axios.put(`${API}/api/sales/leads/${leadId}`, { status: newStatus });
+      setLeads(prev => prev.map(l => l._id === leadId ? { ...l, status: newStatus } : l));
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update stage');
+    }
+  };
+
+  // ✏️ Open Edit Lead Modal
+  const openEditLeadModal = (lead) => {
+    setEditingLead(lead);
+    setEditLeadForm({
+      hotelName: lead.hotelName || '',
+      contactPerson: lead.contactPerson || '',
+      phone: lead.phone || '',
+      email: lead.email || '',
+      city: lead.city || '',
+      address: lead.address || '',
+      roomCount: lead.roomCount || 15,
+      currentSystem: lead.currentSystem || lead.currentSoftware || '',
+      status: lead.status || 'new_lead',
+      priority: lead.priority || 'warm',
+      notes: lead.notes || ''
+    });
+  };
+
+  // ✏️ Save Edited Lead
+  const handleSaveEditLead = async (e) => {
+    e.preventDefault();
+    if (!editingLead) return;
+    try {
+      setSavingEditLead(true);
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      const res = await axios.put(`${API}/api/sales/leads/${editingLead._id}`, editLeadForm);
+      setLeads(prev => prev.map(l => l._id === editingLead._id ? { ...l, ...res.data.data } : l));
+      alert(`✅ Lead details updated for "${editLeadForm.hotelName}"!`);
+      setEditingLead(null);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update lead');
+    } finally {
+      setSavingEditLead(false);
+    }
+  };
+
+  // 🗑️ Delete Lead
+  const handleDeleteLead = async (leadId, hotelName) => {
+    if (!window.confirm(`Are you sure you want to remove prospect "${hotelName}"?`)) return;
+    try {
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      await axios.delete(`${API}/api/sales/leads/${leadId}`);
+      setLeads(prev => prev.filter(l => l._id !== leadId));
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to delete lead');
+    }
+  };
+
+  // 📥 Export Leads to CSV
+  const exportLeadsCsv = () => {
+    const headers = ['Hotel Name', 'Decision Maker', 'Phone', 'Email', 'City', 'Room Count', 'Current Software', 'Stage', 'Priority', 'Next Follow-up', 'Notes'];
+    const rows = filteredLeads.map(l => [
+      `"${(l.hotelName || '').replace(/"/g, '""')}"`,
+      `"${(l.contactPerson || '').replace(/"/g, '""')}"`,
+      `"${(l.phone || '').replace(/"/g, '""')}"`,
+      `"${(l.email || '').replace(/"/g, '""')}"`,
+      `"${(l.city || '').replace(/"/g, '""')}"`,
+      l.roomCount || 0,
+      `"${(l.currentSystem || l.currentSoftware || '').replace(/"/g, '""')}"`,
+      `"${(l.status || '').replace(/"/g, '""')}"`,
+      `"${(l.priority || '').toUpperCase()}"`,
+      `"${l.nextFollowUpDate ? new Date(l.nextFollowUpDate).toLocaleString('en-IN') : ''}"`,
+      `"${(l.notes || '').replace(/"/g, '""')}"`
+    ].join(','));
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `sales-leads-${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const convertLeadToClient = (lead) => {
@@ -1521,13 +1630,24 @@ Please let us know your available time today! 🙏`;
               <p className="text-xs text-gray-500">Record on-ground visits, schedule demo follow-ups, and convert directly to clients.</p>
             </div>
 
-            <button
-              onClick={() => setIsLeadModalOpen(true)}
-              className="w-full sm:w-auto px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 shrink-0"
-            >
-              <Plus size={14} className="stroke-[3]" />
-              <span>+ Add Field Prospect</span>
-            </button>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <button
+                onClick={exportLeadsCsv}
+                className="w-full sm:w-auto px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold rounded-xl border border-slate-200 transition-all shadow-2xs active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                title="Download leads list as CSV"
+              >
+                <Download size={14} className="text-slate-600" />
+                <span>Export Leads CSV</span>
+              </button>
+
+              <button
+                onClick={() => setIsLeadModalOpen(true)}
+                className="w-full sm:w-auto px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 shrink-0"
+              >
+                <Plus size={14} className="stroke-[3]" />
+                <span>+ Add Field Prospect</span>
+              </button>
+            </div>
           </div>
 
           {/* Follow-up Sub-tabs */}
@@ -1616,20 +1736,52 @@ Please let us know your available time today! 🙏`;
                 return (
                   <div key={lead._id} className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-5 shadow-sm flex flex-col justify-between space-y-3">
                     <div>
-                      {/* Priority, Status & Overdue Badges */}
-                      <div className="flex items-center justify-between gap-1 flex-wrap">
+                      {/* Priority, Quick Stage Dropdown & Fast Actions */}
+                      <div className="flex items-center justify-between gap-1.5 flex-wrap">
                         <span className={`px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded-md ${
                           lead.priority === 'hot' ? 'bg-rose-100 text-rose-800' : 'bg-gray-100 text-gray-700'
                         }`}>
-                          {lead.priority === 'hot' ? '🔥 Hot Prospect' : `${lead.priority} priority`}
+                          {lead.priority === 'hot' ? '🔥 Hot' : `${lead.priority}`}
                         </span>
 
-                        <span className={`px-2 py-0.5 text-[9px] font-bold rounded-md uppercase tracking-wider ${
-                          lead.status === 'won' ? 'bg-emerald-100 text-emerald-800' :
-                          lead.status === 'demo_scheduled' ? 'bg-indigo-100 text-indigo-800' : 'bg-gray-100 text-gray-600'
-                        }`}>
-                          {lead.status.replace('_', ' ')}
-                        </span>
+                        <div className="flex items-center gap-1">
+                          <select
+                            value={lead.status || 'new_lead'}
+                            onChange={(e) => handleQuickUpdateStage(lead._id, e.target.value)}
+                            className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border outline-none cursor-pointer transition-colors ${
+                              lead.status === 'won' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
+                              lead.status === 'lost' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                              lead.status?.includes('demo') ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                              'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                            }`}
+                            title="Change lead pipeline stage"
+                          >
+                            <option value="new_lead">New Lead</option>
+                            <option value="contacted">Contacted</option>
+                            <option value="demo_scheduled">Demo Scheduled</option>
+                            <option value="demo_completed">Demo Done</option>
+                            <option value="proposal_sent">Proposal Sent</option>
+                            <option value="negotiation">Negotiation</option>
+                            <option value="won">Won Deal 🏆</option>
+                            <option value="lost">Lost</option>
+                          </select>
+
+                          <button
+                            onClick={() => openEditLeadModal(lead)}
+                            className="p-1 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-md transition-colors cursor-pointer"
+                            title="Edit Lead Info"
+                          >
+                            <Pencil size={11} />
+                          </button>
+
+                          <button
+                            onClick={() => handleDeleteLead(lead._id, lead.hotelName)}
+                            className="p-1 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
+                            title="Delete Prospect"
+                          >
+                            <Trash2 size={11} />
+                          </button>
+                        </div>
                       </div>
 
                       <h3 className="text-base font-black text-gray-900 mt-2">{lead.hotelName}</h3>
@@ -2108,6 +2260,168 @@ Please let us know your available time today! 🙏`;
                 <pre className="text-xs font-mono text-gray-800 whitespace-pre-wrap bg-white p-3 sm:p-4 rounded-xl border border-gray-200 leading-relaxed max-h-80 overflow-y-auto">
                   {getOutreachText()}
                 </pre>
+              </div>
+            </div>
+          </div>
+
+          {/* 🧮 INTERACTIVE HOTEL ROI & SAVINGS CALCULATOR */}
+          <div className="border-t border-gray-100 pt-6 space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+              <div>
+                <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+                  <Calculator size={18} className="text-indigo-600" />
+                  <span>Hotel ROI & Front Desk Savings Calculator</span>
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Calculate real-time operational savings and pitch guaranteed ROI to the hotel owner.
+                </p>
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800">
+                💰 Pitch Closer Tool
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">1. Hotel Baseline Details</span>
+                
+                <div>
+                  <div className="flex justify-between text-xs font-bold mb-1">
+                    <span className="text-slate-600">Total Rooms:</span>
+                    <span className="text-slate-900">{roiRooms} Rooms</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="5"
+                    max="150"
+                    step="5"
+                    value={roiRooms}
+                    onChange={e => setRoiRooms(Number(e.target.value))}
+                    className="w-full accent-indigo-600 cursor-pointer"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-xs font-bold mb-1">
+                    <span className="text-slate-600">Average Room Rate (ADR):</span>
+                    <span className="text-slate-900">₹{roiAdr.toLocaleString()}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="500"
+                    max="10000"
+                    step="250"
+                    value={roiAdr}
+                    onChange={e => setRoiAdr(Number(e.target.value))}
+                    className="w-full accent-indigo-600 cursor-pointer"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-xs font-bold mb-1">
+                    <span className="text-slate-600">Estimated Occupancy:</span>
+                    <span className="text-slate-900">{roiOccupancy}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="20"
+                    max="100"
+                    step="5"
+                    value={roiOccupancy}
+                    onChange={e => setRoiOccupancy(Number(e.target.value))}
+                    className="w-full accent-indigo-600 cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              {/* Live Savings Calculation Cards */}
+              <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {(() => {
+                  const monthlyRoomNights = Math.round(roiRooms * 30 * (roiOccupancy / 100));
+                  const hoursSaved = Math.round((monthlyRoomNights * 5.5) / 60);
+                  const stationerySaved = Math.min(3000, Math.max(1200, Math.round(roiRooms * 60)));
+                  const leakageSaved = Math.round(monthlyRoomNights * (roiAdr * 0.025));
+                  const totalMonthlyGain = (hoursSaved * 120) + stationerySaved + leakageSaved;
+                  const netGain = totalMonthlyGain - 2499;
+                  const roiMultiplier = (totalMonthlyGain / 2499).toFixed(1);
+
+                  return (
+                    <>
+                      <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 flex flex-col justify-between">
+                        <div>
+                          <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700">⚡ Front Desk Time Saved</span>
+                          <div className="text-2xl font-black text-emerald-900 mt-1">~{hoursSaved} Hours / mo</div>
+                          <p className="text-[11px] text-emerald-700 font-medium mt-0.5">
+                            AI scanning cuts check-in time from 6 mins to 30 secs ({monthlyRoomNights} check-ins/mo).
+                          </p>
+                        </div>
+                        <div className="text-[11px] font-bold text-emerald-800 mt-2">
+                          Staff Productivity Value: ₹{(hoursSaved * 120).toLocaleString()}
+                        </div>
+                      </div>
+
+                      <div className="p-4 bg-blue-50 rounded-2xl border border-blue-200 flex flex-col justify-between">
+                        <div>
+                          <span className="text-[10px] font-black uppercase tracking-wider text-blue-700">🛡️ Leakage & Theft Prevention</span>
+                          <div className="text-2xl font-black text-blue-900 mt-1">~₹{leakageSaved.toLocaleString()} / mo</div>
+                          <p className="text-[11px] text-blue-700 font-medium mt-0.5">
+                            Mandatory room QR settlement & shift cashier audits stop unbilled guests and cash theft.
+                          </p>
+                        </div>
+                        <div className="text-[11px] font-bold text-blue-800 mt-2">
+                          Paper Stationery Saved: +₹{stationerySaved.toLocaleString()}
+                        </div>
+                      </div>
+
+                      <div className="sm:col-span-2 p-4 bg-slate-900 text-white rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Total Estimated Monthly Value</span>
+                          <div className="text-2xl font-black text-white mt-0.5">
+                            ₹{totalMonthlyGain.toLocaleString()} <span className="text-xs font-normal text-slate-400">/ month benefit</span>
+                          </div>
+                          <p className="text-xs text-slate-300 mt-0.5">
+                            Against Software Fee of ₹2,499/mo ➔ <strong>Net Monthly Gain: +₹{netGain.toLocaleString()} ({roiMultiplier}x ROI)</strong>
+                          </p>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            const hotel = outreachHotelName.trim() || 'Your Hotel';
+                            const name = outreachContactName.trim() || 'Partner';
+                            const clean = outreachPhone.replace(/\D/g, '').slice(-10);
+                            const roiMsg = [
+                              `🏨 *NXHotel Software — Return on Investment (ROI) Report*`,
+                              `──────────────────────`,
+                              `Namaste *${name}* ji,`,
+                              `Here is the projected monthly cost & time savings breakdown for *${hotel}* (${roiRooms} Rooms @ ₹${roiAdr} ADR):`,
+                              ``,
+                              `⚡ *Front Desk Time Saved:* ~${hoursSaved} Hours / month`,
+                              `📄 *Paper Registers & Ink Saved:* ₹${stationerySaved.toLocaleString()} / month`,
+                              `🛡️ *Prevented Unbilled Rooms & Theft:* ~₹${leakageSaved.toLocaleString()} / month`,
+                              `──────────────────────`,
+                              `💰 *Total Monthly Value Created:* ₹${totalMonthlyGain.toLocaleString()} / month`,
+                              `🎯 *Software Investment:* Only ₹2,499 / month`,
+                              `🚀 *Net Monthly Profit Increase:* +₹${netGain.toLocaleString()} (${roiMultiplier}x Guaranteed ROI!)`,
+                              `──────────────────────`,
+                              `Would you like to start a *Free 7-Day Trial* at ${hotel} to test this live? 🙏`
+                            ].join('\n');
+
+                            if (clean && clean.length === 10) {
+                              window.open(`https://wa.me/91${clean}?text=${encodeURIComponent(roiMsg)}`, '_blank');
+                            } else {
+                              navigator.clipboard.writeText(roiMsg);
+                              alert('✅ ROI Proposal copied to clipboard! Enter owner WhatsApp number to launch directly.');
+                            }
+                          }}
+                          className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer shrink-0"
+                        >
+                          <Send size={13} />
+                          <span>Send ROI Proposal on WhatsApp</span>
+                        </button>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             </div>
           </div>
@@ -3265,6 +3579,166 @@ Please let us know your available time today! 🙏`;
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✏️ MODAL 10: EDIT LEAD DETAILS */}
+      {editingLead && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-gray-100 flex flex-col max-h-[90vh]">
+            <div className="p-5 bg-gradient-to-r from-gray-950 to-gray-900 text-white flex justify-between items-center">
+              <div>
+                <h3 className="text-base font-black text-white flex items-center gap-2">
+                  <Pencil size={16} />
+                  <span>Edit Prospect Details</span>
+                </h3>
+                <p className="text-xs text-gray-400 mt-0.5">{editingLead.hotelName}</p>
+              </div>
+              <button onClick={() => setEditingLead(null)} className="text-gray-400 hover:text-white p-1">
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditLead} className="p-5 space-y-3 overflow-y-auto flex-1 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-gray-700 uppercase mb-1">Hotel / Property Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editLeadForm.hotelName}
+                    onChange={e => setEditLeadForm({ ...editLeadForm, hotelName: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-bold outline-none focus:ring-2 focus:ring-black"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-gray-700 uppercase mb-1">Contact Person / Owner *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editLeadForm.contactPerson}
+                    onChange={e => setEditLeadForm({ ...editLeadForm, contactPerson: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-bold outline-none focus:ring-2 focus:ring-black"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-gray-700 uppercase mb-1">Phone Number *</label>
+                  <input
+                    type="tel"
+                    required
+                    value={editLeadForm.phone}
+                    onChange={e => setEditLeadForm({ ...editLeadForm, phone: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-bold outline-none focus:ring-2 focus:ring-black"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-gray-700 uppercase mb-1">Email Address</label>
+                  <input
+                    type="email"
+                    value={editLeadForm.email}
+                    onChange={e => setEditLeadForm({ ...editLeadForm, email: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-bold outline-none focus:ring-2 focus:ring-black"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-bold text-gray-700 uppercase mb-1">City / Location</label>
+                  <input
+                    type="text"
+                    value={editLeadForm.city}
+                    onChange={e => setEditLeadForm({ ...editLeadForm, city: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-bold outline-none focus:ring-2 focus:ring-black"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-gray-700 uppercase mb-1">Total Rooms</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={editLeadForm.roomCount}
+                    onChange={e => setEditLeadForm({ ...editLeadForm, roomCount: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-bold outline-none focus:ring-2 focus:ring-black"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-gray-700 uppercase mb-1">Current System</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Paper, Excel, Old PMS"
+                    value={editLeadForm.currentSystem}
+                    onChange={e => setEditLeadForm({ ...editLeadForm, currentSystem: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-bold outline-none focus:ring-2 focus:ring-black"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-gray-700 uppercase mb-1">Pipeline Stage</label>
+                  <select
+                    value={editLeadForm.status}
+                    onChange={e => setEditLeadForm({ ...editLeadForm, status: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-bold outline-none focus:ring-2 focus:ring-black"
+                  >
+                    <option value="new_lead">New Lead</option>
+                    <option value="contacted">Contacted</option>
+                    <option value="demo_scheduled">Demo Scheduled</option>
+                    <option value="demo_completed">Demo Done</option>
+                    <option value="proposal_sent">Proposal Sent</option>
+                    <option value="negotiation">Negotiation</option>
+                    <option value="won">Won Deal 🏆</option>
+                    <option value="lost">Lost</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 uppercase mb-1">Priority</label>
+                  <select
+                    value={editLeadForm.priority}
+                    onChange={e => setEditLeadForm({ ...editLeadForm, priority: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-bold outline-none focus:ring-2 focus:ring-black"
+                  >
+                    <option value="hot">🔥 Hot Prospect</option>
+                    <option value="high">High Priority</option>
+                    <option value="medium">Medium Priority</option>
+                    <option value="low">Low Priority</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 uppercase mb-1">Notes / Requirement Summary</label>
+                <textarea
+                  rows="2"
+                  value={editLeadForm.notes}
+                  onChange={e => setEditLeadForm({ ...editLeadForm, notes: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
+                ></textarea>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingLead(null)}
+                  className="px-4 py-2 border border-gray-200 text-gray-700 rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEditLead}
+                  className="px-5 py-2 bg-slate-900 text-white font-black rounded-xl hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
+                >
+                  {savingEditLead ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

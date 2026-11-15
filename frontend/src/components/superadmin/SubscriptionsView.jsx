@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   IndianRupee, CheckCircle2, Clock, AlertTriangle, 
-  MessageSquare, Calendar, Building, Crown, ExternalLink
+  MessageSquare, Calendar, Building, Crown, ExternalLink, Download
 } from 'lucide-react';
 
 const SubscriptionsView = ({ 
@@ -9,6 +9,37 @@ const SubscriptionsView = ({
   hostels = [], 
   onOpenPlanModal 
 }) => {
+
+  const exportSubscriptionsCsv = () => {
+    const headers = ['Property Name', 'Owner Name', 'Owner Email', 'Owner Phone', 'Plan Tier', 'Price (INR)', 'Billing Cycle', 'Start Date', 'End Date', 'Days Remaining', 'Status'];
+    const rows = hostels.map(h => {
+      const now = new Date();
+      const endDate = h.planEndDate ? new Date(h.planEndDate) : null;
+      const isExp = h.isExpired !== undefined ? h.isExpired : (h.planStatus === 'expired' || (endDate && endDate < now));
+      const daysLeft = h.daysRemaining !== undefined ? h.daysRemaining : (endDate ? Math.ceil((endDate - now) / (1000 * 60 * 60 * 24)) : 0);
+      return [
+        `"${(h.name || '').replace(/"/g, '""')}"`,
+        `"${(h.owner?.name || '').replace(/"/g, '""')}"`,
+        `"${(h.owner?.email || '').replace(/"/g, '""')}"`,
+        `"${(h.owner?.phone || h.contactNumber || '').replace(/"/g, '""')}"`,
+        `"${(h.plan || 'starter').toUpperCase()}"`,
+        h.planPrice || 0,
+        `"${h.billingCycle || 'monthly'}"`,
+        `"${h.planStartDate ? new Date(h.planStartDate).toLocaleDateString('en-IN') : ''}"`,
+        `"${h.planEndDate ? new Date(h.planEndDate).toLocaleDateString('en-IN') : ''}"`,
+        daysLeft,
+        `"${isExp ? 'Expired' : h.planStatus || 'Active'}"`
+      ].join(',');
+    });
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `hotel-subscriptions-${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const getRenewalWhatsAppUrl = (hotel) => {
     const phone = hotel.owner?.phone ? hotel.owner.phone.replace(/\D/g, '').slice(-10) : '';
@@ -84,6 +115,14 @@ const SubscriptionsView = ({
               Complete record of plan tiers, renewal dates, prices charged, and payment status.
             </p>
           </div>
+          <button
+            onClick={exportSubscriptionsCsv}
+            className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold rounded-xl border border-slate-200 transition-all shadow-2xs active:scale-95 flex items-center gap-1.5 cursor-pointer shrink-0"
+            title="Download subscription ledger as CSV"
+          >
+            <Download size={14} className="text-slate-600" />
+            <span>Export Subscriptions CSV</span>
+          </button>
         </div>
 
         <div className="overflow-x-auto">

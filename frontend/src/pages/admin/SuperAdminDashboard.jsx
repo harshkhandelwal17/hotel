@@ -39,7 +39,8 @@ import {
   X,
   LogOut,
   RefreshCw,
-  Hexagon
+  Hexagon,
+  Download
 } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -587,6 +588,31 @@ const SuperAdminDashboard = () => {
   const activeHostelsCount = hostels.filter(h => h.isActive !== false).length;
   const lockedHostelsCount = hostels.filter(h => h.isActive === false).length;
 
+  const exportPropertiesCsv = () => {
+    const headers = ['Property Name', 'Owner Name', 'Owner Email', 'Owner Phone', 'City / Address', 'Plan Tier', 'Price (INR)', 'Billing Cycle', 'Status', 'AI OCR', 'WhatsApp Sync'];
+    const rows = filteredHostels.map(h => [
+      `"${(h.name || '').replace(/"/g, '""')}"`,
+      `"${(h.owner?.name || '').replace(/"/g, '""')}"`,
+      `"${(h.owner?.email || '').replace(/"/g, '""')}"`,
+      `"${(h.owner?.phone || h.contactNumber || '').replace(/"/g, '""')}"`,
+      `"${(h.address || '').replace(/"/g, '""')}"`,
+      `"${(h.plan || 'starter').toUpperCase()}"`,
+      h.planPrice || 0,
+      `"${h.billingCycle || 'monthly'}"`,
+      `"${h.isActive !== false ? 'Active' : 'Locked'}"`,
+      `"${h.aiOcrEnabled ? 'Enabled' : 'Disabled'}"`,
+      `"${h.whatsappSyncEnabled ? 'Enabled' : 'Disabled'}"`
+    ].join(','));
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `hotel-properties-${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col justify-center items-center h-80 space-y-4">
@@ -1074,16 +1100,26 @@ const SuperAdminDashboard = () => {
                 Control property access, plan validity, and toggle active/locked state for any hotel.
               </p>
             </div>
-            <button
-              onClick={() => {
-                setNewPropertyForm(prev => ({ ...prev, owner: '' }));
-                setIsAddPropertyOpen(true);
-              }}
-              className="px-4 py-2 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-1.5"
-            >
-              <Plus size={14} className="stroke-[3]" />
-              <span>+ Register New Property</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={exportPropertiesCsv}
+                className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold rounded-xl border border-slate-200 transition-all shadow-2xs active:scale-95 flex items-center gap-1.5 cursor-pointer shrink-0"
+                title="Download properties directory as CSV"
+              >
+                <Download size={14} className="text-slate-600" />
+                <span>Export CSV</span>
+              </button>
+              <button
+                onClick={() => {
+                  setNewPropertyForm(prev => ({ ...prev, owner: '' }));
+                  setIsAddPropertyOpen(true);
+                }}
+                className="px-4 py-2 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-1.5"
+              >
+                <Plus size={14} className="stroke-[3]" />
+                <span>+ Register New Property</span>
+              </button>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
