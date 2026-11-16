@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useOutletContext, Link } from 'react-router-dom';
 import axios from 'axios';
-import { Users, Clock, CheckCircle2, Wrench, BedDouble, RefreshCw, Search } from 'lucide-react';
+import { Users, Clock, CheckCircle2, Wrench, BedDouble, RefreshCw, Search, Sparkles } from 'lucide-react';
 import { format, isPast } from 'date-fns';
 import { apiCache } from '../../utils/apiCache';
 
@@ -17,6 +17,23 @@ const RoomsView = () => {
   const { globalProperty } = useOutletContext() || { globalProperty: 'all' };
 
   const [housekeepingStatus, setHousekeepingStatus] = useState({});
+  const [seedingRooms, setSeedingRooms] = useState(false);
+
+  const handleSeedStarterRooms = async () => {
+    try {
+      setSeedingRooms(true);
+      await axios.post(`${API}/api/rooms/seed-starter`, {
+        hostelId: globalProperty !== 'all' ? globalProperty : undefined
+      });
+      apiCache.clear(`rooms_${globalProperty}`);
+      window.dispatchEvent(new Event('hotelDataInvalidated'));
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to seed starter rooms');
+    } finally {
+      setSeedingRooms(false);
+    }
+  };
 
   const activeStaysRef = useRef([]);
   useEffect(() => { activeStaysRef.current = activeStays; }, [activeStays]);
@@ -214,7 +231,29 @@ const RoomsView = () => {
 
       {/* Room Grid */}
       {filtered.length === 0 ? (
-        <div className="text-center py-20 text-gray-400 font-bold">No rooms found.</div>
+        rooms.length === 0 ? (
+          <div className="bg-white rounded-3xl border-2 border-dashed border-slate-300 p-8 sm:p-12 text-center max-w-lg mx-auto shadow-2xs space-y-4 my-8">
+            <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto text-2xl">
+              🏨
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-slate-900">No Rooms Configured Yet</h3>
+              <p className="text-xs text-slate-500 font-medium mt-1">
+                Your property has 0 rooms. Generate starter rooms with realistic categories (Deluxe, Standard, Suite & Family) to instantly test check-in, AI scanner, and occupancy.
+              </p>
+            </div>
+            <button
+              onClick={handleSeedStarterRooms}
+              disabled={seedingRooms}
+              className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 mx-auto cursor-pointer disabled:opacity-50"
+            >
+              <Sparkles size={14} className="text-amber-400" />
+              <span>{seedingRooms ? 'Generating Rooms...' : '⚡ Setup 6 Starter Demo Rooms (1-Click)'}</span>
+            </button>
+          </div>
+        ) : (
+          <div className="text-center py-20 text-gray-400 font-bold">No rooms matching the selected filter.</div>
+        )
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-4">
           {filtered.map((room) => {

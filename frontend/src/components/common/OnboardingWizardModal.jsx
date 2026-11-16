@@ -54,6 +54,7 @@ const OnboardingWizardModal = ({
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
   const [isExistingOwnerMode, setIsExistingOwnerMode] = useState(false);
   const [createStaffNow, setCreateStaffNow] = useState(false); // Staff is strictly optional!
+  const [createStarterRooms, setCreateStarterRooms] = useState(true); // Auto-generate 6 starter rooms for demo
 
   // Form Data
   const [wizardData, setWizardData] = useState({
@@ -325,6 +326,7 @@ const OnboardingWizardModal = ({
         checkInTime: wizardData.checkInTime || '12:00 PM',
         checkOutTime: wizardData.checkOutTime || '11:00 AM',
         assignedSalesAgent: wizardData.assignedSalesAgent || undefined,
+        createStarterRooms: Boolean(createStarterRooms),
         leadId: wizardData.leadId || undefined
       };
 
@@ -1026,6 +1028,28 @@ const OnboardingWizardModal = ({
                     onChange={e => setWizardData({ ...wizardData, planNotes: e.target.value })}
                     className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl font-medium text-xs outline-none focus:ring-2 focus:ring-black"
                   />
+                </div>
+              </div>
+
+              {/* ⚡ INSTANT DEMO ROOMS GENERATION */}
+              <div className="p-3 bg-emerald-50/70 border border-emerald-200/90 rounded-2xl">
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="createStarterRoomsToggle"
+                    checked={createStarterRooms}
+                    onChange={e => setCreateStarterRooms(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded text-emerald-600 border-emerald-300 cursor-pointer accent-emerald-600"
+                  />
+                  <label htmlFor="createStarterRoomsToggle" className="cursor-pointer">
+                    <span className="font-bold text-emerald-950 text-xs flex items-center gap-1.5">
+                      <Sparkles size={13} className="text-emerald-700" />
+                      <span>Pre-configure 6 Starter Demo Rooms (Deluxe, Suite & Family)</span>
+                    </span>
+                    <p className="text-[11px] text-emerald-800 mt-0.5">
+                      Recommended for live demos. Instantly populates 6 clean rooms with standard rates so you can test Aadhaar OCR check-in right away.
+                    </p>
+                  </label>
                 </div>
               </div>
 

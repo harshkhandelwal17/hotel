@@ -41,6 +41,24 @@ exports.createHostel = async (req, res, next) => {
       );
     }
 
+    // 🛏️ Automatically seed 6 starter rooms if requested
+    if (payload.createStarterRooms !== false) {
+      try {
+        const Room = require('../models/Room');
+        const starterRooms = [
+          { roomNumber: '101', floor: '1st Floor', roomType: 'Deluxe', capacity: 2, price12h: 1200, price24h: 1800, hostel: hostel._id, status: 'Active', housekeepingStatus: 'clean' },
+          { roomNumber: '102', floor: '1st Floor', roomType: 'Deluxe', capacity: 2, price12h: 1200, price24h: 1800, hostel: hostel._id, status: 'Active', housekeepingStatus: 'clean' },
+          { roomNumber: '103', floor: '1st Floor', roomType: 'Standard Double', capacity: 2, price12h: 900, price24h: 1400, hostel: hostel._id, status: 'Active', housekeepingStatus: 'clean' },
+          { roomNumber: '104', floor: '1st Floor', roomType: 'Standard Double', capacity: 2, price12h: 900, price24h: 1400, hostel: hostel._id, status: 'Active', housekeepingStatus: 'clean' },
+          { roomNumber: '201', floor: '2nd Floor', roomType: 'Suite', capacity: 3, price12h: 1800, price24h: 2800, hostel: hostel._id, status: 'Active', housekeepingStatus: 'clean' },
+          { roomNumber: '202', floor: '2nd Floor', roomType: 'Family Room', capacity: 4, price12h: 2200, price24h: 3500, hostel: hostel._id, status: 'Active', housekeepingStatus: 'clean' }
+        ];
+        await Room.insertMany(starterRooms);
+      } catch (rErr) {
+        console.error('Auto-seed starter rooms notice:', rErr.message);
+      }
+    }
+
     res.status(201).json({ success: true, data: hostel });
   } catch (error) {
     next(error);

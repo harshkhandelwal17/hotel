@@ -246,3 +246,44 @@ exports.updateHousekeepingStatus = async (req, res, next) => {
     sendError(res, next, error);
   }
 };
+
+// POST /api/rooms/seed-starter
+exports.seedStarterRooms = async (req, res, next) => {
+  try {
+    const Hostel = require('../models/Hostel');
+    let hostelId = req.body.hostelId || req.query.hostelId || req.user.assignedHostel;
+    if (!hostelId && req.user.role === 'admin') {
+      const firstHostel = await Hostel.findOne({ owner: req.user._id });
+      if (firstHostel) hostelId = firstHostel._id;
+    }
+    if (!hostelId) {
+      return res.status(400).json({ success: false, message: 'Property ID is required' });
+    }
+
+    const hostel = await Hostel.findById(hostelId);
+    if (!hostel) return res.status(404).json({ success: false, message: 'Property not found' });
+
+    const existingCount = await Room.countDocuments({ hostel: hostelId });
+    if (existingCount > 0) {
+      return res.status(400).json({ success: false, message: 'Property already has rooms configured' });
+    }
+
+    const starterRooms = [
+      { roomNumber: '101', floor: '1st Floor', roomType: 'Deluxe', capacity: 2, price12h: 1200, price24h: 1800, hostel: hostelId, status: 'Active', housekeepingStatus: 'clean' },
+      { roomNumber: '102', floor: '1st Floor', roomType: 'Deluxe', capacity: 2, price12h: 1200, price24h: 1800, hostel: hostelId, status: 'Active', housekeepingStatus: 'clean' },
+      { roomNumber: '103', floor: '1st Floor', roomType: 'Standard Double', capacity: 2, price12h: 900, price24h: 1400, hostel: hostelId, status: 'Active', housekeepingStatus: 'clean' },
+      { roomNumber: '104', floor: '1st Floor', roomType: 'Standard Double', capacity: 2, price12h: 900, price24h: 1400, hostel: hostelId, status: 'Active', housekeepingStatus: 'clean' },
+      { roomNumber: '201', floor: '2nd Floor', roomType: 'Suite', capacity: 3, price12h: 1800, price24h: 2800, hostel: hostelId, status: 'Active', housekeepingStatus: 'clean' },
+      { roomNumber: '202', floor: '2nd Floor', roomType: 'Family Room', capacity: 4, price12h: 2200, price24h: 3500, hostel: hostelId, status: 'Active', housekeepingStatus: 'clean' }
+    ];
+
+    const created = await Room.insertMany(starterRooms);
+    res.status(201).json({
+      success: true,
+      message: '✅ 6 starter rooms successfully generated!',
+      data: created
+    });
+  } catch (error) {
+    next(error);
+  }
+};

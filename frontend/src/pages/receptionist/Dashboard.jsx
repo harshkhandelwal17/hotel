@@ -17,7 +17,8 @@ import {
   Search,
   CheckCircle2,
   User,
-  MessageSquare
+  MessageSquare,
+  Sparkles
 } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -133,6 +134,74 @@ const ReceptionistDashboard = () => {
     });
   }, [recentStays, activeFilterTab, guestSearch]);
 
+  const currentHostel = useMemo(() => {
+    if (!hostels || hostels.length === 0) return null;
+    if (globalProperty !== 'all') {
+      return hostels.find(h => h._id === globalProperty) || hostels[0];
+    }
+    return hostels[0];
+  }, [hostels, globalProperty]);
+
+  const subscriptionStatus = useMemo(() => {
+    if (!currentHostel) return null;
+    const now = new Date();
+    const endDate = currentHostel.planEndDate ? new Date(currentHostel.planEndDate) : null;
+    const isExpired = currentHostel.isExpired !== undefined 
+      ? currentHostel.isExpired 
+      : (currentHostel.planStatus === 'expired' || (endDate && endDate < now));
+    const daysRemaining = currentHostel.daysRemaining !== undefined 
+      ? currentHostel.daysRemaining 
+      : (endDate ? Math.ceil((endDate - now) / (1000 * 60 * 60 * 24)) : 0);
+    const isTrial = currentHostel.plan === 'demo' || currentHostel.planStatus === 'trial';
+
+    const repPhone = currentHostel.assignedSalesAgent?.phone || currentHostel.onboardedBy?.phone || '8955896504';
+    const repName = currentHostel.assignedSalesAgent?.name || currentHostel.onboardedBy?.name || 'Support Team';
+    const cleanRep = repPhone.replace(/\D/g, '').slice(-10);
+
+    const waMsg = [
+      `🏨 *NexisParkX Hotel Software - Subscription Activation / Renewal*`,
+      `Namaste *${repName}*,`,
+      `I would like to activate / renew the subscription for our property *${currentHostel.name}*.`,
+      `• Current Plan: ${isTrial ? '7-Day Free Trial' : (currentHostel.plan?.toUpperCase() || 'Monthly Plan')}`,
+      `• Days Left: ${daysRemaining} days`,
+      `Please assist with payment and plan activation. Thank you!`
+    ].join('\n');
+
+    const waUrl = cleanRep ? `https://wa.me/91${cleanRep}?text=${encodeURIComponent(waMsg)}` : null;
+
+    if (isExpired) {
+      return {
+        type: 'expired',
+        title: 'Software Subscription Expired',
+        badge: 'Action Required',
+        description: 'Your hotel software validity has ended. Renew now to avoid interruption in guest check-ins, AI OCR & reports.',
+        waUrl
+      };
+    }
+
+    if (isTrial) {
+      return {
+        type: 'trial',
+        title: 'Free 7-Day Live Trial Active',
+        badge: `${Math.max(0, daysRemaining)} Days Left`,
+        description: 'Test all features: Fast Aadhaar OCR check-in, WhatsApp folios, Dynamic Room QR & Cashier audits.',
+        waUrl
+      };
+    }
+
+    if (daysRemaining <= 3 && daysRemaining >= 0) {
+      return {
+        type: 'expiringSoon',
+        title: 'Subscription Expiring Soon',
+        badge: `${daysRemaining} Days Left`,
+        description: `Your subscription expires on ${endDate ? endDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'soon'}. Renew today to ensure continuous desk service.`,
+        waUrl
+      };
+    }
+
+    return null;
+  }, [currentHostel]);
+
   if (loading) {
     return (
       <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300 w-full mx-auto pb-12">
@@ -197,6 +266,66 @@ const ReceptionistDashboard = () => {
           </Link>
         </div>
       </div>
+
+      {/* ─── ⏳ Subscription / Trial Expiry Banner ─── */}
+      {subscriptionStatus && (
+        <div className={`rounded-2xl p-3.5 sm:p-4 border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs transition-all ${
+          subscriptionStatus.type === 'expired'
+            ? 'bg-rose-50 border-rose-200 text-rose-950'
+            : subscriptionStatus.type === 'trial'
+            ? 'bg-amber-50/90 border-amber-200 text-amber-950'
+            : 'bg-indigo-50 border-indigo-200 text-indigo-950'
+        }`}>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+              subscriptionStatus.type === 'expired'
+                ? 'bg-rose-600 text-white'
+                : subscriptionStatus.type === 'trial'
+                ? 'bg-amber-500 text-white'
+                : 'bg-indigo-600 text-white'
+            }`}>
+              <Sparkles size={18} />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-black uppercase tracking-wide">
+                  {subscriptionStatus.title}
+                </span>
+                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                  subscriptionStatus.type === 'expired'
+                    ? 'bg-rose-600 text-white'
+                    : subscriptionStatus.type === 'trial'
+                    ? 'bg-amber-200 text-amber-900 border border-amber-300'
+                    : 'bg-indigo-200 text-indigo-900 border border-indigo-300'
+                }`}>
+                  {subscriptionStatus.badge}
+                </span>
+              </div>
+              <p className="text-xs font-medium mt-0.5 opacity-90 truncate sm:whitespace-normal">
+                {subscriptionStatus.description}
+              </p>
+            </div>
+          </div>
+
+          {subscriptionStatus.waUrl && (
+            <a
+              href={subscriptionStatus.waUrl}
+              target="_blank"
+              rel="noreferrer"
+              className={`px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-2xs flex items-center justify-center gap-1.5 shrink-0 cursor-pointer active:scale-95 text-white ${
+                subscriptionStatus.type === 'expired'
+                  ? 'bg-rose-600 hover:bg-rose-700'
+                  : subscriptionStatus.type === 'trial'
+                  ? 'bg-emerald-600 hover:bg-emerald-700'
+                  : 'bg-indigo-600 hover:bg-indigo-700'
+              }`}
+            >
+              <MessageSquare size={13} />
+              <span>{subscriptionStatus.type === 'trial' ? 'Upgrade to Paid Plan' : 'Renew Subscription'}</span>
+            </a>
+          )}
+        </div>
+      )}
 
       {/* ─── Urgent Overdue Checkout Banner ─── */}
       {overdueStays.length > 0 && (

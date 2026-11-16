@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
-import { Bed, Plus, X, Users, Clock, Building } from 'lucide-react';
+import { Bed, Plus, X, Users, Clock, Building, Sparkles } from 'lucide-react';
 
 const emptyForm = {
   roomNumber: '', hostel: '', floor: '', roomType: 'Standard Double', 
@@ -16,6 +16,22 @@ const ManageRooms = () => {
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [seedingRooms, setSeedingRooms] = useState(false);
+
+  const handleSeedStarterRooms = async () => {
+    try {
+      setSeedingRooms(true);
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      await axios.post(`${API}/api/rooms/seed-starter`, {
+        hostelId: hostels[0]?._id
+      });
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to seed starter rooms');
+    } finally {
+      setSeedingRooms(false);
+    }
+  };
 
   useEffect(() => {
     if (isModalOpen) {
@@ -169,10 +185,34 @@ const ManageRooms = () => {
 
         {/* Empty State */}
         {rooms.length === 0 && (
-          <div className="col-span-full bg-white rounded-2xl p-12 text-center border border-dashed border-gray-200">
-            <Bed size={40} className="mx-auto text-gray-300 mb-3" />
-            <p className="font-bold text-gray-600">No rooms yet</p>
-            <p className="text-sm text-gray-400 mt-1">Add your first room to get started</p>
+          <div className="col-span-full bg-white rounded-3xl p-8 sm:p-12 text-center border-2 border-dashed border-gray-200 space-y-4">
+            <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto text-2xl">
+              🏨
+            </div>
+            <div>
+              <p className="font-black text-gray-900 text-base">No rooms configured yet</p>
+              <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto">
+                Add rooms individually or generate 6 starter rooms with realistic pricing (Deluxe, Standard, Suite & Family) in 1-click.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={handleSeedStarterRooms}
+                disabled={seedingRooms}
+                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <Sparkles size={14} className="text-amber-400" />
+                <span>{seedingRooms ? 'Generating Rooms...' : '⚡ Setup 6 Starter Demo Rooms (1-Click)'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={openAddModal}
+                className="px-4 py-2.5 bg-white border border-gray-200 hover:border-gray-400 text-gray-800 font-bold text-xs rounded-xl transition-all cursor-pointer"
+              >
+                + Add Custom Room
+              </button>
+            </div>
           </div>
         )}
       </div>

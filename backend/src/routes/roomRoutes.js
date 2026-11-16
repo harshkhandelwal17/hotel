@@ -1,13 +1,16 @@
 const express = require('express');
 const {
   getRooms, getRoom, createRoom, updateRoom, deleteRoom,
-  startMaintenance, endMaintenance, updateHousekeepingStatus
+  startMaintenance, endMaintenance, updateHousekeepingStatus,
+  seedStarterRooms
 } = require('../controllers/roomController');
 const { protect, authorize } = require('../middlewares/auth');
 
 const router = express.Router();
 
 router.use(protect);
+
+router.post('/seed-starter', authorize('admin', 'superadmin', 'sales', 'receptionist'), seedStarterRooms);
 
 router.route('/')
   .get(getRooms)
