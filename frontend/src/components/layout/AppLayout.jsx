@@ -759,15 +759,15 @@ const AppLayout = ({ children }) => {
           <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)}></div>
           
           <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white shadow-2xl animate-in slide-in-from-left duration-300">
-            <div className="p-5 border-b border-gray-100 flex justify-between items-center">
-              <Link to={user?.role === 'superadmin' ? '/superadmin' : '/dashboard'} onClick={() => setIsMobileMenuOpen(false)} className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
-                  <Hexagon className="text-white w-5 h-5" />
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex justify-between items-center">
+              <Link to={user?.role === 'superadmin' ? '/superadmin' : '/dashboard'} onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-2.5">
+                <div className="w-8 h-8 bg-slate-950 text-white rounded-xl flex items-center justify-center font-bold">
+                  <Hexagon className="stroke-[2.5] w-4 h-4" />
                 </div>
-                <span className="text-xl font-black tracking-tight text-gray-900">NX<span className="text-gray-400">Hotel</span></span>
+                <span className="text-base font-extrabold tracking-tight text-slate-950">NX<span className="text-slate-400">Hotel</span></span>
               </Link>
-              <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-gray-400 hover:text-red-600 rounded-full">
-                <X size={24} />
+              <button onClick={() => setIsMobileMenuOpen(false)} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
+                <X size={20} />
               </button>
             </div>
             

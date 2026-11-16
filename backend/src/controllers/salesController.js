@@ -311,6 +311,7 @@ exports.createSalesProperty = async (req, res, next) => {
       name,
       propertyType = 'hotel',
       logo,
+      description,
       address,
       city,
       state,
@@ -365,6 +366,7 @@ exports.createSalesProperty = async (req, res, next) => {
       name: name.trim(),
       propertyType: propertyType || 'hotel',
       logo: logo || undefined,
+      description: description ? description.trim() : undefined,
       address: address || 'N/A',
       city: city ? city.trim() : undefined,
       state: state ? state.trim() : undefined,
@@ -484,7 +486,27 @@ exports.createSalesStaff = async (req, res, next) => {
 exports.updateSalesProperty = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, address, contactNumber, email, owner, upiId, upiPayeeName, maxRooms } = req.body;
+    const { 
+      name, 
+      propertyType,
+      logo,
+      description,
+      address, 
+      city,
+      state,
+      pincode,
+      checkInTime,
+      checkOutTime,
+      gstEnabled,
+      gstin,
+      contactNumber, 
+      email, 
+      owner, 
+      upiId, 
+      upiPayeeName, 
+      maxRooms,
+      assignedSalesAgent 
+    } = req.body;
 
     const hostel = await Hostel.findById(id);
     if (!hostel) {
@@ -496,13 +518,26 @@ exports.updateSalesProperty = async (req, res, next) => {
     }
 
     if (name) hostel.name = name.trim();
+    if (propertyType) hostel.propertyType = propertyType;
+    if (logo !== undefined) hostel.logo = logo;
+    if (description !== undefined) hostel.description = description ? description.trim() : '';
     if (address !== undefined) hostel.address = address.trim();
+    if (city !== undefined) hostel.city = city.trim();
+    if (state !== undefined) hostel.state = state.trim();
+    if (pincode !== undefined) hostel.pincode = pincode.trim();
+    if (checkInTime) hostel.checkInTime = checkInTime;
+    if (checkOutTime) hostel.checkOutTime = checkOutTime;
+    if (gstEnabled !== undefined) hostel.gstEnabled = Boolean(gstEnabled);
+    if (gstin !== undefined) hostel.gstin = gstin.trim().toUpperCase();
     if (contactNumber !== undefined) hostel.contactNumber = contactNumber.trim();
     if (email !== undefined) hostel.email = email.toLowerCase().trim();
     if (owner) hostel.owner = owner;
     if (upiId !== undefined) hostel.upiId = upiId.trim();
     if (upiPayeeName !== undefined) hostel.upiPayeeName = upiPayeeName.trim();
     if (maxRooms !== undefined) hostel.maxRooms = Number(maxRooms);
+    if (assignedSalesAgent !== undefined) {
+      hostel.assignedSalesAgent = assignedSalesAgent && assignedSalesAgent !== 'unassigned' ? assignedSalesAgent : null;
+    }
 
     await hostel.save();
 

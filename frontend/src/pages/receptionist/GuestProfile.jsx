@@ -216,40 +216,40 @@ const GuestProfile = () => {
     <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300 w-full mx-auto pb-12">
       
       {/* ─── Profile Header (Clean Executive Standard) ─── */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-xs border border-gray-200/80 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+      <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-2xs border border-slate-200/80 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div className="flex flex-col sm:flex-row sm:items-center gap-5">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-950 text-white rounded-2xl flex items-center justify-center font-black text-2xl shadow-sm shrink-0">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-900 text-white rounded-2xl flex items-center justify-center font-black text-2xl shadow-xs shrink-0">
             {guest.fullName ? guest.fullName.charAt(0).toUpperCase() : <User size={30} />}
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl sm:text-3xl font-black text-gray-950 tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                 {guest.fullName}
               </h1>
               {activeStay ? (
-                <span className="px-3 py-1 inline-flex text-[11px] font-black uppercase tracking-wider rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 items-center gap-1.5">
+                <span className="px-3 py-1 inline-flex text-[11px] font-bold uppercase tracking-wider rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200/80 items-center gap-1.5 shadow-2xs">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                   Active In Room {activeStay.room?.roomNumber}
                 </span>
               ) : (
-                <span className="px-2.5 py-1 inline-flex text-[10px] font-black uppercase tracking-widest rounded-xl bg-gray-100 text-gray-600 border border-gray-200">
+                <span className="px-2.5 py-1 inline-flex text-[10px] font-bold uppercase tracking-widest rounded-xl bg-slate-100 text-slate-600 border border-slate-200/80">
                   Past Guest
                 </span>
               )}
             </div>
 
-            <div className="flex flex-wrap items-center text-gray-600 mt-2.5 gap-2 sm:gap-3 text-xs font-bold">
-              <span className="flex items-center bg-gray-50 px-3 py-1 rounded-xl border border-gray-200">
-                <Phone size={13} className="mr-1.5 text-gray-400" />
+            <div className="flex flex-wrap items-center text-slate-600 mt-2.5 gap-2 sm:gap-3 text-xs font-semibold">
+              <span className="flex items-center bg-slate-50 px-3 py-1 rounded-xl border border-slate-200/80">
+                <Phone size={13} className="mr-1.5 text-slate-400" />
                 {guest.mobileNumber}
               </span>
               {guest.idProofNumber && (
-                <span className="flex items-center bg-gray-50 text-gray-700 px-3 py-1 rounded-xl border border-gray-200">
+                <span className="flex items-center bg-slate-50 text-slate-700 px-3 py-1 rounded-xl border border-slate-200/80">
                   {guest.idProofType}: {guest.idProofNumber}
                 </span>
               )}
               {guest.address && (
-                <span className="text-gray-400 font-medium truncate max-w-xs">
+                <span className="text-slate-400 font-medium truncate max-w-xs">
                   • {guest.address}
                 </span>
               )}
@@ -262,7 +262,7 @@ const GuestProfile = () => {
                     href={(guest.idProofImage?.startsWith('http') ? guest.idProofImage : `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}${guest.idProofImage}`)} 
                     target="_blank" 
                     rel="noreferrer" 
-                    className="text-[10px] text-gray-700 hover:text-black font-black uppercase tracking-wider bg-white hover:bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-200 transition-colors flex items-center gap-1.5 shadow-2xs"
+                    className="text-[10px] text-slate-700 hover:text-slate-900 font-bold uppercase tracking-wider bg-white hover:bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 transition-colors flex items-center gap-1.5 shadow-2xs"
                   >
                     <span>ID Front</span>
                   </a>
@@ -272,7 +272,7 @@ const GuestProfile = () => {
                     href={(guest.idProofImageBack?.startsWith('http') ? guest.idProofImageBack : `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}${guest.idProofImageBack}`)} 
                     target="_blank" 
                     rel="noreferrer" 
-                    className="text-[10px] text-gray-700 hover:text-black font-black uppercase tracking-wider bg-white hover:bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-200 transition-colors flex items-center gap-1.5 shadow-2xs"
+                    className="text-[10px] text-slate-700 hover:text-slate-900 font-bold uppercase tracking-wider bg-white hover:bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 transition-colors flex items-center gap-1.5 shadow-2xs"
                   >
                     <span>ID Back</span>
                   </a>
@@ -283,12 +283,12 @@ const GuestProfile = () => {
         </div>
         
         {/* Right Actions & Balance */}
-        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-gray-100">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100">
           {/* PRIMARY: Book Room for this Guest */}
           <button
             type="button"
             onClick={handleStartBookingForGuest}
-            className="w-full sm:w-auto px-5 py-2.5 bg-black hover:bg-gray-800 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer"
+            className="w-full sm:w-auto px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 shadow-xs transition-all active:scale-95 cursor-pointer"
             title="Start a new reservation / check-in with this guest auto-filled"
           >
             <UserPlus size={15} />
@@ -299,7 +299,7 @@ const GuestProfile = () => {
             <button
               type="button"
               onClick={() => handleTabChange('khata')}
-              className="w-full sm:w-auto px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
+              className="w-full sm:w-auto px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
               title="Click to view Advance Wallet Passbook"
             >
               <Wallet size={15} className="text-emerald-600" />
@@ -311,7 +311,7 @@ const GuestProfile = () => {
             <button
               type="button"
               onClick={() => handleTabChange('khata')}
-              className="w-full sm:w-auto px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
+              className="w-full sm:w-auto px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
               title="Click to view Khata Passbook & Settle Due"
             >
               <BookOpen size={15} className="text-rose-600" />
