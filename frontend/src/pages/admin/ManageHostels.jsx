@@ -14,7 +14,7 @@ const ManageProperties = () => {
   const [editingId, setEditingId] = useState(null);
   const [formError, setFormError] = useState('');
   const initialFormState = {
-    name: '', address: '', contactNumber: '', email: '', upiId: '', upiPayeeName: '',
+    name: '', address: '', city: '', pincode: '', contactNumber: '', email: '', upiId: '', upiPayeeName: '',
     gstEnabled: false, gstin: '', taxInclusive: true, gstRate: 12, hsnSacCode: '996311',
     state: '', invoicePrefix: 'INV', autoApplyGstOnCheckin: true
   };
@@ -52,6 +52,8 @@ const ManageProperties = () => {
     setFormData({ 
       name: prop.name || '', 
       address: prop.address || '', 
+      city: prop.city || '',
+      pincode: prop.pincode || '',
       contactNumber: prop.contactNumber || '', 
       email: prop.email || '',
       upiId: prop.upiId || '',
@@ -255,45 +257,57 @@ const ManageProperties = () => {
         )}
       </div>
 
-      {/* Add Property Modal */}
+      {/* Add / Edit Property Modal */}
       {isModalOpen && createPortal(
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto"
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto"
           onClick={closeModal}>
-          <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-md my-0 sm:my-auto flex flex-col max-h-[92dvh] sm:max-h-[88vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-md my-0 sm:my-auto flex flex-col max-h-[92dvh] sm:max-h-[88vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-200/80"
             onClick={e => e.stopPropagation()}>
-            <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 shrink-0">
+            <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/75 shrink-0">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">{editingId ? 'Edit Property Details' : 'Add New Property'}</h2>
-                <p className="text-xs text-gray-500 mt-0.5">{editingId ? 'Update hotel contact and address details' : 'Register a new hotel property'}</p>
+                <h2 className="text-lg font-bold text-slate-900">{editingId ? 'Edit Property Details' : 'Add New Property'}</h2>
+                <p className="text-xs text-slate-500 mt-0.5">{editingId ? 'Update hotel contact and address details' : 'Register a new hotel property'}</p>
               </div>
-              <button onClick={closeModal} className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
-                <X size={20} className="text-gray-400" />
+              <button onClick={closeModal} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-400 hover:text-slate-700">
+                <X size={18} />
               </button>
             </div>
 
             <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
               <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
-                {formError && <div className="p-3 bg-red-50 text-red-700 text-sm rounded-xl border border-red-100">{formError}</div>}
+                {formError && <div className="p-3 bg-rose-50 text-rose-700 text-xs font-semibold rounded-xl border border-rose-200/60">{formError}</div>}
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Hotel / Property Name <span className="text-red-500">*</span></label>
-                  <input type="text" required className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none font-medium text-sm"
+                  <label className="block text-xs font-bold text-slate-600 uppercase tracking-wide mb-1.5">Hotel / Property Name <span className="text-rose-500">*</span></label>
+                  <input type="text" required className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:bg-white outline-none font-medium text-sm transition-all"
                     placeholder="Grand Palace Hotel" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Address</label>
-                  <input type="text" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none font-medium text-sm"
-                    placeholder="123 MG Road, Delhi" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
+                  <label className="block text-xs font-bold text-slate-600 uppercase tracking-wide mb-1.5">Address</label>
+                  <input type="text" className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:bg-white outline-none font-medium text-sm transition-all"
+                    placeholder="123 MG Road" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Contact Number</label>
-                    <input type="tel" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none font-medium text-sm"
+                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wide mb-1.5">City</label>
+                    <input type="text" className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:bg-white outline-none font-medium text-sm transition-all"
+                      placeholder="e.g. Mumbai, Jaipur" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wide mb-1.5">Pincode</label>
+                    <input type="text" className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:bg-white outline-none font-medium text-sm transition-all"
+                      placeholder="e.g. 302001" value={formData.pincode} onChange={e => setFormData({...formData, pincode: e.target.value})} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wide mb-1.5">Contact Number</label>
+                    <input type="tel" className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:bg-white outline-none font-medium text-sm transition-all"
                       placeholder="9876543210" value={formData.contactNumber} onChange={e => setFormData({...formData, contactNumber: e.target.value})} />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Email</label>
-                    <input type="email" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none font-medium text-sm"
+                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wide mb-1.5">Email</label>
+                    <input type="email" className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:bg-white outline-none font-medium text-sm transition-all"
                       placeholder="info@hotel.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
                   </div>
                 </div>
@@ -470,9 +484,9 @@ const ManageProperties = () => {
                 </div>
               </div>
 
-              <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-4 bg-gray-50 flex flex-col-reverse sm:flex-row justify-end gap-2.5 sm:gap-3 border-t border-gray-100 rounded-b-none sm:rounded-b-2xl shrink-0">
-                <button type="button" onClick={closeModal} className="w-full sm:w-auto px-5 py-2.5 border border-gray-200 bg-white text-gray-700 font-semibold rounded-xl text-sm hover:bg-gray-100 transition-colors">Cancel</button>
-                <button type="submit" disabled={saving} className="w-full sm:w-auto px-5 py-2.5 bg-black text-white font-bold rounded-xl text-sm hover:bg-gray-800 disabled:opacity-50 flex items-center justify-center gap-2 shadow-md active:scale-95">
+              <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-4 bg-slate-50 flex flex-col-reverse sm:flex-row justify-end gap-2.5 sm:gap-3 border-t border-slate-100 rounded-b-none sm:rounded-b-2xl shrink-0">
+                <button type="button" onClick={closeModal} className="w-full sm:w-auto px-4 py-2.5 border border-slate-200 bg-white text-slate-700 font-bold text-xs uppercase tracking-wider rounded-xl hover:bg-slate-100 transition-colors">Cancel</button>
+                <button type="submit" disabled={saving} className="w-full sm:w-auto px-5 py-2.5 bg-slate-900 text-white font-bold text-xs uppercase tracking-wider rounded-xl hover:bg-slate-800 disabled:opacity-50 flex items-center justify-center gap-2 shadow-xs active:scale-95">
                   {saving ? 'Saving...' : <><CheckCircle size={15} /> Save Property</>}
                 </button>
               </div>
