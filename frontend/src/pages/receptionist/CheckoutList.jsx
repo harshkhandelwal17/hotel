@@ -135,16 +135,16 @@ const CheckoutList = () => {
   );
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="space-y-5 animate-in fade-in duration-300">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-1">
           <div>
-            <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">{t('checkout.title', 'In-House Guests')}</h1>
-            <p className="text-gray-500 font-medium mt-1">{t('checkout.subtitle', 'Tap a guest to add charges, take payment, change room, extend stay or check out.')}</p>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">{t('checkout.title', 'In-House Guests')}</h1>
+            <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">{t('checkout.subtitle', 'Tap a guest to add charges, take payment, change room, extend stay or check out.')}</p>
           </div>
           <div className="flex flex-wrap sm:flex-nowrap gap-2 w-full sm:w-auto">
-            <button onClick={downloadCSV} className="flex-1 sm:flex-none justify-center px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-bold text-sm hover:bg-gray-50 flex items-center gap-2 shadow-sm">
-              <Download size={16} /> {t('common.export', 'Export')} CSV
+            <button onClick={downloadCSV} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-xl font-bold text-xs border border-slate-200 flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer">
+              <Download size={14} /> {t('common.export', 'Export')} CSV
             </button>
           </div>
         </div>
@@ -152,12 +152,12 @@ const CheckoutList = () => {
         {/* Compact Modern Search Bar */}
         <div className="relative w-full">
           <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-            <Search size={18} className="text-gray-400" />
+            <Search size={15} className="text-slate-400" />
           </div>
           <input
             type="text"
             placeholder={isHindi ? "कमरा नंबर या अतिथि के नाम से खोजें..." : "Search by Room No. (e.g. 101) or Guest Name..."}
-            className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-900 placeholder-gray-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black shadow-2xs transition-all"
+            className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 shadow-2xs transition-all"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -174,12 +174,12 @@ const CheckoutList = () => {
           <button
             key={tab.key}
             onClick={() => setFilter(tab.key)}
-            className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               filter === tab.key
-                ? 'bg-black text-white shadow-xs'
+                ? 'bg-slate-900 text-white shadow-xs'
                 : tab.warn
-                ? 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'
-                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                ? 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
+                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
             }`}
           >
             {tab.warn && filter !== tab.key && <AlertTriangle size={13} className="inline mr-1" />}
@@ -188,7 +188,7 @@ const CheckoutList = () => {
         ))}
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
         {filteredStays.length === 0 ? (
           <div className="p-12 text-center">
             <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-gray-50 text-gray-400 mb-3">

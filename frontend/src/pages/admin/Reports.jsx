@@ -688,36 +688,36 @@ const Reports = () => {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-200/80 pb-5">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200/80 pb-5">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">Financial & Operating Reports</h1>
-          <p className="text-xs sm:text-sm text-gray-500 mt-1 font-medium">Reconciled drawer cash, digital collections, headcount, and daily expenses.</p>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Financial & Operating Reports</h1>
+          <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">Reconciled drawer cash, digital collections, headcount, and daily expenses</p>
         </div>
         <div className="flex flex-wrap sm:flex-nowrap gap-2 w-full sm:w-auto">
           <button 
             onClick={() => setShowExpenseModal(true)} 
-            className="flex-1 sm:flex-none justify-center px-4 py-2.5 bg-gray-900 hover:bg-black text-white font-semibold text-xs rounded-xl shadow-xs flex items-center gap-2 transition-all active:scale-95 cursor-pointer"
+            className="flex-1 sm:flex-none justify-center px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-xs flex items-center gap-2 transition-all active:scale-95 cursor-pointer"
             title="Add Daily Hotel Expense (Deducted from Cash Revenue)"
           >
             <PlusCircle size={15} className="text-rose-400" /> Add Expense
           </button>
           <button 
             onClick={() => setShowHandoverModal(true)} 
-            className="flex-1 sm:flex-none justify-center px-3.5 py-2.5 bg-white hover:bg-gray-50 text-gray-800 border border-gray-200 font-semibold text-xs rounded-xl shadow-2xs flex items-center gap-2 transition-all active:scale-95 cursor-pointer"
+            className="flex-1 sm:flex-none justify-center px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs rounded-xl shadow-2xs flex items-center gap-2 transition-all active:scale-95 cursor-pointer"
             title="Generate Printable Shift Handover & Cash Drawer Voucher"
           >
-            <Banknote size={15} className="text-gray-500" /> Shift Slip
+            <Banknote size={15} className="text-slate-500" /> Shift Slip
           </button>
           <button 
             onClick={() => setShowPoliceModal(true)} 
-            className="flex-1 sm:flex-none justify-center px-3.5 py-2.5 bg-white hover:bg-gray-50 text-gray-800 border border-gray-200 font-semibold text-xs rounded-xl shadow-2xs flex items-center gap-2 transition-all active:scale-95 cursor-pointer"
+            className="flex-1 sm:flex-none justify-center px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs rounded-xl shadow-2xs flex items-center gap-2 transition-all active:scale-95 cursor-pointer"
             title="Generate Official Police Verification Report"
           >
-            <ShieldCheck size={15} className="text-gray-500" /> Police Report
+            <ShieldCheck size={15} className="text-slate-500" /> Police Report
           </button>
           <button 
             onClick={downloadCSV} 
-            className="flex-1 sm:flex-none justify-center px-4 py-2.5 bg-white hover:bg-gray-50 text-gray-800 border border-gray-300 font-bold text-xs rounded-xl shadow-2xs flex items-center gap-2 transition-all active:scale-95 cursor-pointer"
+            className="flex-1 sm:flex-none justify-center px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs rounded-xl shadow-2xs flex items-center gap-2 transition-all active:scale-95 cursor-pointer"
           >
             <Download size={15} className="text-gray-700" /> Download Report
           </button>

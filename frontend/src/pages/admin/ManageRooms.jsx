@@ -123,26 +123,26 @@ const ManageRooms = () => {
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <div className="space-y-5 animate-in fade-in duration-300">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
         <div>
-          <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Manage Rooms</h1>
-          <p className="text-sm text-gray-500 mt-1">{rooms.length} rooms configured across all properties</p>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Room Inventory & Configuration</h1>
+          <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">{rooms.length} rooms configured with 12h / 24h tariffs and guest capacities</p>
         </div>
         <button onClick={openModal}
-          className="w-full sm:w-auto justify-center bg-black text-white px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-gray-800 transition-colors shadow-md font-bold text-sm active:scale-95">
-          <Plus size={16} /> Add Room
+          className="w-full sm:w-auto justify-center bg-slate-900 text-white px-4 py-2 rounded-xl flex items-center gap-1.5 hover:bg-slate-800 transition-all shadow-xs font-bold text-xs uppercase tracking-wider active:scale-95 cursor-pointer">
+          <Plus size={14} /> Add Room
         </button>
       </div>
 
       {/* Rooms Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {rooms.map(room => (
-          <div key={room._id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-            <div className="bg-gray-50 px-5 py-4 border-b border-gray-100 flex justify-between items-center">
+          <div key={room._id} className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden hover:border-slate-300 transition-all flex flex-col justify-between">
+            <div className="bg-slate-50/80 px-4 py-3.5 border-b border-slate-100 flex justify-between items-center">
               <div>
-                <h3 className="font-black text-gray-900 text-lg">{room.roomNumber}</h3>
-                <p className="text-xs font-semibold text-indigo-600 mt-0.5">{room.roomType || 'Standard'}</p>
+                <h3 className="font-black text-slate-900 text-base">Room {room.roomNumber}</h3>
+                <p className="text-[11px] font-bold text-indigo-700 mt-0.5">{room.roomType || 'Standard Double'}</p>
               </div>
               <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${room.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
                 {room.status}

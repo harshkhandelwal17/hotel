@@ -106,22 +106,22 @@ const ManageProperties = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
         <div>
-          <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Property Profile</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {isSuperAdmin ? 'Manage registered hotel properties' : 'View your registered hotel details & active subscription plan'}
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Property Profiles & Business Licensing</h1>
+          <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
+            {isSuperAdmin ? 'Configure registered hotel properties, licenses and GST' : 'Registered hotel details, UPI payee configuration, and active subscription status'}
           </p>
         </div>
         {isSuperAdmin ? (
           <button onClick={() => { setFormError(''); setIsModalOpen(true); }}
-            className="w-full sm:w-auto justify-center bg-black text-white px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-gray-800 transition-colors shadow-md font-bold text-sm active:scale-95">
-            <Plus size={16} /> Add Property
+            className="w-full sm:w-auto justify-center bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-xs font-bold text-xs uppercase tracking-wider active:scale-95 cursor-pointer">
+            <Plus size={14} /> Add Property
           </button>
         ) : (
-          <div className="inline-flex items-center gap-2 px-3.5 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-800">
-            <ShieldCheck size={16} className="text-emerald-600" />
-            <span>Managed & Verified Property</span>
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-800">
+            <ShieldCheck size={15} className="text-emerald-600" />
+            <span>Verified Hotel Property</span>
           </div>
         )}
       </div>
@@ -133,13 +133,13 @@ const ManageProperties = () => {
           const daysLeft = property.planEndDate ? Math.max(0, Math.ceil((new Date(property.planEndDate) - new Date()) / (1000 * 60 * 60 * 24))) : null;
 
           return (
-            <div key={property._id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow flex flex-col justify-between">
+            <div key={property._id} className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden hover:border-slate-300 transition-all flex flex-col justify-between">
               <div>
-                <div className="bg-gradient-to-r from-gray-900 to-gray-800 px-6 py-5 text-white">
+                <div className="bg-slate-900 px-5 py-4 text-white">
                   <div className="flex justify-between items-start gap-2">
                     <div>
-                      <h3 className="font-black text-white text-lg">{property.name}</h3>
-                      <p className="text-xs text-gray-400 mt-0.5">License ID: {property._id.slice(-6).toUpperCase()}</p>
+                      <h3 className="font-black text-white text-base">{property.name}</h3>
+                      <p className="text-[11px] text-slate-400 mt-0.5">Property ID: {property._id.slice(-6).toUpperCase()}</p>
                     </div>
                     <span className={`text-[11px] font-black uppercase px-2.5 py-1 rounded-full ${
                       isExpired 

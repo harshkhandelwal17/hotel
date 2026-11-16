@@ -42,30 +42,30 @@ const GuestDirectory = () => {
 
   return (
     <div className="w-full mx-auto animate-in fade-in duration-500">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-5 pb-1">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight flex items-center gap-2.5">
-            <Users size={24} className="text-black" />
-            Guest History
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+            <Users size={20} className="text-slate-800" />
+            <span>Guest Directory & Profiles</span>
           </h1>
-          <p className="text-xs font-semibold text-gray-400 mt-0.5">Directory and complete profile logs of all registered guests</p>
+          <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">Directory and complete reservation history of all registered guests</p>
         </div>
         
         <div className="w-full sm:w-72">
           <div className="relative">
+            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               placeholder="Search by name, mobile, or ID..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:border-black focus:ring-0 outline-none font-bold text-xs text-gray-900 shadow-2xs transition-colors"
+              className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl font-semibold text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 shadow-2xs transition-colors"
             />
-            <Search size={15} className="absolute left-3 top-3 text-gray-400" />
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
         {loading ? (
           <div className="p-12 flex justify-center">
             <span className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></span>

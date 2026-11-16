@@ -1786,56 +1786,61 @@ const CheckIn = () => {
 
       {/* HEADER */}
 
-      <div className="mb-8">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-black text-gray-900 tracking-tight">
-            {isHindi ? 'एक्सप्रेस चेक-इन' : 'Express Check-In'}
-          </h1>
+      <div className="mb-6">
+        <div className="flex justify-between items-center pb-1">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              {isHindi ? 'एक्सप्रेस चेक-इन' : 'Express Guest Check-In'}
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
+              {isHindi ? 'आधार/पासपोर्ट एआई स्कैन और डिजिटल रूम असाइनमेंट' : 'Instant AI OCR scanning, room assignment & WhatsApp onboarding'}
+            </p>
+          </div>
           <button 
             onClick={resetForm}
-            className="px-4 py-2 bg-red-50 text-red-600 rounded-xl font-bold text-xs hover:bg-red-100 transition-colors flex items-center gap-2"
+            className="px-3.5 py-2 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 rounded-xl font-bold text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
           >
-            <RefreshCw size={14} />
-            {isHindi ? 'फॉर्म रीसेट' : 'RESET FORM'}
+            <RefreshCw size={13} />
+            <span>{isHindi ? 'फॉर्म रीसेट' : 'Reset Form'}</span>
           </button>
         </div>
 
-        <div className="flex items-center gap-3 mt-6">
+        <div className="flex items-center gap-3 mt-4">
 
-          <div className="flex-1 flex flex-col gap-2">
+          <div className="flex-1 flex flex-col gap-1.5">
             <div
               className={`h-2 rounded-full transition-all ${
                 step >= 1
-                  ? 'bg-black'
-                  : 'bg-gray-200'
+                  ? 'bg-slate-900'
+                  : 'bg-slate-200'
               }`}
             />
 
             <span
-              className={`text-[10px] font-black uppercase tracking-widest ${
+              className={`text-[10px] font-black uppercase tracking-wider ${
                 step >= 1
-                  ? 'text-black'
-                  : 'text-gray-400'
+                  ? 'text-slate-900'
+                  : 'text-slate-400'
               }`}
             >
               {isHindi ? '1. कमरा व स्टे चयन' : '1. Stay & Room Details'}
             </span>
           </div>
 
-          <div className="flex-1 flex flex-col gap-2">
+          <div className="flex-1 flex flex-col gap-1.5">
             <div
               className={`h-2 rounded-full transition-all ${
                 step >= 2
-                  ? 'bg-black'
-                  : 'bg-gray-200'
+                  ? 'bg-slate-900'
+                  : 'bg-slate-200'
               }`}
             />
 
             <span
-              className={`text-[10px] font-black uppercase tracking-widest ${
+              className={`text-[10px] font-black uppercase tracking-wider ${
                 step >= 2
-                  ? 'text-black'
-                  : 'text-gray-400'
+                  ? 'text-slate-900'
+                  : 'text-slate-400'
               }`}
             >
               {isHindi ? '2. अतिथि विवरण व पहचान पत्र' : '2. Guest Identity & Verification'}

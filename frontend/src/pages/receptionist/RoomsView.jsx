@@ -179,9 +179,9 @@ const RoomsView = () => {
   const dirtyCount = rooms.filter(r => getRoomStatus(r).label === 'Available' && getHKStatus(r._id) === 'dirty').length;
 
   const statusConfig = {
-    Available: { dot: 'bg-green-500', badge: 'bg-green-50 text-green-700 border-green-200', card: 'border-green-100 hover:border-green-300 hover:shadow-green-50', header: 'bg-green-50' },
-    Occupied:  { dot: 'bg-red-500 animate-pulse', badge: 'bg-red-50 text-red-700 border-red-200', card: 'border-red-100 hover:border-red-300 hover:shadow-red-50', header: 'bg-red-50' },
-    Maintenance:{ dot: 'bg-yellow-500', badge: 'bg-yellow-50 text-yellow-700 border-yellow-200', card: 'border-yellow-100', header: 'bg-yellow-50' },
+    Available: { dot: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', card: 'border-slate-200 hover:border-slate-300', header: 'bg-emerald-50/60' },
+    Occupied:  { dot: 'bg-rose-500 animate-pulse', badge: 'bg-rose-50 text-rose-700 border-rose-200', card: 'border-slate-200 hover:border-slate-300', header: 'bg-rose-50/60' },
+    Maintenance:{ dot: 'bg-amber-500', badge: 'bg-amber-50 text-amber-800 border-amber-200', card: 'border-slate-200 hover:border-slate-300', header: 'bg-amber-50/60' },
   };
 
   if (loading) return (
@@ -191,39 +191,70 @@ const RoomsView = () => {
   );
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-5 animate-in fade-in duration-300">
       
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
         <div>
-          <h1 className="text-3xl font-black text-gray-900 tracking-tight">Room Status</h1>
-          <div className="flex items-center gap-4 mt-2 flex-wrap">
-            <span className="flex items-center gap-1.5 text-sm font-bold text-green-600"><span className="w-2 h-2 rounded-full bg-green-500" />{availCount} Available</span>
-            <span className="flex items-center gap-1.5 text-sm font-bold text-red-600"><span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />{occupCount} Occupied</span>
-            {maintCount > 0 && <span className="flex items-center gap-1.5 text-sm font-bold text-yellow-600"><span className="w-2 h-2 rounded-full bg-yellow-500" />{maintCount} Maintenance</span>}
-            {dirtyCount > 0 && <span className="flex items-center gap-1.5 text-sm font-bold text-orange-600"><span className="w-2 h-2 rounded-full bg-orange-400" />{dirtyCount} Needs Cleaning</span>}
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Room Status & Live Occupancy</h1>
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap text-xs font-bold">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              {availCount} Available
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+              {occupCount} Occupied
+            </span>
+            {maintCount > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                {maintCount} Maintenance
+              </span>
+            )}
+            {dirtyCount > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
+                {dirtyCount} Cleaning Needed
+              </span>
+            )}
           </div>
         </div>
-        <button onClick={fetchData} className="p-2.5 text-gray-500 hover:text-black bg-white border border-gray-200 rounded-xl hover:border-gray-400 transition-all self-start sm:self-auto">
-          <RefreshCw size={18} />
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={fetchData}
+            className="p-2 text-slate-500 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl shadow-2xs transition-all cursor-pointer"
+            title="Refresh Rooms"
+          >
+            <RefreshCw size={15} />
+          </button>
+        </div>
       </div>
 
       {/* Search + Filter */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
-            type="text" placeholder="Search room or guest..." value={search}
+            type="text"
+            placeholder="Search room number or guest..."
+            value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-3 bg-white border border-gray-200 rounded-xl font-bold text-sm text-gray-900 focus:border-black focus:ring-0 outline-none transition-all"
+            className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 shadow-2xs transition-all"
           />
         </div>
         <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 sm:pb-0 no-scrollbar">
           {['all', 'available', 'dirty', 'occupied', 'maintenance'].map(f => (
-            <button key={f} onClick={() => setFilter(f)}
-              className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all shrink-0 ${filter === f ? 'bg-black text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:border-gray-400'}`}>
-              {f === 'dirty' ? '🧹 Dirty' : f}
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                filter === f
+                  ? 'bg-slate-900 text-white shadow-xs'
+                  : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-slate-200'
+              }`}
+            >
+              {f === 'dirty' ? '🧹 Dirty' : f === 'all' ? 'All Rooms' : f.charAt(0).toUpperCase() + f.slice(1)}
             </button>
           ))}
         </div>

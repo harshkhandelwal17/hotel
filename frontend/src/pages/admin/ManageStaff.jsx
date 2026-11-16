@@ -89,64 +89,64 @@ const ManageStaff = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Staff Management</h1>
-          <p className="text-sm text-gray-500 mt-1">Add receptionists and assign them to properties</p>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Staff & Receptionist Accounts</h1>
+          <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">Manage front desk logins, operational roles, and assigned hotel properties</p>
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
-          className="w-full sm:w-auto justify-center bg-black text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-gray-800 transition-colors shadow-sm flex items-center gap-2 active:scale-95"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider shadow-xs transition-all active:scale-95"
         >
-          <Plus size={16} /> Add Staff
+          <Plus size={15} /> Add Staff Member
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      <div className="bg-white rounded-2xl shadow-2xs border border-slate-200/80 overflow-hidden overflow-x-auto">
+        <table className="min-w-full divide-y divide-slate-200/80">
+          <thead className="bg-slate-50/75">
             <tr>
-              <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Staff Details</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Role</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Assigned Property</th>
-              <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
+              <th className="px-6 py-3.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Staff Details</th>
+              <th className="px-6 py-3.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Role</th>
+              <th className="px-6 py-3.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Assigned Property</th>
+              <th className="px-6 py-3.5 text-right text-[11px] font-bold text-slate-500 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-100">
+          <tbody className="bg-white divide-y divide-slate-100">
             {staff.map((user) => (
-              <tr key={user._id} className="hover:bg-gray-50 transition-colors">
+              <tr key={user._id} className="hover:bg-slate-50/60 transition-colors">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
-                    <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm">
+                    <div className="h-10 w-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-sm shadow-2xs">
                       {user.name.charAt(0).toUpperCase()}
                     </div>
-                    <div className="ml-4">
-                      <div className="text-sm font-bold text-gray-900">{user.name}</div>
-                      <div className="text-sm text-gray-500">{user.email}</div>
+                    <div className="ml-3.5">
+                      <div className="text-sm font-bold text-slate-900">{user.name}</div>
+                      <div className="text-xs text-slate-500">{user.email}</div>
                       {(() => {
                         const phone = user.phone || (user.assignedHostel?.contactNumber && user.assignedHostel.contactNumber !== 'N/A' ? user.assignedHostel.contactNumber : '');
                         return phone ? (
-                          <div className="text-xs text-gray-500 flex items-center gap-1 mt-0.5 font-medium">
+                          <div className="text-xs text-slate-600 flex items-center gap-1 mt-0.5 font-medium">
                             <Phone size={11} className="text-emerald-600" />
                             <span>{phone}</span>
                           </div>
                         ) : (
-                          <div className="text-[11px] text-gray-400 italic mt-0.5">No phone added</div>
+                          <div className="text-[11px] text-slate-400 italic mt-0.5">No phone added</div>
                         );
                       })()}
                     </div>
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="px-2.5 py-1 inline-flex text-xs leading-5 font-bold rounded-md bg-green-100 text-green-800 items-center gap-1">
+                  <span className="px-2.5 py-1 inline-flex text-xs leading-5 font-bold rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200/60 items-center gap-1">
                     <ShieldCheck size={12} /> Receptionist
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="px-2.5 py-1 inline-flex text-xs leading-5 font-bold rounded-md bg-gray-100 text-gray-800 items-center gap-1">
+                  <span className="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-lg bg-slate-100 text-slate-700 border border-slate-200/60 items-center gap-1">
                     <Building size={12} /> {user.assignedHostel?.name || 'Unassigned'}
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <button onClick={() => handleDelete(user._id)} className="text-red-500 hover:text-red-700 transition-colors bg-red-50 hover:bg-red-100 p-2 rounded-lg">
+                  <button onClick={() => handleDelete(user._id)} className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 p-2 rounded-lg border border-transparent hover:border-rose-200/60 transition-colors">
                     <Trash2 size={16} />
                   </button>
                 </td>
@@ -154,10 +154,10 @@ const ManageStaff = () => {
             ))}
             {staff.length === 0 && (
               <tr>
-                <td colSpan="4" className="px-6 py-12 text-center text-gray-500">
-                  <Users size={48} className="mx-auto text-gray-300 mb-4" />
-                  <p className="text-lg font-bold text-gray-900">No staff added yet</p>
-                  <p className="text-sm mt-1">Click the button above to add a receptionist.</p>
+                <td colSpan="4" className="px-6 py-12 text-center text-slate-500">
+                  <Users size={44} className="mx-auto text-slate-300 mb-3" />
+                  <p className="text-base font-bold text-slate-900">No staff accounts found</p>
+                  <p className="text-xs text-slate-500 mt-1">Click the button above to add a front desk receptionist.</p>
                 </td>
               </tr>
             )}
@@ -166,43 +166,43 @@ const ManageStaff = () => {
       </div>
 
       {isModalOpen && createPortal(
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={() => setIsModalOpen(false)}>
-          <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-md my-0 sm:my-auto flex flex-col max-h-[92dvh] sm:max-h-[88vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-            <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 shrink-0">
-              <h2 className="text-lg font-bold text-gray-900">Add New Receptionist</h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-700 p-1.5 rounded-full hover:bg-gray-100 transition-colors">✕</button>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={() => setIsModalOpen(false)}>
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-md my-0 sm:my-auto flex flex-col max-h-[92dvh] sm:max-h-[88vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-200/80" onClick={e => e.stopPropagation()}>
+            <div className="px-5 sm:px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/75 shrink-0">
+              <h2 className="text-base font-bold text-slate-900">Add New Receptionist</h2>
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition-colors">✕</button>
             </div>
             <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
               <div className="p-4 sm:p-6 overflow-y-auto flex-1 min-h-0 space-y-4">
-                {error && <div className="mb-4 p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-100 font-medium">{error}</div>}
+                {error && <div className="p-3 bg-rose-50 text-rose-700 text-xs rounded-xl border border-rose-200/60 font-medium">{error}</div>}
                 
                 <div>
-                  <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Full Name</label>
-                  <input type="text" required className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-black outline-none font-medium" 
+                  <label className="block text-xs font-bold text-slate-600 uppercase tracking-wide mb-1.5">Full Name</label>
+                  <input type="text" required className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-slate-900 focus:bg-white outline-none font-medium transition-all" 
                     value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="e.g. Rahul Kumar" />
                 </div>
                 
                 <div>
-                  <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Email / Username</label>
-                  <input type="email" required className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-black outline-none font-medium" 
+                  <label className="block text-xs font-bold text-slate-600 uppercase tracking-wide mb-1.5">Email / Username</label>
+                  <input type="email" required className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-slate-900 focus:bg-white outline-none font-medium transition-all" 
                     value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="rahul@hotelpro.com" />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Phone / Mobile Number</label>
-                  <input type="tel" className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-black outline-none font-medium" 
+                  <label className="block text-xs font-bold text-slate-600 uppercase tracking-wide mb-1.5">Phone / Mobile Number</label>
+                  <input type="tel" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-slate-900 focus:bg-white outline-none font-medium transition-all" 
                     value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="e.g. 9876543210" />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Password</label>
-                  <input type="password" required minLength="6" className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-black outline-none font-medium" 
+                  <label className="block text-xs font-bold text-slate-600 uppercase tracking-wide mb-1.5">Password</label>
+                  <input type="password" required minLength="6" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-slate-900 focus:bg-white outline-none font-medium transition-all" 
                     value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} placeholder="Min 6 characters" />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Assign Property</label>
-                  <select required className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-black outline-none font-medium" 
+                  <label className="block text-xs font-bold text-slate-600 uppercase tracking-wide mb-1.5">Assign Property</label>
+                  <select required className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-slate-900 focus:bg-white outline-none font-medium transition-all" 
                     value={formData.assignedHostel} onChange={e => setFormData({...formData, assignedHostel: e.target.value})}>
                     {hostels.map(h => (
                       <option key={h._id} value={h._id}>{h.name}</option>
@@ -211,11 +211,11 @@ const ManageStaff = () => {
                 </div>
               </div>
 
-              <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-4 bg-gray-50 border-t border-gray-100 flex flex-col-reverse sm:flex-row gap-2.5 rounded-b-none sm:rounded-b-2xl shrink-0">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="w-full sm:flex-1 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-bold text-sm hover:bg-gray-100 transition-colors">
+              <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-4 bg-slate-50 border-t border-slate-100 flex flex-col-reverse sm:flex-row gap-2.5 rounded-b-none sm:rounded-b-2xl shrink-0">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="w-full sm:flex-1 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-slate-100 transition-colors">
                   Cancel
                 </button>
-                <button type="submit" disabled={saving} className="w-full sm:flex-1 px-4 py-2.5 bg-black text-white rounded-xl font-bold text-sm hover:bg-gray-800 transition-colors disabled:opacity-50 shadow-md active:scale-95">
+                <button type="submit" disabled={saving} className="w-full sm:flex-1 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-slate-800 transition-colors disabled:opacity-50 shadow-xs active:scale-95">
                   {saving ? 'Creating...' : 'Add Staff'}
                 </button>
               </div>

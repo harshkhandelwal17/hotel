@@ -346,17 +346,22 @@ const AppLayout = ({ children }) => {
         </div>
       )}
       {/* Premium Topbar */}
-      <header className="bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-2xs sticky top-0 z-40 w-full">
+      <header className="bg-white sticky top-0 z-40 border-b border-slate-200/90 shadow-2xs w-full">
         <div className="w-full max-w-[1720px] mx-auto px-3 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16 gap-2 xl:gap-4">
             
             {/* Logo & Navigation */}
             <div className="flex items-center space-x-2 xl:space-x-4 min-w-0">
-              <Link to={user?.role === 'superadmin' ? '/superadmin' : '/dashboard'} className="flex-shrink-0 flex items-center space-x-2 mr-1 sm:mr-3">
-                <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center shrink-0">
-                  <Hexagon className="text-white w-5 h-5" />
+              <Link to={user?.role === 'superadmin' ? '/superadmin' : '/dashboard'} className="flex-shrink-0 flex items-center gap-2.5 sm:gap-3 mr-1 sm:mr-3">
+                <div className="w-9 h-9 bg-slate-950 text-white rounded-xl flex items-center justify-center font-bold shadow-xs shrink-0">
+                  <Hexagon size={18} className="stroke-[2.5]" />
                 </div>
-                <span className="text-lg xl:text-xl font-black tracking-tight text-gray-900 shrink-0">NX<span className="text-gray-400">Hotel</span></span>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-extrabold text-slate-950 text-base tracking-tight">NX<span className="text-slate-400">Hotel</span></span>
+                  <span className="hidden sm:inline-flex text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full border border-slate-200">
+                    {user?.role === 'admin' ? 'Hotel Admin' : 'Front Desk'}
+                  </span>
+                </div>
               </Link>
               
               <nav className="hidden lg:flex items-center space-x-1 xl:space-x-1.5 min-w-0">
@@ -368,13 +373,13 @@ const AppLayout = ({ children }) => {
                       key={item.name}
                       to={item.path}
                       onMouseEnter={() => prefetchRoute(item.path, globalProperty)}
-                      className={`px-2 py-1.5 xl:px-3 xl:py-2 rounded-xl text-xs xl:text-sm font-bold transition-all flex items-center shrink-0 ${
+                      className={`px-3 py-1.5 xl:px-3.5 xl:py-2 rounded-xl text-xs xl:text-sm font-bold transition-all flex items-center shrink-0 ${
                         isActive
-                          ? 'bg-black text-white shadow-md'
-                          : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
+                          ? 'bg-slate-900 text-white shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                       }`}
                     >
-                      <Icon className={`mr-1.5 h-3.5 w-3.5 xl:h-4 xl:w-4 ${isActive ? 'text-white' : 'text-gray-400'}`} />
+                      <Icon className={`mr-1.5 h-3.5 w-3.5 xl:h-4 xl:w-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                       <span>{item.name}</span>
                     </Link>
                   );
@@ -386,14 +391,14 @@ const AppLayout = ({ children }) => {
                     <button
                       type="button"
                       onClick={() => setIsAdminMenuOpen(!isAdminMenuOpen)}
-                      className={`px-2 py-1.5 xl:px-3 xl:py-2 rounded-xl text-xs xl:text-sm font-bold transition-all flex items-center gap-1.5 shrink-0 ${
+                      className={`px-3 py-1.5 xl:px-3.5 xl:py-2 rounded-xl text-xs xl:text-sm font-bold transition-all flex items-center gap-1.5 shrink-0 ${
                         isAdminRouteActive
-                          ? 'bg-black text-white shadow-md'
-                          : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
+                          ? 'bg-slate-900 text-white shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                       }`}
                       title="Hotel Administration & Settings"
                     >
-                      <ShieldCheck className={`h-3.5 w-3.5 xl:h-4 xl:w-4 ${isAdminRouteActive ? 'text-white' : 'text-gray-400'}`} />
+                      <ShieldCheck className={`h-3.5 w-3.5 xl:h-4 xl:w-4 ${isAdminRouteActive ? 'text-white' : 'text-slate-400'}`} />
                       <span>Admin</span>
                       <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${isAdminMenuOpen ? 'rotate-180' : ''}`} />
                     </button>

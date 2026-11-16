@@ -905,15 +905,15 @@ Hotel me *${item.itemName}* ka stock critically low hai:
       )}
 
       {/* Header & Controls */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-gray-100 shadow-xs">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
         <div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-md shadow-indigo-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center shadow-xs">
               <Shirt size={20} />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">Laundry & Linen Management</h1>
-              <p className="text-xs font-bold text-gray-400">Track hotel bedsheets, towels, dhobi batches & monthly expenses</p>
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Laundry & Linen Management</h1>
+              <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">Track hotel bedsheets, towels, dhobi batches & monthly expenses</p>
             </div>
           </div>
         </div>
@@ -923,7 +923,7 @@ Hotel me *${item.itemName}* ka stock critically low hai:
             <select
               value={selectedHostel}
               onChange={e => setSelectedHostel(e.target.value)}
-              className="px-3 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 text-xs font-bold rounded-xl outline-none focus:ring-2 focus:ring-black"
+              className="px-3 py-2.5 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-xl outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
             >
               <option value="all">🏢 All Properties</option>
               {hostels.map(h => (
@@ -934,7 +934,7 @@ Hotel me *${item.itemName}* ka stock critically low hai:
 
           <button
             onClick={fetchOrders}
-            className="p-2.5 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-xl border border-gray-200 transition-colors"
+            className="p-2.5 bg-white hover:bg-slate-50 text-slate-600 rounded-xl border border-slate-200 transition-colors shadow-2xs"
             title="Refresh list"
           >
             <RefreshCw size={16} />
@@ -943,7 +943,7 @@ Hotel me *${item.itemName}* ka stock critically low hai:
           <button
             type="button"
             onClick={openRatesModal}
-            className="px-3 py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold text-xs rounded-xl border border-gray-200 transition-colors flex items-center gap-1.5"
+            className="px-3 py-2.5 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 transition-colors flex items-center gap-1.5 shadow-2xs"
             title="Configure standard rates per linen item"
           >
             <Settings2 size={15} />
@@ -953,7 +953,7 @@ Hotel me *${item.itemName}* ka stock critically low hai:
           <button
             type="button"
             onClick={openDispatchModal}
-            className="px-4 py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 flex items-center gap-2"
+            className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-xs transition-all active:scale-95 flex items-center gap-2"
           >
             <Plus size={16} /> + Send to Laundry
           </button>
@@ -961,7 +961,7 @@ Hotel me *${item.itemName}* ka stock critically low hai:
       </div>
 
       {/* 3 Main Navigation Tabs */}
-      <div className="flex overflow-x-auto gap-2 bg-gray-100/80 p-1.5 rounded-2xl border border-gray-200/60 shadow-xs">
+      <div className="flex overflow-x-auto gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200/80 shadow-2xs">
         <button
           type="button"
           onClick={() => setMainTab('batches')}
