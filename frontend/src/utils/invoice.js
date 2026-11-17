@@ -512,11 +512,155 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
     .muted { color: #64748b; }
     .small { font-size: 11px; }
 
+    @page {
+      size: A4 portrait;
+      margin: 8mm 10mm;
+    }
+
     @media print {
-      body { background: #ffffff; padding: 0; }
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+      }
+      html, body {
+        background: #ffffff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        font-size: 11px !important;
+        line-height: 1.35 !important;
+        color: #0f172a !important;
+      }
       .no-print-bar { display: none !important; }
-      .invoice-card { box-shadow: none; border: none; padding: 0; max-width: 100%; }
-      @page { size: A4; margin: 12mm 15mm; }
+      .invoice-card {
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+      }
+      .header {
+        padding-bottom: 10px !important;
+        margin-bottom: 12px !important;
+        border-bottom: 2px solid #0f172a !important;
+      }
+      .hotel-name {
+        font-size: 18px !important;
+        margin-bottom: 2px !important;
+      }
+      .hotel-meta {
+        font-size: 10.5px !important;
+        line-height: 1.3 !important;
+      }
+      .invoice-type {
+        font-size: 15px !important;
+        margin-bottom: 2px !important;
+      }
+      .info-grid {
+        padding: 8px 12px !important;
+        margin-bottom: 10px !important;
+        gap: 12px !important;
+        background: #f8fafc !important;
+        border: 1px solid #e2e8f0 !important;
+      }
+      .info-title {
+        font-size: 9px !important;
+        margin-bottom: 2px !important;
+      }
+      .info-val {
+        font-size: 11.5px !important;
+      }
+      table {
+        margin-bottom: 8px !important;
+        page-break-inside: auto !important;
+      }
+      thead {
+        display: table-header-group !important;
+      }
+      tr {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      th {
+        background: #0f172a !important;
+        color: #ffffff !important;
+        padding: 5px 8px !important;
+        font-size: 9.5px !important;
+        border: 1px solid #0f172a !important;
+      }
+      td {
+        padding: 4px 8px !important;
+        font-size: 10.5px !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+      }
+      .summary-section {
+        margin-top: 4px !important;
+        margin-bottom: 8px !important;
+        padding-top: 4px !important;
+        gap: 12px !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      .amount-words-box {
+        padding: 6px 10px !important;
+        margin-bottom: 6px !important;
+        background: #f8fafc !important;
+        border: 1px solid #e2e8f0 !important;
+      }
+      .words-label {
+        font-size: 8.5px !important;
+      }
+      .words-val {
+        font-size: 10.5px !important;
+      }
+      .totals-table td {
+        padding: 3px 6px !important;
+        font-size: 10.5px !important;
+      }
+      .totals-table tr.total-row td {
+        font-size: 13px !important;
+        padding: 5px 6px !important;
+        border-top: 2px solid #0f172a !important;
+        border-bottom: 2px solid #0f172a !important;
+      }
+      .footer {
+        margin-top: 8px !important;
+        padding-top: 6px !important;
+        gap: 12px !important;
+        border-top: 1px solid #e2e8f0 !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      .terms-box {
+        font-size: 8.5px !important;
+        line-height: 1.25 !important;
+      }
+      .terms-box ul {
+        margin: 2px 0 0 12px !important;
+      }
+      .terms-box li {
+        margin-bottom: 1px !important;
+      }
+      .signatures {
+        text-align: right !important;
+      }
+      .sign-line {
+        width: 140px !important;
+        font-size: 10px !important;
+        padding-top: 3px !important;
+        margin-top: 16px !important;
+        border-top: 1.5px solid #0f172a !important;
+      }
+      .thankyou {
+        margin-top: 6px !important;
+        padding-top: 4px !important;
+        font-size: 9.5px !important;
+      }
+      .badge-gst, .badge-nongst, .status-stamp, .stamp-paid, .stamp-due {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
     }
   </style>
 </head>
@@ -742,6 +886,16 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
 
   </div>
 
+  <script>
+    // Auto trigger print dialog after page renders
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        try {
+          window.print();
+        } catch(e) {}
+      }, 350);
+    });
+  </script>
 </body>
 </html>`;
 };
@@ -1452,27 +1606,154 @@ export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {
       font-weight: 700;
     }
 
+    @page {
+      size: A4 portrait;
+      margin: 8mm 10mm;
+    }
+
     @media print {
-      body {
-        padding: 0;
-        background: #ffffff;
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+      }
+      html, body {
+        background: #ffffff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        font-size: 11px !important;
+        line-height: 1.35 !important;
+        color: #0f172a !important;
       }
       .no-print-bar { display: none !important; }
       .invoice-card {
         border: none !important;
         box-shadow: none !important;
         padding: 0 !important;
+        margin: 0 !important;
         max-width: 100% !important;
+        width: 100% !important;
+      }
+      .header {
+        padding-bottom: 10px !important;
+        margin-bottom: 12px !important;
+        border-bottom: 2px solid #0f172a !important;
+      }
+      .hotel-name {
+        font-size: 18px !important;
+        margin-bottom: 2px !important;
+      }
+      .hotel-meta {
+        font-size: 10.5px !important;
+        line-height: 1.3 !important;
+      }
+      .invoice-type {
+        font-size: 15px !important;
+        margin-bottom: 2px !important;
+      }
+      .info-grid {
+        padding: 8px 12px !important;
+        margin-bottom: 10px !important;
+        gap: 12px !important;
+        background: #f8fafc !important;
+        border: 1px solid #e2e8f0 !important;
+      }
+      .info-title {
+        font-size: 9px !important;
+        margin-bottom: 2px !important;
+      }
+      .info-val {
+        font-size: 11.5px !important;
+      }
+      table {
+        margin-bottom: 8px !important;
+        page-break-inside: auto !important;
+      }
+      thead {
+        display: table-header-group !important;
+      }
+      tr {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
       }
       th {
-        background: #0f172a !important;
+        background-color: #0f172a !important;
         color: #ffffff !important;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
+        padding: 5px 8px !important;
+        font-size: 9.5px !important;
+        border: 1px solid #0f172a !important;
       }
-      .badge-gst, .badge-interstate, .status-stamp, .stamp-paid, .stamp-due {
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
+      td {
+        padding: 4px 8px !important;
+        font-size: 10.5px !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+      }
+      .summary-section {
+        margin-top: 4px !important;
+        margin-bottom: 8px !important;
+        padding-top: 4px !important;
+        gap: 12px !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      .amount-words-box {
+        padding: 6px 10px !important;
+        margin-bottom: 6px !important;
+        background: #f8fafc !important;
+        border: 1px solid #e2e8f0 !important;
+      }
+      .words-label {
+        font-size: 8.5px !important;
+      }
+      .words-val {
+        font-size: 10.5px !important;
+      }
+      .totals-table td {
+        padding: 3px 6px !important;
+        font-size: 10.5px !important;
+      }
+      .totals-table tr.total-row td {
+        font-size: 13px !important;
+        padding: 5px 6px !important;
+        border-top: 2px solid #0f172a !important;
+        border-bottom: 2px solid #0f172a !important;
+      }
+      .footer {
+        margin-top: 8px !important;
+        padding-top: 6px !important;
+        gap: 12px !important;
+        border-top: 1px solid #e2e8f0 !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      .terms-box {
+        font-size: 8.5px !important;
+        line-height: 1.25 !important;
+      }
+      .terms-box ul {
+        margin: 2px 0 0 12px !important;
+      }
+      .terms-box li {
+        margin-bottom: 1px !important;
+      }
+      .signatures {
+        text-align: right !important;
+      }
+      .sign-line {
+        width: 140px !important;
+        font-size: 10px !important;
+        padding-top: 3px !important;
+        margin-top: 16px !important;
+        border-top: 1.5px solid #0f172a !important;
+      }
+      .thankyou {
+        margin-top: 6px !important;
+        padding-top: 4px !important;
+        font-size: 9.5px !important;
+      }
+      .badge-gst, .badge-nongst, .badge-interstate, .status-stamp, .stamp-paid, .stamp-due {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
       }
     }
   </style>
@@ -1685,6 +1966,16 @@ export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {
 
   </div>
 
+  <script>
+    // Auto trigger print dialog after page renders
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        try {
+          window.print();
+        } catch(e) {}
+      }, 350);
+    });
+  </script>
 </body>
 </html>`;
 };

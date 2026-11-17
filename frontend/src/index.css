@@ -93,3 +93,13 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #D1D5DB; 
 }
+
+/* Print optimizations for browser Cmd+P on dashboard / modals */
+@media print {
+  body {
+    background: #ffffff !important;
+  }
+  aside, nav, header, .fixed.inset-0.bg-slate-900\/60, .fixed.inset-0.bg-gray-900\/60 {
+    display: none !important;
+  }
+}
