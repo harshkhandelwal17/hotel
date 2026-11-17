@@ -4,7 +4,8 @@ import axios from 'axios';
 import { format, isPast, isToday } from 'date-fns';
 import CheckoutModal from './CheckoutModal';
 import StayManageModal from './StayManageModal';
-import { Users, Clock, Download, AlertTriangle, Search, ChevronRight, Phone, MessageSquare } from 'lucide-react';
+import MergedCorporateInvoiceModal from '../../components/MergedCorporateInvoiceModal';
+import { Users, Clock, Download, AlertTriangle, Search, ChevronRight, Phone, MessageSquare, Building2, Check } from 'lucide-react';
 import { apiCache } from '../../utils/apiCache';
 import { useLanguage } from '../../context/LanguageContext';
 import { getStayWhatsAppUrl } from '../../utils/whatsapp';
@@ -15,6 +16,8 @@ const CheckoutList = () => {
   const [loading, setLoading] = useState(true);
   const [selectedStay, setSelectedStay] = useState(null);
   const [managedStay, setManagedStay] = useState(null);
+  const [selectedStayIdsForMerge, setSelectedStayIdsForMerge] = useState([]);
+  const [showMergedModal, setShowMergedModal] = useState(false);
   const [filter, setFilter] = useState('all'); // 'all', 'overdue', 'today', 'active'
   const [search, setSearch] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
@@ -123,6 +126,12 @@ const CheckoutList = () => {
   const overdueCt = stays.filter(s => isPast(new Date(s.expectedCheckOutDate))).length;
   const todayCt = stays.filter(s => isToday(new Date(s.expectedCheckOutDate)) && !isPast(new Date(s.expectedCheckOutDate))).length;
 
+  const toggleMergeSelection = (id) => {
+    setSelectedStayIdsForMerge(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
   if (loading) return (
     <div className="space-y-6 animate-pulse">
       <div className="h-10 w-64 bg-gray-200 rounded-xl" />
@@ -143,6 +152,19 @@ const CheckoutList = () => {
             <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">{t('checkout.subtitle', 'Tap a guest to add charges, take payment, change room, extend stay or check out.')}</p>
           </div>
           <div className="flex flex-wrap sm:flex-nowrap gap-2 w-full sm:w-auto">
+            <button
+              onClick={() => setShowMergedModal(true)}
+              className="px-3.5 py-2 bg-slate-900 hover:bg-black text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
+              title="Merge 2 or more rooms into a single consolidated corporate GST invoice"
+            >
+              <Building2 size={14} className="text-emerald-400" />
+              <span>Corporate / Merged Bill</span>
+              {selectedStayIdsForMerge.length > 0 && (
+                <span className="px-1.5 py-0.2 bg-emerald-500 text-slate-950 rounded-full text-[10px] font-black">
+                  {selectedStayIdsForMerge.length}
+                </span>
+              )}
+            </button>
             <button onClick={downloadCSV} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-xl font-bold text-xs border border-slate-200 flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer">
               <Download size={14} /> {t('common.export', 'Export')} CSV
             </button>
@@ -202,14 +224,34 @@ const CheckoutList = () => {
             {filteredStays.map(stay => {
               const badge = getStayBadge(stay);
               const balance = stay.totalAmount - stay.paidAmount;
+              const isSelectedForMerge = selectedStayIdsForMerge.includes(stay._id);
               return (
                 <div
                   key={stay._id}
-                  className="p-5 hover:bg-gray-50/60 transition-colors cursor-pointer"
+                  className={`p-5 transition-colors cursor-pointer ${
+                    isSelectedForMerge ? 'bg-emerald-50/40 hover:bg-emerald-50/70 border-l-4 border-l-emerald-600' : 'hover:bg-gray-50/60'
+                  }`}
                   onClick={() => setManagedStay(stay)}
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-3.5">
+                      {/* Checkbox for Multi-Room Merge */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleMergeSelection(stay._id);
+                        }}
+                        className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 transition-all cursor-pointer ${
+                          isSelectedForMerge
+                            ? 'bg-slate-900 border-slate-900 text-white shadow-2xs'
+                            : 'border-slate-300 hover:border-slate-500 bg-white'
+                        }`}
+                        title={isSelectedForMerge ? "Deselect from corporate bill" : "Select room for merged corporate bill"}
+                      >
+                        {isSelectedForMerge && <Check size={12} className="stroke-[3]" />}
+                      </button>
+
                       <div className="h-12 w-12 rounded-full bg-gradient-to-tr from-indigo-100 to-blue-100 flex items-center justify-center text-indigo-700 font-bold text-lg flex-shrink-0 shadow-inner">
                         {stay.guest?.fullName?.charAt(0)}
                       </div>
@@ -310,6 +352,43 @@ const CheckoutList = () => {
             setManagedStay(null);
             fetchStays(true);
           }}
+        />
+      )}
+
+      {/* Floating Action Banner when rooms are checked for merge */}
+      {selectedStayIdsForMerge.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-4 animate-in slide-in-from-bottom-3 duration-200 max-w-sm sm:max-w-md w-[92%] sm:w-auto justify-between">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span className="text-xs font-bold">
+              <b>{selectedStayIdsForMerge.length}</b> {selectedStayIdsForMerge.length === 1 ? 'Room' : 'Rooms'} Selected
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSelectedStayIdsForMerge([])}
+              className="text-xs text-slate-400 hover:text-white px-2 py-1 font-bold underline cursor-pointer"
+            >
+              Clear
+            </button>
+            <button
+              onClick={() => setShowMergedModal(true)}
+              className="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
+            >
+              <Building2 size={13} /> Merged Bill
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showMergedModal && (
+        <MergedCorporateInvoiceModal
+          initialStays={selectedStayIdsForMerge.length > 0 
+            ? stays.filter(s => selectedStayIdsForMerge.includes(s._id))
+            : (stays.length > 0 ? [stays[0]] : [])}
+          allStays={stays}
+          onClose={() => setShowMergedModal(false)}
+          onStayUpdated={() => fetchStays(false)}
         />
       )}
     </div>

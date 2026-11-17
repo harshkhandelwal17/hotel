@@ -32,7 +32,8 @@ import {
   CalendarClock,
   AlertTriangle,
   Percent,
-  Car
+  Car,
+  Building2
 } from 'lucide-react';
 
 import { format, isPast } from 'date-fns';
@@ -209,6 +210,8 @@ const CheckIn = () => {
         gender: '',
         dateOfBirth: '',
         address: '',
+        companyName: '',
+        gstin: '',
         _id: null,
         isSearching: false
       }
@@ -273,6 +276,8 @@ const CheckIn = () => {
         gender: '',
         dateOfBirth: '',
         address: '',
+        companyName: '',
+        gstin: '',
         _id: null,
         isSearching: false
       }
@@ -1583,7 +1588,11 @@ const CheckIn = () => {
 
         taxAmount: stayInfo.gstType === 'exclusive' 
           ? Math.round((Number(stayInfo.basePrice || stayInfo.totalAmount) * (Number(stayInfo.gstRate) || 12)) / 100)
-          : (stayInfo.gstType === 'inclusive' ? Math.round(Number(stayInfo.totalAmount) - (Number(stayInfo.totalAmount) / (1 + (Number(stayInfo.gstRate) || 12) / 100))) : 0)
+          : (stayInfo.gstType === 'inclusive' ? Math.round(Number(stayInfo.totalAmount) - (Number(stayInfo.totalAmount) / (1 + (Number(stayInfo.gstRate) || 12) / 100))) : 0),
+
+        companyName: (guests[0]?.companyName || '').trim(),
+        gstin: (guests[0]?.gstin || '').trim().toUpperCase(),
+        billingAddress: (guests[0]?.address || '').trim()
       };
 
       console.log(
@@ -3940,6 +3949,44 @@ const CheckIn = () => {
                       className="w-full px-4 py-3 bg-gray-50/70 border border-gray-200 rounded-2xl focus:border-black focus:bg-white focus:ring-0 outline-none font-medium text-xs text-gray-900 transition-colors resize-none placeholder:text-gray-400"
                     ></textarea>
                   </div>
+
+                  {/* CORPORATE / BUSINESS BILLING DETAILS (Optional) */}
+                  {index === 0 && (
+                    <div className="pt-2 border-t border-gray-100">
+                      <details className="group" open={Boolean(guest.companyName || guest.gstin)}>
+                        <summary className="cursor-pointer text-[11px] font-black uppercase tracking-wider text-slate-700 flex items-center justify-between py-1 select-none hover:text-black">
+                          <span className="flex items-center gap-1.5">
+                            <Building2 size={13} className="text-slate-600" />
+                            <span>Corporate / Company Details (Optional for GST Billing)</span>
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-400 group-open:rotate-90 transition-transform">▸</span>
+                        </summary>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2.5">
+                          <div>
+                            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Company / Organization Name</label>
+                            <input
+                              type="text"
+                              placeholder="e.g. Tata Consultancy Services"
+                              value={guest.companyName || ''}
+                              onChange={(e) => handleGuestChange(index, 'companyName', e.target.value)}
+                              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:border-black focus:bg-white outline-none font-bold text-xs text-gray-900"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Company GSTIN (15 Digits)</label>
+                            <input
+                              type="text"
+                              maxLength={15}
+                              placeholder="e.g. 08AAAAA0000A1Z5"
+                              value={guest.gstin || ''}
+                              onChange={(e) => handleGuestChange(index, 'gstin', e.target.value.toUpperCase())}
+                              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:border-black focus:bg-white outline-none font-mono font-bold uppercase text-xs text-gray-900"
+                            />
+                          </div>
+                        </div>
+                      </details>
+                    </div>
+                  )}
 
                 </div>
               </div>

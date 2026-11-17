@@ -80,6 +80,23 @@ const staySchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  // Corporate Billing details
+  companyName: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  gstin: {
+    type: String,
+    trim: true,
+    uppercase: true,
+    default: ''
+  },
+  billingAddress: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   // Itemised extra charges (food, water, laundry, damage...)
   charges: [{
     description: { type: String, required: true, trim: true },

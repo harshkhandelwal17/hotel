@@ -119,8 +119,20 @@ exports.createStay = async (req, res, next) => {
       gstType: req.body.gstType || 'none',
       gstRate: Number(req.body.gstRate) || 0,
       taxAmount: Number(req.body.taxAmount) || 0,
+      companyName: (req.body.companyName || guestDoc.companyName || '').trim(),
+      gstin: (req.body.gstin || guestDoc.gstin || '').trim().toUpperCase(),
+      billingAddress: (req.body.billingAddress || guestDoc.address || '').trim(),
       createdBy: req.user._id
     });
+
+    // If corporate details supplied during stay creation, sync with Guest profile
+    if (req.body.companyName || req.body.gstin) {
+      const gUpdate = {};
+      if (req.body.companyName) gUpdate.companyName = req.body.companyName.trim();
+      if (req.body.gstin) gUpdate.gstin = req.body.gstin.trim().toUpperCase();
+      if (req.body.billingAddress && !guestDoc.address) gUpdate.address = req.body.billingAddress.trim();
+      await Guest.findByIdAndUpdate(guestDoc._id, { $set: gUpdate });
+    }
 
     // Double-check after create to shrink race window for double-booking
     const conflicts = await Stay.find(
@@ -787,6 +799,9 @@ exports.updateStay = async (req, res, next) => {
     if (commissionPhone !== undefined) stay.commissionPhone = (commissionPhone || '').trim();
     if (commissionAmount !== undefined) stay.commissionAmount = Number(commissionAmount) || 0;
     if (notes !== undefined) stay.notes = notes;
+    if (req.body.companyName !== undefined) stay.companyName = (req.body.companyName || '').trim();
+    if (req.body.gstin !== undefined) stay.gstin = (req.body.gstin || '').trim().toUpperCase();
+    if (req.body.billingAddress !== undefined) stay.billingAddress = (req.body.billingAddress || '').trim();
 
     await stay.save();
 
@@ -794,7 +809,8 @@ exports.updateStay = async (req, res, next) => {
     if (guestData && typeof guestData === 'object' && stay.guest) {
       const allowedGuestFields = [
         'fullName', 'mobileNumber', 'idProofType', 'idProofNumber',
-        'idProofImage', 'idProofImageBack', 'address', 'gender', 'dateOfBirth'
+        'idProofImage', 'idProofImageBack', 'address', 'gender', 'dateOfBirth',
+        'companyName', 'gstin'
       ];
       const guestUpdate = {};
       for (const field of allowedGuestFields) {

@@ -2,10 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { format, addDays, addHours } from 'date-fns';
-import { X, Receipt, Plus, Wallet, ArrowRightLeft, CalendarPlus, Printer, Trash2, LogOut, AlertCircle, CheckCircle2, Phone, Edit3, Image as ImageIcon, Eye, FileText, MessageSquare } from 'lucide-react';
+import { X, Receipt, Plus, Wallet, ArrowRightLeft, CalendarPlus, Printer, Trash2, LogOut, AlertCircle, CheckCircle2, Phone, Edit3, Image as ImageIcon, Eye, FileText, MessageSquare, Building2 } from 'lucide-react';
 import { printInvoice } from '../../utils/invoice';
 import { getStayWhatsAppUrl } from '../../utils/whatsapp';
 import InvoiceModal from '../../components/InvoiceModal';
+import MergedCorporateInvoiceModal from '../../components/MergedCorporateInvoiceModal';
 import GuestRegistrationCardModal from '../../components/reception/GuestRegistrationCardModal';
 import DynamicUpiQr from '../../components/DynamicUpiQr';
 import PaymentMethodSelector, { validateSplitPayment, buildSplitPayments } from '../../components/common/PaymentMethodSelector';
@@ -40,6 +41,19 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+  const [isMergedModalOpen, setIsMergedModalOpen] = useState(false);
+  const [activeStaysList, setActiveStaysList] = useState([]);
+
+  const handleOpenMergedModal = async () => {
+    setIsMergedModalOpen(true);
+    try {
+      const hostelId = stay.hostel?._id || stay.hostel;
+      const res = await axios.get(`${API}/api/stays?status=Active${hostelId ? `&hostel=${hostelId}` : ''}`);
+      if (res.data?.data) {
+        setActiveStaysList(res.data.data);
+      }
+    } catch (_) {}
+  };
 
   // Lock background scrolling while modal is open
   useEffect(() => {
@@ -482,13 +496,23 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                     </p>
                   </div>
                 </div>
-                <button 
-                  type="button" 
-                  onClick={() => setIsInvoiceModalOpen(true)}
-                  className="px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-100 text-indigo-600 hover:text-indigo-800 font-extrabold rounded-xl transition-all shadow-2xs flex items-center gap-1.5 active:scale-95 text-xs"
-                >
-                  <Eye size={13} /> View / Customize Bill
-                </button>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button 
+                    type="button" 
+                    onClick={() => setIsInvoiceModalOpen(true)}
+                    className="px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-100 text-indigo-600 hover:text-indigo-800 font-extrabold rounded-xl transition-all shadow-2xs flex items-center gap-1.5 active:scale-95 text-xs"
+                  >
+                    <Eye size={13} /> View / Customize Bill
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={handleOpenMergedModal}
+                    className="px-3 py-1.5 bg-slate-900 hover:bg-black text-white font-extrabold rounded-xl transition-all shadow-2xs flex items-center gap-1.5 active:scale-95 text-xs"
+                    title="Merge with other rooms into a single corporate tax invoice"
+                  >
+                    <Building2 size={13} className="text-emerald-400" /> Merge Rooms Bill
+                  </button>
+                </div>
               </div>
 
               <div className="rounded-2xl border border-gray-200 divide-y divide-gray-100 text-sm">
@@ -1370,6 +1394,14 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
         stay={stay} 
         payments={payments} 
         onClose={() => setIsInvoiceModalOpen(false)} 
+      />
+    )}
+    {isMergedModalOpen && (
+      <MergedCorporateInvoiceModal
+        initialStays={[stay]}
+        allStays={activeStaysList.length > 0 ? activeStaysList : [stay]}
+        onClose={() => setIsMergedModalOpen(false)}
+        onStayUpdated={reload}
       />
     )}
     {showGrcModal && (

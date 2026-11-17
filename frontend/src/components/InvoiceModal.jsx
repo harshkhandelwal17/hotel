@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import axios from 'axios';
 import { format } from 'date-fns';
 import { 
   X, Printer, Share2, FileText, CheckCircle2, 
@@ -7,6 +8,7 @@ import {
 } from 'lucide-react';
 import { calculateInvoiceData, printInvoice, numberToWordsINR } from '../utils/invoice';
 import { getStayWhatsAppUrl } from '../utils/whatsapp';
+import MergedCorporateInvoiceModal from './MergedCorporateInvoiceModal';
 
 const InvoiceModal = ({ stay, payments = [], onClose }) => {
   const hostel = stay.hostel || {};
@@ -20,6 +22,19 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
   const [guestCompany, setGuestCompany] = useState(guest.companyName || '');
   const [guestGstin, setGuestGstin] = useState(guest.gstin || '');
   const [showTaxOptions, setShowTaxOptions] = useState(false);
+  const [showMergedModal, setShowMergedModal] = useState(false);
+  const [activeStaysList, setActiveStaysList] = useState([]);
+
+  const handleOpenMergedModal = async () => {
+    setShowMergedModal(true);
+    try {
+      const hostelId = hostel._id || stay.hostel;
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/stays?status=Active${hostelId ? `&hostel=${hostelId}` : ''}`);
+      if (res.data?.data) {
+        setActiveStaysList(res.data.data);
+      }
+    } catch (_) {}
+  };
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -96,6 +111,16 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
               className="text-indigo-600 hover:text-indigo-800 font-bold underline cursor-pointer"
             >
               {showTaxOptions ? 'Hide Tax/Company Fields' : 'Add Corporate GST / Edit Rates'}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleOpenMergedModal}
+              className="px-2.5 py-1 bg-slate-900 hover:bg-black text-white rounded-lg font-bold text-[11px] flex items-center gap-1 shadow-2xs transition-all active:scale-95 cursor-pointer"
+              title="Merge with other rooms into a single consolidated corporate invoice"
+            >
+              <Building2 size={12} className="text-emerald-400" />
+              <span>Merge Other Rooms</span>
             </button>
           </div>
 
@@ -415,6 +440,14 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
         </div>
 
       </div>
+
+      {showMergedModal && (
+        <MergedCorporateInvoiceModal
+          initialStays={[stay]}
+          allStays={activeStaysList.length > 0 ? activeStaysList : [stay]}
+          onClose={() => setShowMergedModal(false)}
+        />
+      )}
     </div>,
     document.body
   );

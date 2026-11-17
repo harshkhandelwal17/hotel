@@ -748,11 +748,882 @@ export const getWelcomeWhatsAppUrl = (stay) => {
   return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
 };
 
+/**
+ * =========================================================================
+ * 🏢 CONSOLIDATED / MERGED MULTI-ROOM CORPORATE INVOICE ENGINE
+ * =========================================================================
+ */
+
+/**
+ * Calculates itemized charges, multi-room ledger, and taxes for merged corporate folios
+ */
+export const calculateMergedInvoiceData = (stays = [], payments = [], options = {}) => {
+  if (!Array.isArray(stays) || stays.length === 0) {
+    throw new Error('At least one stay is required for corporate invoice calculation');
+  }
+
+  const primaryStay = stays[0];
+  const hostel = options.hostel || primaryStay.hostel || {};
+  const primaryGuest = primaryStay.guest || {};
+
+  // Corporate Entity Details
+  const guestCompany = (options.guestCompany || primaryStay.companyName || primaryGuest.companyName || '').trim();
+  const guestGstin = (options.guestGstin || primaryStay.gstin || primaryGuest.gstin || '').trim().toUpperCase();
+  const billingAddress = (options.billingAddress || primaryStay.billingAddress || primaryGuest.address || '').trim();
+  const bookerName = (options.bookerName || primaryGuest.fullName || 'Corporate Representative').trim();
+  const bookerPhone = (options.bookerPhone || primaryGuest.mobileNumber || '').trim();
+  const poNumber = (options.poNumber || '').trim();
+
+  // GST Configuration
+  const gstEnabled = options.gstEnabled !== undefined
+    ? Boolean(options.gstEnabled)
+    : stays.some(s => s.gstApplied);
+
+  const gstRate = Number(options.gstRate ?? primaryStay.gstRate ?? hostel.gstRate ?? 12);
+  const taxInclusive = options.taxInclusive !== undefined
+    ? Boolean(options.taxInclusive)
+    : (primaryStay.gstType === 'exclusive' ? false : (primaryStay.gstType === 'inclusive' ? true : (hostel.taxInclusive !== undefined ? Boolean(hostel.taxInclusive) : true)));
+
+  // Inter-State (IGST) vs Intra-State (CGST + SGST) detection
+  const hotelGstin = (hostel.gstin || '').trim().toUpperCase();
+  const hotelStateCode = hostel.stateCode || (hotelGstin.length >= 2 ? hotelGstin.slice(0, 2) : '');
+  const guestStateCode = guestGstin.length >= 2 ? guestGstin.slice(0, 2) : '';
+  const isInterState = Boolean(hotelStateCode && guestStateCode && hotelStateCode !== guestStateCode);
+
+  // Breakdown of each room stay
+  const roomBreakdown = stays.map((s, idx) => {
+    const room = s.room || {};
+    const guest = s.guest || {};
+    const charges = Array.isArray(s.charges) ? s.charges : [];
+    const chargesTotal = charges.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+    const roomTotal = Number(s.totalAmount) || 0;
+    const roomRent = Math.max(0, roomTotal - chargesTotal);
+    const paid = Number(s.paidAmount) || 0;
+    const balance = Math.max(0, roomTotal - paid);
+
+    const checkIn = s.checkInDate ? new Date(s.checkInDate) : new Date();
+    const checkOut = s.actualCheckOutDate || s.expectedCheckOutDate ? new Date(s.actualCheckOutDate || s.expectedCheckOutDate) : new Date();
+    const nights = Math.max(1, Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24)));
+
+    return {
+      index: idx + 1,
+      stayId: s._id,
+      roomNumber: room.roomNumber || `Room ${idx + 1}`,
+      category: room.category || 'Standard Room',
+      guestName: guest.fullName || 'Occupant',
+      guestPhone: guest.mobileNumber || '',
+      occupants: s.occupants || 1,
+      checkInDate: checkIn,
+      checkOutDate: checkOut,
+      nights,
+      roomRent,
+      charges,
+      chargesTotal,
+      roomTotal,
+      paid,
+      balance,
+      hsnSacCode: hostel.hsnSacCode || '996311'
+    };
+  });
+
+  const totalRoomRent = roomBreakdown.reduce((sum, r) => sum + r.roomRent, 0);
+  const totalCharges = roomBreakdown.reduce((sum, r) => sum + r.chargesTotal, 0);
+  const totalBilled = roomBreakdown.reduce((sum, r) => sum + r.roomTotal, 0);
+
+  // Combined Payments across all rooms (or custom payments list)
+  const totalPaid = payments.length > 0 
+    ? payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+    : roomBreakdown.reduce((sum, r) => sum + r.paid, 0);
+  const balance = Math.max(0, totalBilled - totalPaid);
+
+  let taxableAmount = totalBilled;
+  let totalGst = 0;
+  let cgst = 0;
+  let sgst = 0;
+  let igst = 0;
+
+  if (gstEnabled && gstRate > 0) {
+    if (taxInclusive) {
+      taxableAmount = Math.round((totalBilled / (1 + gstRate / 100)) * 100) / 100;
+      totalGst = Math.round((totalBilled - taxableAmount) * 100) / 100;
+    } else {
+      taxableAmount = totalBilled;
+      totalGst = Math.round((taxableAmount * (gstRate / 100)) * 100) / 100;
+    }
+
+    if (isInterState) {
+      igst = totalGst;
+      cgst = 0;
+      sgst = 0;
+    } else {
+      cgst = Math.round((totalGst / 2) * 100) / 100;
+      sgst = Math.round((totalGst - cgst) * 100) / 100;
+      igst = 0;
+    }
+  }
+
+  const grandTotal = taxInclusive || !gstEnabled ? totalBilled : (taxableAmount + totalGst);
+
+  // Auto-generate Master Corporate Invoice Number
+  const prefix = hostel.invoicePrefix || 'CORP';
+  const dateStr = format(new Date(), 'yyyyMMdd');
+  const roomCountStr = `${stays.length}RMS`;
+  const randSuffix = primaryStay._id ? primaryStay._id.toString().slice(-4).toUpperCase() : '001';
+  const invoiceNumber = options.invoiceNumber || `${prefix}-${dateStr}-${roomCountStr}-${randSuffix}`;
+
+  return {
+    hostel,
+    primaryStay,
+    guestCompany,
+    guestGstin,
+    billingAddress,
+    bookerName,
+    bookerPhone,
+    poNumber,
+    gstEnabled,
+    gstRate,
+    taxInclusive,
+    isInterState,
+    roomBreakdown,
+    totalRoomRent,
+    totalCharges,
+    totalBilled,
+    totalPaid,
+    balance,
+    taxableAmount,
+    totalGst,
+    cgst,
+    sgst,
+    igst,
+    grandTotal,
+    invoiceNumber,
+    hsnSacCode: hostel.hsnSacCode || '996311'
+  };
+};
+
+/**
+ * Builds the centralized, print-ready HTML consolidated corporate bill
+ */
+export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {}) => {
+  const inv = calculateMergedInvoiceData(stays, payments, options);
+  const invoiceDateFormatted = format(new Date(), 'dd MMM yyyy, hh:mm a');
+
+  // Room Accommodation Table Rows
+  const roomRows = inv.roomBreakdown.map((r, i) => {
+    const checkInStr = format(r.checkInDate, 'dd MMM yyyy');
+    const checkOutStr = format(r.checkOutDate, 'dd MMM yyyy');
+    const sac = r.hsnSacCode || '996311';
+
+    // Itemized charges snippet for this room if any
+    const extraChargesSnippet = r.charges && r.charges.length > 0 ? `
+      <div style="margin-top: 4px; padding-left: 8px; border-left: 2px solid #e2e8f0; font-size: 11px; color: #475569;">
+        ${r.charges.map(c => `<div>&bull; ${esc(c.description)} (${esc(c.category)}): <b>₹${Number(c.amount).toLocaleString('en-IN')}</b></div>`).join('')}
+      </div>
+    ` : '';
+
+    return `
+      <tr>
+        <td class="c">${i + 1}</td>
+        <td>
+          <b style="font-size: 13.5px; color: #0f172a;">Room ${esc(r.roomNumber)} &bull; ${esc(r.category)}</b>
+          <div class="muted small">Guest: <b>${esc(r.guestName)}</b> ${r.guestPhone ? `(+91 ${esc(r.guestPhone)})` : ''} &bull; Occupants: ${r.occupants}</div>
+          <div class="muted small">${checkInStr} to ${checkOutStr} (<b>${r.nights} Night${r.nights > 1 ? 's' : ''}</b>)</div>
+          ${extraChargesSnippet}
+        </td>
+        <td class="c font-mono">${inv.gstEnabled ? sac : '-'}</td>
+        <td class="c">${r.nights}</td>
+        <td class="r font-mono">₹${Number(r.roomRent).toLocaleString('en-IN')}</td>
+        <td class="r font-mono">${r.chargesTotal > 0 ? `₹${Number(r.chargesTotal).toLocaleString('en-IN')}` : '-'}</td>
+        <td class="r font-mono font-bold" style="color: #0f172a;">₹${Number(r.roomTotal).toLocaleString('en-IN')}</td>
+      </tr>
+    `;
+  }).join('');
+
+  // Payment Records
+  const paymentRows = payments.length > 0 ? payments.map(p => `
+    <tr>
+      <td>${format(new Date(p.paymentDate || p.createdAt || new Date()), 'dd MMM yyyy, hh:mm a')}</td>
+      <td><span class="badge">${esc(p.paymentMethod || 'Corporate Payment')}</span></td>
+      <td class="muted">${esc(p.notes || p.reference || '-')}</td>
+      <td class="r font-mono font-bold">₹${Number(p.amount).toLocaleString('en-IN')}</td>
+    </tr>
+  `).join('') : '';
+
+  // Dynamic UPI Payment QR Code
+  let qrCodeHtml = '';
+  if (inv.balance > 0 && inv.hostel.upiId) {
+    const payeeName = inv.hostel.upiPayeeName || inv.hostel.name || 'Hotel';
+    const upiUri = `upi://pay?pa=${encodeURIComponent(inv.hostel.upiId)}&pn=${encodeURIComponent(payeeName)}&am=${inv.balance}&cu=INR&tn=${encodeURIComponent('Corp Bill ' + inv.invoiceNumber)}`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=130x130&margin=2&data=${encodeURIComponent(upiUri)}`;
+
+    qrCodeHtml = `
+      <div class="upi-box">
+        <img src="${qrUrl}" alt="Scan to Pay UPI QR" width="105" height="105" />
+        <div class="upi-info">
+          <div class="upi-title">SCAN & PAY BALANCE</div>
+          <div class="upi-vpa">${esc(inv.hostel.upiId)}</div>
+          <div class="upi-amount">Due: ₹${inv.balance.toLocaleString('en-IN')}</div>
+          <div class="muted small">Supports GPay, PhonePe, Paytm & NetBanking</div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Terms and conditions
+  const termsText = inv.hostel.billTerms || '1. Official Consolidated Corporate Tax Invoice.\n2. Goods & hospitality services once billed are non-refundable.\n3. GST ITC eligibility requires accurate corporate GSTIN on filing.\n4. Disputes subject to local jurisdiction only.';
+  const termsHtml = termsText.split('\n').filter(Boolean).map(t => `<li>${esc(t.replace(/^[0-9]+[.)]\s*/, ''))}</li>`).join('');
+
+  // Build WhatsApp Message Payload
+  const waMsg = [
+    `🏨 *${inv.hostel.name || 'Hotel'}* - Consolidated Corporate Bill`,
+    `──────────────────────`,
+    inv.guestCompany ? `🏢 *Company:* ${inv.guestCompany}` : '',
+    inv.guestGstin ? `🏛️ *Company GSTIN:* ${inv.guestGstin}` : '',
+    `👤 *Booker / Rep:* ${inv.bookerName} ${inv.bookerPhone ? `(+91 ${inv.bookerPhone})` : ''}`,
+    `🧾 *Invoice No:* ${inv.invoiceNumber}`,
+    `🚪 *Consolidated Rooms (${inv.roomBreakdown.length} Rooms):*`,
+    ...inv.roomBreakdown.map(r => `  • Room ${r.roomNumber} (${r.guestName}): ₹${r.roomTotal.toLocaleString('en-IN')}`),
+    `──────────────────────`,
+    `💰 *Grand Total:* ₹${inv.grandTotal.toLocaleString('en-IN')}`,
+    `✅ *Paid / Advance:* ₹${inv.totalPaid.toLocaleString('en-IN')}`,
+    inv.balance > 0 
+      ? `⚠️ *Balance Due:* ₹${inv.balance.toLocaleString('en-IN')}` 
+      : `🎉 *Status:* Fully Settled & Paid`,
+    `──────────────────────`,
+    inv.hostel.gstEnabled && inv.hostel.gstin ? `🏛️ *Hotel GSTIN:* ${inv.hostel.gstin}` : '',
+    `Thank you for your corporate partnership! Have a safe journey. ✨`
+  ].filter(Boolean).join('\n');
+
+  const waUrl = inv.bookerPhone ? `https://wa.me/91${inv.bookerPhone.replace(/[^0-9]/g, '').slice(-10)}?text=${encodeURIComponent(waMsg)}` : '';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>${esc(inv.invoiceNumber)} - ${esc(inv.guestCompany || inv.bookerName || 'Corporate Bill')}</title>
+  <style>
+    *, *:before, *:after { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #1e293b;
+      background: #f8fafc;
+      margin: 0;
+      padding: 24px;
+      line-height: 1.45;
+      font-size: 13px;
+    }
+    .invoice-card {
+      max-width: 860px;
+      margin: 0 auto;
+      background: #ffffff;
+      padding: 36px 40px;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+      border: 1px solid #e2e8f0;
+      position: relative;
+    }
+    .no-print-bar {
+      max-width: 860px;
+      margin: 0 auto 16px auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      background: #0f172a;
+      padding: 12px 20px;
+      border-radius: 12px;
+      color: #ffffff;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .btn-print { background: #3b82f6; color: #ffffff; }
+    .btn-print:hover { background: #2563eb; }
+    .btn-wa { background: #22c55e; color: #ffffff; }
+    .btn-wa:hover { background: #16a34a; }
+    .btn-close { background: #334155; color: #ffffff; }
+    .btn-close:hover { background: #475569; }
+
+    /* Header */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding-bottom: 22px;
+      border-bottom: 2px solid #0f172a;
+      margin-bottom: 22px;
+    }
+    .hotel-name {
+      font-size: 24px;
+      font-weight: 900;
+      color: #0f172a;
+      margin: 0 0 6px 0;
+      letter-spacing: -0.5px;
+      text-transform: uppercase;
+    }
+    .hotel-meta {
+      font-size: 12px;
+      color: #475569;
+      line-height: 1.5;
+    }
+    .invoice-title-box {
+      text-align: right;
+    }
+    .invoice-type {
+      font-size: 18px;
+      font-weight: 900;
+      color: #0f172a;
+      letter-spacing: -0.3px;
+      margin-bottom: 3px;
+    }
+    .badge-gst {
+      display: inline-block;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-size: 10.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .badge-nongst {
+      display: inline-block;
+      background: #f1f5f9;
+      color: #475569;
+      border: 1px solid #cbd5e1;
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-size: 10.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .badge-interstate {
+      display: inline-block;
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fde68a;
+      padding: 2px 8px;
+      border-radius: 5px;
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      margin-left: 6px;
+    }
+
+    /* Status stamp */
+    .status-stamp {
+      display: inline-block;
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .stamp-paid {
+      background: #ecfdf5;
+      color: #047857;
+      border: 1.5px solid #a7f3d0;
+    }
+    .stamp-due {
+      background: #fef2f2;
+      color: #b91c1c;
+      border: 1.5px solid #fecaca;
+    }
+
+    /* Grids */
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1.3fr 1fr;
+      gap: 20px;
+      padding: 16px 20px;
+      background: #f8fafc;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+      margin-bottom: 24px;
+    }
+    .info-title {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #64748b;
+      margin-bottom: 4px;
+    }
+    .info-val {
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    /* Table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+    }
+    th {
+      background: #0f172a;
+      color: #ffffff;
+      padding: 10px 12px;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      text-align: left;
+    }
+    th.r, td.r { text-align: right; }
+    th.c, td.c { text-align: center; }
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #e2e8f0;
+      vertical-align: top;
+      font-size: 12.5px;
+    }
+    tr:nth-child(even) td {
+      background: #fafafa;
+    }
+
+    /* Summary */
+    .summary-section {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 24px;
+      margin-top: 10px;
+      padding-top: 14px;
+    }
+    .totals-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .totals-table td {
+      padding: 6px 8px;
+      border-bottom: 1px dashed #e2e8f0;
+      font-size: 12.5px;
+    }
+    .totals-table tr:nth-child(even) td { background: transparent; }
+    .total-row td {
+      font-size: 14.5px !important;
+      font-weight: 900 !important;
+      border-top: 2px solid #0f172a !important;
+      border-bottom: 2px solid #0f172a !important;
+      color: #0f172a;
+      padding-top: 8px !important;
+      padding-bottom: 8px !important;
+    }
+    .paid-row td {
+      color: #047857;
+      font-weight: 800;
+    }
+    .due-row td {
+      color: #b91c1c;
+      font-weight: 900;
+      font-size: 13.5px;
+    }
+
+    .amount-words-box {
+      padding: 12px 14px;
+      background: #f8fafc;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      margin-bottom: 14px;
+    }
+    .words-label {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #64748b;
+      margin-bottom: 2px;
+    }
+    .words-val {
+      font-weight: 800;
+      color: #0f172a;
+      font-size: 12.5px;
+    }
+
+    /* UPI Box */
+    .upi-box {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      padding: 12px 14px;
+      border: 1.5px dashed #cbd5e1;
+      border-radius: 10px;
+      background: #ffffff;
+    }
+    .upi-info { line-height: 1.4; }
+    .upi-title {
+      font-size: 10.5px;
+      font-weight: 900;
+      color: #0f172a;
+      letter-spacing: 0.5px;
+    }
+    .upi-vpa {
+      font-family: monospace;
+      font-weight: 700;
+      color: #1d4ed8;
+      font-size: 12px;
+    }
+    .upi-amount {
+      font-size: 12.5px;
+      font-weight: 900;
+      color: #b91c1c;
+    }
+
+    /* Footer */
+    .footer {
+      margin-top: 28px;
+      padding-top: 18px;
+      border-top: 1px solid #e2e8f0;
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 20px;
+      align-items: flex-end;
+    }
+    .terms-box {
+      font-size: 10.5px;
+      color: #64748b;
+    }
+    .terms-box ul {
+      margin: 4px 0 0 0;
+      padding-left: 16px;
+    }
+    .terms-box li {
+      margin-bottom: 2px;
+    }
+    .signatures {
+      text-align: right;
+    }
+    .sign-line {
+      display: inline-block;
+      border-top: 1.5px solid #0f172a;
+      width: 190px;
+      padding-top: 6px;
+      font-weight: 800;
+      font-size: 11.5px;
+      color: #0f172a;
+    }
+    .thankyou {
+      text-align: center;
+      margin-top: 24px;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #64748b;
+    }
+
+    .muted { color: #64748b; }
+    .small { font-size: 11px; }
+    .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    .font-bold { font-weight: 700; }
+    .badge {
+      display: inline-block;
+      background: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10.5px;
+      font-weight: 700;
+    }
+
+    @media print {
+      body {
+        padding: 0;
+        background: #ffffff;
+      }
+      .no-print-bar { display: none !important; }
+      .invoice-card {
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        max-width: 100% !important;
+      }
+      th {
+        background: #0f172a !important;
+        color: #ffffff !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .badge-gst, .badge-interstate, .status-stamp, .stamp-paid, .stamp-due {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Screen Actions Bar (Hidden when printed) -->
+  <div class="no-print-bar">
+    <div style="font-weight: 700; font-size: 13px;">
+      📄 ${esc(inv.invoiceNumber)} &bull; Consolidated Corporate Bill (${inv.roomBreakdown.length} Rooms)
+    </div>
+    <div style="display: flex; gap: 8px;">
+      <button onclick="window.print()" class="btn btn-print">🖨️ Print / Save PDF</button>
+      ${waUrl ? `<a href="${waUrl}" target="_blank" class="btn btn-wa">💬 WhatsApp Corporate Bill</a>` : ''}
+      <button onclick="window.close()" class="btn btn-close">✕ Close</button>
+    </div>
+  </div>
+
+  <div class="invoice-card">
+    
+    <!-- HEADER -->
+    <div class="header">
+      <div>
+        <h1 class="hotel-name">${esc(inv.hostel.name || 'HOTEL PROPERTY')}</h1>
+        <div class="hotel-meta">
+          ${inv.hostel.address ? `<div>${esc(inv.hostel.address)}</div>` : ''}
+          <div>
+            ${inv.hostel.contactNumber ? `Phone: <b>${esc(inv.hostel.contactNumber)}</b> &nbsp;|&nbsp; ` : ''}
+            ${inv.hostel.email ? `Email: <b>${esc(inv.hostel.email)}</b>` : ''}
+          </div>
+          ${inv.gstEnabled && inv.hostel.gstin ? `<div style="margin-top: 3px;">GSTIN: <b class="font-mono" style="color: #0f172a;">${esc(inv.hostel.gstin)}</b> &nbsp;|&nbsp; State: <b>${esc(inv.hostel.state || 'India')}</b></div>` : ''}
+        </div>
+      </div>
+      <div class="invoice-title-box">
+        <div class="invoice-type">${inv.gstEnabled ? 'TAX INVOICE' : 'CONSOLIDATED FOLIO'}</div>
+        <div>
+          ${inv.gstEnabled 
+            ? '<span class="badge-gst">Corporate GST Tax Invoice</span>' 
+            : '<span class="badge-nongst">Corporate Bill of Supply</span>'}
+          ${inv.isInterState ? '<span class="badge-interstate">Inter-State (IGST)</span>' : ''}
+        </div>
+        <div class="font-mono font-bold" style="font-size: 13px; color: #0f172a; margin-top: 4px;">
+          Invoice #: ${esc(inv.invoiceNumber)}
+        </div>
+        <div class="muted small">Date: ${invoiceDateFormatted}</div>
+        <div style="margin-top: 8px;">
+          <span class="status-stamp ${inv.balance <= 0 ? 'stamp-paid' : 'stamp-due'}">
+            ${inv.balance <= 0 ? '✓ FULLY PAID' : `BALANCE DUE: ₹${inv.balance.toLocaleString('en-IN')}`}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CORPORATE BUYER & RESERVATION GRID -->
+    <div class="info-grid">
+      <div>
+        <div class="info-title">Billed To (Corporate Entity)</div>
+        <div class="info-val" style="font-size: 15px; font-weight: 800; color: #0f172a;">
+          ${esc(inv.guestCompany || inv.bookerName || 'Corporate Client')}
+        </div>
+        ${inv.guestGstin ? `<div style="margin-top: 3px;"><b>Company GSTIN:</b> <span class="font-mono font-bold" style="color: #0f172a;">${esc(inv.guestGstin)}</span></div>` : '<div class="muted small">Corporate GSTIN: Not Provided</div>'}
+        ${inv.billingAddress ? `<div class="muted small" style="margin-top: 2px;">${esc(inv.billingAddress)}</div>` : ''}
+        <div class="muted small" style="margin-top: 4px;">
+          Representative / Booker: <b>${esc(inv.bookerName)}</b> ${inv.bookerPhone ? `(+91 ${esc(inv.bookerPhone)})` : ''}
+        </div>
+      </div>
+      <div>
+        <div class="info-title">Consolidated Booking Info</div>
+        <div class="info-val">Total Rooms: <b style="font-size: 16px; color: #0f172a;">${inv.roomBreakdown.length} Rooms</b></div>
+        <div class="muted small" style="margin-top: 3px;">
+          Rooms Included: <b>${inv.roomBreakdown.map(r => r.roomNumber).join(', ')}</b>
+        </div>
+        ${inv.poNumber ? `<div class="muted small"><b>PO / Booking Ref:</b> ${esc(inv.poNumber)}</div>` : ''}
+        <div class="muted small"><b>Place of Supply:</b> ${esc(inv.hostel.state || 'India')} ${inv.isInterState ? '(Inter-State IGST)' : '(Intra-State CGST+SGST)'}</div>
+      </div>
+    </div>
+
+    <!-- CONSOLIDATED ROOM BREAKDOWN PARTICULARS TABLE -->
+    <table>
+      <thead>
+        <tr>
+          <th class="c" style="width: 36px;">#</th>
+          <th>Room & Occupant Particulars</th>
+          <th class="c font-mono" style="width: 80px;">SAC</th>
+          <th class="c" style="width: 48px;">Nights</th>
+          <th class="r font-mono" style="width: 100px;">Tariff</th>
+          <th class="r font-mono" style="width: 95px;">Add-ons</th>
+          <th class="r font-mono" style="width: 110px;">Room Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${roomRows}
+      </tbody>
+    </table>
+
+    <!-- TOTALS & TAX BREAKDOWN -->
+    <div class="summary-section">
+      <div>
+        <div class="amount-words-box">
+          <div class="words-label">Amount in Words</div>
+          <div class="words-val">${numberToWordsINR(inv.grandTotal)}</div>
+        </div>
+        ${qrCodeHtml}
+      </div>
+
+      <div>
+        <table class="totals-table">
+          <tbody>
+            <tr>
+              <td class="muted">Total Room Tariff (${inv.roomBreakdown.length} Rooms):</td>
+              <td class="r font-mono">₹${inv.totalRoomRent.toLocaleString('en-IN')}</td>
+            </tr>
+            ${inv.totalCharges > 0 ? `
+              <tr>
+                <td class="muted">Food, Services & Add-ons:</td>
+                <td class="r font-mono">₹${inv.totalCharges.toLocaleString('en-IN')}</td>
+              </tr>
+            ` : ''}
+            <tr>
+              <td class="muted font-bold">Consolidated Gross Amount:</td>
+              <td class="r font-mono font-bold">₹${inv.totalBilled.toLocaleString('en-IN')}</td>
+            </tr>
+
+            ${inv.gstEnabled && inv.gstRate > 0 ? `
+              <tr>
+                <td class="muted">Taxable Value:</td>
+                <td class="r font-mono">₹${inv.taxableAmount.toLocaleString('en-IN')}</td>
+              </tr>
+              ${inv.isInterState ? `
+                <tr>
+                  <td class="muted">IGST (${inv.gstRate}%):</td>
+                  <td class="r font-mono">₹${inv.igst.toLocaleString('en-IN')}</td>
+                </tr>
+              ` : `
+                <tr>
+                  <td class="muted">CGST (${(inv.gstRate / 2).toFixed(1)}%):</td>
+                  <td class="r font-mono">₹${inv.cgst.toLocaleString('en-IN')}</td>
+                </tr>
+                <tr>
+                  <td class="muted">SGST (${(inv.gstRate / 2).toFixed(1)}%):</td>
+                  <td class="r font-mono">₹${inv.sgst.toLocaleString('en-IN')}</td>
+                </tr>
+              `}
+            ` : `
+              <tr>
+                <td class="muted small" colspan="2" style="font-style: italic; color: #94a3b8;">
+                  * Non-GST bill: No tax charged under Composition/Exemption scheme.
+                </td>
+              </tr>
+            `}
+
+            <tr class="total-row">
+              <td>Grand Total:</td>
+              <td class="r font-mono">₹${inv.grandTotal.toLocaleString('en-IN')}</td>
+            </tr>
+            <tr class="paid-row">
+              <td>Total Paid / Advance:</td>
+              <td class="r font-mono">₹${inv.totalPaid.toLocaleString('en-IN')}</td>
+            </tr>
+            <tr class="due-row">
+              <td>${inv.balance > 0 ? 'Balance Due:' : 'Net Balance:'}</td>
+              <td class="r font-mono">₹${inv.balance.toLocaleString('en-IN')}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PAYMENTS RECEIVED TABLE (IF ANY) -->
+    ${payments.length > 0 ? `
+      <div style="margin-top: 14px;">
+        <div class="info-title" style="margin-bottom: 6px;">Consolidated Settlement & Payment History</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Date & Time</th>
+              <th>Mode</th>
+              <th>Notes / Ref</th>
+              <th class="r">Amount Paid</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${paymentRows}
+          </tbody>
+        </table>
+      </div>
+    ` : ''}
+
+    <!-- FOOTER & SIGNATURES -->
+    <div class="footer">
+      <div class="terms-box">
+        <div class="info-title">Terms & Conditions</div>
+        <ul>${termsHtml}</ul>
+      </div>
+      <div class="signatures">
+        <div class="sign-line">Authorized Signatory<br/><small style="font-weight: normal; color: #94a3b8;">(${esc(inv.hostel.name || 'Hotel Front Desk')})</small></div>
+      </div>
+    </div>
+
+    <div class="thankyou">
+      ✨ Thank you for choosing ${esc(inv.hostel.name || 'us')} for your corporate hospitality! ✨
+    </div>
+
+  </div>
+
+</body>
+</html>`;
+};
+
+/**
+ * Opens a print window with the consolidated multi-room corporate invoice
+ */
+export const printMergedInvoice = (stays = [], payments = [], options = {}) => {
+  const html = generateMergedInvoiceHtml(stays, payments, options);
+  const w = window.open('', '_blank');
+  if (!w) {
+    alert('Please allow popups for this site to print invoice');
+    return;
+  }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+};
+
+/**
+ * Creates a prefilled WhatsApp link to share consolidated corporate bill
+ */
+export const getMergedInvoiceWhatsAppUrl = (stays = [], options = {}) => {
+  const inv = calculateMergedInvoiceData(stays, [], options);
+  const rawPhone = (inv.bookerPhone || '').replace(/[^0-9]/g, '');
+  if (!rawPhone) return null;
+  const cleanPhone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
+
+  const msg = [
+    `🏨 *${inv.hostel.name || 'Hotel'}* - Consolidated Corporate Bill`,
+    `──────────────────────`,
+    inv.guestCompany ? `🏢 *Company:* ${inv.guestCompany}` : '',
+    inv.guestGstin ? `🏛️ *Company GSTIN:* ${inv.guestGstin}` : '',
+    `👤 *Booker / Rep:* ${inv.bookerName}`,
+    `🧾 *Invoice No:* ${inv.invoiceNumber}`,
+    `🚪 *Consolidated Rooms (${inv.roomBreakdown.length} Rooms):*`,
+    ...inv.roomBreakdown.map(r => `  • Room ${r.roomNumber} (${r.guestName}): ₹${r.roomTotal.toLocaleString('en-IN')}`),
+    `──────────────────────`,
+    `💰 *Grand Total:* ₹${inv.grandTotal.toLocaleString('en-IN')}`,
+    `✅ *Paid / Advance:* ₹${inv.totalPaid.toLocaleString('en-IN')}`,
+    inv.balance > 0 
+      ? `⚠️ *Balance Due:* ₹${inv.balance.toLocaleString('en-IN')}` 
+      : `🎉 *Status:* Fully Settled & Paid`,
+    `──────────────────────`,
+    inv.hostel.gstEnabled && inv.hostel.gstin ? `🏛️ *Hotel GSTIN:* ${inv.hostel.gstin}` : '',
+    `Thank you for your business! Have a safe journey. ✨`
+  ].filter(Boolean).join('\n');
+
+  return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
+};
+
 export default {
   numberToWordsINR,
   calculateInvoiceData,
   generateInvoiceHtml,
   printInvoice,
   getInvoiceWhatsAppUrl,
-  getWelcomeWhatsAppUrl
+  getWelcomeWhatsAppUrl,
+  calculateMergedInvoiceData,
+  generateMergedInvoiceHtml,
+  printMergedInvoice,
+  getMergedInvoiceWhatsAppUrl
 };
