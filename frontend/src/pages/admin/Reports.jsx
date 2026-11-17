@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth, parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
-import { Search, Download, TrendingUp, TrendingDown, PieChart, Users, Receipt, ArrowRight, ShieldCheck, Trash, Shirt, BookOpen, Wallet, Share2, Clock, Banknote, CheckCircle, Building, Sparkles, PlusCircle, Car, Phone, MessageCircle } from 'lucide-react';
+import { Search, Download, TrendingUp, TrendingDown, PieChart, Users, Receipt, ArrowRight, ShieldCheck, Trash, Shirt, BookOpen, Wallet, Share2, Clock, Banknote, CheckCircle, Building, Sparkles, PlusCircle, Car, Phone, MessageCircle, Printer, FileSpreadsheet } from 'lucide-react';
 import { useOutletContext, Link } from 'react-router-dom';
 import PoliceReportModal from './PoliceReportModal';
 import ShiftHandoverModal from './ShiftHandoverModal';
 import ExpenseModal from './ExpenseModal';
+import InvoiceModal from '../../components/InvoiceModal';
 import { useToast } from '../../components/ui/Toast';
 
 const safeFormat = (dateVal, formatStr, fallback = 'N/A') => {
@@ -53,6 +54,11 @@ const Reports = () => {
     totalHotelRevenue: 0,
     brokers: []
   });
+
+  // GST Tax Ledger Filters & Modals
+  const [gstClientFilter, setGstClientFilter] = useState('all'); // all, b2b, b2c
+  const [gstRateFilter, setGstRateFilter] = useState('all'); // all, 12, 18, 5
+  const [selectedStayForInvoice, setSelectedStayForInvoice] = useState(null);
 
   // Filters
   const [dateFilter, setDateFilter] = useState('all');
@@ -556,8 +562,233 @@ const Reports = () => {
     };
   }, [filteredBrokers]);
 
+  // GST Output Tax Ledger & Government Filing Summary
+  const gstLedgerData = useMemo(() => {
+    const records = [];
+    let totalTaxable = 0;
+    let totalCgst = 0;
+    let totalSgst = 0;
+    let totalIgst = 0;
+    let totalTax = 0;
+    let totalGross = 0;
+    let b2bCount = 0;
+    let b2bTaxable = 0;
+    let b2bTax = 0;
+    let b2cCount = 0;
+    let b2cTaxable = 0;
+    let b2cTax = 0;
+
+    const slabStats = {
+      5: { count: 0, taxable: 0, tax: 0 },
+      12: { count: 0, taxable: 0, tax: 0 },
+      18: { count: 0, taxable: 0, tax: 0 },
+      other: { count: 0, taxable: 0, tax: 0 }
+    };
+
+    filteredStays.forEach(stay => {
+      const hId = stay.hostel?._id || stay.hostel;
+      const hostel = (hostels || []).find(h => (h._id === hId || h === hId)) || stay.hostel || {};
+
+      const gstApplied = stay.gstApplied || Boolean(stay.taxAmount > 0) || Boolean(stay.gstRate > 0) || Boolean(hostel.gstEnabled);
+      if (!gstApplied) return;
+
+      const companyName = (stay.companyName || stay.guest?.companyName || '').trim();
+      const gstin = (stay.gstin || stay.guest?.gstin || '').trim().toUpperCase();
+      const isB2B = Boolean(gstin && gstin.length >= 15);
+
+      if (gstClientFilter === 'b2b' && !isB2B) return;
+      if (gstClientFilter === 'b2c' && isB2B) return;
+
+      const rate = Number(stay.gstRate || (gstApplied ? 12 : 0));
+      if (gstRateFilter !== 'all' && Number(gstRateFilter) !== rate) return;
+
+      const totalBilled = Number(stay.totalAmount) || 0;
+      const taxInclusive = stay.gstType !== 'exclusive';
+
+      let taxableAmount = totalBilled;
+      let totalGst = Number(stay.taxAmount) || 0;
+
+      if (rate > 0) {
+        if (taxInclusive) {
+          taxableAmount = Math.round((totalBilled / (1 + rate / 100)) * 100) / 100;
+          totalGst = Math.round((totalBilled - taxableAmount) * 100) / 100;
+        } else {
+          taxableAmount = totalBilled;
+          totalGst = Math.round((taxableAmount * (rate / 100)) * 100) / 100;
+        }
+      }
+
+      // Check Inter-State vs Intra-State (State code check)
+      const hotelGstin = (hostel.gstin || '').trim().toUpperCase();
+      const hotelStateCode = hotelGstin.slice(0, 2);
+      const guestStateCode = gstin.slice(0, 2);
+      const isInterState = Boolean(hotelStateCode && guestStateCode && hotelStateCode !== guestStateCode);
+
+      let cgst = 0;
+      let sgst = 0;
+      let igst = 0;
+
+      if (isInterState) {
+        igst = totalGst;
+      } else {
+        cgst = Math.round((totalGst / 2) * 100) / 100;
+        sgst = Math.round((totalGst - cgst) * 100) / 100;
+      }
+
+      const grossAmount = taxInclusive ? totalBilled : (taxableAmount + totalGst);
+      const invoiceTotal = Math.round(grossAmount);
+      const roundOff = Math.round((invoiceTotal - grossAmount) * 100) / 100;
+
+      totalTaxable += taxableAmount;
+      totalCgst += cgst;
+      totalSgst += sgst;
+      totalIgst += igst;
+      totalTax += totalGst;
+      totalGross += invoiceTotal;
+
+      if (isB2B) {
+        b2bCount++;
+        b2bTaxable += taxableAmount;
+        b2bTax += totalGst;
+      } else {
+        b2cCount++;
+        b2cTaxable += taxableAmount;
+        b2cTax += totalGst;
+      }
+
+      if (slabStats[rate]) {
+        slabStats[rate].count++;
+        slabStats[rate].taxable += taxableAmount;
+        slabStats[rate].tax += totalGst;
+      } else {
+        slabStats.other.count++;
+        slabStats.other.taxable += taxableAmount;
+        slabStats.other.tax += totalGst;
+      }
+
+      const prefix = hostel.invoicePrefix || 'INV';
+      const stayDate = stay.createdAt ? new Date(stay.createdAt) : new Date();
+      const dateStr = format(stayDate, 'yyyyMMdd');
+      const roomStr = stay.room?.roomNumber || 'RM';
+      const idStr = stay._id.toString().slice(-4).toUpperCase();
+      const invoiceNumber = `${prefix}-${dateStr}-${roomStr}-${idStr}`;
+
+      records.push({
+        stay,
+        invoiceNumber,
+        date: stay.checkInDate || stay.createdAt,
+        clientName: companyName || stay.guest?.fullName || 'Guest',
+        companyName,
+        guestName: stay.guest?.fullName || 'Guest',
+        mobileNumber: stay.guest?.mobileNumber || '',
+        gstin,
+        isB2B,
+        isInterState,
+        roomNumber: stay.room?.roomNumber || 'N/A',
+        roomCategory: stay.room?.category || 'Standard',
+        gstRate: rate,
+        gstType: stay.gstType || (taxInclusive ? 'inclusive' : 'exclusive'),
+        taxableAmount: Math.round(taxableAmount * 100) / 100,
+        cgst: Math.round(cgst * 100) / 100,
+        sgst: Math.round(sgst * 100) / 100,
+        igst: Math.round(igst * 100) / 100,
+        totalTax: Math.round(totalGst * 100) / 100,
+        roundOff,
+        invoiceTotal,
+        paidAmount: stay.paidAmount || 0,
+        balance: Math.max(0, invoiceTotal - (stay.paidAmount || 0)),
+        status: stay.status
+      });
+    });
+
+    return {
+      records,
+      totalInvoices: records.length,
+      totalTaxable: Math.round(totalTaxable * 100) / 100,
+      totalCgst: Math.round(totalCgst * 100) / 100,
+      totalSgst: Math.round(totalSgst * 100) / 100,
+      totalIgst: Math.round(totalIgst * 100) / 100,
+      totalTax: Math.round(totalTax * 100) / 100,
+      totalGross: Math.round(totalGross),
+      b2b: {
+        count: b2bCount,
+        taxable: Math.round(b2bTaxable * 100) / 100,
+        tax: Math.round(b2bTax * 100) / 100
+      },
+      b2c: {
+        count: b2cCount,
+        taxable: Math.round(b2cTaxable * 100) / 100,
+        tax: Math.round(b2cTax * 100) / 100
+      },
+      slabStats
+    };
+  }, [filteredStays, hostels, gstClientFilter, gstRateFilter]);
+
+  // Download GSTR-1 Tax Ledger in CSV format for Chartered Accountant (CA)
+  const handleExportGstCsv = () => {
+    if (!gstLedgerData.records.length) {
+      toast.error('No GST invoice records found for this period');
+      return;
+    }
+
+    const headers = [
+      'Invoice Number',
+      'Invoice Date',
+      'Customer / Company Name',
+      'GSTIN',
+      'Supply Type (B2B/B2C)',
+      'Place of Supply',
+      'Room No',
+      'Taxable Value (INR)',
+      'GST Rate (%)',
+      'CGST Amount (INR)',
+      'SGST Amount (INR)',
+      'IGST Amount (INR)',
+      'Total GST (INR)',
+      'Invoice Total (INR)',
+      'Paid Amount (INR)',
+      'Balance Due (INR)',
+      'Status'
+    ];
+
+    const rows = gstLedgerData.records.map(r => [
+      `"${r.invoiceNumber}"`,
+      `"${safeFormat(r.date, 'yyyy-MM-dd')}"`,
+      `"${(r.companyName || r.guestName).replace(/"/g, '""')}"`,
+      `"${r.gstin || 'UNREGISTERED'}"`,
+      `"${r.isB2B ? 'B2B (Registered)' : 'B2C (Unregistered)'}"`,
+      `"${r.isInterState ? 'Inter-State (IGST)' : 'Intra-State (CGST+SGST)'}"`,
+      `"${r.roomNumber}"`,
+      r.taxableAmount.toFixed(2),
+      `${r.gstRate}%`,
+      r.cgst.toFixed(2),
+      r.sgst.toFixed(2),
+      r.igst.toFixed(2),
+      r.totalTax.toFixed(2),
+      r.invoiceTotal.toFixed(2),
+      r.paidAmount.toFixed(2),
+      r.balance.toFixed(2),
+      `"${r.status}"`
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `GSTR1_Tax_Ledger_${format(new Date(), 'yyyyMMdd_HHmm')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('GSTR-1 Tax Ledger CSV exported successfully!');
+  };
+
   // Comprehensive Detailed CSV Export with Summary Dashboard on Top
   const downloadCSV = () => {
+    if (activeTab === 'gst') {
+      handleExportGstCsv();
+      return;
+    }
+
     const periodLabel = activeDateTimeRange?.label || (dateFilter === 'all' ? 'All Time' : dateFilter);
     const hostelLabel = hostels.find(h => h._id === hostelFilter)?.name || (hostelFilter === 'all' ? 'All Properties' : 'Hotel Property');
     
@@ -717,9 +948,14 @@ const Reports = () => {
           </button>
           <button 
             onClick={downloadCSV} 
-            className="flex-1 sm:flex-none justify-center px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs rounded-xl shadow-2xs flex items-center gap-2 transition-all active:scale-95 cursor-pointer"
+            className={`flex-1 sm:flex-none justify-center px-4 py-2.5 font-bold text-xs rounded-xl shadow-2xs flex items-center gap-2 transition-all active:scale-95 cursor-pointer ${
+              activeTab === 'gst' 
+                ? 'bg-emerald-600 hover:bg-emerald-700 text-white' 
+                : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200'
+            }`}
           >
-            <Download size={15} className="text-gray-700" /> Download Report
+            {activeTab === 'gst' ? <FileSpreadsheet size={15} className="text-white" /> : <Download size={15} className="text-gray-700" />}
+            {activeTab === 'gst' ? 'Export GSTR-1 CSV (For CA)' : 'Download Report'}
           </button>
         </div>
       </div>
@@ -877,6 +1113,12 @@ const Reports = () => {
           >
             <Car size={14} className="text-amber-600" /> Brokers ({brokersStats.totalBrokers || 0})
           </button>
+          <button 
+            onClick={() => setActiveTab('gst')} 
+            className={`px-3.5 sm:px-4 py-2 text-xs font-bold rounded-lg transition-all text-center whitespace-nowrap shrink-0 flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'gst' ? 'bg-white shadow-xs text-blue-900 border border-blue-200' : 'text-gray-500 hover:text-gray-900'}`}
+          >
+            <Building size={14} className="text-blue-600" /> GST Tax Ledger ({gstLedgerData.totalInvoices})
+          </button>
         </div>
         {activeTab === 'laundry' && (
           <Link to="/laundry" className="text-xs font-bold text-gray-700 hover:text-gray-900 flex items-center gap-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 px-3 py-2 rounded-xl transition-colors">
@@ -886,6 +1128,78 @@ const Reports = () => {
       </div>
 
       {/* Secondary Specific Ledger Metrics (Only shown for specialized tabs) */}
+      {activeTab === 'gst' && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="bg-white p-4 rounded-2xl border border-blue-200/90 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-black text-blue-700 uppercase tracking-widest">Total Output GST (Payable)</p>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">Govt Liability</span>
+              </div>
+              <div className="mt-1 text-2xl font-black text-blue-950">₹{(gstLedgerData.totalTax || 0).toLocaleString('en-IN')}</div>
+              <div className="text-[10px] font-semibold text-gray-500 mt-1 flex flex-wrap gap-2">
+                <span>CGST: <strong className="text-gray-800">₹{(gstLedgerData.totalCgst || 0).toLocaleString('en-IN')}</strong></span>
+                <span>•</span>
+                <span>SGST: <strong className="text-gray-800">₹{(gstLedgerData.totalSgst || 0).toLocaleString('en-IN')}</strong></span>
+                {gstLedgerData.totalIgst > 0 && (
+                  <>
+                    <span>•</span>
+                    <span>IGST: <strong className="text-purple-700">₹{(gstLedgerData.totalIgst || 0).toLocaleString('en-IN')}</strong></span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs">
+              <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Taxable Turnover (Base)</p>
+              <div className="mt-1 text-2xl font-black text-gray-900">₹{(gstLedgerData.totalTaxable || 0).toLocaleString('en-IN')}</div>
+              <p className="text-[10px] text-gray-500 mt-1">Gross Invoiced: <strong className="text-gray-800">₹{(gstLedgerData.totalGross || 0).toLocaleString('en-IN')}</strong> ({gstLedgerData.totalInvoices} bills)</p>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-emerald-200/90 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">B2B Corporate Entities</p>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">GSTR-1 T4</span>
+              </div>
+              <div className="mt-1 text-2xl font-black text-emerald-800">{gstLedgerData.b2b.count} Invoices</div>
+              <p className="text-[10px] text-gray-500 mt-1">
+                Taxable: ₹{(gstLedgerData.b2b.taxable || 0).toLocaleString('en-IN')} | Tax: <strong className="text-emerald-700">₹{(gstLedgerData.b2b.tax || 0).toLocaleString('en-IN')}</strong>
+              </p>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-amber-200/90 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">B2C Retail Guests</p>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">GSTR-1 T7</span>
+              </div>
+              <div className="mt-1 text-2xl font-black text-amber-900">{gstLedgerData.b2c.count} Invoices</div>
+              <p className="text-[10px] text-gray-500 mt-1">
+                Taxable: ₹{(gstLedgerData.b2c.taxable || 0).toLocaleString('en-IN')} | Tax: <strong className="text-amber-700">₹{(gstLedgerData.b2c.tax || 0).toLocaleString('en-IN')}</strong>
+              </p>
+            </div>
+          </div>
+
+          {/* Tax Slab Summary Strip */}
+          <div className="bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-slate-50 p-3 rounded-xl border border-blue-100 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2 font-bold text-gray-700">
+              <ShieldCheck size={16} className="text-blue-600" />
+              <span>Tax Slabs Breakdown (Output GST Liability for CA Filing):</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span className="px-2.5 py-1 bg-white border border-gray-200 rounded-lg text-gray-700 font-semibold shadow-2xs">
+                <strong>12% (Standard &lt; ₹7.5k):</strong> {gstLedgerData.slabStats[12].count} bills · ₹{(gstLedgerData.slabStats[12].tax || 0).toLocaleString('en-IN')}
+              </span>
+              <span className="px-2.5 py-1 bg-white border border-gray-200 rounded-lg text-gray-700 font-semibold shadow-2xs">
+                <strong>18% (Luxury &ge; ₹7.5k):</strong> {gstLedgerData.slabStats[18].count} bills · ₹{(gstLedgerData.slabStats[18].tax || 0).toLocaleString('en-IN')}
+              </span>
+              <span className="px-2.5 py-1 bg-white border border-gray-200 rounded-lg text-gray-700 font-semibold shadow-2xs">
+                <strong>5% (Restaurant/Other):</strong> {gstLedgerData.slabStats[5].count} bills · ₹{(gstLedgerData.slabStats[5].tax || 0).toLocaleString('en-IN')}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {activeTab === 'brokers' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs">
@@ -972,7 +1286,7 @@ const Reports = () => {
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400"><Search size={16} /></div>
           <input 
             type="text" 
-            placeholder={activeTab === 'expenses' ? "Search Expense Title, Category, Notes..." : activeTab === 'laundry' ? "Search Vendor, Order #..." : activeTab === 'khata' ? "Search Customer Name, Mobile, ID..." : activeTab === 'brokers' ? "Search Broker / Driver Name or Mobile..." : "Search Guest, Room..."} 
+            placeholder={activeTab === 'gst' ? "Search GSTIN, Company Name, Guest, Invoice #..." : activeTab === 'expenses' ? "Search Expense Title, Category, Notes..." : activeTab === 'laundry' ? "Search Vendor, Order #..." : activeTab === 'khata' ? "Search Customer Name, Mobile, ID..." : activeTab === 'brokers' ? "Search Broker / Driver Name or Mobile..." : "Search Guest, Room..."} 
             value={searchQuery} 
             onChange={e => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-black outline-none transition-all" 
@@ -988,6 +1302,30 @@ const Reports = () => {
             <option value="month">This Month</option>
             <option value="custom">Custom Date & Time</option>
           </select>
+        )}
+
+        {activeTab === 'gst' && (
+          <>
+            <select
+              value={gstClientFilter}
+              onChange={e => setGstClientFilter(e.target.value)}
+              className="w-full md:w-48 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-black outline-none appearance-none"
+            >
+              <option value="all">All Tax Invoices (B2B + B2C)</option>
+              <option value="b2b">B2B Corporate (with GSTIN)</option>
+              <option value="b2c">B2C Retail Guests</option>
+            </select>
+            <select
+              value={gstRateFilter}
+              onChange={e => setGstRateFilter(e.target.value)}
+              className="w-full md:w-40 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-black outline-none appearance-none"
+            >
+              <option value="all">All Tax Slabs</option>
+              <option value="12">12% Standard Room</option>
+              <option value="18">18% Luxury Room</option>
+              <option value="5">5% Food / Services</option>
+            </select>
+          </>
         )}
 
         {activeTab === 'khata' && (
@@ -1721,6 +2059,154 @@ const Reports = () => {
                 )}
               </tbody>
             </table>
+          ) : activeTab === 'gst' ? (
+            <table className="w-full text-left text-sm whitespace-nowrap">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-5 py-4 font-black text-xs text-gray-500 uppercase tracking-widest">Invoice Date & #</th>
+                  <th className="px-5 py-4 font-black text-xs text-gray-500 uppercase tracking-widest">Client / Entity Details</th>
+                  <th className="px-5 py-4 font-black text-xs text-gray-500 uppercase tracking-widest text-center">Party GSTIN & Type</th>
+                  <th className="px-5 py-4 font-black text-xs text-gray-500 uppercase tracking-widest text-center">Room</th>
+                  <th className="px-5 py-4 font-black text-xs text-gray-500 uppercase tracking-widest text-right">Taxable Value</th>
+                  <th className="px-5 py-4 font-black text-xs text-gray-500 uppercase tracking-widest text-center">Rate</th>
+                  <th className="px-5 py-4 font-black text-xs text-gray-500 uppercase tracking-widest text-right">CGST</th>
+                  <th className="px-5 py-4 font-black text-xs text-gray-500 uppercase tracking-widest text-right">SGST</th>
+                  <th className="px-5 py-4 font-black text-xs text-gray-500 uppercase tracking-widest text-right">IGST</th>
+                  <th className="px-5 py-4 font-black text-xs text-gray-500 uppercase tracking-widest text-right">Total GST</th>
+                  <th className="px-5 py-4 font-black text-xs text-gray-500 uppercase tracking-widest text-right">Invoice Total</th>
+                  <th className="px-5 py-4 font-black text-xs text-gray-500 uppercase tracking-widest text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {gstLedgerData.records.length === 0 ? (
+                  <tr>
+                    <td colSpan="12" className="px-6 py-12 text-center text-gray-500 font-medium">
+                      <Building size={32} className="mx-auto mb-2 text-gray-300" />
+                      <p>No GST invoice records found for the selected filters.</p>
+                      <p className="text-xs text-gray-400 mt-1">Stays with GST enabled or corporate GSTIN invoices will appear here.</p>
+                    </td>
+                  </tr>
+                ) : (
+                  gstLedgerData.records.map((r, idx) => (
+                    <tr key={idx} className="hover:bg-gray-50/80 transition-colors">
+                      <td className="px-5 py-3.5">
+                        <p className="font-mono font-bold text-xs text-blue-900">{r.invoiceNumber}</p>
+                        <p className="text-[11px] font-semibold text-gray-500 mt-0.5">{safeFormat(r.date, 'dd MMM yyyy, hh:mm a')}</p>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-2">
+                          <div>
+                            <p className="font-black text-gray-900 text-xs leading-snug">
+                              {r.companyName ? (
+                                <span className="text-blue-950 font-black">{r.companyName}</span>
+                              ) : (
+                                r.guestName
+                              )}
+                            </p>
+                            {r.companyName && (
+                              <p className="text-[10px] text-gray-500 font-medium">Guest: {r.guestName}</p>
+                            )}
+                            {r.mobileNumber && (
+                              <p className="text-[10px] text-gray-400 font-medium">📞 {r.mobileNumber}</p>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5 text-center">
+                        {r.isB2B ? (
+                          <div className="inline-flex flex-col items-center">
+                            <span className="font-mono text-[11px] font-black text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                              {r.gstin}
+                            </span>
+                            <span className="text-[9px] font-black uppercase text-emerald-700 mt-0.5">B2B Registered</span>
+                          </div>
+                        ) : (
+                          <div className="inline-flex flex-col items-center">
+                            <span className="font-mono text-[11px] font-semibold text-gray-500 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded">
+                              UNREGISTERED
+                            </span>
+                            <span className="text-[9px] font-bold uppercase text-gray-400 mt-0.5">B2C Retail</span>
+                          </div>
+                        )}
+                        <span className="block text-[9px] font-bold text-gray-400 mt-0.5">
+                          {r.isInterState ? 'Inter-State (IGST)' : 'Intra-State'}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5 text-center">
+                        <span className="font-bold text-xs bg-gray-100 text-gray-800 px-2 py-0.5 rounded border border-gray-200">
+                          Room {r.roomNumber}
+                        </span>
+                        <span className="block text-[10px] text-gray-400 mt-0.5">{r.roomCategory}</span>
+                      </td>
+                      <td className="px-5 py-3.5 text-right font-bold text-gray-800 text-xs">
+                        ₹{r.taxableAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-5 py-3.5 text-center">
+                        <span className="font-black text-[11px] bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded">
+                          {r.gstRate}%
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5 text-right font-semibold text-gray-700 text-xs">
+                        {r.cgst > 0 ? `₹${r.cgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                      </td>
+                      <td className="px-5 py-3.5 text-right font-semibold text-gray-700 text-xs">
+                        {r.sgst > 0 ? `₹${r.sgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                      </td>
+                      <td className="px-5 py-3.5 text-right font-semibold text-purple-700 text-xs">
+                        {r.igst > 0 ? `₹${r.igst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                      </td>
+                      <td className="px-5 py-3.5 text-right font-black text-blue-900 text-xs">
+                        ₹{r.totalTax.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        <span className="font-black text-gray-950 text-xs">
+                          ₹{r.invoiceTotal.toLocaleString('en-IN')}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5 text-center">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedStayForInvoice(r.stay)}
+                          className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold transition-all flex items-center gap-1 mx-auto active:scale-95 cursor-pointer shadow-2xs"
+                          title="View Official Tax Invoice"
+                        >
+                          <Printer size={13} /> View Bill
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+              {gstLedgerData.records.length > 0 && (
+                <tfoot className="bg-slate-50 border-t-2 border-slate-300 font-black text-xs">
+                  <tr>
+                    <td colSpan="4" className="px-5 py-3.5 text-slate-800 uppercase tracking-wider text-right">
+                      Total Output Tax Liability ({gstLedgerData.totalInvoices} Invoices):
+                    </td>
+                    <td className="px-5 py-3.5 text-right text-slate-900">
+                      ₹{gstLedgerData.totalTaxable.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-5 py-3.5 text-center text-slate-500">—</td>
+                    <td className="px-5 py-3.5 text-right text-slate-900">
+                      ₹{gstLedgerData.totalCgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-5 py-3.5 text-right text-slate-900">
+                      ₹{gstLedgerData.totalSgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-5 py-3.5 text-right text-purple-800">
+                      ₹{gstLedgerData.totalIgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-5 py-3.5 text-right text-blue-900 font-black text-sm">
+                      ₹{gstLedgerData.totalTax.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-5 py-3.5 text-right text-slate-950 font-black text-sm">
+                      ₹{gstLedgerData.totalGross.toLocaleString('en-IN')}
+                    </td>
+                    <td className="px-5 py-3.5"></td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
           ) : null}
         </div>
       </div>
@@ -1756,6 +2242,14 @@ const Reports = () => {
           setExpenses(prev => [newExp, ...prev]);
         }}
       />
+
+      {/* Official Tax Invoice Modal */}
+      {selectedStayForInvoice && (
+        <InvoiceModal
+          stay={selectedStayForInvoice}
+          onClose={() => setSelectedStayForInvoice(null)}
+        />
+      )}
     </div>
   );
 };

@@ -802,6 +802,10 @@ exports.updateStay = async (req, res, next) => {
     if (req.body.companyName !== undefined) stay.companyName = (req.body.companyName || '').trim();
     if (req.body.gstin !== undefined) stay.gstin = (req.body.gstin || '').trim().toUpperCase();
     if (req.body.billingAddress !== undefined) stay.billingAddress = (req.body.billingAddress || '').trim();
+    if (req.body.gstApplied !== undefined) stay.gstApplied = Boolean(req.body.gstApplied);
+    if (req.body.gstRate !== undefined) stay.gstRate = Number(req.body.gstRate) || 0;
+    if (req.body.gstType !== undefined) stay.gstType = req.body.gstType;
+    if (req.body.taxAmount !== undefined) stay.taxAmount = Number(req.body.taxAmount) || 0;
 
     await stay.save();
 

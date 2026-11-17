@@ -138,3 +138,211 @@ exports.getDashboardStats = async (req, res, next) => {
     next(error);
   }
 };
+
+// GET /api/reports/gst - GST Output Tax Ledger & GSTR-1 Report
+exports.getGstReport = async (req, res, next) => {
+  try {
+    const filter = await getHostelFilter(req.user, req.query.hostel);
+    const { startDate, endDate, clientType, rate } = req.query;
+
+    const query = { ...filter };
+
+    // Date range filter based on checkInDate or createdAt
+    if (startDate || endDate) {
+      query.checkInDate = {};
+      if (startDate) {
+        const s = new Date(startDate);
+        s.setHours(0, 0, 0, 0);
+        query.checkInDate.$gte = s;
+      }
+      if (endDate) {
+        const e = new Date(endDate);
+        e.setHours(23, 59, 59, 999);
+        query.checkInDate.$lte = e;
+      }
+    }
+
+    const stays = await Stay.find(query)
+      .populate('guest', 'fullName mobileNumber companyName gstin address')
+      .populate('room', 'roomNumber category')
+      .populate('hostel', 'name gstin state invoicePrefix')
+      .sort({ checkInDate: -1 });
+
+    let totalTaxable = 0;
+    let totalCgst = 0;
+    let totalSgst = 0;
+    let totalIgst = 0;
+    let totalTax = 0;
+    let totalInvoiceAmount = 0;
+
+    let b2bCount = 0;
+    let b2bTaxable = 0;
+    let b2bTax = 0;
+
+    let b2cCount = 0;
+    let b2cTaxable = 0;
+    let b2cTax = 0;
+
+    const slabs = {
+      5: { count: 0, taxable: 0, cgst: 0, sgst: 0, igst: 0, tax: 0 },
+      12: { count: 0, taxable: 0, cgst: 0, sgst: 0, igst: 0, tax: 0 },
+      18: { count: 0, taxable: 0, cgst: 0, sgst: 0, igst: 0, tax: 0 },
+      other: { count: 0, taxable: 0, tax: 0 }
+    };
+
+    const records = [];
+
+    for (const stay of stays) {
+      const hostel = stay.hostel || {};
+      const guest = stay.guest || {};
+
+      const gstApplied = stay.gstApplied || Boolean(stay.taxAmount > 0) || Boolean(stay.gstRate > 0) || Boolean(hostel.gstEnabled);
+      if (!gstApplied && !req.query.includeAll) {
+        continue; // Only include GST registered folios in GST tax ledger by default
+      }
+
+      const companyName = (stay.companyName || guest.companyName || '').trim();
+      const gstin = (stay.gstin || guest.gstin || '').trim().toUpperCase();
+      const isB2B = Boolean(gstin && gstin.length >= 15);
+
+      if (clientType === 'b2b' && !isB2B) continue;
+      if (clientType === 'b2c' && isB2B) continue;
+
+      const rateVal = Number(stay.gstRate || (gstApplied ? 12 : 0));
+      if (rate && Number(rate) !== rateVal) continue;
+
+      const totalBilled = Number(stay.totalAmount) || 0;
+      const taxInclusive = stay.gstType !== 'exclusive';
+
+      let taxableAmount = totalBilled;
+      let totalGstAmt = Number(stay.taxAmount) || 0;
+
+      if (rateVal > 0) {
+        if (taxInclusive) {
+          taxableAmount = Math.round((totalBilled / (1 + rateVal / 100)) * 100) / 100;
+          totalGstAmt = Math.round((totalBilled - taxableAmount) * 100) / 100;
+        } else {
+          taxableAmount = totalBilled;
+          totalGstAmt = Math.round((taxableAmount * (rateVal / 100)) * 100) / 100;
+        }
+      }
+
+      // Check Inter-State vs Intra-State (State code check)
+      const hotelGstin = (hostel.gstin || '').trim().toUpperCase();
+      const hotelStateCode = hotelGstin.slice(0, 2);
+      const guestStateCode = gstin.slice(0, 2);
+      const isInterState = Boolean(hotelStateCode && guestStateCode && hotelStateCode !== guestStateCode);
+
+      let cgst = 0;
+      let sgst = 0;
+      let igst = 0;
+
+      if (isInterState) {
+        igst = totalGstAmt;
+      } else {
+        cgst = Math.round((totalGstAmt / 2) * 100) / 100;
+        sgst = Math.round((totalGstAmt - cgst) * 100) / 100;
+      }
+
+      const grossAmount = taxInclusive ? totalBilled : (taxableAmount + totalGstAmt);
+      const invoiceTotal = Math.round(grossAmount);
+      const roundOff = Math.round((invoiceTotal - grossAmount) * 100) / 100;
+
+      totalTaxable += taxableAmount;
+      totalCgst += cgst;
+      totalSgst += sgst;
+      totalIgst += igst;
+      totalTax += totalGstAmt;
+      totalInvoiceAmount += invoiceTotal;
+
+      if (isB2B) {
+        b2bCount += 1;
+        b2bTaxable += taxableAmount;
+        b2bTax += totalGstAmt;
+      } else {
+        b2cCount += 1;
+        b2cTaxable += taxableAmount;
+        b2cTax += totalGstAmt;
+      }
+
+      if (slabs[rateVal]) {
+        slabs[rateVal].count += 1;
+        slabs[rateVal].taxable += taxableAmount;
+        slabs[rateVal].cgst += cgst;
+        slabs[rateVal].sgst += sgst;
+        slabs[rateVal].igst += igst;
+        slabs[rateVal].tax += totalGstAmt;
+      } else {
+        slabs.other.count += 1;
+        slabs.other.taxable += taxableAmount;
+        slabs.other.tax += totalGstAmt;
+      }
+
+      const prefix = hostel.invoicePrefix || 'INV';
+      const stayDate = stay.createdAt ? new Date(stay.createdAt) : new Date();
+      const dateStr = stayDate.toISOString().slice(0, 10).replace(/-/g, '');
+      const roomStr = stay.room?.roomNumber || 'RM';
+      const idStr = stay._id.toString().slice(-4).toUpperCase();
+      const invoiceNumber = `${prefix}-${dateStr}-${roomStr}-${idStr}`;
+
+      records.push({
+        _id: stay._id,
+        invoiceNumber,
+        invoiceDate: stay.checkInDate || stay.createdAt,
+        clientName: companyName || guest.fullName || 'Guest',
+        companyName,
+        guestName: guest.fullName || 'Guest',
+        mobileNumber: guest.mobileNumber || '',
+        gstin,
+        isB2B,
+        isInterState,
+        roomNumber: stay.room?.roomNumber || 'N/A',
+        roomCategory: stay.room?.category || 'Standard',
+        gstRate: rateVal,
+        gstType: stay.gstType || (taxInclusive ? 'inclusive' : 'exclusive'),
+        taxableAmount: Math.round(taxableAmount * 100) / 100,
+        cgst: Math.round(cgst * 100) / 100,
+        sgst: Math.round(sgst * 100) / 100,
+        igst: Math.round(igst * 100) / 100,
+        totalTax: Math.round(totalGstAmt * 100) / 100,
+        roundOff,
+        invoiceTotal,
+        paidAmount: stay.paidAmount || 0,
+        status: stay.status
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        summary: {
+          totalInvoices: records.length,
+          totalTaxable: Math.round(totalTaxable * 100) / 100,
+          totalCgst: Math.round(totalCgst * 100) / 100,
+          totalSgst: Math.round(totalSgst * 100) / 100,
+          totalIgst: Math.round(totalIgst * 100) / 100,
+          totalTax: Math.round(totalTax * 100) / 100,
+          totalInvoiceAmount: Math.round(totalInvoiceAmount),
+          b2b: {
+            count: b2bCount,
+            taxable: Math.round(b2bTaxable * 100) / 100,
+            tax: Math.round(b2bTax * 100) / 100
+          },
+          b2c: {
+            count: b2cCount,
+            taxable: Math.round(b2cTaxable * 100) / 100,
+            tax: Math.round(b2cTax * 100) / 100
+          },
+          slabs: {
+            rate5: { ...slabs[5], taxable: Math.round(slabs[5].taxable * 100) / 100, tax: Math.round(slabs[5].tax * 100) / 100 },
+            rate12: { ...slabs[12], taxable: Math.round(slabs[12].taxable * 100) / 100, tax: Math.round(slabs[12].tax * 100) / 100 },
+            rate18: { ...slabs[18], taxable: Math.round(slabs[18].taxable * 100) / 100, tax: Math.round(slabs[18].tax * 100) / 100 }
+          }
+        },
+        records
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
