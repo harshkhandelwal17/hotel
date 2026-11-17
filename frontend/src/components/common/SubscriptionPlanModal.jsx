@@ -128,6 +128,27 @@ export default function SubscriptionPlanModal({
     }));
   };
 
+  // ⚡ Micro Grace Extension Helper (e.g. +1 Day, +2 Days, +3 Days)
+  const extendGraceDays = (daysToAdd) => {
+    // If currentEnd is in future, extend from currentEnd; otherwise from now
+    const baseDate = currentEnd > now ? new Date(currentEnd) : new Date(now);
+    baseDate.setDate(baseDate.getDate() + daysToAdd);
+    const newEndIso = baseDate.toISOString().split('T')[0];
+
+    setPlanForm(prev => ({
+      ...prev,
+      planEndDate: newEndIso,
+      planStatus: 'active',
+      planPrice: 0, // Grace extensions are free by default
+      discountAmount: 0,
+      extraCharges: 0,
+      actionType: 'extension',
+      paymentMethod: 'Free Trial',
+      paymentReference: `Grace Extension (+${daysToAdd} Day${daysToAdd > 1 ? 's' : ''})`,
+      planNotes: `Grace extension: +${daysToAdd} Day${daysToAdd > 1 ? 's' : ''} until ${baseDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`
+    }));
+  };
+
   // Price adjustment handlers
   const handlePriceChange = (field, val) => {
     const num = Number(val) || 0;
@@ -411,6 +432,43 @@ export default function SubscriptionPlanModal({
                     <span className="text-[10px] font-bold bg-amber-100 px-1.5 py-0.5 rounded text-amber-800">+7d Demo</span>
                   </button>
                 </div>
+
+                {/* ⏳ Quick Grace Extensions (+1 Day, +2 Days, +3 Days) */}
+                <div className="pt-2.5 border-t border-slate-200/80 flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <Clock size={12} className="text-amber-600" />
+                    <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">
+                      Quick Grace Extensions:
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-normal hidden sm:inline">(Auto-sets ₹0 & extends from current expiry)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => extendGraceDays(1)}
+                      className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 font-black text-[11px] rounded-lg transition-all active:scale-95 cursor-pointer shadow-2xs flex items-center gap-1"
+                      title="Extend expiry by exactly 1 day (e.g. from 12th to 13th) for free"
+                    >
+                      <span>+1 Day Grace</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => extendGraceDays(2)}
+                      className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[11px] rounded-lg transition-all active:scale-95 cursor-pointer shadow-2xs"
+                      title="Extend expiry by 2 days"
+                    >
+                      +2 Days
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => extendGraceDays(3)}
+                      className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[11px] rounded-lg transition-all active:scale-95 cursor-pointer shadow-2xs"
+                      title="Extend expiry by 3 days"
+                    >
+                      +3 Days
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {/* Form Controls: Plan Selection & Date Range */}
@@ -469,16 +527,78 @@ export default function SubscriptionPlanModal({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    New Expiry Date
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                      New Expiry Date
+                    </label>
+                    {hotel.planEndDate && planForm.planEndDate && (() => {
+                      const prevEnd = new Date(hotel.planEndDate);
+                      const newEnd = new Date(planForm.planEndDate + 'T00:00:00');
+                      const prevEndMidnight = new Date(prevEnd.toISOString().split('T')[0] + 'T00:00:00');
+                      const diffDays = Math.round((newEnd - prevEndMidnight) / (1000 * 60 * 60 * 24));
+                      if (diffDays > 0) {
+                        return (
+                          <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                            +{diffDays} day{diffDays > 1 ? 's' : ''} extension
+                          </span>
+                        );
+                      } else if (diffDays === 0) {
+                        return (
+                          <span className="text-[10px] font-semibold text-slate-500">
+                            Same as current expiry
+                          </span>
+                        );
+                      } else {
+                        return (
+                          <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                            {Math.abs(diffDays)} days earlier
+                          </span>
+                        );
+                      }
+                    })()}
+                  </div>
                   <input
                     type="date"
                     required
                     className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-xs text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
                     value={planForm.planEndDate}
-                    onChange={e => setPlanForm({ ...planForm, planEndDate: e.target.value })}
+                    onChange={e => {
+                      const newEndDate = e.target.value;
+                      setPlanForm(prev => {
+                        const updated = { ...prev, planEndDate: newEndDate };
+                        if (hotel.planEndDate && newEndDate) {
+                          const prevEnd = new Date(hotel.planEndDate);
+                          const newEnd = new Date(newEndDate + 'T00:00:00');
+                          const prevEndMidnight = new Date(prevEnd.toISOString().split('T')[0] + 'T00:00:00');
+                          const diff = Math.round((newEnd - prevEndMidnight) / (1000 * 60 * 60 * 24));
+                          if (diff > 0 && diff <= 5) {
+                            updated.actionType = 'extension';
+                            if (!updated.planNotes || updated.planNotes.startsWith('Grace extension')) {
+                              updated.planNotes = `Grace extension: +${diff} Day${diff > 1 ? 's' : ''} until ${new Date(newEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+                            }
+                          }
+                        }
+                        return updated;
+                      });
+                    }}
                   />
+                  {hotel.planEndDate && planForm.planEndDate && (() => {
+                    const prevEnd = new Date(hotel.planEndDate);
+                    const newEnd = new Date(planForm.planEndDate + 'T00:00:00');
+                    const prevEndMidnight = new Date(prevEnd.toISOString().split('T')[0] + 'T00:00:00');
+                    const diffDays = Math.round((newEnd - prevEndMidnight) / (1000 * 60 * 60 * 24));
+                    if (diffDays > 0) {
+                      return (
+                        <p className="text-[10.5px] text-emerald-700 font-medium mt-1 flex items-center gap-1">
+                          <span>✓ Extending by +{diffDays} day{diffDays > 1 ? 's' : ''}:</span>
+                          <span className="font-bold text-slate-700">{prevEnd.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>
+                          <span>➔</span>
+                          <span className="font-bold text-emerald-800">{new Date(planForm.planEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        </p>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
               </div>
 
@@ -511,7 +631,17 @@ export default function SubscriptionPlanModal({
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-900 uppercase mb-1">= Total Billed (₹) *</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[10px] font-bold text-slate-900 uppercase">= Total Billed (₹) *</label>
+                      <button
+                        type="button"
+                        onClick={() => setPlanForm(prev => ({ ...prev, planPrice: 0, paymentMethod: 'Free Trial' }))}
+                        className="text-[9px] font-black text-amber-800 hover:text-amber-950 bg-amber-100 hover:bg-amber-200 px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+                        title="Set billed amount to ₹0 for complimentary or grace extension"
+                      >
+                        Set ₹0 (Free)
+                      </button>
+                    </div>
                     <input
                       type="number"
                       min="0"
