@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { format } from 'date-fns';
-import { Printer, X, ShieldCheck, Loader2 } from 'lucide-react';
+import { Printer, X, ShieldCheck, Loader2, MessageSquare } from 'lucide-react';
 import { getFullImageUrl } from '../../utils/imageUrl';
 
 export default function GuestRegistrationCardModal({
@@ -105,6 +105,30 @@ export default function GuestRegistrationCardModal({
   const hotelAddress = hotelData?.address || roomData?.hostel?.address || stayData?.hostel?.address || 'Main Road, City Center';
   const hotelContact = hotelData?.contactNumber || roomData?.hostel?.contactNumber || stayData?.hostel?.contactNumber || '+91 98765 43210';
   const hotelEmail = hotelData?.email || roomData?.hostel?.email || stayData?.hostel?.email || '';
+
+  const getWhatsAppWelcomeUrl = () => {
+    const rawPhone = primaryGuest.mobileNumber ? primaryGuest.mobileNumber.replace(/\D/g, '') : '';
+    if (!rawPhone) return null;
+    const cleanPhone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
+    const gName = primaryGuest.fullName || 'Guest';
+    const roomNo = roomData?.roomNumber || stayData?.room?.roomNumber || 'Assigned';
+    const contactLine = (hotelContact && hotelContact !== 'N/A') ? `\n📞 *Front Desk:* ${hotelContact}` : '';
+
+    const msg = [
+      `🏨 *Welcome to ${hotelName}!*`,
+      `──────────────────────`,
+      `Namaste *${gName}* ji,`,
+      `We are pleased to host you. Here are your reservation details:`,
+      `🚪 *Room:* ${roomNo}`,
+      `📅 *Check-In:* ${formattedCheckIn}`,
+      `📅 *Expected Check-Out:* ${formattedCheckOut}`,
+      contactLine,
+      `──────────────────────`,
+      `Please contact reception for room service or any assistance. Wish you a wonderful stay! ✨`
+    ].filter(Boolean).join('\n');
+
+    return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
+  };
 
   // Collect ID Cards for ALL guests
   const idCards = [];
@@ -1114,26 +1138,39 @@ export default function GuestRegistrationCardModal({
         </div>
 
         {/* BOTTOM ACTION BAR (PINNED, ALWAYS VISIBLE) */}
-        <div className="no-print px-4 sm:px-6 py-3.5 bg-white border-t border-gray-200 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 shrink-0 z-30">
+        <div className="no-print px-4 sm:px-6 py-3.5 bg-white border-t border-slate-200/90 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 shrink-0 z-30">
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
               type="button"
-              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer"
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer"
             >
               Close
             </button>
-            <p className="text-xs text-gray-500 font-medium hidden md:block">
-              Tip: Press <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-800 font-mono text-[11px] border border-gray-200">Ctrl + P</kbd> or click <strong>Print A4</strong>.
+            <p className="text-xs text-slate-500 font-medium hidden md:block">
+              Tip: Press <kbd className="px-1.5 py-0.5 bg-slate-100 rounded text-slate-800 font-mono text-[11px] border border-slate-200">Ctrl + P</kbd> or click <strong>Print A4</strong>.
             </p>
           </div>
 
-          <div className="flex items-center gap-2 ml-auto w-full sm:w-auto justify-end">
+          <div className="flex items-center gap-2 ml-auto w-full sm:w-auto justify-end flex-wrap sm:flex-nowrap">
+            {getWhatsAppWelcomeUrl() && (
+              <a
+                href={getWhatsAppWelcomeUrl()}
+                target="_blank"
+                rel="noreferrer"
+                className="flex-1 sm:flex-initial px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer text-center"
+                title="Send check-in confirmation and front desk contact on guest's WhatsApp"
+              >
+                <MessageSquare size={14} />
+                <span>WhatsApp Welcome</span>
+              </a>
+            )}
+
             {onProceedToDashboard && (
               <button
                 onClick={onProceedToDashboard}
                 type="button"
-                className="flex-1 sm:flex-initial px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer text-center"
+                className="flex-1 sm:flex-initial px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer text-center shadow-2xs"
               >
                 Dashboard
               </button>
@@ -1143,7 +1180,7 @@ export default function GuestRegistrationCardModal({
               onClick={handlePrint}
               disabled={isPrinting}
               type="button"
-              className="flex-1 sm:flex-initial px-5 sm:px-6 py-2.5 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-lg flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer disabled:opacity-50"
+              className="flex-1 sm:flex-initial px-5 sm:px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer disabled:opacity-50"
             >
               {isPrinting ? (
                 <>
