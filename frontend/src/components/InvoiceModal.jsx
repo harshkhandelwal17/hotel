@@ -19,8 +19,10 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
   const [gstEnabled, setGstEnabled] = useState(Boolean(stay.gstApplied));
   const [gstRate, setGstRate] = useState(stay.gstRate || hostel.gstRate || 12);
   const [taxInclusive, setTaxInclusive] = useState(stay.gstType === 'exclusive' ? false : (stay.gstType === 'inclusive' ? true : (hostel.taxInclusive !== undefined ? hostel.taxInclusive : true)));
-  const [guestCompany, setGuestCompany] = useState(guest.companyName || '');
-  const [guestGstin, setGuestGstin] = useState(guest.gstin || '');
+  const [guestCompany, setGuestCompany] = useState(stay.companyName || guest.companyName || '');
+  const [guestGstin, setGuestGstin] = useState((stay.gstin || guest.gstin || '').toUpperCase());
+  const [billingAddress, setBillingAddress] = useState(stay.billingAddress || guest.address || '');
+  const [discountAmount, setDiscountAmount] = useState(stay.discountAmount || 0);
   const [showTaxOptions, setShowTaxOptions] = useState(false);
   const [showMergedModal, setShowMergedModal] = useState(false);
   const [activeStaysList, setActiveStaysList] = useState([]);
@@ -48,7 +50,9 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
     gstRate: Number(gstRate),
     taxInclusive,
     guestCompany,
-    guestGstin: guestGstin.trim().toUpperCase()
+    guestGstin: guestGstin.trim().toUpperCase(),
+    billingAddress: billingAddress.trim(),
+    discountAmount: Number(discountAmount) || 0
   };
 
   const inv = calculateInvoiceData(stay, payments, invOptions);
@@ -136,51 +140,82 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
 
         {/* EXPANDABLE CORPORATE / TAX CONTROLS */}
         {showTaxOptions && (
-          <div className="p-4 sm:px-8 bg-amber-50/60 border-b border-amber-200 grid grid-cols-1 sm:grid-cols-4 gap-3 shrink-0 animate-in slide-in-from-top-2 duration-150 text-xs">
-            <div>
-              <label className="block font-bold text-gray-700 mb-1">Company / Business Name</label>
-              <input 
-                type="text" 
-                placeholder="e.g. Tata Consultancy Services"
-                value={guestCompany}
-                onChange={e => setGuestCompany(e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg font-medium outline-none focus:ring-2 focus:ring-black text-xs"
-              />
+          <div className="p-4 sm:px-8 bg-amber-50/60 border-b border-amber-200 space-y-3 shrink-0 animate-in slide-in-from-top-2 duration-150 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">Company / Business Name</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. Tata Consultancy Services"
+                  value={guestCompany}
+                  onChange={e => setGuestCompany(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg font-medium outline-none focus:ring-2 focus:ring-black text-xs"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-gray-700 mb-1 flex items-center justify-between">
+                  <span>Guest / Company GSTIN</span>
+                  {inv.isInterState && (
+                    <span className="text-[9px] font-bold text-amber-800 bg-amber-100 px-1 rounded">Inter-State IGST</span>
+                  )}
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. 08AAAAA0000A1Z5"
+                  value={guestGstin}
+                  onChange={e => setGuestGstin(e.target.value.toUpperCase())}
+                  maxLength={15}
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg font-mono font-bold uppercase outline-none focus:ring-2 focus:ring-black text-xs"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">GST Tax Rate</label>
+                <select 
+                  value={gstRate}
+                  onChange={e => setGstRate(Number(e.target.value))}
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg font-bold outline-none focus:ring-2 focus:ring-black text-xs"
+                >
+                  <option value={12}>12% (Standard Hotel Room &lt; ₹7,500)</option>
+                  <option value={18}>18% (Luxury / Room &gt; ₹7,500)</option>
+                  <option value={5}>5% (Restaurant / Non-AC / Special)</option>
+                  <option value={0}>0% (Tax Exempt)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">Pricing Style</label>
+                <select 
+                  value={taxInclusive ? 'inclusive' : 'exclusive'}
+                  onChange={e => setTaxInclusive(e.target.value === 'inclusive')}
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg font-bold outline-none focus:ring-2 focus:ring-black text-xs"
+                >
+                  <option value="inclusive">Tariff is Inclusive of GST (MRP)</option>
+                  <option value="exclusive">Add GST on Top of Tariff</option>
+                </select>
+              </div>
             </div>
-            <div>
-              <label className="block font-bold text-gray-700 mb-1">Guest / Company GSTIN</label>
-              <input 
-                type="text" 
-                placeholder="e.g. 08AAAAA0000A1Z5"
-                value={guestGstin}
-                onChange={e => setGuestGstin(e.target.value.toUpperCase())}
-                maxLength={15}
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg font-mono font-bold uppercase outline-none focus:ring-2 focus:ring-black text-xs"
-              />
-            </div>
-            <div>
-              <label className="block font-bold text-gray-700 mb-1">GST Tax Rate</label>
-              <select 
-                value={gstRate}
-                onChange={e => setGstRate(Number(e.target.value))}
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg font-bold outline-none focus:ring-2 focus:ring-black text-xs"
-              >
-                <option value={12}>12% (Standard Hotel Room &lt; ₹7,500)</option>
-                <option value={18}>18% (Luxury / Room &gt; ₹7,500)</option>
-                <option value={5}>5% (Restaurant / Non-AC / Special)</option>
-                <option value={0}>0% (Tax Exempt)</option>
-              </select>
-            </div>
-            <div>
-              <label className="block font-bold text-gray-700 mb-1">Pricing Style</label>
-              <select 
-                value={taxInclusive ? 'inclusive' : 'exclusive'}
-                onChange={e => setTaxInclusive(e.target.value === 'inclusive')}
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg font-bold outline-none focus:ring-2 focus:ring-black text-xs"
-              >
-                <option value="inclusive">Tariff is Inclusive of GST (MRP)</option>
-                <option value="exclusive">Add GST on Top of Tariff</option>
-              </select>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-amber-200/60">
+              <div className="sm:col-span-2">
+                <label className="block font-bold text-gray-700 mb-1">Corporate Billing Address</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. Plot 45, MIDC Industrial Area, Pune, Maharashtra 411014"
+                  value={billingAddress}
+                  onChange={e => setBillingAddress(e.target.value)}
+                  className="w-full px-3 py-1.5 bg-white border border-gray-300 rounded-lg font-medium outline-none focus:ring-2 focus:ring-black text-xs"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">Special Discount / Concession (₹)</label>
+                <input 
+                  type="number" 
+                  min="0"
+                  placeholder="0"
+                  value={discountAmount || ''}
+                  onChange={e => setDiscountAmount(Number(e.target.value) || 0)}
+                  className="w-full px-3 py-1.5 bg-white border border-gray-300 rounded-lg font-bold text-emerald-800 outline-none focus:ring-2 focus:ring-black text-xs"
+                />
+              </div>
             </div>
           </div>
         )}

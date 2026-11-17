@@ -49,9 +49,6 @@ export const calculateInvoiceData = (stay, payments = [], options = {}) => {
   const room = stay.room || {};
 
   // Check GST configuration
-  // 1. Explicitly requested via options (e.g. receptionist toggled it in Invoice modal)
-  // 2. OR this specific stay had GST applied (stay.gstApplied === true)
-  // 3. Otherwise default to FALSE (clean standard Non-GST receipt so flat ₹1000 stays don't show tax!)
   const gstEnabled = options.gstEnabled !== undefined 
     ? Boolean(options.gstEnabled) 
     : Boolean(stay.gstApplied);
@@ -61,10 +58,30 @@ export const calculateInvoiceData = (stay, payments = [], options = {}) => {
     ? Boolean(options.taxInclusive) 
     : (stay.gstType === 'exclusive' ? false : (stay.gstType === 'inclusive' ? true : (hostel.taxInclusive !== undefined ? Boolean(hostel.taxInclusive) : true)));
 
-  const charges = stay.charges || [];
+  // Dates & Duration
+  const checkIn = stay.checkInDate ? new Date(stay.checkInDate) : new Date();
+  const outDate = stay.actualCheckOutDate || stay.expectedCheckOutDate || new Date();
+  const durationMs = Math.max(0, new Date(outDate) - new Date(checkIn));
+  const calcNights = Math.ceil(durationMs / (1000 * 60 * 60 * 24));
+  const nights = Math.max(1, calcNights);
+
+  // Inter-State (IGST) vs Intra-State (CGST + SGST) detection
+  const guestCompany = (options.guestCompany || stay.companyName || guest.companyName || '').trim();
+  const guestGstin = (options.guestGstin || stay.gstin || guest.gstin || '').trim().toUpperCase();
+  const billingAddress = (options.billingAddress || stay.billingAddress || guest.address || '').trim();
+
+  const hotelGstin = (hostel.gstin || '').trim().toUpperCase();
+  const hotelStateCode = hostel.stateCode || (hotelGstin.length >= 2 ? hotelGstin.slice(0, 2) : '');
+  const guestStateCode = guestGstin.length >= 2 ? guestGstin.slice(0, 2) : '';
+  const isInterState = Boolean(hotelStateCode && guestStateCode && hotelStateCode !== guestStateCode);
+
+  const charges = Array.isArray(stay.charges) ? stay.charges : [];
   const chargesTotal = charges.reduce((s, c) => s + (Number(c.amount) || 0), 0);
-  const roomRent = Math.max(0, (Number(stay.totalAmount) || 0) - chargesTotal);
   const totalBilled = Number(stay.totalAmount) || 0;
+  const roomRent = Math.max(0, totalBilled - chargesTotal);
+  const perNightRent = Math.round((roomRent / nights) * 100) / 100;
+
+  const discountAmount = Number(options.discountAmount ?? stay.discountAmount ?? 0);
   const totalPaid = Number(stay.paidAmount) || 0;
   const balance = Math.max(0, totalBilled - totalPaid);
 
@@ -72,20 +89,27 @@ export const calculateInvoiceData = (stay, payments = [], options = {}) => {
   let totalGst = 0;
   let cgst = 0;
   let sgst = 0;
+  let igst = 0;
 
   if (gstEnabled && gstRate > 0) {
     if (taxInclusive) {
-      // Room tariff includes GST: Back-calculate base amount
+      // Room tariff includes GST: Back-calculate base taxable amount
       taxableAmount = Math.round((totalBilled / (1 + gstRate / 100)) * 100) / 100;
       totalGst = Math.round((totalBilled - taxableAmount) * 100) / 100;
-      cgst = Math.round((totalGst / 2) * 100) / 100;
-      sgst = Math.round((totalGst - cgst) * 100) / 100;
     } else {
       // GST is added on top of tariff
       taxableAmount = totalBilled;
       totalGst = Math.round((taxableAmount * (gstRate / 100)) * 100) / 100;
+    }
+
+    if (isInterState) {
+      igst = totalGst;
+      cgst = 0;
+      sgst = 0;
+    } else {
       cgst = Math.round((totalGst / 2) * 100) / 100;
       sgst = Math.round((totalGst - cgst) * 100) / 100;
+      igst = 0;
     }
   }
 
@@ -99,27 +123,37 @@ export const calculateInvoiceData = (stay, payments = [], options = {}) => {
   const idStr = stay._id ? stay._id.toString().slice(-4).toUpperCase() : '001';
   const invoiceNumber = options.invoiceNumber || `${prefix}-${dateStr}-${roomStr}-${idStr}`;
 
+  // Co-guests array
+  const coGuests = Array.isArray(stay.coGuests) ? stay.coGuests.filter(Boolean) : [];
+
   return {
     hostel,
     guest,
     room,
     charges,
     roomRent,
+    perNightRent,
+    nights,
     chargesTotal,
+    discountAmount,
     totalBilled,
     totalPaid,
     balance,
     gstEnabled,
     gstRate,
     taxInclusive,
+    isInterState,
     taxableAmount,
     totalGst,
     cgst,
     sgst,
+    igst,
     grandTotal,
     invoiceNumber,
-    guestGstin: options.guestGstin || guest.gstin || '',
-    guestCompany: options.guestCompany || guest.companyName || '',
+    guestGstin,
+    guestCompany,
+    billingAddress,
+    coGuests,
     hsnSacCode: hostel.hsnSacCode || '996311'
   };
 };
@@ -155,11 +189,20 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
     `;
   }).join('');
 
-  // Payment Records
-  const paymentRows = payments.map(p => `
+  // Payment Records (Auto-fallback to advance check-in payment if no separate payments recorded)
+  const effectivePayments = payments.length > 0
+    ? payments
+    : (inv.totalPaid > 0 ? [{
+        paymentDate: stay.createdAt || stay.checkInDate || new Date(),
+        paymentMethod: stay.paymentMethod || 'Advance Payment',
+        notes: 'Advance Paid at Check-in',
+        amount: inv.totalPaid
+      }] : []);
+
+  const paymentRows = effectivePayments.map(p => `
     <tr>
-      <td>${format(new Date(p.paymentDate), 'dd MMM yyyy, hh:mm a')}</td>
-      <td><span class="badge">${esc(p.paymentMethod)}</span></td>
+      <td>${format(new Date(p.paymentDate || p.createdAt || new Date()), 'dd MMM yyyy, hh:mm a')}</td>
+      <td><span class="badge">${esc(p.paymentMethod || 'Payment')}</span></td>
       <td class="muted">${esc(p.notes || '-')}</td>
       <td class="r font-mono font-bold">₹${Number(p.amount).toLocaleString('en-IN')}</td>
     </tr>
@@ -518,19 +561,26 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
     <!-- GUEST & STAY INFORMATION GRID -->
     <div class="info-grid">
       <div>
-        <div class="info-title">Guest Details</div>
-        <div class="info-val" style="font-size: 15px; font-weight: 800;">${esc(inv.guest.fullName || 'Valued Guest')}</div>
+        <div class="info-title">Guest / Customer Details</div>
+        <div class="info-val" style="font-size: 15px; font-weight: 800; color: #0f172a;">${esc(inv.guest.fullName || 'Valued Guest')}</div>
         <div class="muted">${esc(inv.guest.mobileNumber ? '+91 ' + inv.guest.mobileNumber : 'Contact: N/A')}</div>
+        ${inv.guest.idProofType ? `<div class="muted small" style="margin-top: 2px;"><b>ID Proof:</b> ${esc(inv.guest.idProofType)}${inv.guest.idProofNumber ? ` &bull; <span class="font-mono font-bold">${esc(inv.guest.idProofNumber)}</span>` : ''}</div>` : ''}
         ${inv.guestCompany ? `<div style="margin-top: 4px;"><b>Company:</b> ${esc(inv.guestCompany)}</div>` : ''}
-        ${inv.guestGstin ? `<div><b>Guest GSTIN:</b> <span class="font-mono font-bold">${esc(inv.guestGstin)}</span></div>` : ''}
-        ${inv.guest.address ? `<div class="muted small">${esc(inv.guest.address)}</div>` : ''}
+        ${inv.guestGstin ? `<div><b>Company GSTIN:</b> <span class="font-mono font-bold" style="color: #0f172a;">${esc(inv.guestGstin)}</span></div>` : ''}
+        ${inv.billingAddress ? `<div class="muted small" style="margin-top: 2px;">${esc(inv.billingAddress)}</div>` : ''}
+        ${inv.coGuests && inv.coGuests.length > 0 ? `
+          <div class="muted small" style="margin-top: 4px; padding-top: 3px; border-top: 1px dashed #cbd5e1;">
+            <b>Co-Guests:</b> ${esc(inv.coGuests.map(cg => cg.fullName).filter(Boolean).join(', '))}
+          </div>
+        ` : ''}
       </div>
       <div>
         <div class="info-title">Stay & Reservation</div>
         <div class="info-val">Room No: <b style="font-size: 16px; color: #0f172a;">${esc(inv.room.roomNumber || 'N/A')}</b> &bull; ${esc(inv.room.category || 'Standard Room')}</div>
         <div class="muted small"><b>Check-In:</b> ${checkInFormatted}</div>
         <div class="muted small"><b>Check-Out:</b> ${checkOutFormatted}</div>
-        <div class="muted small"><b>Occupants:</b> ${stay.occupants || 1} Guest(s)</div>
+        <div class="muted small"><b>Stay Duration:</b> ${inv.nights} Night${inv.nights > 1 ? 's' : ''} &bull; ${stay.occupants || 1} Occupant(s)</div>
+        <div class="muted small"><b>Place of Supply:</b> ${esc(inv.hostel.state || 'India')} ${inv.isInterState ? '(Inter-State IGST)' : '(Intra-State)'}</div>
       </div>
     </div>
 
@@ -541,7 +591,7 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
           <th class="c" style="width: 40px;">#</th>
           <th>Particulars / Description</th>
           <th class="c font-mono" style="width: 90px;">SAC / HSN</th>
-          <th class="c" style="width: 50px;">Qty</th>
+          <th class="c" style="width: 70px;">Duration / Qty</th>
           <th class="r font-mono" style="width: 100px;">Rate</th>
           <th class="r font-mono" style="width: 110px;">Amount</th>
         </tr>
@@ -551,12 +601,12 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
           <td class="c">1</td>
           <td>
             <b>Room Accommodation Charges</b>
-            <div class="muted small">Room ${esc(inv.room.roomNumber)} &bull; ${checkInFormatted.split(',')[0]} to ${checkOutFormatted.split(',')[0]}</div>
+            <div class="muted small">Room ${esc(inv.room.roomNumber)} &bull; ${checkInFormatted.split(',')[0]} to ${checkOutFormatted.split(',')[0]} (${inv.nights} Night${inv.nights > 1 ? 's' : ''})</div>
           </td>
           <td class="c font-mono">${inv.gstEnabled ? roomSac : '-'}</td>
-          <td class="c">1</td>
-          <td class="r font-mono">₹${Number(inv.roomRent).toLocaleString('en-IN')}</td>
-          <td class="r font-mono">₹${Number(inv.roomRent).toLocaleString('en-IN')}</td>
+          <td class="c font-bold">${inv.nights} Night${inv.nights > 1 ? 's' : ''}</td>
+          <td class="r font-mono">₹${Number(inv.perNightRent).toLocaleString('en-IN')}</td>
+          <td class="r font-mono font-bold" style="color: #0f172a;">₹${Number(inv.roomRent).toLocaleString('en-IN')}</td>
         </tr>
         ${chargeRows}
       </tbody>
@@ -580,12 +630,24 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
               <td class="r font-mono">₹${inv.totalBilled.toLocaleString('en-IN')}</td>
             </tr>
 
+            ${inv.discountAmount > 0 ? `
+              <tr>
+                <td class="muted">Discount / Concession:</td>
+                <td class="r font-mono" style="color: #047857;">-₹${inv.discountAmount.toLocaleString('en-IN')}</td>
+              </tr>
+            ` : ''}
+
             ${inv.gstEnabled ? `
-              ${inv.taxInclusive ? `
+              <tr>
+                <td class="muted small">Taxable Value:</td>
+                <td class="r font-mono small">₹${inv.taxableAmount.toLocaleString('en-IN')}</td>
+              </tr>
+              ${inv.isInterState ? `
                 <tr>
-                  <td class="muted small">Taxable Value:</td>
-                  <td class="r font-mono small">₹${inv.taxableAmount.toLocaleString('en-IN')}</td>
+                  <td class="muted small">IGST (${inv.gstRate}%):</td>
+                  <td class="r font-mono small">₹${inv.igst.toLocaleString('en-IN')}</td>
                 </tr>
+              ` : `
                 <tr>
                   <td class="muted small">CGST (${(inv.gstRate / 2).toFixed(1)}%):</td>
                   <td class="r font-mono small">₹${inv.cgst.toLocaleString('en-IN')}</td>
@@ -594,20 +656,13 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
                   <td class="muted small">SGST (${(inv.gstRate / 2).toFixed(1)}%):</td>
                   <td class="r font-mono small">₹${inv.sgst.toLocaleString('en-IN')}</td>
                 </tr>
+              `}
+              ${inv.taxInclusive ? `
                 <tr>
                   <td class="muted small">Total GST (${inv.gstRate}% Included):</td>
                   <td class="r font-mono small font-bold">₹${inv.totalGst.toLocaleString('en-IN')}</td>
                 </tr>
-              ` : `
-                <tr>
-                  <td class="muted">CGST (${(inv.gstRate / 2).toFixed(1)}%):</td>
-                  <td class="r font-mono">₹${inv.cgst.toLocaleString('en-IN')}</td>
-                </tr>
-                <tr>
-                  <td class="muted">SGST (${(inv.gstRate / 2).toFixed(1)}%):</td>
-                  <td class="r font-mono">₹${inv.sgst.toLocaleString('en-IN')}</td>
-                </tr>
-              `}
+              ` : ''}
             ` : `
               <tr>
                 <td class="muted small" colspan="2" style="font-style: italic; color: #94a3b8;">
@@ -634,7 +689,7 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
     </div>
 
     <!-- PAYMENTS RECEIVED TABLE (IF ANY) -->
-    ${payments.length > 0 ? `
+    ${effectivePayments.length > 0 ? `
       <div style="margin-top: 10px;">
         <div class="info-title" style="margin-bottom: 8px;">Payments Received / Settlement Log</div>
         <table>
@@ -703,18 +758,22 @@ export const getInvoiceWhatsAppUrl = (stay, payments = [], options = {}) => {
     `🏨 *${inv.hostel.name || 'Hotel'}* - Invoice & Receipt`,
     `──────────────────────`,
     `👤 *Guest Name:* ${inv.guest.fullName || 'Guest'}`,
+    inv.guestCompany ? `🏢 *Company:* ${inv.guestCompany}` : '',
+    inv.guestGstin ? `🏛️ *Company GSTIN:* ${inv.guestGstin}` : '',
     `🚪 *Room Number:* ${inv.room.roomNumber || 'N/A'}`,
     `🧾 *Invoice No:* ${inv.invoiceNumber}`,
     `📅 *Check-In:* ${format(new Date(stay.checkInDate), 'dd MMM yyyy, hh:mm a')}`,
     `📅 *Check-Out:* ${format(new Date(stay.actualCheckOutDate || stay.expectedCheckOutDate), 'dd MMM yyyy, hh:mm a')}`,
+    `⏳ *Stay Duration:* ${inv.nights} Night${inv.nights > 1 ? 's' : ''}`,
     `──────────────────────`,
     `💰 *Total Bill:* ₹${inv.grandTotal.toLocaleString('en-IN')}`,
     `✅ *Paid Amount:* ₹${inv.totalPaid.toLocaleString('en-IN')}`,
     inv.balance > 0 
       ? `⚠️ *Balance Due:* ₹${inv.balance.toLocaleString('en-IN')}` 
       : `🎉 *Status:* Fully Paid & Settled`,
+    inv.balance > 0 && inv.hostel.upiId ? `📲 *Pay Online via UPI:* ${inv.hostel.upiId}` : '',
     `──────────────────────`,
-    inv.hostel.gstEnabled && inv.hostel.gstin ? `🏛️ *GSTIN:* ${inv.hostel.gstin}` : '',
+    inv.hostel.gstEnabled && inv.hostel.gstin ? `🏛️ *Hotel GSTIN:* ${inv.hostel.gstin}` : '',
     `Thank you for staying with us! Visit again. ✨`
   ].filter(Boolean).join('\n');
 
@@ -939,15 +998,22 @@ export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {
     `;
   }).join('');
 
-  // Payment Records
-  const paymentRows = payments.length > 0 ? payments.map(p => `
+  // Payment Records (Auto-fallback to advance payments across rooms)
+  const effectiveMergedPayments = payments.length > 0 ? payments : (inv.totalPaid > 0 ? [{
+    paymentDate: new Date(),
+    paymentMethod: 'Consolidated Settlement',
+    notes: `Advance across ${inv.roomBreakdown.length} rooms`,
+    amount: inv.totalPaid
+  }] : []);
+
+  const paymentRows = effectiveMergedPayments.map(p => `
     <tr>
       <td>${format(new Date(p.paymentDate || p.createdAt || new Date()), 'dd MMM yyyy, hh:mm a')}</td>
       <td><span class="badge">${esc(p.paymentMethod || 'Corporate Payment')}</span></td>
       <td class="muted">${esc(p.notes || p.reference || '-')}</td>
       <td class="r font-mono font-bold">₹${Number(p.amount).toLocaleString('en-IN')}</td>
     </tr>
-  `).join('') : '';
+  `).join('');
 
   // Dynamic UPI Payment QR Code
   let qrCodeHtml = '';
@@ -1527,7 +1593,7 @@ export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {
     </div>
 
     <!-- PAYMENTS RECEIVED TABLE (IF ANY) -->
-    ${payments.length > 0 ? `
+    ${effectiveMergedPayments.length > 0 ? `
       <div style="margin-top: 14px;">
         <div class="info-title" style="margin-bottom: 6px;">Consolidated Settlement & Payment History</div>
         <table>

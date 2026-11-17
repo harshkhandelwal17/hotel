@@ -83,18 +83,27 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
       apiCache.invalidate();
       window.dispatchEvent(new Event('hotelDataInvalidated'));
       
-      // Immediately close modal and notify parent
-      if (onSuccess) {
-        onSuccess(res.data.data, res.data.payments || []);
-      }
+      // Keep completed stay and show print/WhatsApp success screen
+      setCompletedStay(res.data.data);
+      setPayments(res.data.payments || []);
+      setCheckoutComplete(true);
+      setLoading(false);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to checkout. Please try again.');
       setLoading(false);
     }
   };
 
+  const handleFinish = () => {
+    if (onSuccess) {
+      onSuccess(completedStay || stay, payments);
+    } else {
+      onClose();
+    }
+  };
+
   return createPortal(
-    <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] overflow-y-auto" onClick={onClose}>
+    <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] overflow-y-auto" onClick={checkoutComplete ? handleFinish : onClose}>
       <div className="min-h-full flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6 text-center sm:text-left">
         <div
           className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-xl sm:max-w-2xl my-0 sm:my-8 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300 flex flex-col max-h-[92dvh] sm:max-h-[88vh] text-left border border-gray-100"
@@ -103,14 +112,72 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
         {/* Header */}
         <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-100 flex justify-between items-start flex-shrink-0">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Checkout Guest</h2>
-            <p className="text-sm text-gray-500 mt-0.5">Finalize billing and release room</p>
+            <h2 className="text-xl font-bold text-gray-900">{checkoutComplete ? 'Checkout Completed' : 'Checkout Guest'}</h2>
+            <p className="text-sm text-gray-500 mt-0.5">{checkoutComplete ? 'Room released & settled' : 'Finalize billing and release room'}</p>
           </div>
-          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors">
+          <button onClick={checkoutComplete ? handleFinish : onClose} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors cursor-pointer">
             <X size={20} />
           </button>
         </div>
 
+        {checkoutComplete ? (
+          <div className="p-6 sm:p-8 flex flex-col items-center justify-center text-center space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shadow-inner">
+              <CheckCircle2 size={36} />
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-gray-900">Room {stay.room?.roomNumber} Checked Out!</h3>
+              <p className="text-xs text-gray-500 mt-1 max-w-sm">
+                Guest <b>{stay.guest?.fullName}</b> checkout has been processed and room is ready for housekeeping.
+              </p>
+            </div>
+
+            <div className="w-full bg-gray-50 p-4 rounded-2xl border border-gray-200 flex items-center justify-around text-xs">
+              <div>
+                <span className="text-gray-400 block font-bold text-[10px] uppercase">Total Billed</span>
+                <span className="font-black text-gray-900 text-sm">₹{completedStay?.totalAmount || stay.totalAmount}</span>
+              </div>
+              <div className="h-6 w-px bg-gray-200"></div>
+              <div>
+                <span className="text-gray-400 block font-bold text-[10px] uppercase">Paid Amount</span>
+                <span className="font-black text-emerald-600 text-sm">₹{completedStay?.paidAmount || stay.paidAmount}</span>
+              </div>
+              <div className="h-6 w-px bg-gray-200"></div>
+              <div>
+                <span className="text-gray-400 block font-bold text-[10px] uppercase">Status</span>
+                <span className="font-black text-emerald-800 text-[11px] px-2 py-0.5 bg-emerald-50 border border-emerald-200 rounded-md">✓ Settled</span>
+              </div>
+            </div>
+
+            <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => printInvoice(completedStay || stay, payments)}
+                className="w-full py-3 px-4 bg-black hover:bg-gray-800 text-white font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer"
+              >
+                <Printer size={15} /> Print Final Bill
+              </button>
+              {stay.guest?.mobileNumber && (
+                <a
+                  href={`https://wa.me/${stay.guest.mobileNumber.replace(/\D/g, '')}?text=${encodeURIComponent(`Dear ${stay.guest.fullName},\nYour checkout for Room ${stay.room?.roomNumber} at ${stay.hostel?.name || 'Hotel'} is confirmed.\n\nTotal: Rs ${completedStay?.totalAmount || stay.totalAmount}\nPaid: Rs ${completedStay?.paidAmount || stay.paidAmount}\n\nThank you for staying with us! Visit again.`)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 text-center"
+                >
+                  <Share2 size={15} /> WhatsApp Bill
+                </a>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleFinish}
+              className="text-xs text-gray-500 hover:text-black font-bold pt-2 underline cursor-pointer"
+            >
+              Done & Close
+            </button>
+          </div>
+        ) : (
         <form onSubmit={handleCheckout} className="flex flex-col flex-1 min-h-0">
           <div className="p-4 sm:p-6 space-y-5 sm:space-y-6 overflow-y-auto flex-1 min-h-0">
             {error && <div className="p-3 bg-red-50 border border-red-100 text-red-600 rounded-xl font-medium text-sm flex items-center gap-2"><AlertCircle size={16}/> {error}</div>}
@@ -351,6 +418,7 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
             </button>
           </div>
         </form>
+        )}
       </div>
     </div>
   </div>,
