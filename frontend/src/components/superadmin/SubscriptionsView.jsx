@@ -257,7 +257,7 @@ const SubscriptionsView = ({
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => onOpenPlanModal(h)}
-                          className="px-3.5 py-1.5 bg-black hover:bg-gray-800 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 cursor-pointer"
+                          className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-xs active:scale-95 cursor-pointer"
                         >
                           Renew / Edit Plan
                         </button>
@@ -266,7 +266,7 @@ const SubscriptionsView = ({
                             href={waReminderUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="p-1.5 bg-green-500 hover:bg-green-600 text-white rounded-xl text-xs font-bold transition-colors shadow-2xs"
+                            className="p-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors shadow-2xs"
                             title="Send WhatsApp Reminder"
                           >
                             <MessageSquare size={13} />

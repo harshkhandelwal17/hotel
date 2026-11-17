@@ -54,6 +54,7 @@ import {
 import { AuthContext } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import OnboardingWizardModal from '../../components/common/OnboardingWizardModal';
+import SubscriptionPlanModal from '../../components/common/SubscriptionPlanModal';
 
 const SalesDashboard = () => {
   const { user, logout } = useContext(AuthContext);
@@ -387,13 +388,13 @@ const SalesDashboard = () => {
   };
 
   // 🎟️ Plan Save Handler
-  const handleSavePlan = async (e) => {
-    e.preventDefault();
+  const handleSavePlan = async (planData) => {
     if (!selectedPlanHotel) return;
     try {
       setSavingPlan(true);
       const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
-      const res = await axios.put(`${API}/api/sales/properties/${selectedPlanHotel._id}/plan`, planForm);
+      const payload = planData || planForm;
+      const res = await axios.put(`${API}/api/sales/properties/${selectedPlanHotel._id}/plan`, payload);
       setHostels(prev => prev.map(h => h._id === selectedPlanHotel._id ? { ...h, ...res.data.data } : h));
       alert(`✅ Plan updated successfully for "${selectedPlanHotel.name}"`);
       setSelectedPlanHotel(null);
@@ -2812,286 +2813,16 @@ Please let us know your available time today! 🙏`;
       )}
 
       {/* ============================================================== */}
-      {/* 🎟️ MODAL 4: PLAN ASSIGNMENT & SUBSCRIPTION (Like Super Admin) */}
+      {/* 🎟️ MODAL 4: COMPREHENSIVE SUBSCRIPTION & RENEWAL CENTER */}
       {/* ============================================================== */}
-      {selectedPlanHotel && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-gray-100 flex flex-col max-h-[92dvh] sm:max-h-[88vh] animate-in slide-in-from-bottom sm:zoom-in-95 duration-200">
-            <div className="p-5 sm:p-6 bg-gradient-to-r from-gray-950 to-gray-900 text-white flex justify-between items-start shrink-0">
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-500/20 px-2.5 py-0.5 rounded-full">
-                  Subscription Tier & Plan Setup
-                </span>
-                <h3 className="text-lg sm:text-xl font-black text-white mt-1.5">Manage Hotel Subscription</h3>
-                <p className="text-xs text-gray-400 mt-0.5">Configure plan, validity, price, and rooms for {selectedPlanHotel.name}.</p>
-              </div>
-              <button onClick={() => setSelectedPlanHotel(null)} className="text-gray-400 hover:text-white p-1.5 rounded-full hover:bg-gray-800">
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSavePlan} className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 text-xs font-bold">
-              {/* Current Status Banner */}
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between flex-wrap gap-2">
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Current Setup</span>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="font-extrabold text-slate-900 text-sm uppercase">
-                      {selectedPlanHotel.plan === 'demo' ? '7-Day Free Trial' : (selectedPlanHotel.plan === 'yearly' || selectedPlanHotel.plan === 'annual' ? 'Annual (₹800/mo)' : 'Monthly Plan')}
-                    </span>
-                    <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                      ₹{(selectedPlanHotel.planPrice !== undefined ? selectedPlanHotel.planPrice : (selectedPlanHotel.plan === 'demo' ? 0 : (selectedPlanHotel.plan === 'yearly' || selectedPlanHotel.plan === 'annual' ? 9600 : 1000))).toLocaleString()} / {selectedPlanHotel.billingCycle || 'mo'}
-                    </span>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Expiry Date</span>
-                  <span className="text-xs font-bold text-slate-700">
-                    {selectedPlanHotel.planEndDate ? new Date(selectedPlanHotel.planEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not set'}
-                  </span>
-                </div>
-              </div>
-
-              {/* ⚡ Quick Renewal Presets */}
-              <div className="p-3 bg-emerald-50/60 border border-emerald-200/80 rounded-2xl space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-900">
-                    ⚡ Quick Renewal Presets
-                  </span>
-                  <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                    Auto-Calculates Expiry & Rate
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const d = new Date();
-                      d.setDate(d.getDate() + 30);
-                      const disc = Number(planForm.discountAmount) || 0;
-                      const extra = Number(planForm.extraCharges) || 0;
-                      setPlanForm(prev => ({
-                        ...prev,
-                        plan: 'monthly',
-                        planEndDate: d.toISOString().split('T')[0],
-                        billingCycle: 'monthly',
-                        planPrice: Math.max(0, 1000 - disc + extra),
-                        planStatus: 'active'
-                      }));
-                    }}
-                    className="px-3 py-1.5 bg-white hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl border border-emerald-300 transition-all shadow-2xs active:scale-95 cursor-pointer"
-                  >
-                    + Monthly Plan (₹1,000 / 30 Days)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const d = new Date();
-                      d.setDate(d.getDate() + 365);
-                      const disc = Number(planForm.discountAmount) || 0;
-                      const extra = Number(planForm.extraCharges) || 0;
-                      setPlanForm(prev => ({
-                        ...prev,
-                        plan: 'yearly',
-                        planEndDate: d.toISOString().split('T')[0],
-                        billingCycle: 'yearly',
-                        planPrice: Math.max(0, 9600 - disc + extra),
-                        planStatus: 'active'
-                      }));
-                    }}
-                    className="px-3 py-1.5 bg-white hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl border border-emerald-300 transition-all shadow-2xs active:scale-95 cursor-pointer"
-                  >
-                    + Annual Plan (₹800/mo · ₹9,600 / 1 Year)
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-gray-700 uppercase mb-1">Plan Tier</label>
-                  <select
-                    value={planForm.plan}
-                    onChange={e => {
-                      const p = e.target.value;
-                      const basePrice = p === 'demo' ? 0 : (p === 'yearly' || p === 'annual' ? 9600 : 1000);
-                      const disc = Number(planForm.discountAmount) || 0;
-                      const extra = Number(planForm.extraCharges) || 0;
-                      const days = p === 'demo' ? 7 : (p === 'yearly' || p === 'annual' ? 365 : 30);
-                      const d = new Date();
-                      d.setDate(d.getDate() + days);
-
-                      setPlanForm({
-                        ...planForm,
-                        plan: p,
-                        planPrice: p === 'demo' ? 0 : Math.max(0, basePrice - disc + extra),
-                        billingCycle: p === 'demo' ? 'trial' : (p === 'yearly' || p === 'annual' ? 'yearly' : 'monthly'),
-                        planStatus: p === 'demo' ? 'trial' : 'active',
-                        planEndDate: d.toISOString().split('T')[0]
-                      });
-                    }}
-                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
-                  >
-                    <option value="demo">Free Trial / Demo (7 Days - ₹0)</option>
-                    <option value="monthly">Monthly Plan (₹1,000 / month)</option>
-                    <option value="yearly">Annual Plan (₹800/mo · ₹9,600 / year)</option>
-                    <option value="enterprise">Custom Enterprise Plan</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-gray-700 uppercase mb-1">Status</label>
-                  <select
-                    value={planForm.planStatus}
-                    onChange={e => setPlanForm({ ...planForm, planStatus: e.target.value })}
-                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
-                  >
-                    <option value="active">Active Paid</option>
-                    <option value="trial">Trial / Demo</option>
-                    <option value="grace">Grace Period</option>
-                    <option value="expired">Expired</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Pricing, Discount & Add-on Controls */}
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 block">
-                  Pricing, Discount & Extra Charges
-                </span>
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-[10px] font-bold text-emerald-700 uppercase mb-1">- Discount (₹)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl font-bold text-xs text-emerald-700 outline-none focus:ring-2 focus:ring-black"
-                      value={planForm.discountAmount || ''}
-                      onChange={e => {
-                        const disc = Number(e.target.value) || 0;
-                        const base = planForm.plan === 'yearly' || planForm.plan === 'annual' ? 9600 : (planForm.plan === 'demo' ? 0 : 1000);
-                        const extra = Number(planForm.extraCharges) || 0;
-                        setPlanForm({
-                          ...planForm,
-                          discountAmount: disc,
-                          planPrice: Math.max(0, base - disc + extra)
-                        });
-                      }}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-blue-700 uppercase mb-1">+ Extra / Add-ons (₹)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl font-bold text-xs text-blue-700 outline-none focus:ring-2 focus:ring-black"
-                      value={planForm.extraCharges || ''}
-                      onChange={e => {
-                        const extra = Number(e.target.value) || 0;
-                        const base = planForm.plan === 'yearly' || planForm.plan === 'annual' ? 9600 : (planForm.plan === 'demo' ? 0 : 1000);
-                        const disc = Number(planForm.discountAmount) || 0;
-                        setPlanForm({
-                          ...planForm,
-                          extraCharges: extra,
-                          planPrice: Math.max(0, base - disc + extra)
-                        });
-                      }}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-900 uppercase mb-1">= Final Billed (₹) *</label>
-                    <input
-                      type="number"
-                      min="0"
-                      required
-                      className="w-full px-3 py-2 bg-white border-2 border-slate-900 rounded-xl font-black text-xs outline-none focus:ring-2 focus:ring-black"
-                      value={planForm.planPrice}
-                      onChange={e => setPlanForm({ ...planForm, planPrice: Number(e.target.value) || 0 })}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-gray-700 uppercase mb-1">Billing Cycle</label>
-                  <select
-                    value={planForm.billingCycle}
-                    onChange={e => setPlanForm({ ...planForm, billingCycle: e.target.value })}
-                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
-                  >
-                    <option value="trial">Trial</option>
-                    <option value="monthly">Monthly</option>
-                    <option value="quarterly">Quarterly</option>
-                    <option value="yearly">Yearly (Annual)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-gray-700 uppercase mb-1">Max Rooms Capacity Limit</label>
-                  <input
-                    type="number"
-                    value={planForm.maxRooms}
-                    onChange={e => setPlanForm({ ...planForm, maxRooms: Number(e.target.value) || 20 })}
-                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-gray-700 uppercase mb-1">Start Date</label>
-                  <input
-                    type="date"
-                    value={planForm.planStartDate}
-                    onChange={e => setPlanForm({ ...planForm, planStartDate: e.target.value })}
-                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-gray-700 uppercase mb-1">End / Expiry Date</label>
-                  <input
-                    type="date"
-                    value={planForm.planEndDate}
-                    onChange={e => setPlanForm({ ...planForm, planEndDate: e.target.value })}
-                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-gray-700 uppercase mb-1">Plan Notes / Remarks</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 7-day free trial assigned during demo session"
-                  value={planForm.planNotes}
-                  onChange={e => setPlanForm({ ...planForm, planNotes: e.target.value })}
-                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
-                />
-              </div>
-
-              <div className="pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-gray-100 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedPlanHotel(null)}
-                  className="px-4 py-2.5 border border-gray-200 text-gray-700 font-bold rounded-xl"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingPlan}
-                  className="px-6 py-2.5 bg-black hover:bg-gray-800 text-white font-black uppercase tracking-wider rounded-xl transition-all shadow-md disabled:opacity-50"
-                >
-                  {savingPlan ? 'Saving...' : 'Save Plan Settings'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <SubscriptionPlanModal
+        isOpen={Boolean(selectedPlanHotel)}
+        onClose={() => setSelectedPlanHotel(null)}
+        hotel={selectedPlanHotel}
+        onSavePlan={handleSavePlan}
+        isSaving={savingPlan}
+        currentUserRole="sales"
+      />
 
       {/* ============================================================== */}
       {/* ✏️ MODAL 5: EDIT PROPERTY DETAILS */}

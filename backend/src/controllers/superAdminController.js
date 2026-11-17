@@ -407,7 +407,21 @@ exports.toggleHostelStatus = async (req, res, next) => {
 };
 exports.updateHostelPlan = async (req, res, next) => {
   try {
-    const { plan, planStatus, planStartDate, planEndDate, planPrice, billingCycle, maxRooms, planNotes, discountAmount, extraCharges } = req.body;
+    const { 
+      plan, 
+      planStatus, 
+      planStartDate, 
+      planEndDate, 
+      planPrice, 
+      billingCycle, 
+      maxRooms, 
+      planNotes, 
+      discountAmount, 
+      extraCharges,
+      paymentMethod = 'UPI',
+      paymentReference = '',
+      actionType = 'renewal'
+    } = req.body;
     const hostel = await Hostel.findById(req.params.id);
     if (!hostel) return res.status(404).json({ success: false, message: 'Property not found' });
 
@@ -419,14 +433,41 @@ exports.updateHostelPlan = async (req, res, next) => {
     if (discountAmount !== undefined) hostel.discountAmount = Number(discountAmount) || 0;
     if (extraCharges !== undefined) hostel.extraCharges = Number(extraCharges) || 0;
     if (billingCycle !== undefined) hostel.billingCycle = billingCycle;
-    if (maxRooms !== undefined) hostel.maxRooms = maxRooms;
+    if (maxRooms !== undefined) hostel.maxRooms = Number(maxRooms) || 20;
     if (planNotes !== undefined) hostel.planNotes = planNotes;
+
+    const startObj = new Date(hostel.planStartDate || Date.now());
+    const endObj = new Date(hostel.planEndDate || Date.now());
+    const durationDays = Math.max(1, Math.ceil((endObj - startObj) / (1000 * 60 * 60 * 24)));
+
+    if (!Array.isArray(hostel.subscriptionHistory)) {
+      hostel.subscriptionHistory = [];
+    }
+
+    hostel.subscriptionHistory.push({
+      plan: hostel.plan,
+      billingCycle: hostel.billingCycle,
+      planPrice: hostel.planPrice,
+      discountAmount: hostel.discountAmount || 0,
+      extraCharges: hostel.extraCharges || 0,
+      finalAmount: Math.max(0, (Number(hostel.planPrice) || 0)),
+      paymentMethod: paymentMethod || 'UPI',
+      paymentReference: paymentReference || '',
+      startDate: hostel.planStartDate,
+      endDate: hostel.planEndDate,
+      durationDays,
+      actionType: actionType || 'renewal',
+      notes: planNotes || '',
+      recordedBy: req.user?._id,
+      recordedByName: req.user?.name || 'Super Admin',
+      createdAt: new Date()
+    });
 
     await hostel.save();
 
     res.status(200).json({
       success: true,
-      message: `Plan updated successfully for ${hostel.name}`,
+      message: `✅ Plan updated successfully for ${hostel.name}`,
       data: hostel
     });
   } catch (error) {

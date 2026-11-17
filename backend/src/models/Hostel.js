@@ -200,7 +200,72 @@ const hostelSchema = new mongoose.Schema({
   planNotes: {
     type: String,
     default: ''
-  }
+  },
+  subscriptionHistory: [{
+    plan: {
+      type: String,
+      default: 'monthly'
+    },
+    billingCycle: {
+      type: String,
+      default: 'monthly'
+    },
+    planPrice: {
+      type: Number,
+      default: 0
+    },
+    discountAmount: {
+      type: Number,
+      default: 0
+    },
+    extraCharges: {
+      type: Number,
+      default: 0
+    },
+    finalAmount: {
+      type: Number,
+      default: 0
+    },
+    paymentMethod: {
+      type: String,
+      default: 'UPI'
+    },
+    paymentReference: {
+      type: String,
+      default: ''
+    },
+    startDate: {
+      type: Date
+    },
+    endDate: {
+      type: Date
+    },
+    durationDays: {
+      type: Number,
+      default: 30
+    },
+    actionType: {
+      type: String,
+      enum: ['initial', 'renewal', 'upgrade', 'extension', 'adjustment'],
+      default: 'renewal'
+    },
+    notes: {
+      type: String,
+      default: ''
+    },
+    recordedBy: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'User'
+    },
+    recordedByName: {
+      type: String,
+      default: ''
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
+  }]
 }, { timestamps: true });
 
 module.exports = mongoose.model('Hostel', hostelSchema);

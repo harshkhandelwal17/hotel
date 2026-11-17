@@ -392,7 +392,25 @@ exports.createSalesProperty = async (req, res, next) => {
       planNotes: planNotes || (isDemo ? '7-Day Free Live Trial' : (isYearly ? 'Annual Plan (₹800/mo)' : 'Monthly Plan (₹1,000/mo)')),
       upiId: upiId ? upiId.trim() : undefined,
       upiPayeeName: upiPayeeName ? upiPayeeName.trim() : undefined,
-      isActive: true
+      isActive: true,
+      subscriptionHistory: [{
+        plan,
+        billingCycle: isDemo ? 'trial' : (billingCycle || (isYearly ? 'yearly' : 'monthly')),
+        planPrice: resolvedPrice,
+        discountAmount: Number(discountAmount) || 0,
+        extraCharges: Number(extraCharges) || 0,
+        finalAmount: resolvedPrice,
+        paymentMethod: isDemo ? 'Free Trial' : (req.body.paymentMethod || 'UPI'),
+        paymentReference: req.body.paymentReference || (isDemo ? '7-Day Demo Provisioned' : ''),
+        startDate,
+        endDate,
+        durationDays,
+        actionType: 'initial',
+        notes: planNotes || (isDemo ? 'Initial 7-Day Free Trial Provisioned' : 'Initial Subscription Activated'),
+        recordedBy: salesUserId,
+        recordedByName: req.user.name || 'Sales Agent',
+        createdAt: new Date()
+      }]
     });
 
     if (leadId) {
@@ -909,7 +927,21 @@ exports.deleteSalesLead = async (req, res, next) => {
  */
 exports.updateSalesPropertyPlan = async (req, res, next) => {
   try {
-    const { plan, planStatus, planStartDate, planEndDate, planPrice, billingCycle, maxRooms, planNotes, discountAmount, extraCharges } = req.body;
+    const { 
+      plan, 
+      planStatus, 
+      planStartDate, 
+      planEndDate, 
+      planPrice, 
+      billingCycle, 
+      maxRooms, 
+      planNotes, 
+      discountAmount, 
+      extraCharges,
+      paymentMethod = 'UPI',
+      paymentReference = '',
+      actionType = 'renewal'
+    } = req.body;
     const hostel = await Hostel.findById(req.params.id);
     if (!hostel) return res.status(404).json({ success: false, message: 'Property not found' });
 
@@ -927,6 +959,33 @@ exports.updateSalesPropertyPlan = async (req, res, next) => {
     if (billingCycle !== undefined) hostel.billingCycle = billingCycle;
     if (maxRooms !== undefined) hostel.maxRooms = Number(maxRooms) || 20;
     if (planNotes !== undefined) hostel.planNotes = planNotes;
+
+    const startObj = new Date(hostel.planStartDate || Date.now());
+    const endObj = new Date(hostel.planEndDate || Date.now());
+    const durationDays = Math.max(1, Math.ceil((endObj - startObj) / (1000 * 60 * 60 * 24)));
+
+    if (!Array.isArray(hostel.subscriptionHistory)) {
+      hostel.subscriptionHistory = [];
+    }
+
+    hostel.subscriptionHistory.push({
+      plan: hostel.plan,
+      billingCycle: hostel.billingCycle,
+      planPrice: hostel.planPrice,
+      discountAmount: hostel.discountAmount || 0,
+      extraCharges: hostel.extraCharges || 0,
+      finalAmount: Math.max(0, (Number(hostel.planPrice) || 0)),
+      paymentMethod: paymentMethod || 'UPI',
+      paymentReference: paymentReference || '',
+      startDate: hostel.planStartDate,
+      endDate: hostel.planEndDate,
+      durationDays,
+      actionType: actionType || 'renewal',
+      notes: planNotes || '',
+      recordedBy: req.user?._id,
+      recordedByName: req.user?.name || 'Sales Representative',
+      createdAt: new Date()
+    });
 
     await hostel.save();
 
