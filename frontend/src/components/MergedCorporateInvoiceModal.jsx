@@ -57,6 +57,10 @@ export default function MergedCorporateInvoiceModal({
     return primaryStay.gstType === 'exclusive' ? false : true;
   });
 
+  // Balance settlement toggle
+  const [markBalancePaid, setMarkBalancePaid] = useState(false);
+  const [balancePaymentMethod, setBalancePaymentMethod] = useState('UPI');
+
   const [showConfig, setShowConfig] = useState(true);
 
   // Lock body scroll while modal is open
@@ -110,7 +114,7 @@ export default function MergedCorporateInvoiceModal({
   };
 
   // Calculate invoice data
-  const invoiceOptions = {
+  const invoiceOptions = useMemo(() => ({
     hostel,
     guestCompany: guestCompany.trim(),
     guestGstin: guestGstin.trim().toUpperCase(),
@@ -120,8 +124,10 @@ export default function MergedCorporateInvoiceModal({
     poNumber: poNumber.trim(),
     gstEnabled,
     gstRate: Number(gstRate),
-    taxInclusive
-  };
+    taxInclusive,
+    markAllPaid: markBalancePaid,
+    balancePaymentMethod
+  }), [hostel, guestCompany, guestGstin, billingAddress, bookerName, bookerPhone, poNumber, gstEnabled, gstRate, taxInclusive, markBalancePaid, balancePaymentMethod]);
 
   const inv = useMemo(() => {
     if (selectedStays.length === 0) return null;
@@ -261,11 +267,11 @@ export default function MergedCorporateInvoiceModal({
         </div>
 
         {/* SCROLLABLE FORM & TABLE BODY */}
-        <div className="p-5 sm:p-8 space-y-6 overflow-y-auto">
+        <div className="p-4 sm:p-6 space-y-4 overflow-y-auto">
           
           {/* CORPORATE BILLING CONFIGURATION CARD */}
-          <div className="p-4 sm:p-5 bg-slate-50 border border-slate-200 rounded-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+          <div className="p-3.5 sm:p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
               <div className="flex items-center gap-2 font-bold text-slate-800 text-xs sm:text-sm">
                 <Building2 size={16} className="text-slate-700" />
                 <span>Corporate Client & GST Ledger Details</span>
@@ -275,15 +281,15 @@ export default function MergedCorporateInvoiceModal({
                 onClick={() => setShowConfig(!showConfig)}
                 className="text-xs font-bold text-slate-600 hover:text-slate-900 underline cursor-pointer"
               >
-                {showConfig ? 'Collapse Form' : 'Edit Company & Tax Info'}
+                {showConfig ? 'Hide Config' : 'Edit Company & Tax Info'}
               </button>
             </div>
 
             {showConfig && (
-              <div className="space-y-4 animate-in fade-in duration-150">
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5 text-xs">
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">
+              <div className="space-y-3 animate-in fade-in duration-150">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 text-xs">
+                  <div className="md:col-span-2">
+                    <label className="block font-bold text-slate-700 mb-1 text-[11px]">
                       Company / Organization Name <span className="text-rose-500">*</span>
                     </label>
                     <input 
@@ -291,12 +297,12 @@ export default function MergedCorporateInvoiceModal({
                       placeholder="e.g. Tata Consultancy Services Ltd"
                       value={guestCompany}
                       onChange={e => setGuestCompany(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs text-xs"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs text-xs"
                     />
                   </div>
 
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1">
+                    <label className="block font-bold text-slate-700 mb-1 text-[11px]">
                       Company GSTIN (15 Digits)
                     </label>
                     <input 
@@ -305,12 +311,12 @@ export default function MergedCorporateInvoiceModal({
                       placeholder="e.g. 08AAAAA0000A1Z5"
                       value={guestGstin}
                       onChange={e => setGuestGstin(e.target.value.toUpperCase())}
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-mono font-bold uppercase text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs text-xs"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-mono font-bold uppercase text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs text-xs"
                     />
                   </div>
 
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1">
+                    <label className="block font-bold text-slate-700 mb-1 text-[11px]">
                       PO / Booking Ref. Number
                     </label>
                     <input 
@@ -318,12 +324,12 @@ export default function MergedCorporateInvoiceModal({
                       placeholder="e.g. PO-2026-NOV-891"
                       value={poNumber}
                       onChange={e => setPoNumber(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-medium text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs text-xs"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-medium text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs text-xs"
                     />
                   </div>
 
-                  <div className="sm:col-span-2">
-                    <label className="block font-bold text-slate-700 mb-1">
+                  <div className="md:col-span-2">
+                    <label className="block font-bold text-slate-700 mb-1 text-[11px]">
                       Corporate Billing Address
                     </label>
                     <input 
@@ -331,12 +337,12 @@ export default function MergedCorporateInvoiceModal({
                       placeholder="e.g. 45 Business Park, Electronic City, Bengaluru - 560100"
                       value={billingAddress}
                       onChange={e => setBillingAddress(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-medium text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs text-xs"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-medium text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs text-xs"
                     />
                   </div>
 
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1">
+                    <label className="block font-bold text-slate-700 mb-1 text-[11px]">
                       Booker / Contact Person
                     </label>
                     <input 
@@ -344,13 +350,26 @@ export default function MergedCorporateInvoiceModal({
                       placeholder="e.g. Rahul Sharma"
                       value={bookerName}
                       onChange={e => setBookerName(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs text-xs"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1 text-[11px]">
+                      Booker Mobile
+                    </label>
+                    <input 
+                      type="text"
+                      placeholder="e.g. 9876543210"
+                      value={bookerPhone}
+                      onChange={e => setBookerPhone(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-medium text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs text-xs"
                     />
                   </div>
                 </div>
 
                 {/* GST Settings Bar */}
-                <div className="pt-3 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs items-center">
+                <div className="pt-2.5 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs items-center">
                   <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-800 select-none">
                     <input 
                       type="checkbox"
@@ -367,7 +386,7 @@ export default function MergedCorporateInvoiceModal({
                         <select
                           value={gstRate}
                           onChange={e => setGstRate(Number(e.target.value))}
-                          className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs text-xs"
+                          className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs text-xs"
                         >
                           <option value={12}>12% (Standard Hotel Room &lt; ₹7,500)</option>
                           <option value={18}>18% (Luxury / Room &gt; ₹7,500)</option>
@@ -380,10 +399,10 @@ export default function MergedCorporateInvoiceModal({
                         <select
                           value={taxInclusive ? 'inclusive' : 'exclusive'}
                           onChange={e => setTaxInclusive(e.target.value === 'inclusive')}
-                          className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs text-xs"
+                          className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs text-xs"
                         >
-                          <option value="inclusive">Tariff is Inclusive of GST (MRP)</option>
                           <option value="exclusive">Add GST on Top of Tariff</option>
+                          <option value="inclusive">Tariff includes GST (Back-calculate)</option>
                         </select>
                       </div>
                     </>
@@ -505,6 +524,13 @@ export default function MergedCorporateInvoiceModal({
                 </>
               )}
               
+              {inv.roundOff !== 0 && (
+                <div className="flex justify-between text-slate-500 text-xs">
+                  <span>Round Off:</span>
+                  <span className="font-mono">{inv.roundOff > 0 ? `+₹${inv.roundOff}` : `-₹${Math.abs(inv.roundOff)}`}</span>
+                </div>
+              )}
+              
               <div className="flex justify-between text-base font-black text-slate-900 pt-2 border-t-2 border-slate-900">
                 <span>Grand Total:</span>
                 <span className="font-mono">₹{inv.grandTotal.toLocaleString('en-IN')}</span>
@@ -521,6 +547,50 @@ export default function MergedCorporateInvoiceModal({
                   {inv.balance <= 0 ? '✓ FULLY SETTLED' : `₹${inv.balance.toLocaleString('en-IN')}`}
                 </span>
               </div>
+
+              {/* Quick Balance Settlement on Checkout */}
+              {inv.balance > 0 && !markBalancePaid && (
+                <div className="pt-2 border-t border-dashed border-slate-200">
+                  <label className="flex items-center justify-between p-2 bg-rose-50 border border-rose-200 rounded-xl cursor-pointer hover:bg-rose-100/70 transition-colors">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={markBalancePaid}
+                        onChange={e => setMarkBalancePaid(e.target.checked)}
+                        className="w-4 h-4 rounded text-slate-900 accent-slate-900 cursor-pointer"
+                      />
+                      <span className="text-[11px] font-bold text-rose-900">
+                        Mark Full Balance (₹{inv.balance}) Paid on Checkout
+                      </span>
+                    </div>
+                    <select
+                      value={balancePaymentMethod}
+                      onChange={e => setBalancePaymentMethod(e.target.value)}
+                      onClick={e => e.stopPropagation()}
+                      className="text-[11px] font-bold bg-white border border-rose-300 rounded-lg px-2 py-0.5 text-slate-800 outline-none"
+                    >
+                      <option value="UPI">UPI / QR</option>
+                      <option value="Cash">Cash</option>
+                      <option value="Card">Card</option>
+                      <option value="Bank Transfer">Bank Transfer / NEFT</option>
+                      <option value="Corporate Credit">Corporate Credit</option>
+                    </select>
+                  </label>
+                </div>
+              )}
+
+              {markBalancePaid && (
+                <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-[11px] text-emerald-900 font-bold">
+                  <span>✓ Balance Settled via {balancePaymentMethod}</span>
+                  <button
+                    type="button"
+                    onClick={() => setMarkBalancePaid(false)}
+                    className="text-[10px] text-emerald-700 hover:underline cursor-pointer"
+                  >
+                    Undo
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

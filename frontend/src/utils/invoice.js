@@ -83,7 +83,6 @@ export const calculateInvoiceData = (stay, payments = [], options = {}) => {
 
   const discountAmount = Number(options.discountAmount ?? stay.discountAmount ?? 0);
   const totalPaid = Number(stay.paidAmount) || 0;
-  const balance = Math.max(0, totalBilled - totalPaid);
 
   let taxableAmount = totalBilled;
   let totalGst = 0;
@@ -113,7 +112,16 @@ export const calculateInvoiceData = (stay, payments = [], options = {}) => {
     }
   }
 
-  const grandTotal = taxInclusive || !gstEnabled ? totalBilled : (taxableAmount + totalGst);
+  const baseGross = taxInclusive || !gstEnabled ? totalBilled : (taxableAmount + totalGst);
+  const grandTotalExact = Math.max(0, baseGross - discountAmount);
+
+  // Standard Indian GST Round-Off (to nearest Rupee)
+  const grandTotal = Math.round(grandTotalExact);
+  const roundOff = Math.round((grandTotal - grandTotalExact) * 100) / 100;
+
+  // Effective Total Paid & Real Balance Due
+  const effectivePaid = options.markAllPaid ? grandTotal : totalPaid;
+  const balance = Math.max(0, Math.round((grandTotal - effectivePaid) * 100) / 100);
 
   // Auto-generate invoice number if not explicitly provided
   const prefix = hostel.invoicePrefix || 'INV';
@@ -137,7 +145,7 @@ export const calculateInvoiceData = (stay, payments = [], options = {}) => {
     chargesTotal,
     discountAmount,
     totalBilled,
-    totalPaid,
+    totalPaid: effectivePaid,
     balance,
     gstEnabled,
     gstRate,
@@ -148,7 +156,9 @@ export const calculateInvoiceData = (stay, payments = [], options = {}) => {
     cgst,
     sgst,
     igst,
+    grandTotalExact,
     grandTotal,
+    roundOff,
     invoiceNumber,
     guestGstin,
     guestCompany,
@@ -671,6 +681,13 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
               </tr>
             `}
 
+            ${inv.roundOff !== 0 ? `
+              <tr>
+                <td class="muted small">Round Off:</td>
+                <td class="r font-mono small">${inv.roundOff > 0 ? `+₹${inv.roundOff}` : `-₹${Math.abs(inv.roundOff)}`}</td>
+              </tr>
+            ` : ''}
+
             <tr class="total-row">
               <td>Total Amount:</td>
               <td class="r font-mono">₹${inv.grandTotal.toLocaleString('en-IN')}</td>
@@ -893,7 +910,6 @@ export const calculateMergedInvoiceData = (stays = [], payments = [], options = 
   const totalPaid = payments.length > 0 
     ? payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
     : roomBreakdown.reduce((sum, r) => sum + r.paid, 0);
-  const balance = Math.max(0, totalBilled - totalPaid);
 
   let taxableAmount = totalBilled;
   let totalGst = 0;
@@ -921,7 +937,17 @@ export const calculateMergedInvoiceData = (stays = [], payments = [], options = 
     }
   }
 
-  const grandTotal = taxInclusive || !gstEnabled ? totalBilled : (taxableAmount + totalGst);
+  const discountAmount = Number(options.discountAmount || 0);
+  const baseGross = taxInclusive || !gstEnabled ? totalBilled : (taxableAmount + totalGst);
+  const grandTotalExact = Math.max(0, baseGross - discountAmount);
+
+  // Standard Indian GST Round-Off (to nearest Rupee)
+  const grandTotal = Math.round(grandTotalExact);
+  const roundOff = Math.round((grandTotal - grandTotalExact) * 100) / 100;
+
+  // Effective Total Paid & Real Balance Due
+  const effectivePaid = options.markAllPaid ? grandTotal : totalPaid;
+  const balance = Math.max(0, Math.round((grandTotal - effectivePaid) * 100) / 100);
 
   // Auto-generate Master Corporate Invoice Number
   const prefix = hostel.invoicePrefix || 'CORP';
@@ -947,14 +973,16 @@ export const calculateMergedInvoiceData = (stays = [], payments = [], options = 
     totalRoomRent,
     totalCharges,
     totalBilled,
-    totalPaid,
+    totalPaid: effectivePaid,
     balance,
     taxableAmount,
     totalGst,
     cgst,
     sgst,
     igst,
+    grandTotalExact,
     grandTotal,
+    roundOff,
     invoiceNumber,
     hsnSacCode: hostel.hsnSacCode || '996311'
   };
@@ -998,13 +1026,34 @@ export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {
     `;
   }).join('');
 
-  // Payment Records (Auto-fallback to advance payments across rooms)
-  const effectiveMergedPayments = payments.length > 0 ? payments : (inv.totalPaid > 0 ? [{
-    paymentDate: new Date(),
-    paymentMethod: 'Consolidated Settlement',
-    notes: `Advance across ${inv.roomBreakdown.length} rooms`,
-    amount: inv.totalPaid
-  }] : []);
+  // Payment Records (Auto-fallback to individual room advance payments)
+  let effectiveMergedPayments = payments.length > 0 ? [...payments] : [];
+  if (effectiveMergedPayments.length === 0) {
+    stays.forEach(s => {
+      const p = Number(s.paidAmount || 0);
+      if (p > 0) {
+        effectiveMergedPayments.push({
+          paymentDate: s.checkInDate || s.createdAt || new Date(),
+          paymentMethod: s.paymentMode || 'Advance',
+          notes: `Room ${s.room?.roomNumber || ''} Advance / Payment`,
+          amount: p
+        });
+      }
+    });
+
+    if (options.markAllPaid && inv.balance === 0) {
+      const alreadyListed = effectiveMergedPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+      const diff = inv.grandTotal - alreadyListed;
+      if (diff > 0) {
+        effectiveMergedPayments.push({
+          paymentDate: new Date(),
+          paymentMethod: options.balancePaymentMethod || 'Corporate Settlement',
+          notes: 'Consolidated balance settled at checkout',
+          amount: diff
+        });
+      }
+    }
+  }
 
   const paymentRows = effectiveMergedPayments.map(p => `
     <tr>
@@ -1574,6 +1623,13 @@ export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {
                 </td>
               </tr>
             `}
+
+            ${inv.roundOff !== 0 ? `
+              <tr>
+                <td class="muted small">Round Off:</td>
+                <td class="r font-mono small">${inv.roundOff > 0 ? `+₹${inv.roundOff}` : `-₹${Math.abs(inv.roundOff)}`}</td>
+              </tr>
+            ` : ''}
 
             <tr class="total-row">
               <td>Grand Total:</td>

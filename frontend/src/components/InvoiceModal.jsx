@@ -385,6 +385,13 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
                   </p>
                 )}
 
+                {inv.roundOff !== 0 && (
+                  <div className="flex justify-between text-gray-500 text-xs">
+                    <span>Round Off:</span>
+                    <span className="font-mono">{inv.roundOff > 0 ? `+₹${inv.roundOff}` : `-₹${Math.abs(inv.roundOff)}`}</span>
+                  </div>
+                )}
+
                 <div className="flex justify-between pt-2 border-t-2 border-gray-900 font-black text-sm text-gray-900">
                   <span>Grand Total:</span>
                   <span className="font-mono">₹{inv.grandTotal.toLocaleString('en-IN')}</span>
