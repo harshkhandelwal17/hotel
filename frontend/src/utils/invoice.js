@@ -514,7 +514,7 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
 
     @page {
       size: A4 portrait;
-      margin: 8mm 10mm;
+      margin: 10mm 12mm;
     }
 
     @media print {
@@ -527,8 +527,9 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
         background: #ffffff !important;
         margin: 0 !important;
         padding: 0 !important;
-        font-size: 11px !important;
-        line-height: 1.35 !important;
+        width: 100% !important;
+        font-size: 12px !important;
+        line-height: 1.45 !important;
         color: #0f172a !important;
       }
       .no-print-bar { display: none !important; }
@@ -539,40 +540,51 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
         margin: 0 !important;
         max-width: 100% !important;
         width: 100% !important;
+        min-height: 265mm !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
+      }
+      .invoice-content-top {
+        flex: 1 0 auto !important;
+      }
+      .invoice-footer-wrap {
+        flex-shrink: 0 !important;
       }
       .header {
-        padding-bottom: 10px !important;
-        margin-bottom: 12px !important;
+        padding-bottom: 14px !important;
+        margin-bottom: 16px !important;
         border-bottom: 2px solid #0f172a !important;
       }
       .hotel-name {
-        font-size: 18px !important;
-        margin-bottom: 2px !important;
+        font-size: 22px !important;
+        margin-bottom: 4px !important;
       }
       .hotel-meta {
-        font-size: 10.5px !important;
-        line-height: 1.3 !important;
+        font-size: 11.5px !important;
+        line-height: 1.4 !important;
       }
       .invoice-type {
-        font-size: 15px !important;
-        margin-bottom: 2px !important;
+        font-size: 18px !important;
+        margin-bottom: 3px !important;
       }
       .info-grid {
-        padding: 8px 12px !important;
-        margin-bottom: 10px !important;
-        gap: 12px !important;
+        padding: 12px 16px !important;
+        margin-bottom: 16px !important;
+        gap: 16px !important;
         background: #f8fafc !important;
-        border: 1px solid #e2e8f0 !important;
+        border: 1.5px solid #e2e8f0 !important;
+        border-radius: 8px !important;
       }
       .info-title {
-        font-size: 9px !important;
-        margin-bottom: 2px !important;
+        font-size: 10px !important;
+        margin-bottom: 3px !important;
       }
       .info-val {
-        font-size: 11.5px !important;
+        font-size: 13.5px !important;
       }
       table {
-        margin-bottom: 8px !important;
+        margin-bottom: 14px !important;
         page-break-inside: auto !important;
       }
       thead {
@@ -583,79 +595,80 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
         break-inside: avoid !important;
       }
       th {
-        background: #0f172a !important;
+        background-color: #0f172a !important;
         color: #ffffff !important;
-        padding: 5px 8px !important;
-        font-size: 9.5px !important;
+        padding: 8px 10px !important;
+        font-size: 10.5px !important;
         border: 1px solid #0f172a !important;
       }
       td {
-        padding: 4px 8px !important;
-        font-size: 10.5px !important;
+        padding: 7px 10px !important;
+        font-size: 11.5px !important;
         border-bottom: 1px solid #e2e8f0 !important;
       }
       .summary-section {
-        margin-top: 4px !important;
-        margin-bottom: 8px !important;
-        padding-top: 4px !important;
-        gap: 12px !important;
+        margin-top: 10px !important;
+        margin-bottom: 14px !important;
+        padding-top: 6px !important;
+        gap: 18px !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
       }
       .amount-words-box {
-        padding: 6px 10px !important;
-        margin-bottom: 6px !important;
+        padding: 10px 12px !important;
+        margin-bottom: 10px !important;
         background: #f8fafc !important;
         border: 1px solid #e2e8f0 !important;
+        border-radius: 8px !important;
       }
       .words-label {
-        font-size: 8.5px !important;
+        font-size: 9.5px !important;
       }
       .words-val {
-        font-size: 10.5px !important;
+        font-size: 12px !important;
       }
       .totals-table td {
-        padding: 3px 6px !important;
-        font-size: 10.5px !important;
+        padding: 4.5px 8px !important;
+        font-size: 12px !important;
       }
       .totals-table tr.total-row td {
-        font-size: 13px !important;
-        padding: 5px 6px !important;
+        font-size: 14.5px !important;
+        padding: 7px 8px !important;
         border-top: 2px solid #0f172a !important;
         border-bottom: 2px solid #0f172a !important;
       }
       .footer {
-        margin-top: 8px !important;
-        padding-top: 6px !important;
-        gap: 12px !important;
-        border-top: 1px solid #e2e8f0 !important;
+        margin-top: 14px !important;
+        padding-top: 12px !important;
+        gap: 16px !important;
+        border-top: 1.5px solid #e2e8f0 !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
       }
       .terms-box {
-        font-size: 8.5px !important;
-        line-height: 1.25 !important;
+        font-size: 9.5px !important;
+        line-height: 1.4 !important;
       }
       .terms-box ul {
-        margin: 2px 0 0 12px !important;
+        margin: 3px 0 0 14px !important;
       }
       .terms-box li {
-        margin-bottom: 1px !important;
+        margin-bottom: 2px !important;
       }
       .signatures {
         text-align: right !important;
       }
       .sign-line {
-        width: 140px !important;
-        font-size: 10px !important;
-        padding-top: 3px !important;
-        margin-top: 16px !important;
+        width: 170px !important;
+        font-size: 11px !important;
+        padding-top: 5px !important;
+        margin-top: 24px !important;
         border-top: 1.5px solid #0f172a !important;
       }
       .thankyou {
-        margin-top: 6px !important;
-        padding-top: 4px !important;
-        font-size: 9.5px !important;
+        margin-top: 12px !important;
+        padding-top: 6px !important;
+        font-size: 10.5px !important;
       }
       .badge-gst, .badge-nongst, .status-stamp, .stamp-paid, .stamp-due {
         -webkit-print-color-adjust: exact !important;
@@ -679,6 +692,7 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
   </div>
 
   <div class="invoice-card">
+    <div class="invoice-content-top">
     
     <!-- HEADER -->
     <div class="header">
@@ -869,19 +883,23 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
       </div>
     ` : ''}
 
-    <!-- FOOTER & SIGNATURES -->
-    <div class="footer">
-      <div class="terms-box">
-        <div class="info-title">Terms & Conditions</div>
-        <ul>${termsHtml}</ul>
-      </div>
-      <div class="signatures">
-        <div class="sign-line">Authorized Signatory<br/><small style="font-weight: normal; color: #94a3b8;">(${esc(inv.hostel.name || 'Hotel Front Desk')})</small></div>
-      </div>
     </div>
 
-    <div class="thankyou">
-      ✨ Thank you for choosing ${esc(inv.hostel.name || 'us')}! Have a safe journey & visit again. ✨
+    <!-- FOOTER & SIGNATURES WRAPPER -->
+    <div class="invoice-footer-wrap">
+      <div class="footer">
+        <div class="terms-box">
+          <div class="info-title">Terms & Conditions</div>
+          <ul>${termsHtml}</ul>
+        </div>
+        <div class="signatures">
+          <div class="sign-line">Authorized Signatory<br/><small style="font-weight: normal; color: #94a3b8;">(${esc(inv.hostel.name || 'Hotel Front Desk')})</small></div>
+        </div>
+      </div>
+
+      <div class="thankyou">
+        ✨ Thank you for choosing ${esc(inv.hostel.name || 'us')}! Have a safe journey & visit again. ✨
+      </div>
     </div>
 
   </div>
@@ -1608,7 +1626,7 @@ export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {
 
     @page {
       size: A4 portrait;
-      margin: 8mm 10mm;
+      margin: 10mm 12mm;
     }
 
     @media print {
@@ -1621,52 +1639,64 @@ export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {
         background: #ffffff !important;
         margin: 0 !important;
         padding: 0 !important;
-        font-size: 11px !important;
-        line-height: 1.35 !important;
+        width: 100% !important;
+        font-size: 12px !important;
+        line-height: 1.45 !important;
         color: #0f172a !important;
       }
       .no-print-bar { display: none !important; }
       .invoice-card {
-        border: none !important;
         box-shadow: none !important;
+        border: none !important;
         padding: 0 !important;
         margin: 0 !important;
         max-width: 100% !important;
         width: 100% !important;
+        min-height: 265mm !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
+      }
+      .invoice-content-top {
+        flex: 1 0 auto !important;
+      }
+      .invoice-footer-wrap {
+        flex-shrink: 0 !important;
       }
       .header {
-        padding-bottom: 10px !important;
-        margin-bottom: 12px !important;
+        padding-bottom: 14px !important;
+        margin-bottom: 16px !important;
         border-bottom: 2px solid #0f172a !important;
       }
       .hotel-name {
-        font-size: 18px !important;
-        margin-bottom: 2px !important;
+        font-size: 22px !important;
+        margin-bottom: 4px !important;
       }
       .hotel-meta {
-        font-size: 10.5px !important;
-        line-height: 1.3 !important;
+        font-size: 11.5px !important;
+        line-height: 1.4 !important;
       }
       .invoice-type {
-        font-size: 15px !important;
-        margin-bottom: 2px !important;
+        font-size: 18px !important;
+        margin-bottom: 3px !important;
       }
       .info-grid {
-        padding: 8px 12px !important;
-        margin-bottom: 10px !important;
-        gap: 12px !important;
+        padding: 12px 16px !important;
+        margin-bottom: 16px !important;
+        gap: 16px !important;
         background: #f8fafc !important;
-        border: 1px solid #e2e8f0 !important;
+        border: 1.5px solid #e2e8f0 !important;
+        border-radius: 8px !important;
       }
       .info-title {
-        font-size: 9px !important;
-        margin-bottom: 2px !important;
+        font-size: 10px !important;
+        margin-bottom: 3px !important;
       }
       .info-val {
-        font-size: 11.5px !important;
+        font-size: 13.5px !important;
       }
       table {
-        margin-bottom: 8px !important;
+        margin-bottom: 14px !important;
         page-break-inside: auto !important;
       }
       thead {
@@ -1679,77 +1709,78 @@ export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {
       th {
         background-color: #0f172a !important;
         color: #ffffff !important;
-        padding: 5px 8px !important;
-        font-size: 9.5px !important;
+        padding: 8px 10px !important;
+        font-size: 10.5px !important;
         border: 1px solid #0f172a !important;
       }
       td {
-        padding: 4px 8px !important;
-        font-size: 10.5px !important;
+        padding: 7px 10px !important;
+        font-size: 11.5px !important;
         border-bottom: 1px solid #e2e8f0 !important;
       }
       .summary-section {
-        margin-top: 4px !important;
-        margin-bottom: 8px !important;
-        padding-top: 4px !important;
-        gap: 12px !important;
+        margin-top: 10px !important;
+        margin-bottom: 14px !important;
+        padding-top: 6px !important;
+        gap: 18px !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
       }
       .amount-words-box {
-        padding: 6px 10px !important;
-        margin-bottom: 6px !important;
+        padding: 10px 12px !important;
+        margin-bottom: 10px !important;
         background: #f8fafc !important;
         border: 1px solid #e2e8f0 !important;
+        border-radius: 8px !important;
       }
       .words-label {
-        font-size: 8.5px !important;
+        font-size: 9.5px !important;
       }
       .words-val {
-        font-size: 10.5px !important;
+        font-size: 12px !important;
       }
       .totals-table td {
-        padding: 3px 6px !important;
-        font-size: 10.5px !important;
+        padding: 4.5px 8px !important;
+        font-size: 12px !important;
       }
       .totals-table tr.total-row td {
-        font-size: 13px !important;
-        padding: 5px 6px !important;
+        font-size: 14.5px !important;
+        padding: 7px 8px !important;
         border-top: 2px solid #0f172a !important;
         border-bottom: 2px solid #0f172a !important;
       }
       .footer {
-        margin-top: 8px !important;
-        padding-top: 6px !important;
-        gap: 12px !important;
-        border-top: 1px solid #e2e8f0 !important;
+        margin-top: 14px !important;
+        padding-top: 12px !important;
+        gap: 16px !important;
+        border-top: 1.5px solid #e2e8f0 !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
       }
       .terms-box {
-        font-size: 8.5px !important;
-        line-height: 1.25 !important;
+        font-size: 9.5px !important;
+        line-height: 1.4 !important;
       }
       .terms-box ul {
-        margin: 2px 0 0 12px !important;
+        margin: 3px 0 0 14px !important;
       }
       .terms-box li {
-        margin-bottom: 1px !important;
+        margin-bottom: 2px !important;
       }
       .signatures {
         text-align: right !important;
       }
       .sign-line {
-        width: 140px !important;
-        font-size: 10px !important;
-        padding-top: 3px !important;
-        margin-top: 16px !important;
+        width: 170px !important;
+        font-size: 11px !important;
+        padding-top: 5px !important;
+        margin-top: 24px !important;
         border-top: 1.5px solid #0f172a !important;
       }
       .thankyou {
-        margin-top: 6px !important;
-        padding-top: 4px !important;
-        font-size: 9.5px !important;
+        margin-top: 12px !important;
+        padding-top: 6px !important;
+        font-size: 10.5px !important;
       }
       .badge-gst, .badge-nongst, .badge-interstate, .status-stamp, .stamp-paid, .stamp-due {
         -webkit-print-color-adjust: exact !important;
@@ -1773,6 +1804,7 @@ export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {
   </div>
 
   <div class="invoice-card">
+    <div class="invoice-content-top">
     
     <!-- HEADER -->
     <div class="header">
@@ -1949,19 +1981,23 @@ export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {
       </div>
     ` : ''}
 
-    <!-- FOOTER & SIGNATURES -->
-    <div class="footer">
-      <div class="terms-box">
-        <div class="info-title">Terms & Conditions</div>
-        <ul>${termsHtml}</ul>
-      </div>
-      <div class="signatures">
-        <div class="sign-line">Authorized Signatory<br/><small style="font-weight: normal; color: #94a3b8;">(${esc(inv.hostel.name || 'Hotel Front Desk')})</small></div>
-      </div>
     </div>
 
-    <div class="thankyou">
-      ✨ Thank you for choosing ${esc(inv.hostel.name || 'us')} for your corporate hospitality! ✨
+    <!-- FOOTER & SIGNATURES WRAPPER -->
+    <div class="invoice-footer-wrap">
+      <div class="footer">
+        <div class="terms-box">
+          <div class="info-title">Terms & Conditions</div>
+          <ul>${termsHtml}</ul>
+        </div>
+        <div class="signatures">
+          <div class="sign-line">Authorized Signatory<br/><small style="font-weight: normal; color: #94a3b8;">(${esc(inv.hostel.name || 'Hotel Front Desk')})</small></div>
+        </div>
+      </div>
+
+      <div class="thankyou">
+        ✨ Thank you for choosing ${esc(inv.hostel.name || 'us')} for your corporate hospitality! ✨
+      </div>
     </div>
 
   </div>
