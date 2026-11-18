@@ -52,11 +52,13 @@ export default function MergedCorporateInvoiceModal({
         const fetchedPayments = res.data?.data?.payments;
         if (Array.isArray(fetchedStays) && fetchedStays.length > 0) {
           setSelectedStays(fetchedStays);
-          const first = fetchedStays[0];
-          if (first) {
-            setGuestCompany(prev => prev || first.companyName || first.guest?.companyName || '');
-            setGuestGstin(prev => prev || (first.gstin || first.guest?.gstin || '').toUpperCase());
-            setBillingAddress(prev => prev || first.billingAddress || first.guest?.address || '');
+          const leader = fetchedStays.find(s => s.isGroupLeader) || fetchedStays.find(s => s.guest?.mobileNumber) || fetchedStays[0];
+          if (leader) {
+            setGuestCompany(prev => prev || leader.companyName || leader.guest?.companyName || '');
+            setGuestGstin(prev => prev || (leader.gstin || leader.guest?.gstin || '').toUpperCase());
+            setBillingAddress(prev => prev || leader.billingAddress || leader.guest?.address || '');
+            setBookerName(prev => prev || leader.guest?.fullName || '');
+            setBookerPhone(prev => prev || leader.guest?.mobileNumber || '');
           }
         }
         if (Array.isArray(fetchedPayments) && fetchedPayments.length > 0) {

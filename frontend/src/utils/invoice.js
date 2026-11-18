@@ -1057,7 +1057,8 @@ export const calculateMergedInvoiceData = (stays = [], payments = [], options = 
     throw new Error('At least one stay is required for corporate invoice calculation');
   }
 
-  const primaryStay = stays[0];
+  const leaderStay = stays.find(s => s.isGroupLeader) || stays.find(s => s.guest?.mobileNumber) || stays[0];
+  const primaryStay = leaderStay;
   const hostel = options.hostel || primaryStay.hostel || {};
   const primaryGuest = primaryStay.guest || {};
 
@@ -1126,9 +1127,11 @@ export const calculateMergedInvoiceData = (stays = [], payments = [], options = 
   const totalBilled = roomBreakdown.reduce((sum, r) => sum + r.roomTotal, 0);
 
   // Combined Payments across all rooms (or custom payments list)
-  const totalPaid = payments.length > 0 
+  const paymentsSum = Array.isArray(payments) && payments.length > 0 
     ? payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
-    : roomBreakdown.reduce((sum, r) => sum + r.paid, 0);
+    : 0;
+  const roomPaidSum = roomBreakdown.reduce((sum, r) => sum + r.paid, 0);
+  const totalPaid = Math.max(paymentsSum, roomPaidSum);
 
   let taxableAmount = totalBilled;
   let totalGst = 0;
