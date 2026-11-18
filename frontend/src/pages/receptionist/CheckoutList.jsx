@@ -629,16 +629,20 @@ const CheckoutList = () => {
             >
               <Printer size={13} /> {checkoutSuccessToast.stay?.groupId ? 'Room Bill' : 'Print Bill'}
             </button>
-            {checkoutSuccessToast.stay?.guest?.mobileNumber && (
-              <a
-                href={checkoutSuccessToast.stay?.groupId ? (getMergedInvoiceWhatsAppUrl([checkoutSuccessToast.stay]) || getStayWhatsAppUrl(checkoutSuccessToast.stay, 'bill')) : (getStayWhatsAppUrl(checkoutSuccessToast.stay, 'bill') || `https://wa.me/${checkoutSuccessToast.stay.guest.mobileNumber.replace(/\D/g, '')}`)}
-                target="_blank"
-                rel="noreferrer"
-                className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all active:scale-95 text-center cursor-pointer shadow-xs"
-              >
-                <Share2 size={13} /> WhatsApp
-              </a>
-            )}
+            <button
+              type="button"
+              onClick={() => {
+                if (checkoutSuccessToast.stay?.groupId) {
+                  handleShareGroupWhatsApp(checkoutSuccessToast.stay);
+                } else {
+                  const url = getStayWhatsAppUrl(checkoutSuccessToast.stay, 'bill');
+                  if (url) window.open(url, '_blank');
+                }
+              }}
+              className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all active:scale-95 text-center cursor-pointer shadow-xs"
+            >
+              <Share2 size={13} /> WhatsApp
+            </button>
           </div>
         </div>
       )}

@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { format } from 'date-fns';
-import { X, User, Home, Calendar, CreditCard, AlertCircle, CheckCircle2, Plus, Printer, ChevronRight, Eye, Share2 } from 'lucide-react';
-import { printInvoice } from '../../utils/invoice';
+import { X, User, Home, Calendar, CreditCard, AlertCircle, CheckCircle2, Plus, Printer, ChevronRight, Eye, Share2, Building2 } from 'lucide-react';
+import { printInvoice, printMergedInvoice, getMergedInvoiceWhatsAppUrl } from '../../utils/invoice';
 import InvoiceModal from '../../components/InvoiceModal';
+import MergedCorporateInvoiceModal from '../../components/MergedCorporateInvoiceModal';
 import DynamicUpiQr from '../../components/DynamicUpiQr';
 import PaymentMethodSelector, { validateSplitPayment, buildSplitPayments } from '../../components/common/PaymentMethodSelector';
 import { apiCache } from '../../utils/apiCache';
@@ -23,6 +24,7 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
   const [completedStay, setCompletedStay] = useState(null);
   const [payments, setPayments] = useState([]);
   const [showFinalInvoiceModal, setShowFinalInvoiceModal] = useState(false);
+  const [showMergedInvoiceModal, setShowMergedInvoiceModal] = useState(false);
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -64,6 +66,50 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
     setChargesList(filtered);
     const newChargesTotal = filtered.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
     setCheckoutPayment(Math.max(0, baseBalance + newChargesTotal));
+  };
+
+  const handlePrintGroupBill = async (targetStay) => {
+    const s = targetStay || completedStay || stay;
+    if (!s?.groupId) {
+      printInvoice(s, payments);
+      return;
+    }
+    try {
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/stays/group/${s.groupId}`);
+      const groupStays = res.data?.data?.stays || [];
+      const groupPayments = res.data?.data?.payments || [];
+      if (groupStays.length > 0) {
+        printMergedInvoice(groupStays, groupPayments);
+      } else {
+        printInvoice(s, payments);
+      }
+    } catch (e) {
+      printInvoice(s, payments);
+    }
+  };
+
+  const handleShareGroupWhatsApp = async (targetStay) => {
+    const s = targetStay || completedStay || stay;
+    if (!s?.groupId) {
+      const url = getStayWhatsAppUrl(s, 'bill');
+      if (url) window.open(url, '_blank');
+      return;
+    }
+    try {
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/stays/group/${s.groupId}`);
+      const groupStays = res.data?.data?.stays || [];
+      const groupPayments = res.data?.data?.payments || [];
+      const url = getMergedInvoiceWhatsAppUrl(groupStays, { payments: groupPayments });
+      if (url) {
+        window.open(url, '_blank');
+      } else {
+        const singleUrl = getStayWhatsAppUrl(s, 'bill');
+        if (singleUrl) window.open(singleUrl, '_blank');
+      }
+    } catch (e) {
+      const singleUrl = getStayWhatsAppUrl(s, 'bill');
+      if (singleUrl) window.open(singleUrl, '_blank');
+    }
   };
 
   const handleCheckout = async (e) => {
@@ -167,23 +213,69 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
               </div>
             </div>
 
-            <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2">
-              <button
-                type="button"
-                onClick={() => printInvoice(completedStay || stay, payments)}
-                className="w-full py-3 px-4 bg-black hover:bg-gray-800 text-white font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer"
-              >
-                <Printer size={15} /> Print Final Bill
-              </button>
-              {stay.guest?.mobileNumber && (
-                <a
-                  href={getStayWhatsAppUrl(completedStay || stay, 'bill') || `https://wa.me/${stay.guest.mobileNumber.replace(/\D/g, '')}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 text-center"
-                >
-                  <Share2 size={15} /> WhatsApp Bill
-                </a>
+            <div className="w-full flex flex-col gap-2 pt-2">
+              {(completedStay?.groupId || stay.groupId) ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handlePrintGroupBill(completedStay || stay)}
+                    className="w-full py-3 px-4 bg-purple-700 hover:bg-purple-800 text-white font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer"
+                  >
+                    <Building2 size={15} /> Print Master Group Invoice
+                  </button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => printInvoice(completedStay || stay, payments)}
+                      className="w-full py-2.5 px-3 bg-slate-900 hover:bg-black text-white font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer"
+                    >
+                      <Printer size={14} /> Print Room {stay.room?.roomNumber} Bill
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleShareGroupWhatsApp(completedStay || stay)}
+                      className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 text-center cursor-pointer"
+                    >
+                      <Share2 size={14} /> WhatsApp Group Bill
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowFinalInvoiceModal(true)}
+                    className="w-full py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  >
+                    <Eye size={13} /> View / Customize Room Bill (Thermal / A4)
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => printInvoice(completedStay || stay, payments)}
+                      className="w-full py-3 px-4 bg-black hover:bg-gray-800 text-white font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer"
+                    >
+                      <Printer size={15} /> Quick Print Bill
+                    </button>
+                    {stay.guest?.mobileNumber && (
+                      <a
+                        href={getStayWhatsAppUrl(completedStay || stay, 'bill') || `https://wa.me/${stay.guest.mobileNumber.replace(/\D/g, '')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 text-center"
+                      >
+                        <Share2 size={15} /> WhatsApp Bill
+                      </a>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowFinalInvoiceModal(true)}
+                    className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  >
+                    <Eye size={14} /> View / Customize Tax Invoice (Thermal & A4)
+                  </button>
+                </>
               )}
             </div>
 
@@ -279,7 +371,29 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
 
             {/* Financial Summary */}
             <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm space-y-3">
-              <h3 className="text-xs font-black text-gray-800 uppercase tracking-widest mb-2 flex items-center gap-2"><CreditCard size={14}/> Settlement Summary</h3>
+              <div className="flex justify-between items-center mb-1">
+                <h3 className="text-xs font-black text-gray-800 uppercase tracking-widest flex items-center gap-2">
+                  <CreditCard size={14}/> Settlement Summary
+                </h3>
+                <div className="flex items-center gap-1.5">
+                  {stay.groupId && (
+                    <button
+                      type="button"
+                      onClick={() => setShowMergedInvoiceModal(true)}
+                      className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-xs font-bold flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
+                    >
+                      <Building2 size={12} /> Master Group Bill
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowFinalInvoiceModal(true)}
+                    className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
+                  >
+                    <Eye size={12} /> Preview Bill
+                  </button>
+                </div>
+              </div>
               
               <div className="flex justify-between items-center text-sm">
                 <span className="text-gray-500 font-semibold">Agreed Total Rent</span>
@@ -449,6 +563,21 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
         )}
       </div>
     </div>
+
+    {showFinalInvoiceModal && (
+      <InvoiceModal
+        stay={completedStay || stay}
+        payments={payments.length > 0 ? payments : (stay.payments || [])}
+        onClose={() => setShowFinalInvoiceModal(false)}
+      />
+    )}
+
+    {showMergedInvoiceModal && (stay.groupId || completedStay?.groupId) && (
+      <MergedCorporateInvoiceModal
+        initialStays={[completedStay || stay]}
+        onClose={() => setShowMergedInvoiceModal(false)}
+      />
+    )}
   </div>,
   document.body
 );

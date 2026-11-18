@@ -2080,7 +2080,7 @@ export const printMergedInvoice = (stays = [], payments = [], options = {}) => {
  * Creates a prefilled WhatsApp link to share consolidated corporate bill
  */
 export const getMergedInvoiceWhatsAppUrl = (stays = [], options = {}) => {
-  const inv = calculateMergedInvoiceData(stays, [], options);
+  const inv = calculateMergedInvoiceData(stays, options.payments || [], options);
   const rawPhone = (inv.bookerPhone || '').replace(/[^0-9]/g, '');
   if (!rawPhone) return null;
   const cleanPhone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;

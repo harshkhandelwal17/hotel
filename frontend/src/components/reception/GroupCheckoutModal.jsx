@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import PaymentMethodSelector, { validateSplitPayment, buildSplitPayments } from '../common/PaymentMethodSelector';
 import MergedCorporateInvoiceModal from '../MergedCorporateInvoiceModal';
+import { printMergedInvoice, getMergedInvoiceWhatsAppUrl } from '../../utils/invoice';
+import { getStayWhatsAppUrl } from '../../utils/whatsapp';
 import { apiCache } from '../../utils/apiCache';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
@@ -166,18 +168,35 @@ export default function GroupCheckoutModal({
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-2.5 pt-2 w-full max-w-md mx-auto">
               <button
                 type="button"
                 onClick={() => setShowInvoiceModal(true)}
-                className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                className="w-full sm:w-auto flex-1 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
               >
-                <Printer size={15} /> Print Master Group Invoice
+                <Printer size={15} /> Customize & Print Master Bill
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!groupData?.stays) return;
+                  const url = getMergedInvoiceWhatsAppUrl(groupData.stays, { payments: groupData.payments || [] });
+                  if (url) {
+                    window.open(url, '_blank');
+                  } else {
+                    const leader = groupData.stays.find(s => s.isGroupLeader) || groupData.stays[0];
+                    const singleUrl = getStayWhatsAppUrl(leader, 'bill');
+                    if (singleUrl) window.open(singleUrl, '_blank');
+                  }
+                }}
+                className="w-full sm:w-auto px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+              >
+                <Share2 size={15} /> WhatsApp Bill
               </button>
               <button
                 type="button"
                 onClick={onClose}
-                className="px-5 py-2.5 bg-slate-900 hover:bg-black text-white font-bold text-xs rounded-xl transition-all cursor-pointer"
+                className="w-full sm:w-auto px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl transition-all cursor-pointer"
               >
                 Done
               </button>

@@ -3,7 +3,7 @@ import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom'
 import axios from 'axios';
 import { format } from 'date-fns';
 import { User, Phone, CheckCircle, Clock, Printer, FileText, Wallet, BookOpen, Share2, PlusCircle, ArrowDownLeft, ArrowUpRight, X, AlertCircle, UserPlus, Sparkles, Building, Bed } from 'lucide-react';
-import { printInvoice } from '../../utils/invoice';
+import { printInvoice, printMergedInvoice } from '../../utils/invoice';
 import ExtendStayModal from './ExtendStayModal';
 import ShiftRoomModal from './ShiftRoomModal';
 import GuestRegistrationCardModal from '../../components/reception/GuestRegistrationCardModal';
@@ -150,6 +150,15 @@ const GuestProfile = () => {
 
   const handlePrint = async (stayToPrint) => {
     try {
+      if (stayToPrint?.groupId) {
+        const gRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/stays/group/${stayToPrint.groupId}`);
+        const groupStays = gRes.data?.data?.stays || [];
+        const groupPayments = gRes.data?.data?.payments || [];
+        if (groupStays.length > 0) {
+          printMergedInvoice(groupStays, groupPayments);
+          return;
+        }
+      }
       const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/payments?stay=${stayToPrint._id}`);
       printInvoice(stayToPrint, res.data.data);
     } catch (err) {
