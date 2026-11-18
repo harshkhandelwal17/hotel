@@ -5,6 +5,7 @@ const Payment = require('../models/Payment');
 const Guest = require('../models/Guest');
 const Hostel = require('../models/Hostel');
 const Notification = require('../models/Notification');
+const User = require('../models/User');
 const { sendWebPushToUsers } = require('../config/webPush');
 const { assertHostelAccess, getHostelFilter, userCanAccessHostel } = require('../utils/hostelAccess');
 const { recordLedgerImpact } = require('../utils/ledgerHelper');
