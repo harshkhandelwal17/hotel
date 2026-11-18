@@ -12,7 +12,7 @@ import PoliceReportModal from '../../pages/admin/PoliceReportModal';
 import { apiCache, prefetchRoute } from '../../utils/apiCache';
 import { useLanguage } from '../../context/LanguageContext';
 import { COMPANY_SUPPORT } from '../../config/support';
-import { getNotificationPermission, requestNotificationPermission, triggerDeviceNotification, playCheckInChime, playCheckOutChime, updatePwaAppBadge, startTitleFlashing } from '../../utils/pwaNotifications';
+import { getNotificationPermission, requestNotificationPermission, triggerDeviceNotification, playCheckInChime, playCheckOutChime, updatePwaAppBadge, startTitleFlashing, subscribeDeviceToPush } from '../../utils/pwaNotifications';
 
 const AppLayout = ({ children }) => {
   const { user, logout } = useContext(AuthContext);
@@ -137,6 +137,15 @@ const AppLayout = ({ children }) => {
       clearInterval(interval);
       window.removeEventListener('focus', onFocus);
     };
+  }, [user]);
+
+  // Sync Web Push device subscription whenever user logs in or page loads with granted permission
+  useEffect(() => {
+    if (user && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      subscribeDeviceToPush().catch(err => {
+        console.warn('[PWA] Push auto-subscribe failed:', err);
+      });
+    }
   }, [user]);
 
   const handleMarkCheckInRead = async (id, e) => {

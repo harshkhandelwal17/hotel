@@ -1,4 +1,82 @@
 const Notification = require('../models/Notification');
+const User = require('../models/User');
+const { vapidPublicKey } = require('../config/webPush');
+
+// @desc    Get public VAPID key for client push subscription
+// @route   GET /api/notifications/vapid-key
+// @access  Public
+exports.getVapidKey = async (req, res, next) => {
+  try {
+    res.status(200).json({
+      success: true,
+      data: { publicKey: vapidPublicKey }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Register a device Web Push subscription for current user
+// @route   POST /api/notifications/subscribe
+// @access  Private
+exports.subscribePush = async (req, res, next) => {
+  try {
+    const { subscription, userAgent } = req.body;
+
+    if (!subscription || !subscription.endpoint || !subscription.keys?.p256dh || !subscription.keys?.auth) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid push subscription payload'
+      });
+    }
+
+    const endpoint = subscription.endpoint;
+    const newSub = {
+      endpoint,
+      expirationTime: subscription.expirationTime || null,
+      keys: {
+        p256dh: subscription.keys.p256dh,
+        auth: subscription.keys.auth
+      },
+      userAgent: userAgent || req.headers['user-agent'] || '',
+      subscribedAt: new Date()
+    };
+
+    // Remove any existing subscription with this endpoint for this user to avoid duplicates
+    await User.findByIdAndUpdate(req.user._id, {
+      $pull: { pushSubscriptions: { endpoint } }
+    });
+
+    // Add updated subscription
+    await User.findByIdAndUpdate(req.user._id, {
+      $push: { pushSubscriptions: newSub }
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Web push subscription registered successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Unsubscribe device from Web Push
+// @route   POST /api/notifications/unsubscribe
+// @access  Private
+exports.unsubscribePush = async (req, res, next) => {
+  try {
+    const { endpoint } = req.body;
+    if (endpoint) {
+      await User.findByIdAndUpdate(req.user._id, {
+        $pull: { pushSubscriptions: { endpoint } }
+      });
+    }
+    res.status(200).json({ success: true, message: 'Unsubscribed successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
 
 // @desc    Get notifications for current user
 // @route   GET /api/notifications

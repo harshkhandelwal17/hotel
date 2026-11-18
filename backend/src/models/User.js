@@ -56,7 +56,17 @@ const userSchema = new mongoose.Schema({
   tokenVersion: {
     type: Number,
     default: 0
-  }
+  },
+  pushSubscriptions: [{
+    endpoint: { type: String, required: true },
+    expirationTime: { type: Number, default: null },
+    keys: {
+      p256dh: { type: String, required: true },
+      auth: { type: String, required: true }
+    },
+    userAgent: { type: String },
+    subscribedAt: { type: Date, default: Date.now }
+  }]
 }, { timestamps: true });
 
 // Encrypt password using bcrypt

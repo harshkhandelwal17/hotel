@@ -1,8 +1,27 @@
+import axios from 'axios';
+
 /**
  * pwaNotifications.js
  * Comprehensive Mobile & Desktop Push Notification System for NXHotel PWA.
- * Supports ServiceWorker Notifications, Native Mobile Vibrations, and Web Audio Chimes.
+ * Supports Web Push (VAPID) Background Notifications, ServiceWorker Notifications,
+ * Native Mobile Vibrations, and Web Audio Chimes.
  */
+
+const FALLBACK_VAPID_PUBLIC_KEY = 'BEK9DSUVyrW8v58zqDy5fU9epKxAHBeJXzi9WqTx6B9vgz_59T7xcdmvcXeEjIj3x23nVXEFi3qRejAGpMAUsDA';
+
+// Convert base64 VAPID public key to Uint8Array required by PushManager
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding)
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
 
 // 1. Register Service Worker on startup
 export const registerServiceWorker = async () => {
@@ -26,7 +45,95 @@ export const getNotificationPermission = () => {
   return Notification.permission; // 'default' | 'granted' | 'denied'
 };
 
-// 3. Request user permission with mobile support
+// 3. Fetch public VAPID key
+export const getVapidPublicKey = async () => {
+  try {
+    const res = await axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/notifications/vapid-key');
+    if (res.data?.success && res.data?.data?.publicKey) {
+      return res.data.data.publicKey;
+    }
+  } catch (err) {
+    console.warn('[PWA] Error fetching VAPID public key, using fallback:', err);
+  }
+  return FALLBACK_VAPID_PUBLIC_KEY;
+};
+
+// 4. Subscribe device to Web Push (receives pushes even when app/browser is completely closed)
+export const subscribeDeviceToPush = async () => {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+    return null;
+  }
+
+  if (Notification.permission !== 'granted') {
+    return null;
+  }
+
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    if (!reg) return null;
+
+    let subscription = await reg.pushManager.getSubscription();
+
+    // If no active push subscription, create a new one using VAPID
+    if (!subscription) {
+      const publicKey = await getVapidPublicKey();
+      if (!publicKey) return null;
+
+      const convertedVapidKey = urlBase64ToUint8Array(publicKey);
+      subscription = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: convertedVapidKey
+      });
+    }
+
+    // Send subscription payload to backend
+    const token = localStorage.getItem('token');
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+
+    await axios.post(
+      `${apiBase}/api/notifications/subscribe`,
+      {
+        subscription: subscription.toJSON ? subscription.toJSON() : JSON.parse(JSON.stringify(subscription)),
+        userAgent: navigator.userAgent
+      },
+      token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
+    );
+
+    return subscription;
+  } catch (err) {
+    console.warn('[PWA Web Push] Subscription error (likely permission or network):', err);
+    return null;
+  }
+};
+
+// 5. Unsubscribe device from Web Push
+export const unsubscribeDeviceFromPush = async () => {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+    return false;
+  }
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    if (!reg) return false;
+    const subscription = await reg.pushManager.getSubscription();
+    if (subscription) {
+      const endpoint = subscription.endpoint;
+      await subscription.unsubscribe();
+      const token = localStorage.getItem('token');
+      const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      await axios.post(
+        `${apiBase}/api/notifications/unsubscribe`,
+        { endpoint },
+        token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
+      );
+      return true;
+    }
+  } catch (err) {
+    console.warn('[PWA Web Push] Error during unsubscribe:', err);
+  }
+  return false;
+};
+
+// 6. Request user permission with mobile support & register push
 export const requestNotificationPermission = async () => {
   if (typeof window === 'undefined' || !('Notification' in window)) {
     return 'unsupported';
@@ -37,9 +144,11 @@ export const requestNotificationPermission = async () => {
       playCheckInChime();
       triggerDeviceNotification({
         title: '🛎️ Mobile Alerts Enabled!',
-        body: 'You will now receive instant check-in notifications on this device.',
+        body: 'You will now receive instant check-in notifications even when the app is closed.',
         tag: 'welcome-alert'
       });
+      // Register device for background Web Push
+      await subscribeDeviceToPush();
     }
     return permission;
   } catch (err) {

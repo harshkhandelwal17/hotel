@@ -5,6 +5,7 @@ const Payment = require('../models/Payment');
 const Guest = require('../models/Guest');
 const Hostel = require('../models/Hostel');
 const Notification = require('../models/Notification');
+const { sendWebPushToUsers } = require('../config/webPush');
 const { assertHostelAccess, getHostelFilter, userCanAccessHostel } = require('../utils/hostelAccess');
 const { recordLedgerImpact } = require('../utils/ledgerHelper');
 
@@ -226,6 +227,21 @@ exports.createStay = async (req, res, next) => {
           }
         });
       }
+
+      // 📲 Dispatch Background Web Push (Wakes up Mobile PWA even when closed)
+      sendWebPushToUsers(Array.from(recipientIds), {
+        title: `🛎️ New Check-In at ${hName}`,
+        body: `Room ${rNum} • ${gName} checked in! Tariff: ₹${Number(totalAmount).toLocaleString('en-IN')}${advText}`,
+        icon: '/favicon.svg',
+        badge: '/favicon.svg',
+        tag: `checkin-${stay._id}`,
+        vibrate: [250, 100, 250, 100, 250],
+        data: {
+          url: '/checkouts',
+          stayId: stay._id.toString(),
+          hotelName: hName
+        }
+      });
     } catch (notifErr) {
       console.error('Failed to create check-in notification:', notifErr.message);
     }
@@ -620,6 +636,21 @@ exports.checkout = async (req, res, next) => {
           }
         });
       }
+
+      // 📲 Dispatch Background Web Push (Wakes up Mobile PWA even when closed)
+      sendWebPushToUsers(Array.from(recipientIds), {
+        title: `🚪 Check-Out: ${hName}`,
+        body: `Room ${rNum} checked out by ${gName}${settText}`,
+        icon: '/favicon.svg',
+        badge: '/favicon.svg',
+        tag: `checkout-${stay._id}`,
+        vibrate: [250, 100, 250, 100, 250],
+        data: {
+          url: '/checkouts',
+          stayId: stay._id.toString(),
+          hotelName: hName
+        }
+      });
     } catch (notifErr) {
       console.error('Failed to create check-out notification:', notifErr.message);
     }
