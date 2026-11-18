@@ -36,6 +36,8 @@ export default function MergedCorporateInvoiceModal({
     return (allStays.length > 0 ? [allStays[0]] : []);
   });
 
+  const [groupPayments, setGroupPayments] = useState([]);
+
   // Auto-fetch all stays of the group if groupId is present
   useEffect(() => {
     const primary = initialStays[0];
@@ -47,8 +49,18 @@ export default function MergedCorporateInvoiceModal({
       .then(res => {
         if (!active) return;
         const fetchedStays = res.data?.data?.stays;
+        const fetchedPayments = res.data?.data?.payments;
         if (Array.isArray(fetchedStays) && fetchedStays.length > 0) {
           setSelectedStays(fetchedStays);
+          const first = fetchedStays[0];
+          if (first) {
+            setGuestCompany(prev => prev || first.companyName || first.guest?.companyName || '');
+            setGuestGstin(prev => prev || (first.gstin || first.guest?.gstin || '').toUpperCase());
+            setBillingAddress(prev => prev || first.billingAddress || first.guest?.address || '');
+          }
+        }
+        if (Array.isArray(fetchedPayments) && fetchedPayments.length > 0) {
+          setGroupPayments(fetchedPayments);
         }
       })
       .catch(err => {
@@ -56,7 +68,7 @@ export default function MergedCorporateInvoiceModal({
       });
 
     return () => { active = false; };
-  }, [initialStays]);
+  }, [initialStays[0]?._id, initialStays[0]?.groupId]);
 
   const primaryStay = selectedStays[0] || {};
   const hostel = primaryStay.hostel || {};
@@ -167,12 +179,12 @@ export default function MergedCorporateInvoiceModal({
   const inv = useMemo(() => {
     if (selectedStays.length === 0) return null;
     try {
-      return calculateMergedInvoiceData(selectedStays, [], invoiceOptions);
+      return calculateMergedInvoiceData(selectedStays, groupPayments, invoiceOptions);
     } catch (e) {
       console.error('Invoice calc error:', e);
       return null;
     }
-  }, [selectedStays, invoiceOptions]);
+  }, [selectedStays, groupPayments, invoiceOptions]);
 
   const syncCorporateToStays = async () => {
     try {
@@ -224,7 +236,7 @@ export default function MergedCorporateInvoiceModal({
   const handlePrint = () => {
     if (selectedStays.length === 0) return;
     syncCorporateToStays();
-    printMergedInvoice(selectedStays, [], invoiceOptions);
+    printMergedInvoice(selectedStays, groupPayments, invoiceOptions);
   };
 
   const waShareUrl = useMemo(() => {

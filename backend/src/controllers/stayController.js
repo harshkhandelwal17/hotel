@@ -119,8 +119,18 @@ exports.createStay = async (req, res, next) => {
       parsedExpectedOut = new Date(parsedCheckIn.getTime() + 24 * 60 * 60 * 1000);
     }
 
+    const isPastCheckout = Boolean(isAlreadyCheckedOut);
+    const parsedActualOut = isPastCheckout 
+      ? new Date(actualCheckOutDate || expectedCheckOutDate) 
+      : undefined;
+
+    if (isPastCheckout && parsedActualOut && !isNaN(parsedActualOut.getTime())) {
+      parsedExpectedOut = parsedActualOut;
+    }
+
+    const overlapEnd = isPastCheckout && parsedActualOut ? parsedActualOut : parsedExpectedOut;
     const overlapping = await Stay.findOne(
-      roomOverlapFilter(room, parsedCheckIn, parsedExpectedOut)
+      roomOverlapFilter(room, parsedCheckIn, overlapEnd)
     );
     if (overlapping) {
       throw new Error('The selected room is already booked for the requested dates.');
@@ -141,11 +151,6 @@ exports.createStay = async (req, res, next) => {
     if (advance > totalAmount) {
       throw new Error('Advance payment cannot be more than the total amount');
     }
-
-    const isPastCheckout = Boolean(isAlreadyCheckedOut);
-    const parsedActualOut = isPastCheckout 
-      ? new Date(actualCheckOutDate || expectedCheckOutDate) 
-      : undefined;
 
     const stay = await Stay.create({
       guest,
@@ -184,7 +189,7 @@ exports.createStay = async (req, res, next) => {
 
     // Double-check after create to shrink race window for double-booking
     const conflicts = await Stay.find(
-      roomOverlapFilter(room, checkInDate, expectedCheckOutDate, stay._id)
+      roomOverlapFilter(room, parsedCheckIn, overlapEnd, stay._id)
     );
     if (conflicts.length > 0) {
       await Stay.deleteOne({ _id: stay._id });
@@ -192,6 +197,7 @@ exports.createStay = async (req, res, next) => {
     }
 
     if (advance > 0) {
+      const payDate = isPastCheckout && parsedActualOut ? parsedActualOut : new Date();
       if (Array.isArray(splitPayments) && splitPayments.length > 0) {
         for (const sp of splitPayments) {
           const spAmt = Number(sp.amount);
@@ -203,6 +209,7 @@ exports.createStay = async (req, res, next) => {
               hostel,
               amount: spAmt,
               paymentMethod: pMethod,
+              paymentDate: payDate,
               notes: sp.notes || 'Advance Payment',
               createdBy: req.user._id
             });
@@ -225,6 +232,7 @@ exports.createStay = async (req, res, next) => {
           hostel,
           amount: advance,
           paymentMethod: pMethod,
+          paymentDate: payDate,
           createdBy: req.user._id
         });
         await recordLedgerImpact({
@@ -721,6 +729,7 @@ exports.checkout = async (req, res, next) => {
               hostel: stay.hostel,
               amount: spAmt,
               paymentMethod: pMethod,
+              paymentDate: resolvedActualOut,
               notes: sp.notes || 'Checkout Payment',
               createdBy: req.user._id
             });
@@ -743,6 +752,7 @@ exports.checkout = async (req, res, next) => {
           hostel: stay.hostel,
           amount: checkoutPayment,
           paymentMethod: pMethod,
+          paymentDate: resolvedActualOut,
           createdBy: req.user._id
         });
         await recordLedgerImpact({
@@ -1387,7 +1397,8 @@ exports.createGroupStay = async (req, res, next) => {
       rooms, primaryGuest, groupName, groupType, checkInDate, expectedCheckOutDate,
       durationOption, initialPaymentAmount, paymentMethod, splitPayments,
       gstApplied, gstType, gstRate, companyName, gstin, billingAddress,
-      commissionTo, commissionPhone, commissionAmount, notes
+      commissionTo, commissionPhone, commissionAmount, notes,
+      isAlreadyCheckedOut, actualCheckOutDate
     } = req.body;
 
     let hostel = req.user.assignedHostel;
@@ -1424,6 +1435,15 @@ exports.createGroupStay = async (req, res, next) => {
       parsedExpectedOut = new Date(parsedCheckIn.getTime() + 24 * 60 * 60 * 1000);
     }
 
+    const isPastCheckout = Boolean(isAlreadyCheckedOut);
+    const parsedActualOut = isPastCheckout 
+      ? new Date(actualCheckOutDate || expectedCheckOutDate) 
+      : undefined;
+
+    if (isPastCheckout && parsedActualOut && !isNaN(parsedActualOut.getTime())) {
+      parsedExpectedOut = parsedActualOut;
+    }
+
     // 1. Validate all rooms and check for overlapping reservations
     const roomIds = rooms.map(r => r.room || r.roomId);
     const uniqueRoomIds = new Set(roomIds.map(id => id.toString()));
@@ -1436,6 +1456,8 @@ exports.createGroupStay = async (req, res, next) => {
       throw new Error('One or more selected rooms were not found');
     }
 
+    const overlapEnd = isPastCheckout && parsedActualOut ? parsedActualOut : parsedExpectedOut;
+
     for (const rDoc of roomDocs) {
       if (rDoc.hostel.toString() !== hostel.toString()) {
         throw new Error(`Room ${rDoc.roomNumber} does not belong to this property`);
@@ -1444,7 +1466,7 @@ exports.createGroupStay = async (req, res, next) => {
         throw new Error(`Room ${rDoc.roomNumber} is currently not available (${rDoc.status})`);
       }
       const overlapping = await Stay.findOne(
-        roomOverlapFilter(rDoc._id, parsedCheckIn, parsedExpectedOut)
+        roomOverlapFilter(rDoc._id, parsedCheckIn, overlapEnd)
       );
       if (overlapping) {
         throw new Error(`Room ${rDoc.roomNumber} is already booked for the selected dates`);
@@ -1569,6 +1591,8 @@ exports.createGroupStay = async (req, res, next) => {
         coGuests: Array.isArray(roomItem.coGuests) ? roomItem.coGuests : [],
         checkInDate: parsedCheckIn,
         expectedCheckOutDate: parsedExpectedOut,
+        actualCheckOutDate: parsedActualOut,
+        status: isPastCheckout ? 'Checked Out' : 'Active',
         durationOption: durationOption || '24h',
         totalAmount: roomRate,
         paidAmount: stayPaid,
@@ -1602,6 +1626,7 @@ exports.createGroupStay = async (req, res, next) => {
     // 5. Record Advance Payment for each room
     if (advance > 0) {
       const pMethod = paymentMethod === 'Mixed' ? 'Mixed' : (paymentMethod || 'Cash');
+      const payDate = isPastCheckout && parsedActualOut ? parsedActualOut : new Date();
       for (const st of createdStays) {
         if (st.paidAmount > 0) {
           await Payment.create({
@@ -1611,6 +1636,7 @@ exports.createGroupStay = async (req, res, next) => {
             hostel,
             amount: st.paidAmount,
             paymentMethod: pMethod,
+            paymentDate: payDate,
             notes: `Group Advance (${resolvedGroupName})`,
             createdBy: req.user._id
           });
@@ -1798,6 +1824,9 @@ exports.groupCheckout = async (req, res, next) => {
     const leaderStay = stays.find(s => s.isGroupLeader) || stays[0];
     const payAmt = Math.max(0, Number(checkoutPayment) || 0);
 
+    const actualOut = req.body.actualCheckOutDate ? new Date(req.body.actualCheckOutDate) : new Date();
+    const checkOutTimestamp = isNaN(actualOut.getTime()) ? new Date() : actualOut;
+
     // 1. Record checkout settlement payment if any
     if (payAmt > 0) {
       if (Array.isArray(splitPayments) && splitPayments.length > 0) {
@@ -1812,6 +1841,7 @@ exports.groupCheckout = async (req, res, next) => {
               hostel: hostelId,
               amount: spAmt,
               paymentMethod: pMethod,
+              paymentDate: checkOutTimestamp,
               notes: sp.notes || notes || `Group Checkout Settlement (${leaderStay.groupName})`,
               createdBy: req.user._id
             });
@@ -1835,6 +1865,7 @@ exports.groupCheckout = async (req, res, next) => {
           hostel: hostelId,
           amount: payAmt,
           paymentMethod: pMethod,
+          paymentDate: checkOutTimestamp,
           notes: notes || `Group Checkout Settlement (${leaderStay.groupName})`,
           createdBy: req.user._id
         });
@@ -1849,8 +1880,6 @@ exports.groupCheckout = async (req, res, next) => {
         });
       }
     }
-
-    const checkOutTimestamp = new Date();
 
     // 2. Mark all active stays in this group as 'Checked Out'
     const activeStayIds = activeStays.map(s => s._id);

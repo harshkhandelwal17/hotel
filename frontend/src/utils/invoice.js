@@ -1213,8 +1213,8 @@ export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {
 
   // Room Accommodation Table Rows
   const roomRows = inv.roomBreakdown.map((r, i) => {
-    const checkInStr = format(r.checkInDate, 'dd MMM yyyy');
-    const checkOutStr = format(r.checkOutDate, 'dd MMM yyyy');
+    const checkInStr = format(r.checkInDate, 'dd MMM yyyy, hh:mm a');
+    const checkOutStr = format(r.checkOutDate, 'dd MMM yyyy, hh:mm a');
     const sac = r.hsnSacCode || '996311';
 
     // Itemized charges snippet for this room if any

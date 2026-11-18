@@ -6,7 +6,7 @@ import CheckoutModal from './CheckoutModal';
 import StayManageModal from './StayManageModal';
 import MergedCorporateInvoiceModal from '../../components/MergedCorporateInvoiceModal';
 import { Users, Clock, Download, AlertTriangle, Search, ChevronRight, Phone, MessageSquare, Building2, Check, CheckCircle2, Printer, Share2, X } from 'lucide-react';
-import { printInvoice } from '../../utils/invoice';
+import { printInvoice, printMergedInvoice, getMergedInvoiceWhatsAppUrl } from '../../utils/invoice';
 import { apiCache } from '../../utils/apiCache';
 import { useLanguage } from '../../context/LanguageContext';
 import { getStayWhatsAppUrl } from '../../utils/whatsapp';
@@ -19,6 +19,7 @@ const CheckoutList = () => {
   const [managedStay, setManagedStay] = useState(null);
   const [selectedStayIdsForMerge, setSelectedStayIdsForMerge] = useState([]);
   const [showMergedModal, setShowMergedModal] = useState(false);
+  const [groupModalStay, setGroupModalStay] = useState(null);
   const [checkoutSuccessToast, setCheckoutSuccessToast] = useState(null);
   const [filter, setFilter] = useState('all'); // 'all', 'overdue', 'today', 'history'
   const [historyStays, setHistoryStays] = useState([]);
@@ -27,6 +28,49 @@ const CheckoutList = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { globalProperty } = useOutletContext() || { globalProperty: 'all' };
   const initialStayParamRef = useRef(searchParams.get('stay'));
+
+  const handlePrintGroupBill = async (stay) => {
+    if (!stay?.groupId) {
+      printInvoice(stay, stay.payments || []);
+      return;
+    }
+    try {
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/stays/group/${stay.groupId}`);
+      const groupStays = res.data?.data?.stays || [];
+      const groupPayments = res.data?.data?.payments || [];
+      if (groupStays.length > 0) {
+        printMergedInvoice(groupStays, groupPayments);
+      } else {
+        printInvoice(stay, stay.payments || []);
+      }
+    } catch (e) {
+      console.warn('Direct print merged error, falling back to modal:', e);
+      setGroupModalStay(stay);
+    }
+  };
+
+  const handleShareGroupWhatsApp = async (stay) => {
+    if (!stay?.groupId) {
+      const url = getStayWhatsAppUrl(stay, 'bill');
+      if (url) window.open(url, '_blank');
+      return;
+    }
+    try {
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/stays/group/${stay.groupId}`);
+      const groupStays = res.data?.data?.stays || [];
+      const groupPayments = res.data?.data?.payments || [];
+      const url = getMergedInvoiceWhatsAppUrl(groupStays, { payments: groupPayments });
+      if (url) {
+        window.open(url, '_blank');
+      } else {
+        const singleUrl = getStayWhatsAppUrl(stay, 'bill');
+        if (singleUrl) window.open(singleUrl, '_blank');
+      }
+    } catch (e) {
+      const singleUrl = getStayWhatsAppUrl(stay, 'bill');
+      if (singleUrl) window.open(singleUrl, '_blank');
+    }
+  };
 
   useEffect(() => {
     // Clean deep link param from browser address bar immediately so it never re-triggers
@@ -289,9 +333,9 @@ const CheckoutList = () => {
                           <div>
                             <div className="flex items-center gap-2 flex-wrap">
                               <h4 className="text-base font-bold text-gray-900">{stay.guest?.fullName || 'Guest'}</h4>
-                              {stay.isGroupStay && (
+                              {(stay.groupId || stay.isGroupStay) && (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-purple-100 text-purple-800 border border-purple-200">
-                                  🏢 {stay.groupName || 'Group'}
+                                  🏢 {stay.groupName || 'Group Folio'} {stay.groupTotalRooms ? `(${stay.groupTotalRooms} Rooms)` : ''}
                                 </span>
                               )}
                               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border bg-slate-100 text-slate-700 border-slate-200">
@@ -325,24 +369,58 @@ const CheckoutList = () => {
                           </div>
 
                           <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                            <button
-                              type="button"
-                              onClick={() => printInvoice(stay, stay.payments || [])}
-                              className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl border border-slate-200 transition-colors"
-                              title="Print Invoice"
-                            >
-                              <Printer size={15} />
-                            </button>
-                            {stay.guest?.mobileNumber && (
-                              <a
-                                href={getStayWhatsAppUrl(stay, 'bill')}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="p-2 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-xl border border-emerald-200 transition-colors"
-                                title="WhatsApp Bill"
-                              >
-                                <MessageSquare size={15} />
-                              </a>
+                            {(stay.groupId || stay.isGroupStay) ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handlePrintGroupBill(stay)}
+                                  className="px-2.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
+                                  title="Print Consolidated Master Group Bill"
+                                >
+                                  <Building2 size={13} />
+                                  <span>Master Group Bill</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => printInvoice(stay, stay.payments || [])}
+                                  className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl border border-slate-200 transition-colors cursor-pointer"
+                                  title="Print Single Room Bill"
+                                >
+                                  <Printer size={15} />
+                                </button>
+                                {stay.guest?.mobileNumber && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleShareGroupWhatsApp(stay)}
+                                    className="p-2 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-xl border border-emerald-200 transition-colors cursor-pointer"
+                                    title="WhatsApp Master Group Bill"
+                                  >
+                                    <MessageSquare size={15} />
+                                  </button>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => printInvoice(stay, stay.payments || [])}
+                                  className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl border border-slate-200 transition-colors cursor-pointer"
+                                  title="Print Invoice"
+                                >
+                                  <Printer size={15} />
+                                </button>
+                                {stay.guest?.mobileNumber && (
+                                  <a
+                                    href={getStayWhatsAppUrl(stay, 'bill')}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="p-2 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-xl border border-emerald-200 transition-colors"
+                                    title="WhatsApp Bill"
+                                  >
+                                    <MessageSquare size={15} />
+                                  </a>
+                                )}
+                              </>
                             )}
                           </div>
                         </div>
@@ -535,16 +613,25 @@ const CheckoutList = () => {
           </div>
           
           <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-800">
+            {checkoutSuccessToast.stay?.groupId ? (
+              <button
+                type="button"
+                onClick={() => handlePrintGroupBill(checkoutSuccessToast.stay)}
+                className="flex-1 py-2 px-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-xs"
+              >
+                <Building2 size={13} /> Master Group Bill
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => printInvoice(checkoutSuccessToast.stay, checkoutSuccessToast.payments)}
               className="flex-1 py-2 px-3 bg-white hover:bg-slate-100 text-slate-900 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-xs"
             >
-              <Printer size={13} /> Print Bill
+              <Printer size={13} /> {checkoutSuccessToast.stay?.groupId ? 'Room Bill' : 'Print Bill'}
             </button>
             {checkoutSuccessToast.stay?.guest?.mobileNumber && (
               <a
-                href={getStayWhatsAppUrl(checkoutSuccessToast.stay, 'bill') || `https://wa.me/${checkoutSuccessToast.stay.guest.mobileNumber.replace(/\D/g, '')}`}
+                href={checkoutSuccessToast.stay?.groupId ? (getMergedInvoiceWhatsAppUrl([checkoutSuccessToast.stay]) || getStayWhatsAppUrl(checkoutSuccessToast.stay, 'bill')) : (getStayWhatsAppUrl(checkoutSuccessToast.stay, 'bill') || `https://wa.me/${checkoutSuccessToast.stay.guest.mobileNumber.replace(/\D/g, '')}`)}
                 target="_blank"
                 rel="noreferrer"
                 className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all active:scale-95 text-center cursor-pointer shadow-xs"
@@ -590,6 +677,18 @@ const CheckoutList = () => {
           allStays={stays}
           onClose={() => setShowMergedModal(false)}
           onStayUpdated={() => fetchStays(false)}
+        />
+      )}
+
+      {groupModalStay && (
+        <MergedCorporateInvoiceModal
+          initialStays={[groupModalStay]}
+          allStays={[groupModalStay]}
+          onClose={() => setGroupModalStay(null)}
+          onStayUpdated={() => {
+            fetchStays(false);
+            if (filter === 'history') fetchHistoryStays(false);
+          }}
         />
       )}
     </div>

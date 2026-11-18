@@ -1390,12 +1390,22 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
           {tab === 'bill' && (
             <>
               <div className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
+                {stay.groupId && (
+                  <button 
+                    type="button" 
+                    onClick={() => setIsMergedModalOpen(true)}
+                    className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 bg-purple-700 text-white rounded-xl text-xs sm:text-sm font-bold hover:bg-purple-800 active:scale-95 transition-all shadow-sm cursor-pointer"
+                    title="View & Print Consolidated Master Group Bill"
+                  >
+                    <Building2 size={15} /> Master Group Bill
+                  </button>
+                )}
                 <button 
                   type="button"
                   onClick={() => setIsInvoiceModalOpen(true)}
                   className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 bg-black text-white rounded-xl text-xs sm:text-sm font-bold hover:bg-gray-800 active:scale-95 transition-all shadow-sm"
                 >
-                  <Eye size={15} /> View & Print Bill
+                  <Eye size={15} /> {stay.groupId ? 'Room Bill' : 'View & Print Bill'}
                 </button>
                 <button 
                   type="button"

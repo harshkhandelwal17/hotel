@@ -448,6 +448,13 @@ const CheckIn = () => {
   }, [rooms, selectedFloorFilter, roomSearchQuery, stayInfo.isBackdated, stayInfo.isAlreadyCheckedOut]);
 
   const expectedOutPreviewFormatted = useMemo(() => {
+    if (stayInfo.isAlreadyCheckedOut && stayInfo.actualCheckOutDate) {
+      const parsedOut = new Date(stayInfo.actualCheckOutDate);
+      if (!isNaN(parsedOut.getTime())) {
+        return format(parsedOut, 'dd MMM, hh:mm a');
+      }
+    }
+
     const baseCheckIn = (stayInfo.isBackdated && stayInfo.checkInDate)
       ? new Date(stayInfo.checkInDate)
       : new Date();
@@ -471,7 +478,7 @@ const CheckIn = () => {
     expectedOutPreview.setDate(expectedOutPreview.getDate() + effDays);
     expectedOutPreview.setHours(expectedOutPreview.getHours() + hours);
     return format(expectedOutPreview, 'dd MMM, hh:mm a');
-  }, [stayInfo.isMorningCheckout, stayInfo.durationDays, stayInfo.durationHours, stayInfo.isBackdated, stayInfo.checkInDate]);
+  }, [stayInfo.isMorningCheckout, stayInfo.durationDays, stayInfo.durationHours, stayInfo.isBackdated, stayInfo.checkInDate, stayInfo.isAlreadyCheckedOut, stayInfo.actualCheckOutDate]);
 
   // =========================================================
   // IMPORTANT:
@@ -1578,9 +1585,22 @@ const CheckIn = () => {
         ? (stayInfo.actualCheckOutDate ? new Date(stayInfo.actualCheckOutDate).toISOString() : expectedOut.toISOString())
         : undefined;
 
-      const durLabel = stayInfo.isMorningCheckout 
-        ? `${Math.max(1, effDays)}d (10 AM)`
-        : (effDays > 0 && hours > 0) ? `${effDays}d ${hours}h` : effDays > 0 ? `${effDays}d (24h)` : `${hours}h`;
+      const finalExpectedOut = isPastCheckout && actualOutIso ? new Date(actualOutIso) : expectedOut;
+
+      // Duration label calculation (accurately reflect backdated checkout if set)
+      const diffMs = isPastCheckout && actualOutIso
+        ? Math.max(0, new Date(actualOutIso) - checkInDate)
+        : Math.max(0, finalExpectedOut - checkInDate);
+      const diffHrs = Math.max(1, Math.round(diffMs / (1000 * 60 * 60)));
+      const diffDays = Math.floor(diffHrs / 24);
+      const remHrs = diffHrs % 24;
+      const calculatedPastDur = diffDays > 0 ? (remHrs > 0 ? `${diffDays}d ${remHrs}h` : `${diffDays}d`) : `${diffHrs}h`;
+
+      const durLabel = isPastCheckout
+        ? calculatedPastDur
+        : (stayInfo.isMorningCheckout 
+            ? `${Math.max(1, effDays)}d (10 AM)`
+            : (effDays > 0 && hours > 0) ? `${effDays}d ${hours}h` : effDays > 0 ? `${effDays}d (24h)` : `${hours}h`);
 
       // Validate Mixed Payment if selected
       const initialPay = Number(stayInfo.paidAmount) || 0;
@@ -1635,7 +1655,7 @@ const CheckIn = () => {
 
         checkInDate: checkInDate.toISOString(),
 
-        expectedCheckOutDate: expectedOut.toISOString(),
+        expectedCheckOutDate: finalExpectedOut.toISOString(),
 
         isAlreadyCheckedOut: isPastCheckout,
 
@@ -1738,8 +1758,10 @@ const CheckIn = () => {
           groupName: resolvedGroupName,
           groupType: groupType || 'Corporate',
           checkInDate: checkInDate.toISOString(),
-          expectedCheckOutDate: expectedOut.toISOString(),
+          expectedCheckOutDate: finalExpectedOut.toISOString(),
           durationOption: durLabel,
+          isAlreadyCheckedOut: isPastCheckout,
+          actualCheckOutDate: actualOutIso,
           primaryGuest: {
             fullName: guests[0]?.fullName,
             mobileNumber: guests[0]?.mobileNumber,
@@ -2527,11 +2549,16 @@ const CheckIn = () => {
                               checked={Boolean(stayInfo.isAlreadyCheckedOut)}
                               onChange={(e) => {
                                 const checked = e.target.checked;
-                                setStayInfo(p => ({ 
-                                  ...p, 
-                                  isAlreadyCheckedOut: checked,
-                                  actualCheckOutDate: checked && !p.actualCheckOutDate ? toDateTimeLocal(new Date()) : p.actualCheckOutDate
-                                }));
+                                setStayInfo(p => {
+                                  const defaultCheckout = p.checkInDate 
+                                    ? toDateTimeLocal(new Date(new Date(p.checkInDate).getTime() + 24 * 60 * 60 * 1000))
+                                    : toDateTimeLocal(new Date());
+                                  return { 
+                                    ...p, 
+                                    isAlreadyCheckedOut: checked,
+                                    actualCheckOutDate: checked && !p.actualCheckOutDate ? defaultCheckout : p.actualCheckOutDate
+                                  };
+                                });
                               }}
                               className="w-4 h-4 text-amber-600 rounded focus:ring-0"
                             />
