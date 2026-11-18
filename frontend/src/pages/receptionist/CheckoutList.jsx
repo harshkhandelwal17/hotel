@@ -20,7 +20,9 @@ const CheckoutList = () => {
   const [selectedStayIdsForMerge, setSelectedStayIdsForMerge] = useState([]);
   const [showMergedModal, setShowMergedModal] = useState(false);
   const [checkoutSuccessToast, setCheckoutSuccessToast] = useState(null);
-  const [filter, setFilter] = useState('all'); // 'all', 'overdue', 'today', 'active'
+  const [filter, setFilter] = useState('all'); // 'all', 'overdue', 'today', 'history'
+  const [historyStays, setHistoryStays] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [search, setSearch] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
   const { globalProperty } = useOutletContext() || { globalProperty: 'all' };
@@ -81,6 +83,31 @@ const CheckoutList = () => {
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   };
+
+  async function fetchHistoryStays(forceSpinner = false) {
+    const cacheKey = `stays_history_${globalProperty}`;
+    const cached = apiCache.get(cacheKey);
+    if (cached && !forceSpinner) {
+      setHistoryStays(cached);
+      setLoadingHistory(false);
+    } else {
+      setLoadingHistory(true);
+    }
+    try {
+      const propQuery = globalProperty !== 'all' ? `&hostel=${globalProperty}` : '';
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/stays?status=Checked Out${propQuery}`);
+      const checkedOut = res.data.data || [];
+      apiCache.set(cacheKey, checkedOut);
+      setHistoryStays(checkedOut);
+    } catch (err) { console.error(err); }
+    finally { setLoadingHistory(false); }
+  }
+
+  useEffect(() => {
+    if (filter === 'history') {
+      fetchHistoryStays();
+    }
+  }, [filter, globalProperty]);
 
 
   const downloadCSV = () => {
@@ -191,9 +218,10 @@ const CheckoutList = () => {
       {/* Filter Tabs */}
       <div className="flex flex-wrap gap-1.5 sm:gap-2">
         {[
-          { key: 'all', label: `${t('common.all', 'All')} (${stays.length})` },
+          { key: 'all', label: `${t('common.all', 'All Active')} (${stays.length})` },
           { key: 'overdue', label: `${t('common.overdue', 'Overdue')} (${overdueCt})`, warn: overdueCt > 0 },
           { key: 'today', label: `${t('common.dueToday', 'Checkout Today')} (${todayCt})`, warn: todayCt > 0 },
+          { key: 'history', label: `📜 ${isHindi ? 'चेकआउट इतिहास' : 'Checked Out History'} (${historyStays.length})` }
         ].map(tab => (
           <button
             key={tab.key}
@@ -213,7 +241,118 @@ const CheckoutList = () => {
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
-        {filteredStays.length === 0 ? (
+        {filter === 'history' ? (
+          loadingHistory ? (
+            <div className="p-12 flex justify-center items-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900"></div>
+            </div>
+          ) : historyStays.filter(s => {
+            const term = search.toLowerCase();
+            return !search ||
+              s.guest?.fullName?.toLowerCase().includes(term) ||
+              s.guest?.mobileNumber?.includes(term) ||
+              s.room?.roomNumber?.toLowerCase().includes(term) ||
+              s.groupName?.toLowerCase().includes(term);
+          }).length === 0 ? (
+            <div className="p-12 text-center">
+              <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-gray-50 text-gray-400 mb-3">
+                <Users size={28} />
+              </div>
+              <h3 className="text-base font-bold text-gray-900">No checkout history found</h3>
+              <p className="text-sm text-gray-500 mt-1">Past completed stays will appear here.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-50">
+              {historyStays
+                .filter(s => {
+                  const term = search.toLowerCase();
+                  return !search ||
+                    s.guest?.fullName?.toLowerCase().includes(term) ||
+                    s.guest?.mobileNumber?.includes(term) ||
+                    s.room?.roomNumber?.toLowerCase().includes(term) ||
+                    s.groupName?.toLowerCase().includes(term);
+                })
+                .map(stay => {
+                  const outDate = stay.actualCheckOutDate || stay.expectedCheckOutDate;
+                  const formattedOut = outDate ? format(new Date(outDate), 'dd MMM yyyy, hh:mm a') : 'Completed';
+                  return (
+                    <div
+                      key={stay._id}
+                      className="p-5 hover:bg-gray-50/60 transition-colors cursor-pointer"
+                      onClick={() => setManagedStay(stay)}
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex items-center space-x-3.5">
+                          <div className="h-10 w-10 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-sm shrink-0 border border-emerald-200">
+                            ✓
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="text-base font-bold text-gray-900">{stay.guest?.fullName || 'Guest'}</h4>
+                              {stay.isGroupStay && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-purple-100 text-purple-800 border border-purple-200">
+                                  🏢 {stay.groupName || 'Group'}
+                                </span>
+                              )}
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border bg-slate-100 text-slate-700 border-slate-200">
+                                Checked Out
+                              </span>
+                            </div>
+                            <div className="flex items-center space-x-2 text-xs text-gray-500 mt-1 font-medium">
+                              <span>📞 {stay.guest?.mobileNumber}</span>
+                              <span>&bull;</span>
+                              <span className="text-indigo-600 font-bold">Room {stay.room?.roomNumber}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto mt-2 sm:mt-0 border-t sm:border-0 border-gray-100 pt-3 sm:pt-0 gap-4">
+                          <div className="text-left sm:text-right">
+                            <div className="flex items-center text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+                              <Clock size={12} className="mr-1" />
+                              Checked Out At
+                            </div>
+                            <div className="text-sm font-bold text-gray-900">
+                              {formattedOut}
+                            </div>
+                          </div>
+
+                          <div className="hidden sm:block text-right ml-2">
+                            <div className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">Total Bill</div>
+                            <div className="text-sm font-bold text-emerald-700">
+                              ₹{stay.totalAmount} <span className="text-slate-400 font-normal">• Paid</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => printInvoice(stay, stay.payments || [])}
+                              className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl border border-slate-200 transition-colors"
+                              title="Print Invoice"
+                            >
+                              <Printer size={15} />
+                            </button>
+                            {stay.guest?.mobileNumber && (
+                              <a
+                                href={getStayWhatsAppUrl(stay, 'bill')}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="p-2 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-xl border border-emerald-200 transition-colors"
+                                title="WhatsApp Bill"
+                              >
+                                <MessageSquare size={15} />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          )
+        ) : filteredStays.length === 0 ? (
           <div className="p-12 text-center">
             <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-gray-50 text-gray-400 mb-3">
               <Users size={28} />
