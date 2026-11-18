@@ -26,6 +26,47 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
   const [showTaxOptions, setShowTaxOptions] = useState(false);
   const [showMergedModal, setShowMergedModal] = useState(false);
   const [activeStaysList, setActiveStaysList] = useState([]);
+  const [savingTax, setSavingTax] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  const saveGstDetailsToStay = async () => {
+    try {
+      setSavingTax(true);
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      const cleanGstin = guestGstin.trim().toUpperCase();
+      const cleanCompany = guestCompany.trim();
+      const cleanAddress = billingAddress.trim();
+      const currentRate = Number(gstRate) || 0;
+      const type = !gstEnabled || currentRate === 0 ? 'none' : (taxInclusive ? 'inclusive' : 'exclusive');
+
+      const payload = {
+        gstApplied: gstEnabled && currentRate > 0,
+        gstRate: currentRate,
+        gstType: type,
+        taxAmount: inv.taxAmount || 0,
+        companyName: cleanCompany,
+        gstin: cleanGstin,
+        billingAddress: cleanAddress
+      };
+
+      await axios.put(`${API}/api/stays/${stay._id}`, payload);
+      // Mutate local stay object in place so callers receive updated values
+      stay.gstApplied = payload.gstApplied;
+      stay.gstRate = payload.gstRate;
+      stay.gstType = payload.gstType;
+      stay.taxAmount = payload.taxAmount;
+      stay.companyName = payload.companyName;
+      stay.gstin = payload.gstin;
+      stay.billingAddress = payload.billingAddress;
+
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2500);
+    } catch (err) {
+      console.error('Failed to sync GST details to stay:', err);
+    } finally {
+      setSavingTax(false);
+    }
+  };
 
   const handleOpenMergedModal = async () => {
     setShowMergedModal(true);
@@ -62,6 +103,7 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
   const waUrl = getStayWhatsAppUrl(stay, 'bill');
 
   const handlePrint = () => {
+    saveGstDetailsToStay();
     printInvoice(stay, payments, invOptions);
   };
 
@@ -216,6 +258,24 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
                   className="w-full px-3 py-1.5 bg-white border border-gray-300 rounded-lg font-bold text-emerald-800 outline-none focus:ring-2 focus:ring-black text-xs"
                 />
               </div>
+            </div>
+
+            <div className="flex justify-between items-center pt-2.5 border-t border-amber-200/60">
+              <span className="text-[11px] text-gray-500 font-medium">
+                Changes made here (GST Rate, Pricing Style, Company GSTIN) will be permanently saved to this folio and will appear in the GST Tax Ledger.
+              </span>
+              <button
+                type="button"
+                onClick={saveGstDetailsToStay}
+                disabled={savingTax}
+                className={`px-4 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer ${
+                  saveSuccess 
+                    ? 'bg-emerald-600 text-white' 
+                    : 'bg-black hover:bg-gray-800 text-white'
+                }`}
+              >
+                {savingTax ? 'Saving...' : saveSuccess ? '✓ Saved to Folio!' : '💾 Save Rates & Corporate Details'}
+              </button>
             </div>
           </div>
         )}

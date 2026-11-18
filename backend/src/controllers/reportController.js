@@ -196,8 +196,8 @@ exports.getGstReport = async (req, res, next) => {
       const hostel = stay.hostel || {};
       const guest = stay.guest || {};
 
-      const gstApplied = stay.gstApplied || Boolean(stay.taxAmount > 0) || Boolean(stay.gstRate > 0) || Boolean(hostel.gstEnabled);
-      if (!gstApplied && !req.query.includeAll) {
+      const isGstBill = stay.gstApplied === true || (stay.gstApplied === undefined && (Boolean(stay.taxAmount > 0) || Boolean(stay.gstRate > 0)));
+      if (!isGstBill && !req.query.includeAll) {
         continue; // Only include GST registered folios in GST tax ledger by default
       }
 

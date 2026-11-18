@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { format } from 'date-fns';
+import axios from 'axios';
 import { 
   X, Printer, Share2, FileText, CheckCircle2, 
   Building2, Percent, AlertCircle, Plus, Trash2, 
@@ -139,8 +140,43 @@ export default function MergedCorporateInvoiceModal({
     }
   }, [selectedStays, invoiceOptions]);
 
+  const syncCorporateToStays = async () => {
+    try {
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      const cleanCompany = guestCompany.trim();
+      const cleanGstin = guestGstin.trim().toUpperCase();
+      const cleanAddress = billingAddress.trim();
+      const currentRate = Number(gstRate) || 0;
+      const type = !gstEnabled || currentRate === 0 ? 'none' : (taxInclusive ? 'inclusive' : 'exclusive');
+
+      const promises = selectedStays.map(s => {
+        const payload = {
+          companyName: cleanCompany,
+          gstin: cleanGstin,
+          billingAddress: cleanAddress,
+          gstApplied: gstEnabled && currentRate > 0,
+          gstRate: currentRate,
+          gstType: type
+        };
+        s.companyName = cleanCompany;
+        s.gstin = cleanGstin;
+        s.billingAddress = cleanAddress;
+        s.gstApplied = payload.gstApplied;
+        s.gstRate = currentRate;
+        s.gstType = type;
+        return axios.put(`${API}/api/stays/${s._id}`, payload).catch(() => {});
+      });
+
+      await Promise.all(promises);
+      if (onStayUpdated) onStayUpdated();
+    } catch (e) {
+      console.error('Failed to sync merged corporate details to stays:', e);
+    }
+  };
+
   const handlePrint = () => {
     if (selectedStays.length === 0) return;
+    syncCorporateToStays();
     printMergedInvoice(selectedStays, [], invoiceOptions);
   };
 

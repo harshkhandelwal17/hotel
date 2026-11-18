@@ -4,7 +4,7 @@ const Stay = require('../models/Stay');
 
 exports.createRoom = async (req, res, next) => {
   try {
-    const { roomNumber, hostel, floor, capacity, roomType, price12h, price24h, extraPerPerson12h, extraPerPerson24h, customRates } = req.body;
+    const { roomNumber, hostel, floor, capacity, roomType, price12h, price24h, extraPerPerson12h, extraPerPerson24h, customRates, gstRate } = req.body;
     
     const Hostel = require('../models/Hostel');
     const targetHostel = await Hostel.findById(hostel);
@@ -36,7 +36,8 @@ exports.createRoom = async (req, res, next) => {
       price24h: Number(price24h) || 0,
       extraPerPerson12h: Number(extraPerPerson12h) || 0,
       extraPerPerson24h: Number(extraPerPerson24h) || 0,
-      customRates: customRates || []
+      customRates: customRates || [],
+      gstRate: (gstRate !== undefined && gstRate !== '' && gstRate !== null) ? Number(gstRate) : null
     });
     
     // Create beds automatically based on capacity

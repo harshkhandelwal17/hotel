@@ -45,6 +45,11 @@ const roomSchema = new mongoose.Schema({
     hours: { type: Number, required: true },
     price: { type: Number, required: true }
   }],
+  // Default GST Rate override for this room (e.g. 5, 12, 18, 0). If null/undefined, inherits property default
+  gstRate: {
+    type: Number,
+    default: null
+  },
   status: {
     type: String,
     enum: ['Active', 'Maintenance', 'Inactive'],

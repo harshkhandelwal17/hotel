@@ -589,8 +589,8 @@ const Reports = () => {
       const hId = stay.hostel?._id || stay.hostel;
       const hostel = (hostels || []).find(h => (h._id === hId || h === hId)) || stay.hostel || {};
 
-      const gstApplied = stay.gstApplied || Boolean(stay.taxAmount > 0) || Boolean(stay.gstRate > 0) || Boolean(hostel.gstEnabled);
-      if (!gstApplied) return;
+      const isGstBill = stay.gstApplied === true || (stay.gstApplied === undefined && (Boolean(stay.taxAmount > 0) || Boolean(stay.gstRate > 0)));
+      if (!isGstBill) return;
 
       const companyName = (stay.companyName || stay.guest?.companyName || '').trim();
       const gstin = (stay.gstin || stay.guest?.gstin || '').trim().toUpperCase();

@@ -4,7 +4,7 @@ import axios from 'axios';
 import { Bed, Plus, X, Users, Clock, Building, Sparkles } from 'lucide-react';
 
 const emptyForm = {
-  roomNumber: '', hostel: '', floor: '', roomType: 'Standard Double', 
+  roomNumber: '', hostel: '', floor: '', roomType: 'Standard Double', gstRate: '',
 };
 
 const ManageRooms = () => {
@@ -80,7 +80,7 @@ const ManageRooms = () => {
       hostel: room.hostel?._id || room.hostel || '',
       floor: room.floor || '',
       roomType: room.roomType || 'Standard Double',
-      
+      gstRate: (room.gstRate !== undefined && room.gstRate !== null) ? room.gstRate : ''
     });
     setIsModalOpen(true);
   };
@@ -100,10 +100,14 @@ const ManageRooms = () => {
     setFormError('');
     setSaving(true);
     try {
+      const payload = {
+        ...formData,
+        gstRate: formData.gstRate === '' ? null : Number(formData.gstRate)
+      };
       if (editingId) {
-        await axios.put(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/rooms/${editingId}`, formData);
+        await axios.put(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/rooms/${editingId}`, payload);
       } else {
-        await axios.post((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/rooms', formData);
+        await axios.post((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/rooms', payload);
       }
       closeModal();
       fetchData();
@@ -141,7 +145,19 @@ const ManageRooms = () => {
           <div key={room._id} className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden hover:border-slate-300 transition-all flex flex-col justify-between">
             <div className="bg-slate-50/80 px-4 py-3.5 border-b border-slate-100 flex justify-between items-center">
               <div>
-                <h3 className="font-black text-slate-900 text-base">Room {room.roomNumber}</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-black text-slate-900 text-base">Room {room.roomNumber}</h3>
+                  {room.gstRate !== undefined && room.gstRate !== null && (
+                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${
+                      room.gstRate >= 18 ? 'bg-purple-100 text-purple-800 border border-purple-200' :
+                      room.gstRate === 12 ? 'bg-blue-100 text-blue-800 border border-blue-200' :
+                      room.gstRate === 5 ? 'bg-amber-100 text-amber-800 border border-amber-200' :
+                      'bg-gray-100 text-gray-700'
+                    }`}>
+                      {room.gstRate}% GST
+                    </span>
+                  )}
+                </div>
                 <p className="text-[11px] font-bold text-indigo-700 mt-0.5">{room.roomType || 'Standard Double'}</p>
               </div>
               <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${room.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
@@ -268,6 +284,29 @@ const ManageRooms = () => {
                     <input type="text" required className="w-full px-3 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none text-sm font-medium"
                       placeholder="1st" value={formData.floor} onChange={e => set('floor', e.target.value)} />
                   </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide">
+                      Default GST Tax Slab (Optional Room Override)
+                    </label>
+                    <span className="text-[10px] text-gray-400 font-semibold">5%, 12%, 18% or Hotel Default</span>
+                  </div>
+                  <select 
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none text-sm font-medium"
+                    value={formData.gstRate} 
+                    onChange={e => set('gstRate', e.target.value)}
+                  >
+                    <option value="">🏢 Use Hotel Property Default Setting</option>
+                    <option value="5">5% — Budget / Non-AC / Services</option>
+                    <option value="12">12% — Standard Hotel Room (&lt; ₹7,500)</option>
+                    <option value="18">18% — Luxury Room / Suite (&ge; ₹7,500)</option>
+                    <option value="0">0% — Tax Exempt / Non-GST Room</option>
+                  </select>
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    When checking in a guest for this room, this rate will be auto-selected (receptionist can still change it on runtime).
+                  </p>
                 </div>
               </div>
               <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5 bg-gray-50 border-t border-gray-100 flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3 rounded-b-none sm:rounded-b-2xl shrink-0">
