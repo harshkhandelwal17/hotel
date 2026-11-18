@@ -597,7 +597,7 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
 
     @page {
       size: A4 portrait;
-      margin: 8mm 10mm;
+      margin: 8mm 12mm;
     }
 
     @media print {
@@ -607,6 +607,7 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
         color-adjust: exact !important;
       }
       html, body {
+        height: 100% !important;
         background: #ffffff !important;
         margin: 0 !important;
         padding: 0 !important;
@@ -617,24 +618,29 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
       }
       .no-print-bar { display: none !important; }
       .invoice-card {
+        box-sizing: border-box !important;
         box-shadow: none !important;
         border: none !important;
         padding: 0 !important;
         margin: 0 !important;
         max-width: 100% !important;
         width: 100% !important;
-        min-height: auto !important;
-        display: block !important;
+        min-height: 272mm !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
       }
       .invoice-content-top {
+        flex: 1 0 auto !important;
         display: block !important;
       }
       .invoice-footer-wrap {
+        flex-shrink: 0 !important;
+        margin-top: auto !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
-        margin-top: 8px !important;
       }
       .header {
         padding-bottom: 8px !important;
@@ -723,10 +729,10 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
         border-bottom: 2px solid #0f172a !important;
       }
       .footer {
-        margin-top: 8px !important;
-        padding-top: 6px !important;
-        gap: 10px !important;
-        border-top: 1.5px solid #e2e8f0 !important;
+        margin-top: 14px !important;
+        padding-top: 10px !important;
+        gap: 16px !important;
+        border-top: 1.5px solid #0f172a !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
       }
@@ -752,8 +758,10 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
       }
       .thankyou {
         margin-top: 12px !important;
-        padding-top: 6px !important;
-        font-size: 10.5px !important;
+        padding-top: 8px !important;
+        font-size: 11px !important;
+        border-top: 1px dashed #cbd5e1 !important;
+        color: #475569 !important;
       }
       .badge-gst, .badge-nongst, .status-stamp, .stamp-paid, .stamp-due {
         -webkit-print-color-adjust: exact !important;
@@ -1729,7 +1737,7 @@ export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {
 
     @page {
       size: A4 portrait;
-      margin: 8mm 10mm;
+      margin: 8mm 12mm;
     }
 
     @media print {
@@ -1739,6 +1747,7 @@ export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {
         color-adjust: exact !important;
       }
       html, body {
+        height: 100% !important;
         background: #ffffff !important;
         margin: 0 !important;
         padding: 0 !important;
@@ -1749,24 +1758,29 @@ export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {
       }
       .no-print-bar { display: none !important; }
       .invoice-card {
+        box-sizing: border-box !important;
         box-shadow: none !important;
         border: none !important;
         padding: 0 !important;
         margin: 0 !important;
         max-width: 100% !important;
         width: 100% !important;
-        min-height: auto !important;
-        display: block !important;
+        min-height: 272mm !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
       }
       .invoice-content-top {
+        flex: 1 0 auto !important;
         display: block !important;
       }
       .invoice-footer-wrap {
+        flex-shrink: 0 !important;
+        margin-top: auto !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
-        margin-top: 8px !important;
       }
       .header {
         padding-bottom: 8px !important;
@@ -1855,10 +1869,10 @@ export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {
         border-bottom: 2px solid #0f172a !important;
       }
       .footer {
-        margin-top: 8px !important;
-        padding-top: 6px !important;
-        gap: 10px !important;
-        border-top: 1.5px solid #e2e8f0 !important;
+        margin-top: 14px !important;
+        padding-top: 10px !important;
+        gap: 16px !important;
+        border-top: 1.5px solid #0f172a !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
       }
@@ -1884,8 +1898,10 @@ export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {
       }
       .thankyou {
         margin-top: 12px !important;
-        padding-top: 6px !important;
-        font-size: 10.5px !important;
+        padding-top: 8px !important;
+        font-size: 11px !important;
+        border-top: 1px dashed #cbd5e1 !important;
+        color: #475569 !important;
       }
       .badge-gst, .badge-nongst, .badge-interstate, .status-stamp, .stamp-paid, .stamp-due {
         -webkit-print-color-adjust: exact !important;
