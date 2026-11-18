@@ -1626,7 +1626,7 @@ export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {
       font-weight: 800;
     }
     .due-row td {
-      color: #b91c1c;
+      color: ${inv.balance > 0 ? '#b91c1c' : '#047857'} !important;
       font-weight: 900;
       font-size: 13.5px;
     }
