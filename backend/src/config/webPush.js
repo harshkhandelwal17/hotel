@@ -32,17 +32,13 @@ const sendWebPushToUsers = async (userIds, payload = {}) => {
 
     if (!users || users.length === 0) return;
 
-    const notifTag = payload.tag ? `${payload.tag}-${Date.now()}` : `nx-${Date.now()}`;
     const stringifiedPayload = JSON.stringify({
       title: payload.title || '🛎️ New Hotel Alert',
       body: payload.body || 'A new guest activity occurred.',
       icon: payload.icon || '/logo-192.png',
       badge: payload.badge || '/logo-192.png',
-      tag: notifTag,
-      vibrate: payload.vibrate || [300, 100, 300, 100, 300],
-      silent: false,
-      requireInteraction: true,
-      timestamp: Date.now(),
+      tag: payload.tag || 'nx-checkin',
+      vibrate: payload.vibrate || [250, 100, 250, 100, 250],
       data: payload.data || { url: '/checkouts' }
     });
 
@@ -66,17 +62,12 @@ const sendWebPushToUsers = async (userIds, payload = {}) => {
 
         pushPromises.push(
           webpush.sendNotification(pushSub, stringifiedPayload, {
-            TTL: 60 * 60 * 24, // 24 hours
-            urgency: 'high',
-            headers: {
-              Urgency: 'high'
-            }
+            TTL: 60 * 60 * 24 // 24 hours
           }).catch(err => {
+            console.warn('[WebPush] Delivery warning:', err.statusCode || err.message);
             // 410 Gone or 404 Not Found means the device unregistered the push subscription
             if (err.statusCode === 410 || err.statusCode === 404) {
               deadSubscriptions.push({ userId: u._id, endpoint: sub.endpoint });
-            } else {
-              console.warn('[WebPush] Error delivering push to endpoint:', err.message || err);
             }
           })
         );

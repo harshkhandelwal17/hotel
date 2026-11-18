@@ -18,23 +18,20 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Handle incoming Web Push notifications (Heads-Up Banner on Android & Desktop)
+// Handle incoming Web Push notifications (works even when browser/PWA is completely closed)
 self.addEventListener('push', (event) => {
   if (!event.data) return;
   try {
     const data = event.data.json();
     const title = data.title || '🛎️ New Hotel Check-In!';
-    const notifTag = data.tag || `nx-${Date.now()}`;
     const options = {
       body: data.body || 'A guest has checked in.',
       icon: data.icon || '/logo-192.png',
       badge: data.badge || '/logo-192.png',
-      vibrate: data.vibrate || [300, 100, 300, 100, 300],
-      tag: notifTag,
+      vibrate: data.vibrate || [250, 100, 250, 100, 250],
+      tag: data.tag || 'nx-checkin',
       renotify: true,
-      silent: false,
-      requireInteraction: true,
-      timestamp: data.timestamp || Date.now(),
+      requireInteraction: false,
       data: data.data || { url: '/checkouts' },
       actions: [
         { action: 'open', title: '👁️ View Stays' }

@@ -175,18 +175,15 @@ export const triggerDeviceNotification = async ({
     } catch (e) {}
   }
 
-  const notifTag = `${tag}-${Date.now()}`;
   const options = {
     body,
     icon,
     badge: icon,
-    tag: notifTag,
+    tag,
     renotify: true,
-    silent: false,
-    requireInteraction: true,
-    timestamp: Date.now(),
+    requireInteraction: false,
     data,
-    vibrate: [300, 100, 300, 100, 300]
+    vibrate: [250, 100, 250, 100, 250]
   };
 
   // Try Service Worker registration first (Required for Android Mobile PWA)
