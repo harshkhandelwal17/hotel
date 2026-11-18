@@ -9,6 +9,7 @@ import DynamicUpiQr from '../../components/DynamicUpiQr';
 import PaymentMethodSelector, { validateSplitPayment, buildSplitPayments } from '../../components/common/PaymentMethodSelector';
 import { apiCache } from '../../utils/apiCache';
 import { COMPANY_SUPPORT } from '../../config/support';
+import { getStayWhatsAppUrl } from '../../utils/whatsapp';
 
 const CheckoutModal = ({ stay, onClose, onSuccess }) => {
   const [chargesList, setChargesList] = useState([]);
@@ -160,7 +161,7 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
               </button>
               {stay.guest?.mobileNumber && (
                 <a
-                  href={`https://wa.me/${stay.guest.mobileNumber.replace(/\D/g, '')}?text=${encodeURIComponent(`Dear ${stay.guest.fullName},\nYour checkout for Room ${stay.room?.roomNumber} at ${stay.hostel?.name || 'Hotel'} is confirmed.\n\nTotal: Rs ${completedStay?.totalAmount || stay.totalAmount}\nPaid: Rs ${completedStay?.paidAmount || stay.paidAmount}\n\nThank you for staying with us! Visit again.`)}`}
+                  href={getStayWhatsAppUrl(completedStay || stay, 'bill') || `https://wa.me/${stay.guest.mobileNumber.replace(/\D/g, '')}`}
                   target="_blank"
                   rel="noreferrer"
                   className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 text-center"

@@ -70,7 +70,7 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
 
-      const tabKeys = ['bill', 'charge', 'pay', 'shift', 'extend', 'edit'];
+      const tabKeys = TABS.map(t => t.key);
       const keyNum = parseInt(e.key, 10);
       if (!isNaN(keyNum) && keyNum >= 1 && keyNum <= tabKeys.length) {
         e.preventDefault();
@@ -1248,40 +1248,40 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
         </div>
 
         {/* Footer actions - Contextual per Active Tab */}
-        <div className="px-4 sm:px-6 py-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] sm:py-4 bg-gray-50 border-t border-gray-100 flex gap-2.5 sm:gap-3 shrink-0 items-center justify-between">
+        <div className="px-4 sm:px-6 py-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] sm:py-4 bg-gray-50 border-t border-gray-100 flex flex-wrap sm:flex-nowrap gap-2 sm:gap-3 shrink-0 items-center justify-between">
           {tab === 'bill' && (
             <>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
                 <button 
                   type="button"
                   onClick={() => setIsInvoiceModalOpen(true)}
-                  className="flex items-center justify-center gap-1.5 sm:gap-2 px-4 py-2.5 sm:py-3 bg-black text-white rounded-xl text-xs sm:text-sm font-bold hover:bg-gray-800 active:scale-95 transition-all shadow-sm"
+                  className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 bg-black text-white rounded-xl text-xs sm:text-sm font-bold hover:bg-gray-800 active:scale-95 transition-all shadow-sm"
                 >
-                  <Eye size={16} /> View & Print Bill
+                  <Eye size={15} /> View & Print Bill
                 </button>
                 <button 
                   type="button"
                   onClick={() => setShowGrcModal(true)}
-                  className="flex items-center justify-center gap-1.5 sm:gap-2 px-3.5 py-2.5 sm:py-3 bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 rounded-xl text-xs sm:text-sm font-black active:scale-95 transition-all shadow-2xs"
+                  className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-2 sm:py-2.5 bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 rounded-xl text-xs sm:text-sm font-black active:scale-95 transition-all shadow-2xs"
                   title="Print Guest Registration Card (GRC)"
                 >
-                  <FileText size={16} /> Print GRC
+                  <FileText size={15} /> GRC
                 </button>
                 <button 
                   type="button"
                   onClick={() => printInvoice(stay, payments)}
-                  className="hidden sm:flex items-center justify-center gap-1.5 sm:gap-2 px-3.5 py-2.5 sm:py-3 bg-white border border-gray-200 rounded-xl text-xs sm:text-sm font-bold text-gray-700 hover:bg-gray-100 active:scale-95 transition-all shadow-xs"
+                  className="hidden md:flex items-center justify-center gap-1.5 sm:gap-2 px-3.5 py-2 sm:py-2.5 bg-white border border-gray-200 rounded-xl text-xs sm:text-sm font-bold text-gray-700 hover:bg-gray-100 active:scale-95 transition-all shadow-xs"
                 >
-                  <Printer size={16} /> Quick Print
+                  <Printer size={15} /> Quick Print
                 </button>
               </div>
               {isOpen && (
                 <button 
                   type="button"
                   onClick={() => onCheckout(stay)}
-                  className="flex-1 sm:flex-initial sm:min-w-44 flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 px-6 bg-red-600 text-white rounded-xl text-xs sm:text-sm font-black uppercase tracking-wide hover:bg-red-700 active:scale-95 shadow-md transition-all ml-auto"
+                  className="w-full sm:w-auto sm:min-w-44 flex items-center justify-center gap-1.5 sm:gap-2 py-2 sm:py-2.5 px-5 bg-red-600 text-white rounded-xl text-xs sm:text-sm font-black uppercase tracking-wide hover:bg-red-700 active:scale-95 shadow-md transition-all sm:ml-auto"
                 >
-                  <LogOut size={16} /> Checkout Guest
+                  <LogOut size={15} /> Checkout Guest
                 </button>
               )}
             </>

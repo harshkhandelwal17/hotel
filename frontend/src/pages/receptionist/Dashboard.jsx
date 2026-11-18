@@ -462,7 +462,7 @@ const ReceptionistDashboard = () => {
 
         {/* 6. Net Cash in Drawer */}
         <Link 
-          to="/reports" 
+          to={user?.role === 'admin' ? '/admin/reports' : '/payments'} 
           className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-200/80 shadow-2xs flex flex-col justify-between hover:border-emerald-300 transition-all group cursor-pointer"
         >
           <div>

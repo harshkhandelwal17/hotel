@@ -2626,8 +2626,8 @@ const CheckIn = () => {
                     </div>
                   )}
 
-                  {/* RUNTIME GST TAX SLAB & BILLING MODE SELECTOR (Only shown if property has GST enabled, or if GST is active) */}
-                  {Boolean(currentHostel?.gstEnabled) || (stayInfo.gstType !== 'none' && Number(stayInfo.gstRate) > 0) ? (
+                  {/* RUNTIME GST TAX SLAB & BILLING MODE SELECTOR (Only shown if property has GST enabled in Properties settings) */}
+                  {Boolean(currentHostel?.gstEnabled) && (
                     <div className="pt-2 border-t border-gray-800/60 space-y-2">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
@@ -2730,33 +2730,6 @@ const CheckIn = () => {
                           )}
                         </div>
                       )}
-
-                      {/* If Non-GST property but receptionist enabled GST for this guest, give a clear revert button */}
-                      {!Boolean(currentHostel?.gstEnabled) && (
-                        <div className="flex justify-end pt-0.5">
-                          <button
-                            type="button"
-                            onClick={() => handleSelectGstRate(0)}
-                            className="text-[10px] text-rose-400 hover:text-rose-300 underline font-semibold cursor-pointer"
-                          >
-                            ✕ Revert to Non-GST Property Default
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="pt-2 border-t border-gray-800/60 flex items-center justify-between text-[11px] text-gray-400">
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-gray-500"></span>
-                        <span>Property Billing: <strong className="text-gray-300">Non-GST Flat Tariff</strong></span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleSelectGstRate(12)}
-                        className="text-[11px] font-bold text-blue-400 hover:text-blue-300 underline cursor-pointer"
-                      >
-                        + Add GST to this bill
-                      </button>
                     </div>
                   )}
                 </div>
