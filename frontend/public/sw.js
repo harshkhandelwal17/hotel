@@ -21,26 +21,41 @@ self.addEventListener('activate', (event) => {
 // Handle incoming Web Push notifications (works even when browser/PWA is completely closed)
 self.addEventListener('push', (event) => {
   if (!event.data) return;
+  let data = {};
   try {
-    const data = event.data.json();
-    const title = data.title || '🛎️ New Hotel Check-In!';
-    const options = {
-      body: data.body || 'A guest has checked in.',
-      icon: data.icon || '/logo-192.png',
-      badge: data.badge || '/logo-192.png',
-      vibrate: data.vibrate || [250, 100, 250, 100, 250],
-      tag: data.tag || 'nx-checkin',
-      renotify: true,
-      requireInteraction: false,
-      data: data.data || { url: '/checkouts' },
-      actions: [
-        { action: 'open', title: '👁️ View Stays' }
-      ]
-    };
-    event.waitUntil(self.registration.showNotification(title, options));
-  } catch (err) {
-    console.error('[SW] Push parse error:', err);
+    data = event.data.json();
+  } catch (e) {
+    try {
+      data = { body: event.data.text() };
+    } catch (e2) {
+      data = {};
+    }
   }
+
+  const title = data.title || '🛎️ New Hotel Check-In!';
+  const baseOptions = {
+    body: data.body || 'A guest activity occurred.',
+    icon: data.icon || '/logo-192.png',
+    badge: data.badge || '/logo-192.png',
+    vibrate: data.vibrate || [250, 100, 250, 100, 250],
+    tag: data.tag || 'nx-checkin',
+    renotify: true,
+    data: data.data || { url: '/checkouts' }
+  };
+
+  const optionsWithActions = {
+    ...baseOptions,
+    actions: [
+      { action: 'open', title: '👁️ View' }
+    ]
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(title, optionsWithActions).catch(() => {
+      // Robust fallback without actions in case OS / Android WebView rejects actions
+      return self.registration.showNotification(title, baseOptions);
+    })
+  );
 });
 
 // Handle notification click on Mobile Phone / Desktop

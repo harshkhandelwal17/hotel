@@ -203,6 +203,14 @@ exports.createStay = async (req, res, next) => {
       if (req.user?.role === 'admin') recipientIds.add(req.user._id.toString());
       if (recipientIds.size === 0 && req.user?._id) recipientIds.add(req.user._id.toString());
 
+      // Also notify all active superadmins
+      const superAdmins = await User.find({ role: 'superadmin', isActive: true }, '_id').lean();
+      superAdmins.forEach(sa => recipientIds.add(sa._id.toString()));
+
+      // Also notify any staff/receptionist assigned to this hostel
+      const assignedStaff = await User.find({ assignedHostel: stay.hostel, isActive: true }, '_id').lean();
+      assignedStaff.forEach(st => recipientIds.add(st._id.toString()));
+
       const rNum = roomDoc?.roomNumber || 'Room';
       const gName = (guestDoc?.fullName || 'Guest').trim();
       const hName = hostelDoc?.name || 'Hotel';
@@ -610,6 +618,14 @@ exports.checkout = async (req, res, next) => {
       if (hostelDoc?.createdBy) recipientIds.add(hostelDoc.createdBy.toString());
       if (req.user?.role === 'admin') recipientIds.add(req.user._id.toString());
       if (recipientIds.size === 0 && req.user?._id) recipientIds.add(req.user._id.toString());
+
+      // Also notify all active superadmins
+      const superAdmins = await User.find({ role: 'superadmin', isActive: true }, '_id').lean();
+      superAdmins.forEach(sa => recipientIds.add(sa._id.toString()));
+
+      // Also notify any staff/receptionist assigned to this hostel
+      const assignedStaff = await User.find({ assignedHostel: stay.hostel, isActive: true }, '_id').lean();
+      assignedStaff.forEach(st => recipientIds.add(st._id.toString()));
 
       const rNum = populated?.room?.roomNumber || 'Room';
       const gName = (populated?.guest?.fullName || 'Guest').trim();

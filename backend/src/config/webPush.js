@@ -30,7 +30,10 @@ const sendWebPushToUsers = async (userIds, payload = {}) => {
       'pushSubscriptions'
     ).lean();
 
-    if (!users || users.length === 0) return;
+    if (!users || users.length === 0) {
+      console.log('[WebPush] No registered push subscriptions found for recipient IDs:', ids);
+      return;
+    }
 
     const stringifiedPayload = JSON.stringify({
       title: payload.title || '🛎️ New Hotel Alert',
@@ -63,6 +66,8 @@ const sendWebPushToUsers = async (userIds, payload = {}) => {
         pushPromises.push(
           webpush.sendNotification(pushSub, stringifiedPayload, {
             TTL: 60 * 60 * 24 // 24 hours
+          }).then(res => {
+            console.log(`[WebPush] Push successfully delivered to device endpoint (status ${res?.statusCode || 201})`);
           }).catch(err => {
             console.warn('[WebPush] Delivery warning:', err.statusCode || err.message);
             // 410 Gone or 404 Not Found means the device unregistered the push subscription
@@ -74,6 +79,7 @@ const sendWebPushToUsers = async (userIds, payload = {}) => {
       }
     }
 
+    console.log(`[WebPush] Dispatched push to ${pushPromises.length} registered device(s)`);
     await Promise.allSettled(pushPromises);
 
     // Clean up expired or revoked device subscriptions

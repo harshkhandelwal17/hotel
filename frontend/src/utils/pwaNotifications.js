@@ -9,6 +9,14 @@ import axios from 'axios';
 
 const FALLBACK_VAPID_PUBLIC_KEY = 'BEK9DSUVyrW8v58zqDy5fU9epKxAHBeJXzi9WqTx6B9vgz_59T7xcdmvcXeEjIj3x23nVXEFi3qRejAGpMAUsDA';
 
+const getApiBase = () => {
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return '';
+  }
+  return 'http://127.0.0.1:5001';
+};
+
 // Convert base64 VAPID public key to Uint8Array required by PushManager
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -48,7 +56,7 @@ export const getNotificationPermission = () => {
 // 3. Fetch public VAPID key
 export const getVapidPublicKey = async () => {
   try {
-    const res = await axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/notifications/vapid-key');
+    const res = await axios.get(`${getApiBase()}/api/notifications/vapid-key`);
     if (res.data?.success && res.data?.data?.publicKey) {
       return res.data.data.publicKey;
     }
@@ -87,18 +95,26 @@ export const subscribeDeviceToPush = async () => {
     }
 
     // Send subscription payload to backend
-    const token = localStorage.getItem('token');
-    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+    const token = localStorage.getItem('token') || (axios.defaults.headers.common['Authorization'] || '').replace('Bearer ', '');
+    const apiBase = getApiBase();
+
+    const subPayload = subscription.toJSON ? subscription.toJSON() : JSON.parse(JSON.stringify(subscription));
+
+    const reqConfig = {};
+    if (token) {
+      reqConfig.headers = { Authorization: `Bearer ${token}` };
+    }
 
     await axios.post(
       `${apiBase}/api/notifications/subscribe`,
       {
-        subscription: subscription.toJSON ? subscription.toJSON() : JSON.parse(JSON.stringify(subscription)),
+        subscription: subPayload,
         userAgent: navigator.userAgent
       },
-      token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
+      reqConfig
     );
 
+    console.log('[PWA Web Push] Push subscription successfully registered with server.');
     return subscription;
   } catch (err) {
     console.warn('[PWA Web Push] Subscription error (likely permission or network):', err);
@@ -119,7 +135,7 @@ export const unsubscribeDeviceFromPush = async () => {
       const endpoint = subscription.endpoint;
       await subscription.unsubscribe();
       const token = localStorage.getItem('token');
-      const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      const apiBase = getApiBase();
       await axios.post(
         `${apiBase}/api/notifications/unsubscribe`,
         { endpoint },
