@@ -366,8 +366,13 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
   const isOpen = ['Active', 'Checkout Due', 'Overdue'].includes(stay.status);
 
   const submitPendingCharges = async () => {
+    const validCharges = pendingCharges.filter(c => c.description?.trim() && Number(c.rate) > 0);
+    if (validCharges.length === 0) {
+      setError('Please enter a valid description and amount for at least one item');
+      return;
+    }
     const ok = await run(() => axios.post(`${API}/api/stays/${stay._id}/charges`, {
-      charges: pendingCharges
+      charges: validCharges
     }), 'Charges added to bill');
     if (ok) { setPendingCharges([]); setTab('bill'); }
   };

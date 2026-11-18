@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
+import { format } from 'date-fns';
 import {
   X, CheckCircle2, AlertCircle, Building2, CreditCard,
   Printer, Share2, RefreshCw, DollarSign, Calendar
@@ -10,6 +11,14 @@ import MergedCorporateInvoiceModal from '../MergedCorporateInvoiceModal';
 import { apiCache } from '../../utils/apiCache';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+
+const toDateTimeLocal = (d) => {
+  if (!d) return '';
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
 
 export default function GroupCheckoutModal({
   isOpen,
@@ -26,6 +35,8 @@ export default function GroupCheckoutModal({
   const [checkoutPayment, setCheckoutPayment] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('UPI');
   const [splitBreakdown, setSplitBreakdown] = useState({ cash: '', upi: '', card: '' });
+  const [actualCheckOutDate, setActualCheckOutDate] = useState(() => toDateTimeLocal(new Date()));
+  const [isEditingCheckoutTime, setIsEditingCheckoutTime] = useState(false);
   const [notes, setNotes] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
@@ -66,10 +77,10 @@ export default function GroupCheckoutModal({
 
     const numericPayment = Math.max(0, Number(checkoutPayment) || 0);
 
-    if (paymentMethod === 'Split') {
-      const splitErr = validateSplitPayment(numericPayment, splitBreakdown);
-      if (splitErr) {
-        setError(splitErr);
+    if (paymentMethod === 'Mixed' && numericPayment > 0) {
+      const valRes = validateSplitPayment(paymentMethod, numericPayment, splitBreakdown);
+      if (!valRes.isValid) {
+        setError(valRes.error);
         return;
       }
     }
@@ -77,12 +88,16 @@ export default function GroupCheckoutModal({
     setSubmitting(true);
 
     try {
-      const splitPayments = paymentMethod === 'Split' ? buildSplitPayments(splitBreakdown) : undefined;
+      const splitPayments = paymentMethod === 'Mixed'
+        ? buildSplitPayments(paymentMethod, numericPayment, splitBreakdown, 'Group Checkout Payment')
+        : undefined;
+
       const payload = {
         checkoutPayment: numericPayment,
-        paymentMethod: paymentMethod === 'Split' ? 'Mixed' : paymentMethod,
+        paymentMethod,
         splitPayments,
-        notes: notes.trim()
+        notes: notes.trim(),
+        actualCheckOutDate: isEditingCheckoutTime && actualCheckOutDate ? new Date(actualCheckOutDate).toISOString() : new Date().toISOString()
       };
 
       await axios.post(`${API}/api/stays/group/${groupId}/checkout`, payload);
@@ -218,6 +233,34 @@ export default function GroupCheckoutModal({
               </div>
             </div>
 
+            {/* Checkout Timing */}
+            <div className="bg-orange-50/80 p-3 rounded-2xl border border-orange-200">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-[10px] font-black text-orange-700 uppercase tracking-wider">
+                  Checkout Timestamp
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingCheckoutTime(!isEditingCheckoutTime)}
+                  className="text-[10px] font-black text-orange-800 underline hover:text-black cursor-pointer"
+                >
+                  {isEditingCheckoutTime ? 'Use Current Time' : 'Edit Time (Past Checkout)'}
+                </button>
+              </div>
+              {!isEditingCheckoutTime ? (
+                <p className="font-black text-orange-950 text-xs">
+                  {format(new Date(), 'dd MMM yyyy, hh:mm a')} (Now)
+                </p>
+              ) : (
+                <input
+                  type="datetime-local"
+                  value={actualCheckOutDate}
+                  onChange={e => setActualCheckOutDate(e.target.value)}
+                  className="w-full bg-white border border-orange-300 rounded-lg p-1.5 text-xs font-black text-gray-900 outline-none mt-1"
+                />
+              )}
+            </div>
+
             {/* Settlement Payment Input */}
             <div className="space-y-3">
               <div>
@@ -247,10 +290,10 @@ export default function GroupCheckoutModal({
                   <label className="block text-[11px] font-bold text-slate-600 mb-1">Payment Method</label>
                   <PaymentMethodSelector
                     paymentMethod={paymentMethod}
-                    setPaymentMethod={setPaymentMethod}
+                    onChangeMethod={setPaymentMethod}
                     splitBreakdown={splitBreakdown}
-                    setSplitBreakdown={setSplitBreakdown}
-                    totalAmount={Number(checkoutPayment)}
+                    onChangeSplit={setSplitBreakdown}
+                    totalAmount={Number(checkoutPayment) || 0}
                   />
                 </div>
               )}

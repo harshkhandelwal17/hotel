@@ -12,8 +12,9 @@ import { COMPANY_SUPPORT } from '../../config/support';
 import { getStayWhatsAppUrl } from '../../utils/whatsapp';
 
 const CheckoutModal = ({ stay, onClose, onSuccess }) => {
+  const baseBalance = Math.max(0, (stay?.totalAmount || 0) - (stay?.paidAmount || 0));
   const [chargesList, setChargesList] = useState([]);
-  const [checkoutPayment, setCheckoutPayment] = useState(0);
+  const [checkoutPayment, setCheckoutPayment] = useState(() => Math.max(0, (stay?.totalAmount || 0) - (stay?.paidAmount || 0)));
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [splitBreakdown, setSplitBreakdown] = useState({ cash: '', upi: '', card: '' });
   const [loading, setLoading] = useState(false);
@@ -41,7 +42,6 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
   const [actualCheckOutDate, setActualCheckOutDate] = useState(() => toDateTimeLocal(new Date()));
   const [isEditingCheckoutTime, setIsEditingCheckoutTime] = useState(false);
 
-  const baseBalance = stay.totalAmount - stay.paidAmount;
   const totalNewCharges = chargesList.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
   const finalBalance = Math.max(0, baseBalance + totalNewCharges);
 
@@ -56,8 +56,15 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
     const updated = [...chargesList];
     updated[idx][field] = value;
     setChargesList(updated);
+    const newChargesTotal = updated.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+    setCheckoutPayment(Math.max(0, baseBalance + newChargesTotal));
   };
-  const handleRemoveCharge = (idx) => setChargesList(chargesList.filter((_, i) => i !== idx));
+  const handleRemoveCharge = (idx) => {
+    const filtered = chargesList.filter((_, i) => i !== idx);
+    setChargesList(filtered);
+    const newChargesTotal = filtered.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+    setCheckoutPayment(Math.max(0, baseBalance + newChargesTotal));
+  };
 
   const handleCheckout = async (e) => {
     e.preventDefault();
@@ -75,8 +82,9 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
     }
 
     try {
+      const validCharges = chargesList.filter(c => c.reason?.trim() && Number(c.amount) > 0);
       const res = await axios.post(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/stays/${stay._id}/checkout`, {
-        chargesList,
+        chargesList: validCharges,
         checkoutPayment: payAmt,
         paymentMethod,
         splitPayments: buildSplitPayments(paymentMethod, payAmt, splitBreakdown, 'Checkout Payment'),

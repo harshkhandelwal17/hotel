@@ -684,14 +684,20 @@ exports.checkout = async (req, res, next) => {
       stay.totalAmount += additionalCharges;
     }
 
-    const balanceDue = stay.totalAmount - stay.paidAmount;
-    if (checkoutPayment > balanceDue + 0.01) {
-      throw new Error('Payment is more than the balance due');
-    }
+    const rawBalanceDue = stay.totalAmount - stay.paidAmount;
+    if (rawBalanceDue > 0) {
+      if (checkoutPayment > rawBalanceDue + 0.01) {
+        throw new Error('Payment is more than the balance due');
+      }
 
-    // Require full settlement (matches frontend CheckoutModal)
-    if (checkoutPayment + 0.01 < balanceDue) {
-      throw new Error(`Full payment required to checkout. Balance due: ₹${Math.max(0, balanceDue)}`);
+      // Require full settlement (matches frontend CheckoutModal)
+      if (checkoutPayment + 0.01 < rawBalanceDue) {
+        throw new Error(`Full payment required to checkout. Balance due: ₹${Math.max(0, rawBalanceDue)}`);
+      }
+    } else {
+      if (checkoutPayment > 0.01) {
+        throw new Error('No additional payment is required for this stay');
+      }
     }
 
     const actualOut = req.body.actualCheckOutDate ? new Date(req.body.actualCheckOutDate) : new Date();
@@ -854,7 +860,8 @@ exports.extendStay = async (req, res, next) => {
 
     const additionalCost = Math.max(0, Number(req.body.additionalRent) || 0);
     const pay = Math.max(0, Number(extensionPayment) || 0);
-    if (pay > stay.totalAmount + additionalCost - stay.paidAmount + 0.01) {
+    const currentDue = Math.max(0, stay.totalAmount + additionalCost - stay.paidAmount);
+    if (pay > currentDue + 0.01) {
       throw new Error('Payment is more than the balance due');
     }
 
