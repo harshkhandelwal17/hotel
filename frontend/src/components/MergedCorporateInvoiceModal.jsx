@@ -52,6 +52,13 @@ export default function MergedCorporateInvoiceModal({
         const fetchedPayments = res.data?.data?.payments;
         if (Array.isArray(fetchedStays) && fetchedStays.length > 0) {
           setSelectedStays(fetchedStays);
+          const hasGst = fetchedStays.some(s => s.gstApplied);
+          if (hasGst) {
+            setGstEnabled(true);
+            setTaxInclusive(true);
+            const rateStay = fetchedStays.find(s => s.gstRate);
+            if (rateStay?.gstRate) setGstRate(Number(rateStay.gstRate));
+          }
           const leader = fetchedStays.find(s => s.isGroupLeader) || fetchedStays.find(s => s.guest?.mobileNumber) || fetchedStays[0];
           if (leader) {
             setGuestCompany(prev => prev || leader.companyName || leader.guest?.companyName || '');
@@ -102,7 +109,8 @@ export default function MergedCorporateInvoiceModal({
     return primaryStay.gstRate || hostel.gstRate || 12;
   });
   const [taxInclusive, setTaxInclusive] = useState(() => {
-    return primaryStay.gstType === 'exclusive' ? false : true;
+    // Stays booked with GST already include tax in totalAmount; always back-calculate so tax is never doubled!
+    return true;
   });
 
   // Balance settlement toggle
@@ -528,8 +536,8 @@ export default function MergedCorporateInvoiceModal({
                           onChange={e => setTaxInclusive(e.target.value === 'inclusive')}
                           className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs text-xs"
                         >
-                          <option value="exclusive">Add GST on Top of Tariff</option>
-                          <option value="inclusive">Tariff includes GST (Back-calculate)</option>
+                          <option value="inclusive">Tariff includes GST (Already added at check-in)</option>
+                          <option value="exclusive">Add extra GST on top of tariff</option>
                         </select>
                       </div>
                     </>

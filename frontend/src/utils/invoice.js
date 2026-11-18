@@ -96,9 +96,10 @@ export const calculateInvoiceData = (stay, payments = [], options = {}) => {
     : Boolean(stay.gstApplied);
 
   const gstRate = Number(options.gstRate ?? stay.gstRate ?? hostel.gstRate ?? 12);
+  // If stay was already booked with GST, totalAmount already contains the tax, so back-calculate (taxInclusive = true)
   const taxInclusive = options.taxInclusive !== undefined 
     ? Boolean(options.taxInclusive) 
-    : (stay.gstType === 'exclusive' ? false : (stay.gstType === 'inclusive' ? true : (hostel.taxInclusive !== undefined ? Boolean(hostel.taxInclusive) : true)));
+    : (stay.gstApplied ? true : (hostel.taxInclusive !== undefined ? Boolean(hostel.taxInclusive) : true));
 
   // Dates & Duration
   const checkIn = stay.checkInDate ? new Date(stay.checkInDate) : new Date();
@@ -916,7 +917,7 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
             ` : `
               <tr>
                 <td class="muted small" colspan="2" style="font-style: italic; color: #94a3b8;">
-                  * Non-GST bill: No tax charged under Composition/Exemption scheme.
+                  * Regular Commercial Folio / Non-GST Bill
                 </td>
               </tr>
             `}
@@ -1071,14 +1072,17 @@ export const calculateMergedInvoiceData = (stays = [], payments = [], options = 
   const poNumber = (options.poNumber || '').trim();
 
   // GST Configuration
+  const staysAlreadyHaveGst = stays.some(s => s.gstApplied);
   const gstEnabled = options.gstEnabled !== undefined
     ? Boolean(options.gstEnabled)
-    : stays.some(s => s.gstApplied);
+    : (staysAlreadyHaveGst || Boolean(hostel.gstEnabled));
 
   const gstRate = Number(options.gstRate ?? primaryStay.gstRate ?? hostel.gstRate ?? 12);
+  // Stays already booked with GST already include tax in totalAmount; always back-calculate (taxInclusive = true)
+  // so GST is never doubled on top of an already-taxed tariff!
   const taxInclusive = options.taxInclusive !== undefined
     ? Boolean(options.taxInclusive)
-    : (primaryStay.gstType === 'exclusive' ? false : (primaryStay.gstType === 'inclusive' ? true : (hostel.taxInclusive !== undefined ? Boolean(hostel.taxInclusive) : true)));
+    : (staysAlreadyHaveGst ? true : (hostel.taxInclusive !== undefined ? Boolean(hostel.taxInclusive) : true));
 
   // Inter-State (IGST) vs Intra-State (CGST + SGST) detection
   const hotelGstin = (hostel.gstin || '').trim().toUpperCase();
@@ -2030,7 +2034,7 @@ export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {
             ` : `
               <tr>
                 <td class="muted small" colspan="2" style="font-style: italic; color: #94a3b8;">
-                  * Non-GST bill: No tax charged under Composition/Exemption scheme.
+                  * Regular Commercial Folio / Non-GST Bill
                 </td>
               </tr>
             `}
