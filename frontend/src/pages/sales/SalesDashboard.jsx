@@ -925,7 +925,7 @@ Please let us know your available time today! 🙏`;
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 antialiased">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 antialiased overflow-x-hidden w-full max-w-full">
       {/* ⚠️ IMPERSONATION BANNER */}
       {isImpersonating && (
         <div className="bg-amber-600 px-4 py-2 text-xs font-bold uppercase tracking-wider flex items-center justify-between text-white shadow-xs z-50 sticky top-0">
@@ -947,9 +947,9 @@ Please let us know your available time today! 🙏`;
       {/* 💼 CLEAN ENTERPRISE TOP NAVBAR FOR FIELD SALES */}
       <header className="sticky top-0 z-40 bg-white border-b border-slate-200/90 shadow-2xs">
         <div className="w-full max-w-[1720px] mx-auto px-3 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 gap-3">
+          <div className="flex items-center justify-between h-16 gap-2 sm:gap-3">
             {/* Left: Brand & Role */}
-            <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               <div className="w-9 h-9 rounded-xl bg-slate-950 text-white flex items-center justify-center font-bold shadow-xs">
                 <Briefcase size={18} />
               </div>
@@ -964,16 +964,16 @@ Please let us know your available time today! 🙏`;
               </div>
             </div>
 
-            {/* Right: Search, Target chip, Primary CTAs, Profile */}
-            <div className="flex items-center gap-2 sm:gap-3">
+            {/* Right: Search, Target chip, Primary CTAs, Profile & Logout */}
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               {/* Target pill */}
-              <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-xl border border-slate-200 text-xs">
+              <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-xl border border-slate-200 text-xs shrink-0">
                 <Target size={13} className="text-slate-600" />
                 <span className="font-bold text-slate-900">{thisMonthOnboarded}/{monthlyTarget}</span>
                 <span className="text-slate-400">({targetProgressPct}%)</span>
               </div>
 
-              <div className="relative hidden md:block w-48 lg:w-56">
+              <div className="relative hidden md:block w-44 lg:w-56 shrink-0">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
@@ -996,11 +996,12 @@ Please let us know your available time today! 🙏`;
 
               <button
                 onClick={() => openOnboardingWizard()}
-                className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-xs active:scale-95 flex items-center gap-1.5 cursor-pointer shrink-0"
+                className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-xs active:scale-95 flex items-center gap-1.5 cursor-pointer shrink-0"
                 title="Launch step-by-step Client Onboarding Wizard"
               >
                 <Sparkles size={14} className="text-amber-300" />
-                <span>+ Onboard Client</span>
+                <span className="hidden sm:inline">+ Onboard Client</span>
+                <span className="sm:hidden">+ Onboard</span>
               </button>
 
               <button
@@ -1008,7 +1009,7 @@ Please let us know your available time today! 🙏`;
                   setPropertyForm(prev => ({ ...prev, owner: '' }));
                   setIsAddPropertyOpen(true);
                 }}
-                className="hidden sm:inline-flex px-3.5 py-2 bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-xs active:scale-95 items-center gap-1.5 cursor-pointer shrink-0"
+                className="hidden md:inline-flex px-3.5 py-2 bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-xs active:scale-95 items-center gap-1.5 cursor-pointer shrink-0"
               >
                 <Plus size={14} className="stroke-[3]" />
                 <span>Register Hotel</span>
@@ -1016,7 +1017,7 @@ Please let us know your available time today! 🙏`;
 
               <button
                 onClick={() => setIsLeadModalOpen(true)}
-                className="hidden sm:inline-flex px-3 py-2 bg-white hover:bg-slate-50 text-slate-750 font-bold text-xs rounded-xl border border-slate-200 transition-all shadow-2xs active:scale-95 items-center gap-1.5 cursor-pointer shrink-0"
+                className="hidden lg:inline-flex px-3 py-2 bg-white hover:bg-slate-50 text-slate-750 font-bold text-xs rounded-xl border border-slate-200 transition-all shadow-2xs active:scale-95 items-center gap-1.5 cursor-pointer shrink-0"
               >
                 <Target size={13} />
                 <span>+ Lead</span>
@@ -1025,23 +1026,25 @@ Please let us know your available time today! 🙏`;
               <button
                 onClick={fetchData}
                 disabled={refreshing}
-                className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl border border-slate-200 transition-all cursor-pointer shrink-0"
+                className="p-1.5 sm:p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl border border-slate-200 transition-all cursor-pointer shrink-0"
                 title="Refresh Data"
               >
-                <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
+                <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
               </button>
 
-              {/* User Profile / Logout */}
-              <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
-                <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-800 font-bold text-xs flex items-center justify-center shrink-0">
+              {/* User Profile & High-Visibility Logout Button */}
+              <div className="flex items-center gap-1.5 sm:gap-2 pl-1.5 sm:pl-2 border-l border-slate-200 shrink-0">
+                <div className="hidden sm:flex w-8 h-8 rounded-lg bg-slate-100 text-slate-800 font-bold text-xs items-center justify-center shrink-0">
                   {user?.name?.charAt(0) || 'S'}
                 </div>
                 <button
+                  type="button"
                   onClick={() => logout ? logout() : (localStorage.clear(), window.location.href = '/login')}
-                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                  title="Logout"
+                  className="flex items-center gap-1 px-2.5 py-1.5 text-rose-600 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-200 hover:border-rose-600 rounded-xl font-black text-xs transition-all shadow-2xs active:scale-95 cursor-pointer shrink-0"
+                  title="Sign out of Sales Portal"
                 >
-                  <LogOut size={15} />
+                  <LogOut size={13} className="stroke-[2.5]" />
+                  <span className="text-[11px] font-black uppercase tracking-wider">Logout</span>
                 </button>
               </div>
             </div>
@@ -1084,7 +1087,7 @@ Please let us know your available time today! 🙏`;
       </header>
 
       {/* Main Body */}
-      <main className="w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <main className="w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 lg:pb-8 space-y-6">
         {/* Mobile search bar */}
         <div className="md:hidden relative w-full">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -1928,7 +1931,7 @@ Please let us know your available time today! 🙏`;
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm whitespace-nowrap">
+            <table className="w-full min-w-[650px] text-left text-sm whitespace-nowrap">
               <thead className="bg-white border-b border-gray-100">
                 <tr>
                   <th className="px-4 sm:px-6 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Hotel Property</th>
@@ -2081,7 +2084,7 @@ Please let us know your available time today! 🙏`;
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm whitespace-nowrap">
+            <table className="w-full min-w-[650px] text-left text-sm whitespace-nowrap">
               <thead className="bg-white border-b border-gray-100">
                 <tr>
                   <th className="px-4 sm:px-6 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Owner Name</th>
@@ -2158,7 +2161,7 @@ Please let us know your available time today! 🙏`;
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm whitespace-nowrap">
+            <table className="w-full min-w-[650px] text-left text-sm whitespace-nowrap">
               <thead className="bg-white border-b border-gray-100">
                 <tr>
                   <th className="px-4 sm:px-6 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Staff Name</th>
@@ -3584,6 +3587,63 @@ Please let us know your available time today! 🙏`;
           </div>
         </div>
       )}
+
+      {/* ─── Mobile Bottom Navigation Bar for Sales Portal ─── */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-slate-200/90 pb-[env(safe-area-inset-bottom)] z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
+        <div className="flex justify-around items-center h-16 px-1">
+          <button
+            type="button"
+            onClick={() => setActiveTab('ecosystem')}
+            className={`flex flex-col items-center justify-center w-14 h-full transition-colors cursor-pointer ${activeTab === 'ecosystem' ? 'text-slate-950 font-black' : 'text-slate-400'}`}
+          >
+            <Network size={20} className={activeTab === 'ecosystem' ? 'stroke-[2.5]' : ''} />
+            <span className="text-[9px] font-bold mt-1 uppercase tracking-tight">Portfolio</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('leads')}
+            className={`flex flex-col items-center justify-center w-14 h-full transition-colors cursor-pointer relative ${activeTab === 'leads' ? 'text-slate-950 font-black' : 'text-slate-400'}`}
+          >
+            <Target size={20} className={activeTab === 'leads' ? 'stroke-[2.5]' : ''} />
+            <span className="text-[9px] font-bold mt-1 uppercase tracking-tight">Leads</span>
+            {todayFollowUpsCount + overdueFollowUpsCount > 0 && (
+              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+            )}
+          </button>
+
+          {/* Elevated Onboard Action in center */}
+          <div className="relative -top-3">
+            <button
+              type="button"
+              onClick={() => openOnboardingWizard()}
+              className="flex items-center justify-center w-12 h-12 bg-indigo-600 text-white rounded-full shadow-lg hover:bg-indigo-700 transition-all active:scale-95 border-2 border-white cursor-pointer"
+              title="Onboard Client"
+            >
+              <Sparkles size={20} className="text-amber-300" />
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('outreach')}
+            className={`flex flex-col items-center justify-center w-14 h-full transition-colors cursor-pointer ${activeTab === 'outreach' ? 'text-slate-950 font-black' : 'text-slate-400'}`}
+          >
+            <MessageSquare size={20} className={activeTab === 'outreach' ? 'stroke-[2.5]' : ''} />
+            <span className="text-[9px] font-bold mt-1 uppercase tracking-tight">Pitch</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => logout ? logout() : (localStorage.clear(), window.location.href = '/login')}
+            className="flex flex-col items-center justify-center w-14 h-full text-rose-600 hover:text-rose-700 transition-colors cursor-pointer"
+            title="Logout"
+          >
+            <LogOut size={20} className="stroke-[2.5]" />
+            <span className="text-[9px] font-bold mt-1 uppercase tracking-tight text-rose-600">Logout</span>
+          </button>
+        </div>
+      </nav>
 
     </div>
   );

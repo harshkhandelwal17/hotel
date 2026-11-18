@@ -190,9 +190,9 @@ const EcosystemView = ({
                     </div>
 
                     <div className="flex items-center gap-3 text-xs text-slate-400 font-medium mt-1.5 flex-wrap">
-                      <span className="flex items-center gap-1 text-slate-300 font-medium">
-                        <Mail size={12} className="text-slate-400" />
-                        {owner.email}
+                      <span className="flex items-center gap-1 text-slate-300 font-medium truncate max-w-[200px] sm:max-w-none">
+                        <Mail size={12} className="text-slate-400 shrink-0" />
+                        <span className="truncate">{owner.email}</span>
                       </span>
                       {displayPhone && (
                         <a href={`tel:${displayPhone}`} className="flex items-center gap-1 text-emerald-400 hover:underline font-mono font-medium">
@@ -208,7 +208,7 @@ const EcosystemView = ({
                 </div>
 
                 {/* Owner Actions */}
-                <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 shrink-0 w-full md:w-auto justify-start md:justify-end">
                   <button
                     onClick={(e) => onImpersonate(owner._id, e)}
                     disabled={impersonating || owner.isActive === false}
@@ -424,7 +424,7 @@ const EcosystemView = ({
                             </div>
 
                             {/* Feature Toggles */}
-                            <div className="mt-3 flex items-center justify-between gap-1 pt-2 border-t border-slate-100 text-[10px]">
+                            <div className="mt-3 flex items-center gap-1.5 pt-2 border-t border-slate-100 text-[10px] overflow-x-auto no-scrollbar">
                               <button
                                 onClick={() => onToggleAiOcr(h._id)}
                                 className={`px-2 py-1 rounded-lg font-bold flex items-center gap-1 transition-all cursor-pointer ${
