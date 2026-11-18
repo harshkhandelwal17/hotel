@@ -164,6 +164,28 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
   const [stayNotes, setStayNotes] = useState(initialStay.notes || '');
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [savingNotes, setSavingNotes] = useState(false);
+  const [groupSummary, setGroupSummary] = useState(null);
+
+  const fetchGroupSummary = useCallback(async (gId) => {
+    if (!gId) {
+      setGroupSummary(null);
+      return;
+    }
+    try {
+      const res = await axios.get(`${API}/api/stays/group/${gId}`);
+      if (res.data?.data?.summary) {
+        setGroupSummary(res.data.data.summary);
+      }
+    } catch (e) {
+      // quiet fallback
+    }
+  }, []);
+
+  useEffect(() => {
+    if (stay?.groupId) {
+      fetchGroupSummary(stay.groupId);
+    }
+  }, [stay?.groupId, fetchGroupSummary]);
 
   const reload = useCallback(async () => {
     try {
@@ -172,12 +194,15 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
       setStay(freshStay);
       setStayNotes(freshStay?.notes || '');
       setPayments(res.data?.data?.payments || []);
+      if (freshStay?.groupId) {
+        fetchGroupSummary(freshStay.groupId);
+      }
     } catch (e) {
       console.warn('Reload stay error:', e);
     } finally {
       setLoadingPayments(false);
     }
-  }, [initialStay._id]);
+  }, [initialStay._id, fetchGroupSummary]);
 
   const handleSaveNotes = async () => {
     setSavingNotes(true);
@@ -520,49 +545,68 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
 
           {/* GROUP BOOKING MASTER FOLIO BANNER */}
           {stay.groupId && (
-            <div className="bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-blue-500/10 border border-purple-200 rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-purple-600 text-white rounded-xl shadow-xs">
-                  <Building2 size={16} />
-                </div>
-                <div>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-100 text-purple-900 border border-purple-200">
-                      Group Folio
-                    </span>
-                    <span className="text-xs font-black text-slate-900">
-                      {stay.groupName || 'Group Booking'}
-                    </span>
-                    <span className="text-xs font-bold text-purple-700">
-                      ({stay.groupTotalRooms || 'Multi'} Rooms)
-                    </span>
+            <div className="bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-blue-500/10 border border-purple-200 rounded-2xl p-3.5 space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-purple-600 text-white rounded-xl shadow-xs">
+                    <Building2 size={16} />
                   </div>
-                  <p className="text-[10px] font-bold text-slate-500 mt-0.5">
-                    Ref ID: <span className="font-mono text-slate-700">{stay.groupId}</span>
-                  </p>
+                  <div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-100 text-purple-900 border border-purple-200">
+                        Group Folio
+                      </span>
+                      <span className="text-xs font-black text-slate-900">
+                        {stay.groupName || 'Group Booking'}
+                      </span>
+                      <span className="text-xs font-bold text-purple-700">
+                        ({stay.groupTotalRooms || 'Multi'} Rooms)
+                      </span>
+                    </div>
+                    <p className="text-[10px] font-bold text-slate-500 mt-0.5">
+                      Ref ID: <span className="font-mono text-slate-700">{stay.groupId}</span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsMergedModalOpen(true)}
+                    className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-black rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95"
+                  >
+                    <FileText size={13} />
+                    <span>Master Group Bill</span>
+                  </button>
+                  {isOpen && (
+                    <button
+                      type="button"
+                      onClick={() => setIsGroupCheckoutOpen(true)}
+                      className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95"
+                    >
+                      <CheckCircle2 size={13} />
+                      <span>Group Checkout</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsMergedModalOpen(true)}
-                  className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-black rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95"
-                >
-                  <FileText size={13} />
-                  <span>Master Group Bill</span>
-                </button>
-                {isOpen && (
-                  <button
-                    type="button"
-                    onClick={() => setIsGroupCheckoutOpen(true)}
-                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95"
-                  >
-                    <CheckCircle2 size={13} />
-                    <span>Group Checkout</span>
-                  </button>
-                )}
-              </div>
+              {groupSummary && (
+                <div className="flex items-center justify-between gap-2 pt-2 border-t border-purple-200/80 text-xs">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="font-bold text-slate-600">Group Total ({groupSummary.roomCount || stay.groupTotalRooms || 0} Rooms): <strong className="text-slate-900">₹{groupSummary.totalStayAmount}</strong></span>
+                    <span>•</span>
+                    <span className="font-bold text-emerald-700">Total Paid: <strong>₹{groupSummary.totalPaid}</strong></span>
+                    <span>•</span>
+                    <span className={`font-bold ${groupSummary.balanceDue > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                      Group Due: <strong>₹{groupSummary.balanceDue}</strong>
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-black text-purple-800 bg-white px-2 py-0.5 rounded-md border border-purple-200 shrink-0">
+                    This Room: ₹{stay.totalAmount}
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
@@ -616,7 +660,7 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                   </div>
                 ))}
                 <div className="flex justify-between p-3 bg-gray-50"><span className="font-bold">Total</span><span className="font-black">₹{stay.totalAmount}</span></div>
-                <div className="flex justify-between p-3"><span className="text-gray-500 font-semibold">Paid</span><span className="font-black text-green-600">₹{stay.paidAmount}</span></div>
+                <div className="flex justify-between p-3"><span className="text-gray-500 font-semibold">Paid</span><span className="font-black text-green-600">₹{Math.min(stay.paidAmount, stay.totalAmount)}</span></div>
                 <div className="flex justify-between p-3"><span className="font-bold">Balance Due</span><span className={`font-black text-lg ${balance > 0 ? 'text-red-600' : 'text-green-600'}`}>₹{Math.max(0, balance)}</span></div>
               </div>
 
@@ -1367,13 +1411,24 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                 </button>
               </div>
               {isOpen && (
-                <button 
-                  type="button"
-                  onClick={() => onCheckout(stay)}
-                  className="w-full sm:w-auto sm:min-w-44 flex items-center justify-center gap-1.5 sm:gap-2 py-2 sm:py-2.5 px-5 bg-red-600 text-white rounded-xl text-xs sm:text-sm font-black uppercase tracking-wide hover:bg-red-700 active:scale-95 shadow-md transition-all sm:ml-auto"
-                >
-                  <LogOut size={15} /> Checkout Guest
-                </button>
+                <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto">
+                  {stay.groupId && (
+                    <button
+                      type="button"
+                      onClick={() => setIsGroupCheckoutOpen(true)}
+                      className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 py-2 sm:py-2.5 px-4 bg-purple-700 hover:bg-purple-800 text-white rounded-xl text-xs sm:text-sm font-black uppercase tracking-wide active:scale-95 shadow-md transition-all cursor-pointer"
+                    >
+                      <Building2 size={15} /> Group Checkout ({stay.groupTotalRooms || 'All'} Rooms)
+                    </button>
+                  )}
+                  <button 
+                    type="button"
+                    onClick={() => onCheckout(stay)}
+                    className="flex-1 sm:flex-initial sm:min-w-44 flex items-center justify-center gap-1.5 sm:gap-2 py-2 sm:py-2.5 px-5 bg-red-600 text-white rounded-xl text-xs sm:text-sm font-black uppercase tracking-wide hover:bg-red-700 active:scale-95 shadow-md transition-all cursor-pointer"
+                  >
+                    <LogOut size={15} /> {stay.groupId ? `Checkout Only Room ${stay.room?.roomNumber}` : 'Checkout Guest'}
+                  </button>
+                </div>
               )}
             </>
           )}

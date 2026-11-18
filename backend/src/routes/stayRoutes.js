@@ -20,7 +20,6 @@ router.get('/brokers/summary', getBrokersSummary);
 router.post('/group-checkin', createGroupStay);
 router.get('/group/:groupId', getGroupStays);
 router.post('/group/:groupId/checkout', groupCheckout);
-
 router.get('/:id', getStay);
 router.put('/:id', updateStay);
 router.post('/:id/checkout', checkout);

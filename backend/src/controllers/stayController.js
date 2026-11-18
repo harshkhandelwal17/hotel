@@ -308,7 +308,7 @@ exports.getStays = async (req, res, next) => {
       filter.status = req.query.status;
     }
 
-    const stays = await Stay.find(filter)
+    let stays = await Stay.find(filter)
       .populate('guest', 'fullName mobileNumber idProofType idProofNumber address gender dateOfBirth companyName gstin')
       .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber address gender dateOfBirth companyName gstin')
       .populate('room', 'roomNumber price24h extraPerPerson24h')
@@ -316,6 +316,28 @@ exports.getStays = async (req, res, next) => {
       .populate('createdBy', 'name role')
       .sort('-expectedCheckOutDate')
       .lean();
+
+    if (stays.some(s => s.groupId)) {
+      const gIds = Array.from(new Set(stays.filter(s => s.groupId).map(s => s.groupId)));
+      let rebalancedAny = false;
+      for (const gId of gIds) {
+        const groupItems = stays.filter(s => s.groupId === gId);
+        if (groupItems.some(s => s.paidAmount > s.totalAmount) && groupItems.some(s => s.paidAmount === 0)) {
+          await autoRebalanceGroupStays(gId);
+          rebalancedAny = true;
+        }
+      }
+      if (rebalancedAny) {
+        stays = await Stay.find(filter)
+          .populate('guest', 'fullName mobileNumber idProofType idProofNumber address gender dateOfBirth companyName gstin')
+          .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber address gender dateOfBirth companyName gstin')
+          .populate('room', 'roomNumber price24h extraPerPerson24h')
+          .populate('hostel', 'name address contactNumber email upiId upiPayeeName gstEnabled gstin taxInclusive gstRate hsnSacCode state stateCode invoicePrefix billTerms autoApplyGstOnCheckin')
+          .populate('createdBy', 'name role')
+          .sort('-expectedCheckOutDate')
+          .lean();
+      }
+    }
 
     res.status(200).json({ success: true, count: stays.length, data: stays });
   } catch (error) {
@@ -329,6 +351,59 @@ exports.getStays = async (req, res, next) => {
 // ---------------------------------------------------------------------------
 // Helper: load a stay and make sure the logged-in user is allowed to touch it.
 // ---------------------------------------------------------------------------
+const autoRebalanceGroupStays = async (groupId) => {
+  if (!groupId) return;
+  try {
+    const groupStays = await Stay.find({ groupId }).lean();
+    if (!groupStays || groupStays.length <= 1) return;
+
+    const needsRebalance = groupStays.some(s => s.paidAmount > s.totalAmount) && groupStays.some(s => s.paidAmount === 0);
+    if (!needsRebalance) return;
+
+    const groupPayments = await Payment.find({
+      $or: [{ groupId }, { stay: { $in: groupStays.map(s => s._id) } }]
+    }).lean();
+
+    const totalPaid = groupPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+    const totalTariff = groupStays.reduce((acc, s) => acc + (Number(s.totalAmount) || 0), 0);
+
+    let allocated = 0;
+    for (let i = 0; i < groupStays.length; i++) {
+      const gs = groupStays[i];
+      let newPaid = 0;
+      if (totalPaid >= totalTariff) {
+        newPaid = gs.totalAmount;
+      } else if (totalTariff > 0) {
+        if (i === groupStays.length - 1) {
+          newPaid = Math.max(0, totalPaid - allocated);
+        } else {
+          newPaid = Math.min(gs.totalAmount, Math.round((gs.totalAmount / totalTariff) * totalPaid));
+          allocated += newPaid;
+        }
+      }
+      await Stay.findByIdAndUpdate(gs._id, { $set: { paidAmount: newPaid } });
+
+      const existingPay = await Payment.findOne({ stay: gs._id });
+      if (!existingPay && newPaid > 0) {
+        await Payment.create({
+          stay: gs._id,
+          groupId,
+          guest: gs.guest,
+          hostel: gs.hostel,
+          amount: newPaid,
+          paymentMethod: groupPayments[0]?.paymentMethod || 'Cash',
+          notes: `Group Advance (${groupStays[0].groupName || 'Group'})`,
+          createdBy: groupPayments[0]?.createdBy
+        });
+      } else if (existingPay && existingPay.amount !== newPaid) {
+        await Payment.findByIdAndUpdate(existingPay._id, { $set: { amount: newPaid } });
+      }
+    }
+  } catch (err) {
+    console.warn('Auto-rebalance group stays error:', err.message);
+  }
+};
+
 const loadAuthorizedStay = async (req) => {
   const stay = await Stay.findById(req.params.id);
   if (!stay) {
@@ -356,7 +431,7 @@ const sendError = (res, next, error) => {
 exports.getStay = async (req, res, next) => {
   try {
     const stayId = req.params.id;
-    const [stay, payments] = await Promise.all([
+    let [stay, payments] = await Promise.all([
       Stay.findById(stayId)
         .populate('guest', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth companyName gstin')
         .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber address gender dateOfBirth companyName gstin')
@@ -372,6 +447,18 @@ exports.getStay = async (req, res, next) => {
     const hostelId = stay.hostel?._id || stay.hostel;
     if (!(await userCanAccessHostel(req.user, hostelId))) {
       return res.status(403).json({ success: false, message: 'Not authorized for this stay' });
+    }
+
+    if (stay.groupId) {
+      await autoRebalanceGroupStays(stay.groupId);
+      const refreshed = await Stay.findById(stayId)
+        .populate('guest', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth companyName gstin')
+        .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber address gender dateOfBirth companyName gstin')
+        .populate('room', 'roomNumber price24h extraPerPerson24h')
+        .populate('hostel', 'name address contactNumber email upiId upiPayeeName gstEnabled gstin taxInclusive gstRate hsnSacCode state stateCode invoicePrefix billTerms autoApplyGstOnCheckin')
+        .lean();
+      if (refreshed) stay = refreshed;
+      payments = await Payment.find({ stay: stayId }).sort('paymentDate').lean();
     }
 
     res.status(200).json({ success: true, data: { stay, payments } });
@@ -1363,10 +1450,17 @@ exports.createGroupStay = async (req, res, next) => {
     const groupId = `GRP-${timestampStr}-${randSuffix}`;
     const resolvedGroupName = (groupName && groupName.trim()) || `${primaryGuestDoc.fullName}'s Group`;
 
-    // 4. Create a Stay document for each selected room
-    const createdStays = [];
-    let groupGrandTotal = 0;
+    // 4. Calculate tariffs & distribute advance proportionately across all rooms
     const advance = Math.max(0, Number(initialPaymentAmount) || 0);
+    const roomRates = rooms.map(roomItem => {
+      const rId = roomItem.room || roomItem.roomId;
+      const rDoc = roomDocs.find(d => d._id.toString() === rId.toString());
+      return Math.max(0, Number(roomItem.rate ?? roomItem.price ?? rDoc?.price24h) || 0);
+    });
+    const groupGrandTotal = roomRates.reduce((sum, r) => sum + r, 0);
+
+    let allocatedAdvance = 0;
+    const createdStays = [];
 
     for (let i = 0; i < rooms.length; i++) {
       const roomItem = rooms[i];
@@ -1395,8 +1489,23 @@ exports.createGroupStay = async (req, res, next) => {
         roomGuestId = subGuest._id;
       }
 
-      const roomRate = Math.max(0, Number(roomItem.rate ?? roomItem.price ?? rDoc.price24h) || 0);
-      groupGrandTotal += roomRate;
+      const roomRate = roomRates[i];
+
+      // Distribute group advance proportionately across each room
+      let stayPaid = 0;
+      if (advance > 0) {
+        if (groupGrandTotal > 0) {
+          if (i === rooms.length - 1) {
+            stayPaid = Math.max(0, advance - allocatedAdvance);
+          } else {
+            stayPaid = Math.min(roomRate, Math.round((roomRate / groupGrandTotal) * advance));
+            allocatedAdvance += stayPaid;
+          }
+        } else {
+          stayPaid = i === rooms.length - 1 ? (advance - allocatedAdvance) : Math.floor(advance / rooms.length);
+          allocatedAdvance += stayPaid;
+        }
+      }
 
       // Calculate GST if applied
       let taxAmount = 0;
@@ -1409,8 +1518,6 @@ exports.createGroupStay = async (req, res, next) => {
       }
 
       const isLeader = (i === 0);
-      // Group advance is attributed to the leader stay's paidAmount
-      const stayPaid = isLeader ? advance : 0;
 
       const stay = await Stay.create({
         guest: roomGuestId,
@@ -1450,55 +1557,31 @@ exports.createGroupStay = async (req, res, next) => {
 
     const leaderStay = createdStays[0];
 
-    // 5. Record Advance Payment if made
+    // 5. Record Advance Payment for each room
     if (advance > 0) {
-      if (Array.isArray(splitPayments) && splitPayments.length > 0) {
-        for (const sp of splitPayments) {
-          const spAmt = Number(sp.amount);
-          if (spAmt > 0) {
-            const pMethod = sp.paymentMethod || 'Cash';
-            await Payment.create({
-              stay: leaderStay._id,
-              groupId,
-              guest: primaryGuestDoc._id,
-              hostel,
-              amount: spAmt,
-              paymentMethod: pMethod,
-              notes: sp.notes || `Group Advance (${resolvedGroupName})`,
-              createdBy: req.user._id
-            });
-            await recordLedgerImpact({
-              guestId: primaryGuestDoc._id,
-              hostelId: hostel,
-              stayId: leaderStay._id,
-              amount: spAmt,
-              paymentMethod: pMethod,
-              description: sp.notes || `Group Advance payment (${pMethod}) for ${resolvedGroupName}`,
-              userId: req.user._id
-            });
-          }
+      const pMethod = paymentMethod === 'Mixed' ? 'Mixed' : (paymentMethod || 'Cash');
+      for (const st of createdStays) {
+        if (st.paidAmount > 0) {
+          await Payment.create({
+            stay: st._id,
+            groupId,
+            guest: st.guest,
+            hostel,
+            amount: st.paidAmount,
+            paymentMethod: pMethod,
+            notes: `Group Advance (${resolvedGroupName})`,
+            createdBy: req.user._id
+          });
+          await recordLedgerImpact({
+            guestId: st.guest,
+            hostelId: hostel,
+            stayId: st._id,
+            amount: st.paidAmount,
+            paymentMethod: pMethod,
+            description: `Group Advance payment (${pMethod}) for ${resolvedGroupName}`,
+            userId: req.user._id
+          });
         }
-      } else {
-        const pMethod = paymentMethod || 'Cash';
-        await Payment.create({
-          stay: leaderStay._id,
-          groupId,
-          guest: primaryGuestDoc._id,
-          hostel,
-          amount: advance,
-          paymentMethod: pMethod,
-          notes: `Group Advance (${resolvedGroupName})`,
-          createdBy: req.user._id
-        });
-        await recordLedgerImpact({
-          guestId: primaryGuestDoc._id,
-          hostelId: hostel,
-          stayId: leaderStay._id,
-          amount: advance,
-          paymentMethod: pMethod,
-          description: `Group Advance payment (${pMethod}) for ${resolvedGroupName}`,
-          userId: req.user._id
-        });
       }
     }
 
