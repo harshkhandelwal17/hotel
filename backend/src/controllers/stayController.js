@@ -586,6 +586,44 @@ exports.checkout = async (req, res, next) => {
       .populate('room', 'roomNumber price24h extraPerPerson24h')
       .populate('hostel', 'name address contactNumber email upiId upiPayeeName gstEnabled gstin taxInclusive gstRate hsnSacCode state stateCode invoicePrefix billTerms autoApplyGstOnCheckin');
 
+    // 🚪 Trigger Check-Out Notification for Property Owner & Admins
+    try {
+      const hostelDoc = await Hostel.findById(stay.hostel).select('name owner createdBy');
+      const recipientIds = new Set();
+      if (hostelDoc?.owner) recipientIds.add(hostelDoc.owner.toString());
+      if (hostelDoc?.createdBy) recipientIds.add(hostelDoc.createdBy.toString());
+      if (req.user?.role === 'admin') recipientIds.add(req.user._id.toString());
+      if (recipientIds.size === 0 && req.user?._id) recipientIds.add(req.user._id.toString());
+
+      const rNum = populated?.room?.roomNumber || 'Room';
+      const gName = (populated?.guest?.fullName || 'Guest').trim();
+      const hName = hostelDoc?.name || 'Hotel';
+      const settledAmount = Number(checkoutPayment) || 0;
+      const settText = settledAmount > 0 ? ` • Settled ₹${settledAmount.toLocaleString('en-IN')}` : ' • Settled';
+
+      for (const recId of recipientIds) {
+        await Notification.create({
+          recipient: recId,
+          hostel: hostelDoc ? hostelDoc._id : stay.hostel,
+          stay: stay._id,
+          type: 'checkout',
+          title: `🚪 Check-Out: ${hName}`,
+          message: `Room ${rNum} checked out by ${gName}${settText}`,
+          metadata: {
+            hotelName: hName,
+            roomNumber: String(rNum),
+            guestName: gName,
+            guestPhone: populated?.guest?.mobileNumber || '',
+            totalAmount: Number(stay.totalAmount) || 0,
+            paidAmount: settledAmount,
+            stayId: stay._id.toString()
+          }
+        });
+      }
+    } catch (notifErr) {
+      console.error('Failed to create check-out notification:', notifErr.message);
+    }
+
     res.status(200).json({ success: true, data: populated || flipped, payments });
   } catch (error) {
     sendError(res, next, error);

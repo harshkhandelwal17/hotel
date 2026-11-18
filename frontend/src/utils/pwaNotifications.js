@@ -149,3 +149,93 @@ export const playCheckInChime = () => {
     console.warn('[PWA] AudioContext chime error:', err);
   }
 };
+
+// 6. Smooth 2-tone Settlement Chime for Check-Outs (G4 -> C5)
+export const playCheckOutChime = () => {
+  if (typeof window === 'undefined') return;
+  try {
+    const isMuted = localStorage.getItem('nx_alert_muted') === 'true';
+    if (isMuted) return;
+
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+
+    const ctx = new AudioContextClass();
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+
+    const notes = [
+      { freq: 392.00, time: 0.0, dur: 0.35 }, // G4
+      { freq: 523.25, time: 0.16, dur: 0.7 }  // C5
+    ];
+
+    notes.forEach(({ freq, time, dur }) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + time);
+
+      gain.gain.setValueAtTime(0.001, ctx.currentTime + time);
+      gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + time + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + time + dur);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(ctx.currentTime + time);
+      osc.stop(ctx.currentTime + time + dur);
+    });
+  } catch (err) {
+    console.warn('[PWA] Check-out chime error:', err);
+  }
+};
+
+// 7. Native PWA Mobile App Badge (Shows unread counter on Home Screen App Icon)
+export const updatePwaAppBadge = async (count = 0) => {
+  if (typeof navigator === 'undefined') return;
+  try {
+    if ('setAppBadge' in navigator && 'clearAppBadge' in navigator) {
+      if (count > 0) {
+        await navigator.setAppBadge(count);
+      } else {
+        await navigator.clearAppBadge();
+      }
+    }
+  } catch (e) {
+    // App Badging not supported or ignored by OS
+  }
+};
+
+// 8. Flashing Browser Document Title for Background Tabs
+let titleInterval = null;
+let originalTitle = typeof document !== 'undefined' ? document.title : 'NXHotel';
+
+export const startTitleFlashing = (alertText = '🛎️ New Alert!') => {
+  if (typeof document === 'undefined') return;
+  if (!originalTitle || originalTitle.includes('🛎️') || originalTitle.includes('🚪')) {
+    originalTitle = 'NXHotel - Management System';
+  }
+
+  if (titleInterval) clearInterval(titleInterval);
+
+  let toggle = false;
+  titleInterval = setInterval(() => {
+    document.title = toggle ? alertText : originalTitle;
+    toggle = !toggle;
+  }, 1000);
+
+  const stopFlashing = () => {
+    if (titleInterval) {
+      clearInterval(titleInterval);
+      titleInterval = null;
+      document.title = originalTitle;
+    }
+    window.removeEventListener('focus', stopFlashing);
+    window.removeEventListener('click', stopFlashing);
+  };
+
+  window.addEventListener('focus', stopFlashing, { once: true });
+  window.addEventListener('click', stopFlashing, { once: true });
+};

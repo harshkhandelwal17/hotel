@@ -2,7 +2,7 @@ import React, { useContext, useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
-import { Home, Users, Bed, LogOut, Bell, PlusCircle, Building, CreditCard, BarChart3, Hexagon, ShieldCheck, Menu, X, ShieldAlert, LayoutGrid, Volume2, VolumeX, Phone, BellRing, ChevronDown, Shirt, Keyboard, Search, Globe, CheckCheck, CheckCircle2, Smartphone, Sparkles } from 'lucide-react';
+import { Home, Users, Bed, LogOut, Bell, PlusCircle, Building, CreditCard, BarChart3, Hexagon, ShieldCheck, Menu, X, ShieldAlert, LayoutGrid, Volume2, VolumeX, Phone, BellRing, ChevronDown, Shirt, Keyboard, Search, Globe, CheckCheck, CheckCircle2, Smartphone, Sparkles, MessageSquare, Trash2 } from 'lucide-react';
 import GlobalSearch from '../common/GlobalSearch';
 import CommandPalette from '../common/CommandPalette';
 import ShortcutsModal from '../common/ShortcutsModal';
@@ -12,7 +12,7 @@ import PoliceReportModal from '../../pages/admin/PoliceReportModal';
 import { apiCache, prefetchRoute } from '../../utils/apiCache';
 import { useLanguage } from '../../context/LanguageContext';
 import { COMPANY_SUPPORT } from '../../config/support';
-import { getNotificationPermission, requestNotificationPermission, triggerDeviceNotification, playCheckInChime } from '../../utils/pwaNotifications';
+import { getNotificationPermission, requestNotificationPermission, triggerDeviceNotification, playCheckInChime, playCheckOutChime, updatePwaAppBadge, startTitleFlashing } from '../../utils/pwaNotifications';
 
 const AppLayout = ({ children }) => {
   const { user, logout } = useContext(AuthContext);
@@ -77,35 +77,49 @@ const AppLayout = ({ children }) => {
     return `${diffDays}d ago`;
   };
 
+  const [notifPropertyFilter, setNotifPropertyFilter] = useState('all');
+
   const fetchCheckInNotifications = async () => {
     if (!user) return;
     try {
-      const res = await axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/notifications?limit=30');
+      const res = await axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/notifications?limit=40');
       if (res.data?.success) {
         const list = res.data.data || [];
         setCheckInNotifications(list);
         setUnreadCheckInsCount(res.data.unreadCount || 0);
 
-        // Detect new unread check-in notification for mobile alert
-        const latestUnread = list.find(n => !n.isRead && n.type === 'checkin');
+        // Update PWA native app badge on mobile home screen
+        updatePwaAppBadge(res.data.unreadCount || 0);
+
+        // Detect new unread check-in or checkout notification for mobile alert
+        const latestUnread = list.find(n => !n.isRead && (n.type === 'checkin' || n.type === 'checkout'));
         if (latestUnread && latestUnread._id !== lastNotifiedCheckInIdRef.current) {
           lastNotifiedCheckInIdRef.current = latestUnread._id;
           sessionStorage.setItem('last_notified_checkin_id', latestUnread._id);
 
-          // 1. Play luxury concierge chime
-          playCheckInChime();
+          // 1. Play appropriate luxury concierge chime
+          if (latestUnread.type === 'checkout') {
+            playCheckOutChime();
+          } else {
+            playCheckInChime();
+          }
 
           // 2. Trigger native mobile device / desktop notification with vibration
           triggerDeviceNotification({
             title: latestUnread.title,
             body: latestUnread.message,
-            tag: `checkin-${latestUnread._id}`,
+            tag: `stay-${latestUnread._id}`,
             data: { url: '/checkouts' }
           });
 
           // 3. Show instant floating In-App toast banner
           setLiveCheckInToast(latestUnread);
           setTimeout(() => setLiveCheckInToast(null), 9000);
+
+          // 4. Flash browser tab title if backgrounded
+          if (typeof document !== 'undefined' && document.hidden) {
+            startTitleFlashing(latestUnread.title);
+          }
         }
       }
     } catch (err) {
@@ -130,7 +144,9 @@ const AppLayout = ({ children }) => {
     try {
       await axios.put((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + `/api/notifications/${id}/read`);
       setCheckInNotifications(prev => prev.map(n => n._id === id ? { ...n, isRead: true } : n));
-      setUnreadCheckInsCount(prev => Math.max(0, prev - 1));
+      const nextCount = Math.max(0, unreadCheckInsCount - 1);
+      setUnreadCheckInsCount(nextCount);
+      updatePwaAppBadge(nextCount);
     } catch (err) {}
   };
 
@@ -139,6 +155,18 @@ const AppLayout = ({ children }) => {
       await axios.put((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/notifications/read-all');
       setCheckInNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
       setUnreadCheckInsCount(0);
+      updatePwaAppBadge(0);
+    } catch (err) {}
+  };
+
+  const handleDeleteNotification = async (id, e) => {
+    if (e) e.stopPropagation();
+    try {
+      await axios.delete((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + `/api/notifications/${id}`);
+      setCheckInNotifications(prev => prev.filter(n => n._id !== id));
+      const nextCount = Math.max(0, unreadCheckInsCount - 1);
+      setUnreadCheckInsCount(nextCount);
+      updatePwaAppBadge(nextCount);
     } catch (err) {}
   };
 
@@ -147,25 +175,48 @@ const AppLayout = ({ children }) => {
     setDevicePermission(res);
   };
 
-  const handleTestDeviceAlert = () => {
-    playCheckInChime();
-    triggerDeviceNotification({
-      title: '🛎️ Test: Mobile Check-In Alert',
-      body: 'Room 204 • Harsh Khandelwal checked in (₹1,500 Paid). System alerts working perfectly!',
-      tag: 'test-checkin'
-    });
-    setLiveCheckInToast({
-      _id: 'test',
-      title: '🛎️ Test: Mobile Check-In Alert',
-      message: 'Room 204 • Harsh Khandelwal checked in (₹1,500 Paid)',
-      metadata: {
-        hotelName: 'Blue Star Hotel',
-        roomNumber: '204',
-        guestName: 'Harsh Khandelwal',
-        totalAmount: 1500,
-        paidAmount: 1500
-      }
-    });
+  const handleTestDeviceAlert = (type = 'checkin') => {
+    if (type === 'checkout') {
+      playCheckOutChime();
+      triggerDeviceNotification({
+        title: '🚪 Test: Check-Out Alert',
+        body: 'Room 105 • Amit Sharma checked out (Settled: ₹2,100). Bill closed!',
+        tag: 'test-checkout'
+      });
+      setLiveCheckInToast({
+        _id: 'test-out',
+        type: 'checkout',
+        title: '🚪 Test: Check-Out Alert',
+        message: 'Room 105 checked out by Amit Sharma • Settled: ₹2,100',
+        metadata: {
+          hotelName: 'Blue Star Hotel',
+          roomNumber: '105',
+          guestName: 'Amit Sharma',
+          totalAmount: 2100,
+          paidAmount: 2100
+        }
+      });
+    } else {
+      playCheckInChime();
+      triggerDeviceNotification({
+        title: '🛎️ Test: Mobile Check-In Alert',
+        body: 'Room 204 • Harsh Khandelwal checked in (₹1,500 Paid). System alerts working perfectly!',
+        tag: 'test-checkin'
+      });
+      setLiveCheckInToast({
+        _id: 'test-in',
+        type: 'checkin',
+        title: '🛎️ Test: Mobile Check-In Alert',
+        message: 'Room 204 • Harsh Khandelwal checked in (₹1,500 Paid)',
+        metadata: {
+          hotelName: 'Blue Star Hotel',
+          roomNumber: '204',
+          guestName: 'Harsh Khandelwal',
+          totalAmount: 1500,
+          paidAmount: 1500
+        }
+      });
+    }
     setTimeout(() => setLiveCheckInToast(null), 9000);
   };
 
@@ -738,19 +789,31 @@ const AppLayout = ({ children }) => {
                     ) : (
                       <div className="px-3.5 py-1.5 bg-emerald-50/70 border-b border-emerald-100 flex items-center justify-between text-[10px]">
                         <span className="flex items-center gap-1.5 font-bold text-emerald-800">
-                          <CheckCircle2 size={12} className="text-emerald-600 shrink-0" /> Mobile Push Active on this device
+                          <CheckCircle2 size={12} className="text-emerald-600 shrink-0" /> Mobile Push Active
                         </span>
-                        <button
-                          type="button"
-                          onClick={handleTestDeviceAlert}
-                          className="text-emerald-700 hover:text-emerald-950 font-black underline cursor-pointer"
-                        >
-                          ⚡ Test Alert
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleTestDeviceAlert('checkin')}
+                            className="text-emerald-700 hover:text-emerald-950 font-black underline cursor-pointer"
+                            title="Test Check-In alert sound & banner"
+                          >
+                            ⚡ Test Check-In
+                          </button>
+                          <span className="text-emerald-300">•</span>
+                          <button
+                            type="button"
+                            onClick={() => handleTestDeviceAlert('checkout')}
+                            className="text-amber-800 hover:text-amber-950 font-black underline cursor-pointer"
+                            title="Test Check-Out alert sound & banner"
+                          >
+                            🚪 Test Check-Out
+                          </button>
+                        </div>
                       </div>
                     )}
 
-                    {/* Notification Tabs (Live Check-Ins vs Checkout Due) */}
+                    {/* Notification Tabs (Live Activity vs Checkout Due) */}
                     <div className="grid grid-cols-2 p-1 bg-gray-100/80 border-b border-gray-200 text-xs">
                       <button
                         type="button"
@@ -761,7 +824,7 @@ const AppLayout = ({ children }) => {
                             : 'text-gray-500 hover:text-gray-900'
                         }`}
                       >
-                        <span>🛎️ Check-Ins</span>
+                        <span>🛎️ Check-Ins & Outs</span>
                         {unreadCheckInsCount > 0 && (
                           <span className="px-1.5 py-0.2 bg-emerald-600 text-white text-[9px] font-black rounded-full animate-pulse">
                             {unreadCheckInsCount}
@@ -786,11 +849,11 @@ const AppLayout = ({ children }) => {
                       </button>
                     </div>
 
-                    {/* Tab 1: Live Check-Ins */}
+                    {/* Tab 1: Live Activity (Check-Ins & Check-Outs) */}
                     {activeNotifTab === 'checkins' && (
                       <div className="max-h-84 overflow-y-auto">
                         <div className="px-3.5 py-2 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between text-[11px]">
-                          <span className="text-gray-500 font-semibold">Live check-ins across properties</span>
+                          <span className="text-gray-500 font-semibold">Live activity across properties</span>
                           {unreadCheckInsCount > 0 && (
                             <button
                               type="button"
@@ -802,74 +865,154 @@ const AppLayout = ({ children }) => {
                           )}
                         </div>
 
-                        {checkInNotifications.length === 0 ? (
-                          <div className="p-8 text-center text-gray-400 space-y-1">
-                            <Sparkles size={24} className="mx-auto text-gray-300 stroke-[1.5]" />
-                            <p className="text-xs font-bold text-gray-600">No Check-In Notifications Yet</p>
-                            <p className="text-[11px] text-gray-400">When any of your hotel properties checks in a guest, you will be notified here instantly.</p>
-                          </div>
-                        ) : (
-                          <div className="divide-y divide-gray-100">
-                            {checkInNotifications.map((notif) => {
-                              const meta = notif.metadata || {};
-                              const hotelName = meta.hotelName || notif.hostel?.name || 'Hotel';
-                              const isUnread = !notif.isRead;
-                              return (
-                                <div 
-                                  key={notif._id} 
-                                  onClick={(e) => {
-                                    handleMarkCheckInRead(notif._id, e);
-                                    setShowNotifications(false);
-                                    navigate('/checkouts');
-                                  }}
-                                  className={`p-3 transition-colors cursor-pointer flex items-start justify-between gap-2.5 hover:bg-gray-50 ${
-                                    isUnread ? 'bg-emerald-50/40' : 'bg-white'
-                                  }`}
-                                >
-                                  <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                                    <div className="mt-0.5">
-                                      <span className={`block w-2.5 h-2.5 rounded-full ${
-                                        isUnread ? 'bg-emerald-500 animate-pulse' : 'bg-gray-300'
-                                      }`}></span>
-                                    </div>
-                                    <div className="min-w-0 flex-1 space-y-0.5">
-                                      <div className="flex items-center gap-1.5 flex-wrap">
-                                        <span className="px-1.5 py-0.2 bg-blue-100 text-blue-800 text-[9px] font-black uppercase rounded tracking-tight">
-                                          {hotelName}
-                                        </span>
-                                        <span className="text-[10px] text-gray-400 font-medium">
-                                          {getTimeAgo(notif.createdAt)}
-                                        </span>
-                                      </div>
-                                      <p className="text-xs font-bold text-gray-900 leading-snug">
-                                        Room {meta.roomNumber || 'Room'} • <span className="text-gray-950 font-black">{meta.guestName || 'Guest'}</span>
-                                      </p>
-                                      <p className="text-[11px] text-gray-600 font-medium">
-                                        Tariff: <strong className="text-gray-900">₹{Number(meta.totalAmount || 0).toLocaleString('en-IN')}</strong>
-                                        {Number(meta.paidAmount) > 0 && (
-                                          <span className="text-emerald-700 font-bold ml-1.5">
-                                            (₹{Number(meta.paidAmount).toLocaleString('en-IN')} Paid)
-                                          </span>
-                                        )}
-                                      </p>
-                                    </div>
-                                  </div>
-
-                                  {isUnread && (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => handleMarkCheckInRead(notif._id, e)}
-                                      className="p-1 text-gray-400 hover:text-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors shrink-0"
-                                      title="Mark as read"
-                                    >
-                                      <CheckCircle2 size={13} />
-                                    </button>
-                                  )}
-                                </div>
-                              );
-                            })}
+                        {/* Multi-Property Filter Pills if user owns multiple hotels */}
+                        {hostels.length > 1 && (
+                          <div className="px-3 py-1.5 bg-gray-50 border-b border-gray-100 flex items-center gap-1 overflow-x-auto text-[10px] no-scrollbar">
+                            <button
+                              type="button"
+                              onClick={() => setNotifPropertyFilter('all')}
+                              className={`px-2 py-0.5 rounded-full font-bold whitespace-nowrap transition-all cursor-pointer ${
+                                notifPropertyFilter === 'all'
+                                  ? 'bg-black text-white'
+                                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
+                              }`}
+                            >
+                              All Hotels
+                            </button>
+                            {hostels.map(h => (
+                              <button
+                                key={h._id}
+                                type="button"
+                                onClick={() => setNotifPropertyFilter(h._id)}
+                                className={`px-2 py-0.5 rounded-full font-bold whitespace-nowrap transition-all cursor-pointer ${
+                                  notifPropertyFilter === h._id
+                                    ? 'bg-blue-600 text-white'
+                                    : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
+                                }`}
+                              >
+                                {h.name}
+                              </button>
+                            ))}
                           </div>
                         )}
+
+                        {(() => {
+                          const filtered = notifPropertyFilter === 'all'
+                            ? checkInNotifications
+                            : checkInNotifications.filter(n => (n.hostel?._id || n.hostel) === notifPropertyFilter);
+
+                          if (filtered.length === 0) {
+                            return (
+                              <div className="p-8 text-center text-gray-400 space-y-1">
+                                <Sparkles size={24} className="mx-auto text-gray-300 stroke-[1.5]" />
+                                <p className="text-xs font-bold text-gray-600">No Notifications Yet</p>
+                                <p className="text-[11px] text-gray-400">When any of your hotel properties checks in or checks out a guest, you will be notified here instantly.</p>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div className="divide-y divide-gray-100">
+                              {filtered.map((notif) => {
+                                const meta = notif.metadata || {};
+                                const hotelName = meta.hotelName || notif.hostel?.name || 'Hotel';
+                                const isUnread = !notif.isRead;
+                                const isCheckout = notif.type === 'checkout';
+                                const cleanPhone = (meta.guestPhone || '').replace(/[^0-9]/g, '');
+
+                                return (
+                                  <div 
+                                    key={notif._id} 
+                                    onClick={(e) => {
+                                      handleMarkCheckInRead(notif._id, e);
+                                      setShowNotifications(false);
+                                      navigate('/checkouts');
+                                    }}
+                                    className={`p-3 transition-colors cursor-pointer flex items-start justify-between gap-2.5 hover:bg-gray-50 ${
+                                      isUnread ? (isCheckout ? 'bg-amber-50/40' : 'bg-emerald-50/40') : 'bg-white'
+                                    }`}
+                                  >
+                                    <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                                      <div className="mt-0.5">
+                                        <span className={`block w-2.5 h-2.5 rounded-full ${
+                                          isUnread 
+                                            ? (isCheckout ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500 animate-pulse') 
+                                            : 'bg-gray-300'
+                                        }`}></span>
+                                      </div>
+                                      <div className="min-w-0 flex-1 space-y-0.5">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          <span className="px-1.5 py-0.2 bg-blue-100 text-blue-800 text-[9px] font-black uppercase rounded tracking-tight">
+                                            {hotelName}
+                                          </span>
+                                          <span className={`px-1.5 py-0.2 text-[9px] font-black uppercase rounded tracking-tight ${
+                                            isCheckout ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                                          }`}>
+                                            {isCheckout ? 'Checked Out' : 'Check-In'}
+                                          </span>
+                                          <span className="text-[10px] text-gray-400 font-medium">
+                                            {getTimeAgo(notif.createdAt)}
+                                          </span>
+                                        </div>
+                                        <p className="text-xs font-bold text-gray-900 leading-snug">
+                                          Room {meta.roomNumber || 'Room'} • <span className="text-gray-950 font-black">{meta.guestName || 'Guest'}</span>
+                                        </p>
+                                        <p className="text-[11px] text-gray-600 font-medium">
+                                          {isCheckout ? (
+                                            <>Settled: <strong className="text-gray-900">₹{Number(meta.paidAmount || 0).toLocaleString('en-IN')}</strong></>
+                                          ) : (
+                                            <>
+                                              Tariff: <strong className="text-gray-900">₹{Number(meta.totalAmount || 0).toLocaleString('en-IN')}</strong>
+                                              {Number(meta.paidAmount) > 0 && (
+                                                <span className="text-emerald-700 font-bold ml-1.5">
+                                                  (₹{Number(meta.paidAmount).toLocaleString('en-IN')} Paid)
+                                                </span>
+                                              )}
+                                            </>
+                                          )}
+                                        </p>
+                                      </div>
+                                    </div>
+
+                                    {/* Action Shortcuts: Call, WhatsApp, Delete */}
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      {cleanPhone && (
+                                        <>
+                                          <a
+                                            href={`tel:${cleanPhone}`}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="p-1.5 text-gray-400 hover:text-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors"
+                                            title={`Call ${meta.guestName}`}
+                                          >
+                                            <Phone size={12} />
+                                          </a>
+                                          <a
+                                            href={`https://wa.me/91${cleanPhone.slice(-10)}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="p-1.5 text-gray-400 hover:text-green-600 rounded-lg hover:bg-green-50 transition-colors"
+                                            title={`WhatsApp ${meta.guestName}`}
+                                          >
+                                            <MessageSquare size={12} />
+                                          </a>
+                                        </>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={(e) => handleDeleteNotification(notif._id, e)}
+                                        className="p-1.5 text-gray-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
+                                        title="Delete notification"
+                                      >
+                                        <Trash2 size={12} />
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
 
