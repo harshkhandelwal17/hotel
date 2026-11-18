@@ -100,7 +100,7 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
   const outDate = stay.actualCheckOutDate || stay.expectedCheckOutDate || new Date();
   const checkInFormatted = format(new Date(stay.checkInDate), 'dd MMM yyyy, hh:mm a');
   const checkOutFormatted = format(new Date(outDate), 'dd MMM yyyy, hh:mm a');
-  const waUrl = getStayWhatsAppUrl(stay, 'bill');
+  const waUrl = getStayWhatsAppUrl(stay, 'bill', invOptions);
 
   const handlePrint = () => {
     saveGstDetailsToStay();
