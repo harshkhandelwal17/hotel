@@ -1703,6 +1703,12 @@ const CheckIn = () => {
         const basePerRoom = roomCount > 0 ? Math.floor(userTotalAmount / roomCount) : 0;
         const remainder = userTotalAmount - (basePerRoom * roomCount);
 
+        // Check if every selected room has a configured price24h > 0 to avoid ₹0 allocation skews
+        const allRoomsHaveValidPrice = groupSelectedRooms.every(rId => {
+          const doc = rooms.find(r => r._id === rId);
+          return (Number(doc?.price24h) || 0) > 0;
+        });
+
         let allocatedTotal = 0;
         const roomsPayload = groupSelectedRooms.map((rId, idx) => {
           const rDoc = rooms.find(r => r._id === rId);
@@ -1722,16 +1728,16 @@ const CheckIn = () => {
 
           let roomRate = 0;
           if (userTotalAmount > 0) {
-            if (standardTotal > 0) {
+            if (standardTotal > 0 && allRoomsHaveValidPrice) {
               const stdRate = (Number(rDoc?.price24h) || 0) * roomDays;
               if (idx === roomCount - 1) {
-                roomRate = Math.max(0, userTotalAmount - allocatedTotal);
+                roomRate = Math.max(1, userTotalAmount - allocatedTotal);
               } else {
-                roomRate = Math.round((stdRate / standardTotal) * userTotalAmount);
+                roomRate = Math.max(1, Math.round((stdRate / standardTotal) * userTotalAmount));
                 allocatedTotal += roomRate;
               }
             } else {
-              // Dynamic price: divide agreed group total equally across rooms
+              // Dynamic price or missing room rates: divide agreed group total equally across rooms
               roomRate = (idx === roomCount - 1) ? (basePerRoom + remainder) : basePerRoom;
             }
           }

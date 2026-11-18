@@ -109,6 +109,9 @@ export default function MergedCorporateInvoiceModal({
   const [markBalancePaid, setMarkBalancePaid] = useState(false);
   const [balancePaymentMethod, setBalancePaymentMethod] = useState('UPI');
 
+  // Tariff display mode: 'detailed' (room-wise fair split) or 'package' (lump sum)
+  const [rateDisplayMode, setRateDisplayMode] = useState('detailed');
+
   const [showConfig, setShowConfig] = useState(true);
 
   // Lock body scroll while modal is open
@@ -174,9 +177,10 @@ export default function MergedCorporateInvoiceModal({
     gstEnabled,
     gstRate: Number(gstRate),
     taxInclusive,
+    rateDisplayMode,
     markAllPaid: markBalancePaid,
     balancePaymentMethod
-  }), [hostel, guestCompany, guestGstin, billingAddress, bookerName, bookerPhone, poNumber, gstEnabled, gstRate, taxInclusive, markBalancePaid, balancePaymentMethod]);
+  }), [hostel, guestCompany, guestGstin, billingAddress, bookerName, bookerPhone, poNumber, gstEnabled, gstRate, taxInclusive, rateDisplayMode, markBalancePaid, balancePaymentMethod]);
 
   const inv = useMemo(() => {
     if (selectedStays.length === 0) return null;
@@ -199,7 +203,8 @@ export default function MergedCorporateInvoiceModal({
 
       const promises = selectedStays.map(s => {
         let stayTax = 0;
-        const sTotal = Number(s.totalAmount) || 0;
+        const bDown = inv?.roomBreakdown?.find(r => r.stayId === s._id);
+        const sTotal = bDown ? bDown.roomTotal : (Number(s.totalAmount) || 0);
         if (gstEnabled && currentRate > 0) {
           if (type === 'inclusive') {
             const taxable = Math.round((sTotal / (1 + currentRate / 100)) * 100) / 100;
@@ -218,6 +223,13 @@ export default function MergedCorporateInvoiceModal({
           gstType: type,
           taxAmount: stayTax
         };
+
+        // If tariff was equalized because a room previously had ₹0, update totalAmount in database
+        if (inv?.isEqualized && bDown) {
+          payload.totalAmount = bDown.roomTotal;
+          s.totalAmount = bDown.roomTotal;
+        }
+
         s.companyName = cleanCompany;
         s.gstin = cleanGstin;
         s.billingAddress = cleanAddress;
@@ -529,13 +541,38 @@ export default function MergedCorporateInvoiceModal({
 
           {/* ITEMISED ROOM BREAKDOWN TABLE */}
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
               <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                 Consolidated Particulars ({inv.roomBreakdown.length} Rooms):
               </span>
-              <span className="text-xs font-semibold text-slate-500">
-                All accommodation and services merged
-              </span>
+
+              {/* Tariff Display Mode Selector */}
+              <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setRateDisplayMode('detailed')}
+                  className={`px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer ${
+                    rateDisplayMode === 'detailed'
+                      ? 'bg-white text-slate-900 shadow-2xs'
+                      : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                  title="Fairly splits package price evenly across all rooms so no room shows ₹0"
+                >
+                  Room-wise Split
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRateDisplayMode('package')}
+                  className={`px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer ${
+                    rateDisplayMode === 'package'
+                      ? 'bg-white text-slate-900 shadow-2xs'
+                      : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                  title="Shows consolidated package lump sum total for corporate folios"
+                >
+                  Package Lump Sum
+                </button>
+              </div>
             </div>
 
             <div className="border border-slate-200 rounded-2xl overflow-x-auto shadow-2xs">
@@ -572,13 +609,42 @@ export default function MergedCorporateInvoiceModal({
                         )}
                       </td>
                       <td className="py-2.5 px-3 text-center font-bold text-slate-700">{r.nights}</td>
-                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-800">₹{r.roomRent.toLocaleString('en-IN')}</td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-800">
+                        {rateDisplayMode === 'package' ? (
+                          <span className="text-slate-400 text-[11px] font-semibold">Package</span>
+                        ) : (
+                          `₹${r.roomRent.toLocaleString('en-IN')}`
+                        )}
+                      </td>
                       <td className="py-2.5 px-3 text-right font-mono text-slate-600">
                         {r.chargesTotal > 0 ? `₹${r.chargesTotal.toLocaleString('en-IN')}` : '-'}
                       </td>
-                      <td className="py-2.5 px-3 text-right font-mono font-black text-slate-900">₹{r.roomTotal.toLocaleString('en-IN')}</td>
+                      <td className="py-2.5 px-3 text-right font-mono font-black text-slate-900">
+                        {rateDisplayMode === 'package' ? (
+                          r.chargesTotal > 0 ? `₹${r.chargesTotal.toLocaleString('en-IN')}` : <span className="text-slate-400 text-[11px] font-semibold">Included</span>
+                        ) : (
+                          `₹${r.roomTotal.toLocaleString('en-IN')}`
+                        )}
+                      </td>
                     </tr>
                   ))}
+                  {rateDisplayMode === 'package' && (
+                    <tr className="bg-slate-50 border-t border-slate-200 font-bold">
+                      <td className="py-2 px-3 text-center text-slate-400">&bull;</td>
+                      <td colSpan={3} className="py-2 px-3 text-slate-800">
+                        Consolidated Room Accommodation Package ({inv.roomBreakdown.length} Rooms Total)
+                      </td>
+                      <td className="py-2 px-3 text-right font-mono font-bold text-slate-900">
+                        ₹{inv.totalRoomRent.toLocaleString('en-IN')}
+                      </td>
+                      <td className="py-2 px-3 text-right font-mono text-slate-600">
+                        {inv.totalCharges > 0 ? `₹${inv.totalCharges.toLocaleString('en-IN')}` : '-'}
+                      </td>
+                      <td className="py-2 px-3 text-right font-mono font-black text-slate-900">
+                        ₹{inv.totalBilled.toLocaleString('en-IN')}
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

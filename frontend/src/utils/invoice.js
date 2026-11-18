@@ -1086,14 +1086,37 @@ export const calculateMergedInvoiceData = (stays = [], payments = [], options = 
   const guestStateCode = guestGstin.length >= 2 ? guestGstin.slice(0, 2) : '';
   const isInterState = Boolean(hotelStateCode && guestStateCode && hotelStateCode !== guestStateCode);
 
+  // Pre-calculate raw room rents across all stays to detect skewed/zero tariff allocations
+  const rawRents = stays.map(s => {
+    const charges = Array.isArray(s.charges) ? s.charges : [];
+    const chargesTotal = charges.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+    const roomTot = Number(s.totalAmount) || 0;
+    return Math.max(0, roomTot - chargesTotal);
+  });
+  const totalRentSum = rawRents.reduce((sum, r) => sum + r, 0);
+
+  // If group tariff > 0, but any room is ₹0 (e.g. unconfigured room rate or lump sum dumped onto 1 room),
+  // automatically equalize the tariff evenly across all rooms so no room displays ₹0.
+  const hasZeroRentSkew = stays.length > 1 && totalRentSum > 0 && rawRents.some(r => r <= 0);
+  const shouldEqualize = Boolean(hasZeroRentSkew || options.forceEqualSplit);
+
+  const baseRentPerRoom = shouldEqualize ? Math.floor(totalRentSum / stays.length) : 0;
+  const remRent = shouldEqualize ? (totalRentSum % stays.length) : 0;
+  const rateDisplayMode = options.rateDisplayMode || 'detailed'; // 'detailed' | 'package'
+
   // Breakdown of each room stay
   const roomBreakdown = stays.map((s, idx) => {
     const room = s.room || {};
     const guest = s.guest || {};
     const charges = Array.isArray(s.charges) ? s.charges : [];
     const chargesTotal = charges.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
-    const roomTotal = Number(s.totalAmount) || 0;
-    const roomRent = Math.max(0, roomTotal - chargesTotal);
+    
+    // Equalized rent ensures fair per-room billing without confusing ₹0 lines
+    const roomRent = shouldEqualize
+      ? (idx === stays.length - 1 ? baseRentPerRoom + remRent : baseRentPerRoom)
+      : rawRents[idx];
+
+    const roomTotal = roomRent + chargesTotal;
     const paid = Number(s.paidAmount) || 0;
     const balance = Math.max(0, roomTotal - paid);
 
@@ -1207,6 +1230,8 @@ export const calculateMergedInvoiceData = (stays = [], payments = [], options = 
     grandTotal,
     roundOff,
     invoiceNumber,
+    rateDisplayMode,
+    isEqualized: shouldEqualize,
     hsnSacCode: hostel.hsnSacCode || '996311'
   };
 };
@@ -1217,6 +1242,7 @@ export const calculateMergedInvoiceData = (stays = [], payments = [], options = 
 export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {}) => {
   const inv = calculateMergedInvoiceData(stays, payments, options);
   const invoiceDateFormatted = format(new Date(), 'dd MMM yyyy, hh:mm a');
+  const isPackageMode = inv.rateDisplayMode === 'package';
 
   // Room Accommodation Table Rows
   const roomRows = inv.roomBreakdown.map((r, i) => {
@@ -1231,6 +1257,14 @@ export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {
       </div>
     ` : '';
 
+    const tariffDisplay = isPackageMode
+      ? '<span class="muted" style="font-size: 11px; font-weight: 600;">Package</span>'
+      : `₹${Number(r.roomRent).toLocaleString('en-IN')}`;
+
+    const totalDisplay = isPackageMode
+      ? (r.chargesTotal > 0 ? `₹${Number(r.chargesTotal).toLocaleString('en-IN')}` : '<span class="muted" style="font-size: 11px; font-weight: 600;">Included</span>')
+      : `₹${Number(r.roomTotal).toLocaleString('en-IN')}`;
+
     return `
       <tr>
         <td class="c">${i + 1}</td>
@@ -1242,12 +1276,24 @@ export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {
         </td>
         <td class="c font-mono">${inv.gstEnabled ? sac : '-'}</td>
         <td class="c">${r.nights}</td>
-        <td class="r font-mono">₹${Number(r.roomRent).toLocaleString('en-IN')}</td>
+        <td class="r font-mono">${tariffDisplay}</td>
         <td class="r font-mono">${r.chargesTotal > 0 ? `₹${Number(r.chargesTotal).toLocaleString('en-IN')}` : '-'}</td>
-        <td class="r font-mono font-bold" style="color: #0f172a;">₹${Number(r.roomTotal).toLocaleString('en-IN')}</td>
+        <td class="r font-mono font-bold" style="color: #0f172a;">${totalDisplay}</td>
       </tr>
     `;
   }).join('');
+
+  const packageSummaryRow = isPackageMode ? `
+    <tr style="background: #f8fafc; border-top: 1.5px solid #cbd5e1;">
+      <td class="c" style="font-weight: 800; color: #64748b;">&bull;</td>
+      <td colspan="3" style="font-weight: 800; color: #0f172a; font-size: 12.5px;">
+        Consolidated Room Accommodation Package (${inv.roomBreakdown.length} Rooms Total)
+      </td>
+      <td class="r font-mono font-bold" style="color: #0f172a;">₹${Number(inv.totalRoomRent).toLocaleString('en-IN')}</td>
+      <td class="r font-mono font-bold" style="color: #64748b;">${inv.totalCharges > 0 ? `₹${Number(inv.totalCharges).toLocaleString('en-IN')}` : '-'}</td>
+      <td class="r font-mono font-bold" style="color: #0f172a;">₹${Number(inv.totalBilled).toLocaleString('en-IN')}</td>
+    </tr>
+  ` : '';
 
   // Payment Records (Auto-fallback to individual room advance payments)
   let effectiveMergedPayments = payments.length > 0 ? [...payments] : [];
@@ -1929,6 +1975,7 @@ export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {
       </thead>
       <tbody>
         ${roomRows}
+        ${packageSummaryRow}
       </tbody>
     </table>
 

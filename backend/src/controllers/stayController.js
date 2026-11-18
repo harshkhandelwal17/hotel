@@ -316,7 +316,9 @@ const checkGroupNeedsRebalance = (items) => {
   const hasOverpaid = items.some(s => (Number(s.paidAmount) || 0) > (Number(s.totalAmount) || 0));
   const singleHoldingAll = items.filter(s => (Number(s.paidAmount) || 0) > 0).length === 1 &&
     items.some(s => (Number(s.paidAmount) || 0) === 0);
-  return hasOverpaid || singleHoldingAll;
+  const hasZeroTariffSkew = items.some(s => (Number(s.totalAmount) || 0) === 0) &&
+    items.some(s => (Number(s.totalAmount) || 0) > 0);
+  return hasOverpaid || singleHoldingAll || hasZeroTariffSkew;
 };
 
 // ---------------------------------------------------------------------------
@@ -335,7 +337,20 @@ const autoRebalanceGroupStays = async (groupId) => {
     }).lean();
 
     const totalPaid = groupPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
-    const totalTariff = groupStays.reduce((acc, s) => acc + (Number(s.totalAmount) || 0), 0);
+    let totalTariff = groupStays.reduce((acc, s) => acc + (Number(s.totalAmount) || 0), 0);
+
+    // If some rooms in this group have totalAmount === 0 while group totalTariff > 0,
+    // rebalance totalAmount equally across all rooms so no room gets 0 tariff
+    const hasZeroTariffSkew = groupStays.some(s => (Number(s.totalAmount) || 0) === 0) && totalTariff > 0;
+    if (hasZeroTariffSkew) {
+      const baseTariff = Math.floor(totalTariff / groupStays.length);
+      const remTariff = totalTariff % groupStays.length;
+      for (let i = 0; i < groupStays.length; i++) {
+        const newTariff = (i === groupStays.length - 1) ? baseTariff + remTariff : baseTariff;
+        groupStays[i].totalAmount = newTariff;
+        await Stay.findByIdAndUpdate(groupStays[i]._id, { $set: { totalAmount: newTariff } });
+      }
+    }
 
     let allocated = 0;
     for (let i = 0; i < groupStays.length; i++) {
@@ -1523,12 +1538,20 @@ exports.createGroupStay = async (req, res, next) => {
 
     // 4. Calculate tariffs & distribute advance proportionately across all rooms
     const advance = Math.max(0, Number(initialPaymentAmount) || 0);
-    const roomRates = rooms.map(roomItem => {
+    let roomRates = rooms.map(roomItem => {
       const rId = roomItem.room || roomItem.roomId;
       const rDoc = roomDocs.find(d => d._id.toString() === rId.toString());
       return Math.max(0, Number(roomItem.rate ?? roomItem.price ?? rDoc?.price24h) || 0);
     });
     const groupGrandTotal = roomRates.reduce((sum, r) => sum + r, 0);
+
+    // If total tariff > 0, but any room is 0 (unconfigured price or skewed allocation),
+    // rebalance rates equally so no room receives 0 tariff
+    if (groupGrandTotal > 0 && roomRates.some(r => r === 0) && rooms.length > 1) {
+      const basePerRoom = Math.floor(groupGrandTotal / rooms.length);
+      const rem = groupGrandTotal % rooms.length;
+      roomRates = roomRates.map((_, idx) => (idx === rooms.length - 1 ? basePerRoom + rem : basePerRoom));
+    }
 
     let allocatedAdvance = 0;
     const createdStays = [];
