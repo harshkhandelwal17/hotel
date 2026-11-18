@@ -1820,11 +1820,20 @@ exports.groupCheckout = async (req, res, next) => {
       }
     );
 
-    // If payment was made on leader stay, update leader's paidAmount
+    // Distribute settlement payment across active stays to clear their pending balances
     if (payAmt > 0) {
-      await Stay.findByIdAndUpdate(leaderStay._id, {
-        $inc: { paidAmount: payAmt }
-      });
+      let remainingSettlement = payAmt;
+      for (const st of activeStays) {
+        const roomDue = Math.max(0, (Number(st.totalAmount) || 0) - (Number(st.paidAmount) || 0));
+        if (roomDue > 0 && remainingSettlement > 0) {
+          const alloc = Math.min(roomDue, remainingSettlement);
+          await Stay.findByIdAndUpdate(st._id, { $inc: { paidAmount: alloc } });
+          remainingSettlement -= alloc;
+        }
+      }
+      if (remainingSettlement > 0) {
+        await Stay.findByIdAndUpdate(leaderStay._id, { $inc: { paidAmount: remainingSettlement } });
+      }
     }
 
     // 3. Dispatch Web Push for Group Checkout strictly to THIS Property's Staff & Owner
