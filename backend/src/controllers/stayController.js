@@ -343,7 +343,8 @@ exports.getStay = async (req, res, next) => {
     if (!stay) {
       return res.status(404).json({ success: false, message: 'Stay not found' });
     }
-    if (!(await userCanAccessHostel(req.user, stay.hostel))) {
+    const hostelId = stay.hostel?._id || stay.hostel;
+    if (!(await userCanAccessHostel(req.user, hostelId))) {
       return res.status(403).json({ success: false, message: 'Not authorized for this stay' });
     }
 

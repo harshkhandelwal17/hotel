@@ -7,7 +7,9 @@ const userId = (user) => user.id || user._id;
  */
 const userCanAccessHostel = async (user, hostelId) => {
   if (!user || !hostelId) return false;
-  const id = hostelId.toString();
+  const id = typeof hostelId === 'object' && hostelId !== null
+    ? (hostelId._id ? hostelId._id.toString() : hostelId.toString())
+    : hostelId.toString();
 
   if (user.role === 'superadmin') return true;
 
@@ -36,7 +38,10 @@ const assertHostelAccess = async (user, hostelId, requireActive = false) => {
     throw err;
   }
   if (requireActive && user.role !== 'superadmin') {
-    const hostel = await Hostel.findById(hostelId);
+    const rawId = typeof hostelId === 'object' && hostelId !== null
+      ? (hostelId._id ? hostelId._id : hostelId)
+      : hostelId;
+    const hostel = await Hostel.findById(rawId);
     if (hostel) {
       if (hostel.isActive === false) {
         const err = new Error('This property is currently locked or inactive. Please contact Super Admin to activate subscription.');
