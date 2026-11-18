@@ -317,13 +317,13 @@ const CheckIn = () => {
       const days = Math.max(1, Number(stayInfo.durationDays) || 1);
       const total = next.reduce((sum, rId) => {
         const rDoc = rooms.find(r => r._id === rId);
-        return sum + (Number(rDoc?.price24h) || 1000) * days;
+        return sum + (Number(rDoc?.price24h) || 0) * days;
       }, 0);
 
       setStayInfo(p => ({
         ...p,
         room: next[0] || '',
-        totalAmount: total > 0 ? String(total) : ''
+        totalAmount: total > 0 ? String(total) : p.totalAmount
       }));
 
       return next;
@@ -1678,8 +1678,12 @@ const CheckIn = () => {
         const roomDays = Math.max(1, Number(stayInfo.durationDays) || 1);
         const standardTotal = groupSelectedRooms.reduce((sum, rId) => {
           const rDoc = rooms.find(r => r._id === rId);
-          return sum + (Number(rDoc?.price24h) || 1000) * roomDays;
+          return sum + (Number(rDoc?.price24h) || 0) * roomDays;
         }, 0);
+
+        const roomCount = groupSelectedRooms.length;
+        const basePerRoom = roomCount > 0 ? Math.floor(userTotalAmount / roomCount) : 0;
+        const remainder = userTotalAmount - (basePerRoom * roomCount);
 
         let allocatedTotal = 0;
         const roomsPayload = groupSelectedRooms.map((rId, idx) => {
@@ -1698,14 +1702,19 @@ const CheckIn = () => {
             address: guests[0]?.address
           };
 
-          const stdRate = (Number(rDoc?.price24h) || 1000) * roomDays;
-          let roomRate = stdRate;
-          if (userTotalAmount > 0 && standardTotal > 0) {
-            if (idx === groupSelectedRooms.length - 1) {
-              roomRate = Math.max(0, userTotalAmount - allocatedTotal);
+          let roomRate = 0;
+          if (userTotalAmount > 0) {
+            if (standardTotal > 0) {
+              const stdRate = (Number(rDoc?.price24h) || 0) * roomDays;
+              if (idx === roomCount - 1) {
+                roomRate = Math.max(0, userTotalAmount - allocatedTotal);
+              } else {
+                roomRate = Math.round((stdRate / standardTotal) * userTotalAmount);
+                allocatedTotal += roomRate;
+              }
             } else {
-              roomRate = Math.round((stdRate / standardTotal) * userTotalAmount);
-              allocatedTotal += roomRate;
+              // Dynamic price: divide agreed group total equally across rooms
+              roomRate = (idx === roomCount - 1) ? (basePerRoom + remainder) : basePerRoom;
             }
           }
 
@@ -2311,7 +2320,7 @@ const CheckIn = () => {
                               if (isGroupMode && groupSelectedRooms.length > 0) {
                                 const total = groupSelectedRooms.reduce((sum, rId) => {
                                   const rDoc = rooms.find(r => r._id === rId);
-                                  return sum + (Number(rDoc?.price24h) || 1000) * days;
+                                  return sum + (Number(rDoc?.price24h) || 0) * days;
                                 }, 0);
                                 if (total > 0) updated.totalAmount = String(total);
                               } else if (!isGroupMode && p.room) {
@@ -2603,7 +2612,7 @@ const CheckIn = () => {
                             const days = Math.max(1, Number(stayInfo.durationDays) || 1);
                             const total = initialRooms.reduce((sum, rId) => {
                               const rDoc = rooms.find(r => r._id === rId);
-                              return sum + (Number(rDoc?.price24h) || 1000) * days;
+                              return sum + (Number(rDoc?.price24h) || 0) * days;
                             }, 0);
                             setStayInfo(p => ({ ...p, totalAmount: total > 0 ? String(total) : p.totalAmount }));
                           }
