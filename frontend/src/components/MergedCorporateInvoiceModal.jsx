@@ -15,6 +15,8 @@ import {
   GST_STATE_CODES 
 } from '../utils/invoice';
 
+const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+
 export default function MergedCorporateInvoiceModal({ 
   initialStays = [], 
   allStays = [], 
@@ -33,6 +35,28 @@ export default function MergedCorporateInvoiceModal({
     }
     return (allStays.length > 0 ? [allStays[0]] : []);
   });
+
+  // Auto-fetch all stays of the group if groupId is present
+  useEffect(() => {
+    const primary = initialStays[0];
+    const gId = primary?.groupId;
+    if (!gId) return;
+
+    let active = true;
+    axios.get(`${API}/api/stays/group/${gId}`)
+      .then(res => {
+        if (!active) return;
+        const fetchedStays = res.data?.data?.stays;
+        if (Array.isArray(fetchedStays) && fetchedStays.length > 0) {
+          setSelectedStays(fetchedStays);
+        }
+      })
+      .catch(err => {
+        console.warn('Could not auto-fetch group stays for merged invoice:', err.message);
+      });
+
+    return () => { active = false; };
+  }, [initialStays]);
 
   const primaryStay = selectedStays[0] || {};
   const hostel = primaryStay.hostel || {};

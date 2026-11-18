@@ -43,7 +43,6 @@ import { scanAadhaarQrFromImage, validateAadhaarNumber } from '../../utils/aadha
 import { apiCache } from '../../utils/apiCache';
 import GuestRegistrationCardModal from '../../components/reception/GuestRegistrationCardModal';
 import BrokersDirectoryModal from '../../components/common/BrokersDirectoryModal';
-import GroupCheckInModal from '../../components/reception/GroupCheckInModal';
 import { getFullImageUrl } from '../../utils/imageUrl';
 import { GST_STATE_CODES } from '../../utils/invoice';
 import DynamicUpiQr from '../../components/DynamicUpiQr';
@@ -122,7 +121,20 @@ const CheckIn = () => {
   const [grcModalOpen, setGrcModalOpen] = useState(false);
   const [createdStayData, setCreatedStayData] = useState(null);
   const [propertyData, setPropertyData] = useState(null);
-  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+
+  // Group / Multi-Room Booking State
+  const [isGroupMode, setIsGroupMode] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('mode') === 'group';
+    } catch {
+      return false;
+    }
+  });
+  const [groupName, setGroupName] = useState('');
+  const [groupType, setGroupType] = useState('Corporate');
+  const [groupSelectedRooms, setGroupSelectedRooms] = useState([]);
+  const [groupRoomAssignments, setGroupRoomAssignments] = useState({});
 
   // Broker & Referral Directory State
   const [showBrokersModal, setShowBrokersModal] = useState(false);
@@ -286,6 +298,36 @@ const CheckIn = () => {
       }
     ]);
     toast({ message: 'Prefilled guest cleared', type: 'info' });
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('mode') === 'group') {
+      setIsGroupMode(true);
+    }
+  }, [location.search]);
+
+  const toggleGroupRoom = (room) => {
+    if (!room || !room._id) return;
+    const id = room._id;
+    setGroupSelectedRooms(prev => {
+      const exists = prev.includes(id);
+      const next = exists ? prev.filter(x => x !== id) : [...prev, id];
+
+      const days = Math.max(1, Number(stayInfo.durationDays) || 1);
+      const total = next.reduce((sum, rId) => {
+        const rDoc = rooms.find(r => r._id === rId);
+        return sum + (Number(rDoc?.price24h) || 1000) * days;
+      }, 0);
+
+      setStayInfo(p => ({
+        ...p,
+        room: next[0] || '',
+        totalAmount: total > 0 ? String(total) : ''
+      }));
+
+      return next;
+    });
   };
 
   // =========================================================
@@ -1628,6 +1670,118 @@ const CheckIn = () => {
         stayPayload
       );
 
+      // =====================================================
+      // 5B. MULTI-ROOM GROUP CHECK-IN
+      // =====================================================
+      if (isGroupMode && groupSelectedRooms.length > 0) {
+        const userTotalAmount = Number(stayInfo.totalAmount) || 0;
+        const roomDays = Math.max(1, Number(stayInfo.durationDays) || 1);
+        const standardTotal = groupSelectedRooms.reduce((sum, rId) => {
+          const rDoc = rooms.find(r => r._id === rId);
+          return sum + (Number(rDoc?.price24h) || 1000) * roomDays;
+        }, 0);
+
+        let allocatedTotal = 0;
+        const roomsPayload = groupSelectedRooms.map((rId, idx) => {
+          const rDoc = rooms.find(r => r._id === rId);
+          const assignment = groupRoomAssignments[rId] || { sameAsBooker: true };
+          const guestData = (idx === 0 || assignment.sameAsBooker) ? {
+            fullName: guests[0]?.fullName,
+            mobileNumber: guests[0]?.mobileNumber,
+            idProofType: guests[0]?.idProofType,
+            idProofNumber: guests[0]?.idProofNumber,
+            address: guests[0]?.address
+          } : {
+            fullName: assignment.guestName || guests[0]?.fullName,
+            mobileNumber: assignment.guestMobile || guests[0]?.mobileNumber,
+            idProofType: 'Other',
+            address: guests[0]?.address
+          };
+
+          const stdRate = (Number(rDoc?.price24h) || 1000) * roomDays;
+          let roomRate = stdRate;
+          if (userTotalAmount > 0 && standardTotal > 0) {
+            if (idx === groupSelectedRooms.length - 1) {
+              roomRate = Math.max(0, userTotalAmount - allocatedTotal);
+            } else {
+              roomRate = Math.round((stdRate / standardTotal) * userTotalAmount);
+              allocatedTotal += roomRate;
+            }
+          }
+
+          return {
+            room: rId,
+            rate: roomRate,
+            occupants: 1,
+            guest: guestData
+          };
+        });
+
+        const initialPay = Number(stayInfo.paidAmount) || 0;
+        const splitPayments = stayInfo.paymentMethod === 'Mixed' && initialPay > 0
+          ? buildSplitPayments(stayInfo.paymentMethod, initialPay, stayInfo.splitBreakdown, 'Advance Payment')
+          : undefined;
+
+        const resolvedGroupName = (groupName && groupName.trim()) || `${(guests[0]?.companyName || guests[0]?.fullName || 'Group').trim()}'s Group`;
+
+        const groupPayload = {
+          hostel: hostelId,
+          groupName: resolvedGroupName,
+          groupType: groupType || 'Corporate',
+          checkInDate: checkInDate.toISOString(),
+          expectedCheckOutDate: expectedOut.toISOString(),
+          durationOption: durLabel,
+          primaryGuest: {
+            fullName: guests[0]?.fullName,
+            mobileNumber: guests[0]?.mobileNumber,
+            email: guests[0]?.email,
+            idProofType: guests[0]?.idProofType,
+            idProofNumber: guests[0]?.idProofNumber,
+            address: guests[0]?.address,
+            companyName: guests[0]?.companyName,
+            gstin: guests[0]?.gstin,
+            billingAddress: guests[0]?.address
+          },
+          rooms: roomsPayload,
+          initialPaymentAmount: initialPay,
+          paymentMethod: stayInfo.paymentMethod === 'Mixed' ? 'Mixed' : stayInfo.paymentMethod,
+          splitPayments,
+          gstApplied: stayInfo.gstType !== 'none' && Number(stayInfo.gstRate ?? 12) > 0,
+          gstType: stayInfo.gstType || 'none',
+          gstRate: stayInfo.gstType !== 'none' ? Number(stayInfo.gstRate ?? 12) : 0,
+          companyName: (guests[0]?.companyName || '').trim(),
+          gstin: (guests[0]?.gstin || '').trim().toUpperCase(),
+          billingAddress: (guests[0]?.address || '').trim(),
+          commissionTo: stayInfo.commissionTo,
+          commissionPhone: stayInfo.commissionPhone || '',
+          commissionAmount: Number(stayInfo.commissionAmount) || 0,
+          notes: ''
+        };
+
+        const groupRes = await axios.post(`${API}/api/stays/group-checkin`, groupPayload);
+
+        sessionStorage.removeItem('checkin_step');
+        sessionStorage.removeItem('checkin_stayInfo');
+        sessionStorage.removeItem('checkin_guests');
+        sessionStorage.removeItem('checkin_prefill_guest');
+        setPrefilledProfile(null);
+        apiCache.invalidate();
+
+        const createdStays = groupRes.data?.data?.stays || [];
+        const leaderStay = createdStays[0] || stayPayload;
+        setCreatedStayData(leaderStay);
+
+        toast({
+          message: `Group Check-In successful for ${groupSelectedRooms.length} rooms!`,
+          type: 'success'
+        });
+
+        setStayInfo(p => ({ ...p, room: leaderStay.room?._id || leaderStay.room }));
+        setGrcModalOpen(true);
+        setLoading(false);
+        return;
+      }
+
       const stayRes = await axios.post(
         `${API}/api/stays`,
         stayPayload
@@ -1697,7 +1851,7 @@ const CheckIn = () => {
   // =========================================================
 
   const isStep1Valid =
-    stayInfo.room &&
+    (isGroupMode ? groupSelectedRooms.length > 0 : stayInfo.room) &&
     (
       Number(stayInfo.durationDays) > 0 ||
       Number(stayInfo.durationHours) > 0
@@ -1849,6 +2003,12 @@ const CheckIn = () => {
     sessionStorage.removeItem('checkin_prefill_guest');
     setPrefilledProfile(null);
     
+    setIsGroupMode(false);
+    setGroupName('');
+    setGroupType('Corporate');
+    setGroupSelectedRooms([]);
+    setGroupRoomAssignments({});
+
     setStep(1);
     setStayInfo({
       room: '',
@@ -1900,23 +2060,13 @@ const CheckIn = () => {
               {isHindi ? 'आधार/पासपोर्ट एआई स्कैन और डिजिटल रूम असाइनमेंट' : 'Instant AI OCR scanning, room assignment & WhatsApp onboarding'}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setIsGroupModalOpen(true)}
-              className="px-3.5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-black text-xs transition-all shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95"
-            >
-              <Users size={14} />
-              <span>{isHindi ? 'ग्रुप / मल्टी-रूम चेक-इन' : 'Group Check-In'}</span>
-            </button>
-            <button 
-              onClick={resetForm}
-              className="px-3.5 py-2 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 rounded-xl font-bold text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
-            >
-              <RefreshCw size={13} />
-              <span>{isHindi ? 'फॉर्म रीसेट' : 'Reset Form'}</span>
-            </button>
-          </div>
+          <button 
+            onClick={resetForm}
+            className="px-3.5 py-2 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 rounded-xl font-bold text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+          >
+            <RefreshCw size={13} />
+            <span>{isHindi ? 'फॉर्म रीसेट' : 'Reset Form'}</span>
+          </button>
         </div>
 
         <div className="flex items-center gap-3 mt-4">
@@ -2150,12 +2300,29 @@ const CheckIn = () => {
                           min="0"
                           placeholder="0"
                           value={stayInfo.durationDays}
-                          onChange={(e) =>
-                            setStayInfo((p) => ({
-                              ...p,
-                              durationDays: e.target.value === '' ? '' : Math.max(0, e.target.value)
-                            }))
-                          }
+                          onChange={(e) => {
+                            const val = e.target.value === '' ? '' : Math.max(0, e.target.value);
+                            setStayInfo((p) => {
+                              const updated = {
+                                ...p,
+                                durationDays: val
+                              };
+                              const days = Math.max(1, Number(val) || 1);
+                              if (isGroupMode && groupSelectedRooms.length > 0) {
+                                const total = groupSelectedRooms.reduce((sum, rId) => {
+                                  const rDoc = rooms.find(r => r._id === rId);
+                                  return sum + (Number(rDoc?.price24h) || 1000) * days;
+                                }, 0);
+                                if (total > 0) updated.totalAmount = String(total);
+                              } else if (!isGroupMode && p.room) {
+                                const rDoc = rooms.find(r => r._id === p.room);
+                                if (rDoc?.price24h) {
+                                  updated.totalAmount = String(rDoc.price24h * days);
+                                }
+                              }
+                              return updated;
+                            });
+                          }}
                           className="w-full bg-white border border-gray-200 rounded-lg pl-3 pr-9 py-2 font-black text-lg outline-none focus:border-black transition-colors"
                         />
                         <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-400 uppercase tracking-widest pointer-events-none">
@@ -2392,7 +2559,7 @@ const CheckIn = () => {
               {/* 2. SELECT ROOM (LARGER & MORE PROMINENT) */}
               <div className="bg-white p-5 sm:p-6 rounded-2xl border border-gray-100 shadow-xs space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-2.5 flex-wrap">
                     <h2 className="text-lg sm:text-xl font-black text-gray-900 flex items-center gap-2">
                       <Bed className="text-gray-400" size={22} />
                       2. Select Room
@@ -2400,6 +2567,55 @@ const CheckIn = () => {
                     <span className="text-xs font-black text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full">
                       {rooms.filter((r) => !r.isOccupied).length} Vacant
                     </span>
+
+                    {/* SINGLE vs MULTI-ROOM / GROUP SWITCH */}
+                    <div className="flex items-center bg-gray-100 p-0.5 rounded-xl border border-gray-200">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsGroupMode(false);
+                          if (groupSelectedRooms.length > 0) {
+                            const singleRoomId = groupSelectedRooms[0];
+                            const rDoc = rooms.find(r => r._id === singleRoomId);
+                            const days = Math.max(1, Number(stayInfo.durationDays) || 1);
+                            setStayInfo(p => ({
+                              ...p,
+                              room: singleRoomId,
+                              totalAmount: rDoc?.price24h ? String(rDoc.price24h * days) : p.totalAmount
+                            }));
+                          }
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+                          !isGroupMode ? 'bg-black text-white shadow-xs' : 'text-gray-600 hover:text-black'
+                        }`}
+                      >
+                        Single Room
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsGroupMode(true);
+                          const initialRooms = stayInfo.room && !groupSelectedRooms.includes(stayInfo.room)
+                            ? [stayInfo.room]
+                            : groupSelectedRooms;
+                          if (initialRooms.length > 0) {
+                            setGroupSelectedRooms(initialRooms);
+                            const days = Math.max(1, Number(stayInfo.durationDays) || 1);
+                            const total = initialRooms.reduce((sum, rId) => {
+                              const rDoc = rooms.find(r => r._id === rId);
+                              return sum + (Number(rDoc?.price24h) || 1000) * days;
+                            }, 0);
+                            setStayInfo(p => ({ ...p, totalAmount: total > 0 ? String(total) : p.totalAmount }));
+                          }
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
+                          isGroupMode ? 'bg-purple-600 text-white shadow-xs' : 'text-purple-700 hover:text-purple-900'
+                        }`}
+                      >
+                        <Building2 size={13} />
+                        <span>Multi-Room / Group</span>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="relative">
@@ -2436,6 +2652,86 @@ const CheckIn = () => {
                     />
                   </div>
                 </div>
+
+                {/* GROUP BOOKING REFERENCE BAR (WHEN MULTI-ROOM ACTIVE) */}
+                {isGroupMode && (
+                  <div className="p-4 bg-purple-50/70 border border-purple-200 rounded-2xl space-y-3 animate-in fade-in">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-0.5 rounded-md bg-purple-600 text-white text-[10px] font-black uppercase tracking-wider">
+                          Group Booking Mode
+                        </span>
+                        <span className="text-xs font-black text-purple-950">
+                          {groupSelectedRooms.length} Rooms Selected
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-purple-200">
+                        {['Corporate', 'Family', 'Tour', 'Other'].map(gt => (
+                          <button
+                            key={gt}
+                            type="button"
+                            onClick={() => setGroupType(gt)}
+                            className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                              groupType === gt ? 'bg-purple-600 text-white shadow-2xs' : 'text-purple-700 hover:text-purple-900'
+                            }`}
+                          >
+                            {gt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-[10px] font-black text-purple-900 uppercase tracking-wider mb-1">
+                          Group / Company Reference Name
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. TCS Project Team, Sharma Wedding"
+                          value={groupName}
+                          onChange={e => setGroupName(e.target.value)}
+                          className="w-full px-3 py-2 bg-white border border-purple-200 rounded-xl text-xs font-bold text-gray-900 focus:outline-none focus:border-purple-600 shadow-2xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-purple-900 uppercase tracking-wider mb-1">
+                          Selected Rooms ({groupSelectedRooms.length})
+                        </label>
+                        <div className="flex flex-wrap gap-1.5 min-h-[36px] items-center">
+                          {groupSelectedRooms.length === 0 ? (
+                            <span className="text-xs text-purple-400 font-bold italic">
+                              👉 Niche vacant room cards par click karke add karein
+                            </span>
+                          ) : (
+                            groupSelectedRooms.map(rId => {
+                              const rDoc = rooms.find(r => r._id === rId);
+                              return (
+                                <span
+                                  key={rId}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-purple-300 text-xs font-black text-purple-950 shadow-2xs"
+                                >
+                                  Room {rDoc?.roomNumber || rId}
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleGroupRoom(rDoc || { _id: rId });
+                                    }}
+                                    className="text-purple-400 hover:text-rose-600 cursor-pointer ml-1 text-sm font-black leading-none"
+                                    title="Remove room"
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* FLOOR FILTER CHIPS (PROMINENT TABS) */}
                 {availableFloors.length > 1 && (
@@ -2485,26 +2781,34 @@ const CheckIn = () => {
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-3 max-h-[460px] overflow-y-auto pr-1.5 custom-scrollbar">
                     {filteredRooms.map((room) => {
-                      const active = stayInfo.room === room._id;
+                      const isSingleActive = !isGroupMode && stayInfo.room === room._id;
+                      const isGroupActive = isGroupMode && groupSelectedRooms.includes(room._id);
+                      const active = isGroupMode ? isGroupActive : isSingleActive;
                       return (
                         <button
                           key={room._id}
                           type="button"
-                          onClick={() =>
-                            setStayInfo((prev) => {
-                              const updated = { ...prev, room: room._id };
-                              if (!Number(updated.durationDays) && !Number(updated.durationHours)) {
-                                updated.durationDays = 1;
-                              }
-                              if ((!prev.totalAmount || prev.totalAmount === '0' || prev.totalAmount === 0) && room.price24h > 0) {
-                                updated.totalAmount = room.price24h;
-                              }
-                              return updated;
-                            })
-                          }
+                          onClick={() => {
+                            if (isGroupMode) {
+                              toggleGroupRoom(room);
+                            } else {
+                              setStayInfo((prev) => {
+                                const updated = { ...prev, room: room._id };
+                                if (!Number(updated.durationDays) && !Number(updated.durationHours)) {
+                                  updated.durationDays = 1;
+                                }
+                                if ((!prev.totalAmount || prev.totalAmount === '0' || prev.totalAmount === 0) && room.price24h > 0) {
+                                  updated.totalAmount = room.price24h;
+                                }
+                                return updated;
+                              });
+                            }
+                          }}
                           className={`relative p-3.5 sm:p-4 rounded-2xl border-2 text-center transition-all cursor-pointer ${
                             active
-                              ? 'border-black bg-black text-white shadow-xl scale-[1.03]'
+                              ? isGroupMode
+                                ? 'border-purple-600 bg-purple-600 text-white shadow-xl scale-[1.03]'
+                                : 'border-black bg-black text-white shadow-xl scale-[1.03]'
                               : 'border-gray-200 hover:border-black bg-white hover:shadow-md'
                           }`}
                         >
@@ -2601,6 +2905,20 @@ const CheckIn = () => {
                     {stayInfo.paymentMethod}
                   </span>
                 </div>
+
+                {isGroupMode && groupSelectedRooms.length > 0 && (
+                  <div className="p-3 bg-purple-950/60 border border-purple-800/80 rounded-xl space-y-1.5 text-xs text-purple-200">
+                    <div className="flex justify-between items-center">
+                      <span className="font-black uppercase tracking-wider text-[10px] text-purple-300">
+                        Multi-Room Master Folio:
+                      </span>
+                      <span className="font-black text-white">{groupSelectedRooms.length} Rooms</span>
+                    </div>
+                    <div className="text-[11px] font-bold text-purple-200/90 truncate">
+                      {groupSelectedRooms.map(id => rooms.find(r => r._id === id)?.roomNumber).filter(Boolean).map(n => `Room ${n}`).join(', ')}
+                    </div>
+                  </div>
+                )}
 
                 {/* AGREED TOTAL & GST CONTROLS */}
                 <div className="pb-3 border-b border-gray-800/80 space-y-2">
@@ -4197,6 +4515,103 @@ const CheckIn = () => {
             )
           )}
 
+          {/* GROUP ROOM KEY ASSIGNMENT (WHEN MULTI-ROOM) */}
+          {isGroupMode && groupSelectedRooms.length > 1 && (
+            <div className="bg-purple-50/70 border border-purple-200 rounded-3xl p-5 sm:p-6 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Building2 size={18} className="text-purple-600" />
+                  <h3 className="text-sm font-black text-purple-950 uppercase tracking-wider">
+                    Room Key Assignment ({groupSelectedRooms.length} Rooms)
+                  </h3>
+                </div>
+                <span className="text-[10px] font-black text-purple-700 bg-white px-2.5 py-1 rounded-full border border-purple-200 self-start sm:self-auto">
+                  Master Coordinator: {guests[0]?.fullName || 'Guest 1'}
+                </span>
+              </div>
+              <p className="text-xs text-purple-800 font-medium">
+                Sabhi rooms default me Coordinator ko assign hain. Agar kisi room ke liye alag occupant ka naam likhna hai to checkbox uncheck karein:
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {groupSelectedRooms.map((rId, idx) => {
+                  const rDoc = rooms.find(r => r._id === rId);
+                  const rNum = rDoc?.roomNumber || `Room ${idx + 1}`;
+                  const assignment = groupRoomAssignments[rId] || { sameAsBooker: true, guestName: '', guestMobile: '' };
+                  const isLeaderRoom = idx === 0;
+
+                  return (
+                    <div key={rId} className="bg-white border border-purple-200 rounded-2xl p-3.5 space-y-2 shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <span className="px-2.5 py-1 bg-purple-600 text-white rounded-lg text-xs font-black">
+                          Room {rNum}
+                        </span>
+                        {isLeaderRoom ? (
+                          <span className="text-[10px] font-black text-purple-700 uppercase tracking-wider bg-purple-100 px-2 py-0.5 rounded">
+                            Lead Room (Coordinator)
+                          </span>
+                        ) : (
+                          <label className="flex items-center gap-1.5 text-[11px] font-bold text-gray-600 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={assignment.sameAsBooker}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                setGroupRoomAssignments(prev => ({
+                                  ...prev,
+                                  [rId]: { ...prev[rId], sameAsBooker: checked }
+                                }));
+                              }}
+                              className="rounded text-purple-600 cursor-pointer"
+                            />
+                            <span>Same as Booker</span>
+                          </label>
+                        )}
+                      </div>
+
+                      {!isLeaderRoom && !assignment.sameAsBooker && (
+                        <div className="space-y-1.5 pt-1 animate-in fade-in">
+                          <input
+                            type="text"
+                            placeholder="Occupant Full Name"
+                            value={assignment.guestName || ''}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setGroupRoomAssignments(prev => ({
+                                ...prev,
+                                [rId]: { ...prev[rId], guestName: val }
+                              }));
+                            }}
+                            className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 outline-none focus:border-purple-600"
+                          />
+                          <input
+                            type="tel"
+                            maxLength={10}
+                            placeholder="10-digit Mobile (optional)"
+                            value={assignment.guestMobile || ''}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, '');
+                              setGroupRoomAssignments(prev => ({
+                                ...prev,
+                                [rId]: { ...prev[rId], guestMobile: val }
+                              }));
+                            }}
+                            className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 outline-none focus:border-purple-600"
+                          />
+                        </div>
+                      )}
+                      {(isLeaderRoom || assignment.sameAsBooker) && (
+                        <p className="text-[11px] font-semibold text-gray-500 italic">
+                          Key handed over to {guests[0]?.fullName || 'Primary Booker'}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* BOTTOM BUTTONS */}
 
           <div className="fixed lg:static bottom-16 lg:bottom-0 left-0 right-0 p-3 sm:p-4 lg:p-0 bg-white/95 lg:bg-transparent backdrop-blur-md lg:backdrop-blur-none border-t lg:border-0 border-gray-200 z-30 flex items-center gap-2 sm:gap-3 max-w-4xl mx-auto lg:mt-8 shadow-lg lg:shadow-none">
@@ -4795,18 +5210,6 @@ const CheckIn = () => {
             commissionTo: b.name,
             commissionPhone: b.phone || p.commissionPhone
           }));
-        }}
-      />
-
-      {/* Group & Multi-Room Check-In Modal */}
-      <GroupCheckInModal
-        isOpen={isGroupModalOpen}
-        onClose={() => setIsGroupModalOpen(false)}
-        defaultHostelId={hostelId || (globalProperty && globalProperty !== 'all' ? globalProperty : undefined)}
-        rooms={rooms}
-        onSuccess={() => {
-          apiCache.invalidate('rooms');
-          navigate('/rooms');
         }}
       />
 

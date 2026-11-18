@@ -5,7 +5,6 @@ import axios from 'axios';
 import { Users, Clock, CheckCircle2, Wrench, BedDouble, RefreshCw, Search, Sparkles, Building2 } from 'lucide-react';
 import { format, isPast } from 'date-fns';
 import { apiCache } from '../../utils/apiCache';
-import GroupCheckInModal from '../../components/reception/GroupCheckInModal';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
 
@@ -19,7 +18,6 @@ const RoomsView = () => {
 
   const [housekeepingStatus, setHousekeepingStatus] = useState({});
   const [seedingRooms, setSeedingRooms] = useState(false);
-  const [isGroupCheckInOpen, setIsGroupCheckInOpen] = useState(false);
 
   const handleSeedStarterRooms = async () => {
     try {
@@ -223,14 +221,13 @@ const RoomsView = () => {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={() => setIsGroupCheckInOpen(true)}
+          <Link
+            to="/checkin?mode=group"
             className="px-3 sm:px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-xs active:scale-95 transition-all cursor-pointer"
           >
             <Users size={14} />
             <span>Group Check-In</span>
-          </button>
+          </Link>
           <button
             onClick={fetchData}
             className="p-2 text-slate-500 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl shadow-2xs transition-all cursor-pointer"
@@ -439,18 +436,6 @@ const RoomsView = () => {
         </div>,
         document.body
       )}
-
-      {/* Group & Multi-Room Check-In Modal */}
-      <GroupCheckInModal
-        isOpen={isGroupCheckInOpen}
-        onClose={() => setIsGroupCheckInOpen(false)}
-        defaultHostelId={globalProperty !== 'all' ? globalProperty : undefined}
-        rooms={rooms}
-        onSuccess={() => {
-          apiCache.invalidate('rooms');
-          fetchData(true);
-        }}
-      />
     </div>
   );
 };
