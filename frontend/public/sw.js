@@ -1,5 +1,5 @@
 // NXHotel PWA Service Worker for Mobile Notifications
-const CACHE_NAME = 'nxhotel-cache-v1';
+const CACHE_NAME = 'nxhotel-cache-v2';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

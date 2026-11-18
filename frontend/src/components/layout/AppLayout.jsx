@@ -27,7 +27,8 @@ const AppLayout = ({ children }) => {
   const [unreadCheckInsCount, setUnreadCheckInsCount] = useState(0);
   const [activeNotifTab, setActiveNotifTab] = useState('checkins');
   const [devicePermission, setDevicePermission] = useState(getNotificationPermission());
-  const lastNotifiedCheckInIdRef = useRef(sessionStorage.getItem('last_notified_checkin_id') || '');
+  const isInitialNotifLoadRef = useRef(true);
+  const lastNotifiedCheckInIdRef = useRef(localStorage.getItem('last_notified_checkin_id') || '');
   const [liveCheckInToast, setLiveCheckInToast] = useState(null);
   const [showPoliceModal, setShowPoliceModal] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
@@ -93,33 +94,48 @@ const AppLayout = ({ children }) => {
 
         // Detect new unread check-in or checkout notification for mobile alert
         const latestUnread = list.find(n => !n.isRead && (n.type === 'checkin' || n.type === 'checkout'));
-        if (latestUnread && latestUnread._id !== lastNotifiedCheckInIdRef.current) {
-          lastNotifiedCheckInIdRef.current = latestUnread._id;
-          sessionStorage.setItem('last_notified_checkin_id', latestUnread._id);
+        if (latestUnread) {
+          const isBrandNew = latestUnread._id !== lastNotifiedCheckInIdRef.current;
 
-          // 1. Play appropriate luxury concierge chime
-          if (latestUnread.type === 'checkout') {
-            playCheckOutChime();
-          } else {
-            playCheckInChime();
+          // On initial app open / reload, silently sync last ID so old already-delivered notifications never re-fire
+          if (isInitialNotifLoadRef.current) {
+            isInitialNotifLoadRef.current = false;
+            lastNotifiedCheckInIdRef.current = latestUnread._id;
+            localStorage.setItem('last_notified_checkin_id', latestUnread._id);
+            return;
           }
 
-          // 2. Trigger native mobile device / desktop notification with vibration
-          triggerDeviceNotification({
-            title: latestUnread.title,
-            body: latestUnread.message,
-            tag: `stay-${latestUnread._id}`,
-            data: { url: '/checkouts' }
-          });
+          // Alert ONLY when a genuinely new checkin/checkout arrives while app is running
+          if (isBrandNew) {
+            lastNotifiedCheckInIdRef.current = latestUnread._id;
+            localStorage.setItem('last_notified_checkin_id', latestUnread._id);
 
-          // 3. Show instant floating In-App toast banner
-          setLiveCheckInToast(latestUnread);
-          setTimeout(() => setLiveCheckInToast(null), 9000);
+            // 1. Play appropriate luxury concierge chime
+            if (latestUnread.type === 'checkout') {
+              playCheckOutChime();
+            } else {
+              playCheckInChime();
+            }
 
-          // 4. Flash browser tab title if backgrounded
-          if (typeof document !== 'undefined' && document.hidden) {
-            startTitleFlashing(latestUnread.title);
+            // 2. Trigger native mobile device / desktop notification with vibration
+            triggerDeviceNotification({
+              title: latestUnread.title,
+              body: latestUnread.message,
+              tag: `stay-${latestUnread._id}`,
+              data: { url: '/checkouts' }
+            });
+
+            // 3. Show instant floating In-App toast banner
+            setLiveCheckInToast(latestUnread);
+            setTimeout(() => setLiveCheckInToast(null), 9000);
+
+            // 4. Flash browser tab title if backgrounded
+            if (typeof document !== 'undefined' && document.hidden) {
+              startTitleFlashing(latestUnread.title);
+            }
           }
+        } else {
+          isInitialNotifLoadRef.current = false;
         }
       }
     } catch (err) {
