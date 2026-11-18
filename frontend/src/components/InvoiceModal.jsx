@@ -43,7 +43,7 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
         gstApplied: gstEnabled && currentRate > 0,
         gstRate: currentRate,
         gstType: type,
-        taxAmount: inv.taxAmount || 0,
+        taxAmount: inv.totalGst ?? inv.taxAmount ?? 0,
         companyName: cleanCompany,
         gstin: cleanGstin,
         billingAddress: cleanAddress

@@ -809,6 +809,17 @@ exports.updateStay = async (req, res, next) => {
 
     await stay.save();
 
+    // Sync corporate company details with Guest profile if provided
+    if (req.body.companyName || req.body.gstin) {
+      const gUpdate = {};
+      if (req.body.companyName) gUpdate.companyName = (req.body.companyName || '').trim();
+      if (req.body.gstin) gUpdate.gstin = (req.body.gstin || '').trim().toUpperCase();
+      if (req.body.billingAddress) gUpdate.address = (req.body.billingAddress || '').trim();
+      if (stay.guest) {
+        await Guest.findByIdAndUpdate(stay.guest, { $set: gUpdate });
+      }
+    }
+
     // 2. Update Associated Guest if guestData provided
     if (guestData && typeof guestData === 'object' && stay.guest) {
       const allowedGuestFields = [

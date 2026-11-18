@@ -695,11 +695,18 @@ const CheckIn = () => {
           return updated;
         });
 
-        toast({
-          message:
-            'Returning guest details auto-filled!',
-          type: 'success'
-        });
+        if (index === 0 && guestData.gstin && guestData.gstin.length >= 15) {
+          handleSelectGstRate(12);
+          toast({
+            message: `🏢 Corporate guest (${guestData.companyName || 'B2B'})! Auto-filled details & enabled GST bill.`,
+            type: 'success'
+          });
+        } else {
+          toast({
+            message: 'Returning guest details auto-filled!',
+            type: 'success'
+          });
+        }
       } else {
         setGuests((prev) => {
           const updated = [...prev];

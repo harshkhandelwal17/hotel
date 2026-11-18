@@ -151,13 +151,25 @@ export default function MergedCorporateInvoiceModal({
       const type = !gstEnabled || currentRate === 0 ? 'none' : (taxInclusive ? 'inclusive' : 'exclusive');
 
       const promises = selectedStays.map(s => {
+        let stayTax = 0;
+        const sTotal = Number(s.totalAmount) || 0;
+        if (gstEnabled && currentRate > 0) {
+          if (type === 'inclusive') {
+            const taxable = Math.round((sTotal / (1 + currentRate / 100)) * 100) / 100;
+            stayTax = Math.round((sTotal - taxable) * 100) / 100;
+          } else {
+            stayTax = Math.round((sTotal * (currentRate / 100)) * 100) / 100;
+          }
+        }
+
         const payload = {
           companyName: cleanCompany,
           gstin: cleanGstin,
           billingAddress: cleanAddress,
           gstApplied: gstEnabled && currentRate > 0,
           gstRate: currentRate,
-          gstType: type
+          gstType: type,
+          taxAmount: stayTax
         };
         s.companyName = cleanCompany;
         s.gstin = cleanGstin;
@@ -165,6 +177,7 @@ export default function MergedCorporateInvoiceModal({
         s.gstApplied = payload.gstApplied;
         s.gstRate = currentRate;
         s.gstType = type;
+        s.taxAmount = stayTax;
         return axios.put(`${API}/api/stays/${s._id}`, payload).catch(() => {});
       });
 
