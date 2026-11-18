@@ -18,20 +18,23 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Handle incoming Web Push notifications (if supported by backend)
+// Handle incoming Web Push notifications (Heads-Up Banner on Android & Desktop)
 self.addEventListener('push', (event) => {
   if (!event.data) return;
   try {
     const data = event.data.json();
     const title = data.title || '🛎️ New Hotel Check-In!';
+    const notifTag = data.tag || `nx-${Date.now()}`;
     const options = {
       body: data.body || 'A guest has checked in.',
       icon: data.icon || '/favicon.svg',
       badge: data.badge || '/favicon.svg',
-      vibrate: data.vibrate || [250, 100, 250, 100, 250],
-      tag: data.tag || 'nx-checkin',
+      vibrate: data.vibrate || [300, 100, 300, 100, 300],
+      tag: notifTag,
       renotify: true,
-      requireInteraction: false,
+      silent: false,
+      requireInteraction: true,
+      timestamp: data.timestamp || Date.now(),
       data: data.data || { url: '/checkouts' },
       actions: [
         { action: 'open', title: '👁️ View Stays' }

@@ -32,13 +32,17 @@ const sendWebPushToUsers = async (userIds, payload = {}) => {
 
     if (!users || users.length === 0) return;
 
+    const notifTag = payload.tag ? `${payload.tag}-${Date.now()}` : `nx-${Date.now()}`;
     const stringifiedPayload = JSON.stringify({
       title: payload.title || '🛎️ New Hotel Alert',
       body: payload.body || 'A new guest activity occurred.',
       icon: payload.icon || '/favicon.svg',
       badge: payload.badge || '/favicon.svg',
-      tag: payload.tag || 'nx-checkin',
-      vibrate: payload.vibrate || [250, 100, 250, 100, 250],
+      tag: notifTag,
+      vibrate: payload.vibrate || [300, 100, 300, 100, 300],
+      silent: false,
+      requireInteraction: true,
+      timestamp: Date.now(),
       data: payload.data || { url: '/checkouts' }
     });
 
@@ -62,7 +66,11 @@ const sendWebPushToUsers = async (userIds, payload = {}) => {
 
         pushPromises.push(
           webpush.sendNotification(pushSub, stringifiedPayload, {
-            TTL: 60 * 60 * 24 // 24 hours
+            TTL: 60 * 60 * 24, // 24 hours
+            urgency: 'high',
+            headers: {
+              Urgency: 'high'
+            }
           }).catch(err => {
             // 410 Gone or 404 Not Found means the device unregistered the push subscription
             if (err.statusCode === 410 || err.statusCode === 404) {
