@@ -134,6 +134,36 @@ const staySchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  // Group Booking fields (for multi-room corporate / family bookings)
+  groupId: {
+    type: String,
+    trim: true,
+    index: true,
+    default: null
+  },
+  groupName: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  groupType: {
+    type: String,
+    enum: ['Corporate', 'Family', 'Tour', 'Event', 'Other', ''],
+    default: ''
+  },
+  isGroupLeader: {
+    type: Boolean,
+    default: false
+  },
+  groupTotalRooms: {
+    type: Number,
+    default: 1
+  },
+  billingType: {
+    type: String,
+    enum: ['individual', 'group_master'],
+    default: 'group_master'
+  },
   notes: String,
   createdBy: {
     type: mongoose.Schema.ObjectId,
@@ -151,6 +181,7 @@ staySchema.index({ hostel: 1, status: 1 });
 staySchema.index({ hostel: 1, status: 1, expectedCheckOutDate: -1 });
 staySchema.index({ hostel: 1, checkInDate: 1 });
 staySchema.index({ hostel: 1, expectedCheckOutDate: 1, status: 1 });
+staySchema.index({ hostel: 1, groupId: 1 });
 
 module.exports = mongoose.model('Stay', staySchema);
 

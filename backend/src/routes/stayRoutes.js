@@ -1,7 +1,8 @@
 const express = require('express');
 const {
   getStays, getStay, createStay, checkout, extendStay, shiftRoom,
-  addCharge, removeCharge, addPayment, deleteStay, updateStay, getBrokersSummary
+  addCharge, removeCharge, addPayment, deleteStay, updateStay, getBrokersSummary,
+  createGroupStay, getGroupStays, groupCheckout
 } = require('../controllers/stayController');
 const { protect, authorize } = require('../middlewares/auth');
 
@@ -14,6 +15,11 @@ router.route('/')
   .post(createStay);
 
 router.get('/brokers/summary', getBrokersSummary);
+
+// Group Booking routes (Must be defined before /:id)
+router.post('/group-checkin', createGroupStay);
+router.get('/group/:groupId', getGroupStays);
+router.post('/group/:groupId/checkout', groupCheckout);
 
 router.get('/:id', getStay);
 router.put('/:id', updateStay);

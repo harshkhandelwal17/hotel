@@ -23,7 +23,15 @@ export default function MergedCorporateInvoiceModal({
 }) {
   // Collection of selected stays (at least 1, usually 2 or 3+)
   const [selectedStays, setSelectedStays] = useState(() => {
-    return initialStays.length > 0 ? initialStays : (allStays.length > 0 ? [allStays[0]] : []);
+    if (initialStays.length > 0) {
+      const primary = initialStays[0];
+      if (primary?.groupId && allStays.length > 0) {
+        const groupStays = allStays.filter(s => s.groupId === primary.groupId);
+        if (groupStays.length > 0) return groupStays;
+      }
+      return initialStays;
+    }
+    return (allStays.length > 0 ? [allStays[0]] : []);
   });
 
   const primaryStay = selectedStays[0] || {};
@@ -84,9 +92,10 @@ export default function MergedCorporateInvoiceModal({
       const sMobile = (s.guest?.mobileNumber || '').trim();
       const sComp = (s.companyName || s.guest?.companyName || '').trim().toLowerCase();
       
+      const groupMatch = Boolean(primaryStay.groupId && s.groupId && primaryStay.groupId === s.groupId);
       const mobileMatch = targetMobile && sMobile && targetMobile === sMobile;
       const compMatch = targetComp && sComp && targetComp === sComp;
-      return mobileMatch || compMatch;
+      return groupMatch || mobileMatch || compMatch;
     });
   }, [allStays, selectedStays, bookerPhone, guestCompany]);
 

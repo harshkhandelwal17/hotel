@@ -1235,3 +1235,537 @@ exports.getBrokersSummary = async (req, res, next) => {
   }
 };
 
+// ===========================================================================
+// GROUP BOOKINGS (Multi-Room Corporate & Family Check-In / Management / Checkout)
+// ===========================================================================
+
+/**
+ * @desc    Check-in multiple rooms simultaneously under a single Group Folio
+ * @route   POST /api/stays/group-checkin
+ * @access  Private (Receptionist, Admin, Superadmin)
+ */
+exports.createGroupStay = async (req, res, next) => {
+  try {
+    const {
+      rooms, primaryGuest, groupName, groupType, checkInDate, expectedCheckOutDate,
+      durationOption, initialPaymentAmount, paymentMethod, splitPayments,
+      gstApplied, gstType, gstRate, companyName, gstin, billingAddress,
+      commissionTo, commissionPhone, commissionAmount, notes
+    } = req.body;
+
+    let hostel = req.user.assignedHostel;
+    if (req.user.role === 'admin' || req.user.role === 'superadmin') {
+      if (!req.body.hostel) throw new Error('Hostel is required');
+      await assertHostelAccess(req.user, req.body.hostel, true);
+      hostel = req.body.hostel;
+    } else {
+      await assertHostelAccess(req.user, hostel, true);
+    }
+
+    if (!Array.isArray(rooms) || rooms.length === 0) {
+      throw new Error('At least one room must be selected for group check-in');
+    }
+
+    if (!primaryGuest || !primaryGuest.fullName || !primaryGuest.mobileNumber) {
+      throw new Error('Primary booker full name and mobile number are required');
+    }
+
+    const parsedCheckIn = new Date(checkInDate);
+    if (isNaN(parsedCheckIn.getTime())) {
+      throw new Error('Invalid check-in date');
+    }
+
+    let parsedExpectedOut = new Date(expectedCheckOutDate);
+    if (isNaN(parsedExpectedOut.getTime()) || parsedExpectedOut <= parsedCheckIn) {
+      parsedExpectedOut = new Date(parsedCheckIn.getTime() + 24 * 60 * 60 * 1000);
+    }
+
+    // 1. Validate all rooms and check for overlapping reservations
+    const roomIds = rooms.map(r => r.room || r.roomId);
+    const uniqueRoomIds = new Set(roomIds.map(id => id.toString()));
+    if (uniqueRoomIds.size !== roomIds.length) {
+      throw new Error('Duplicate rooms selected in the group');
+    }
+
+    const roomDocs = await Room.find({ _id: { $in: roomIds } });
+    if (roomDocs.length !== roomIds.length) {
+      throw new Error('One or more selected rooms were not found');
+    }
+
+    for (const rDoc of roomDocs) {
+      if (rDoc.hostel.toString() !== hostel.toString()) {
+        throw new Error(`Room ${rDoc.roomNumber} does not belong to this property`);
+      }
+      if (rDoc.status !== 'Active') {
+        throw new Error(`Room ${rDoc.roomNumber} is currently not available (${rDoc.status})`);
+      }
+      const overlapping = await Stay.findOne(
+        roomOverlapFilter(rDoc._id, parsedCheckIn, parsedExpectedOut)
+      );
+      if (overlapping) {
+        throw new Error(`Room ${rDoc.roomNumber} is already booked for the selected dates`);
+      }
+    }
+
+    // 2. Resolve / Create Primary Guest
+    let primaryGuestDoc;
+    if (primaryGuest._id) {
+      primaryGuestDoc = await Guest.findById(primaryGuest._id);
+    }
+    if (!primaryGuestDoc && primaryGuest.mobileNumber) {
+      primaryGuestDoc = await Guest.findOne({
+        mobileNumber: primaryGuest.mobileNumber.trim(),
+        hostel
+      });
+    }
+
+    const primaryGuestPayload = {
+      fullName: primaryGuest.fullName.trim(),
+      mobileNumber: primaryGuest.mobileNumber.trim(),
+      email: primaryGuest.email ? primaryGuest.email.trim() : undefined,
+      idProofType: primaryGuest.idProofType || 'Aadhaar',
+      idProofNumber: primaryGuest.idProofNumber ? primaryGuest.idProofNumber.trim() : '',
+      idProofImage: primaryGuest.idProofImage || '',
+      idProofImageBack: primaryGuest.idProofImageBack || '',
+      address: (primaryGuest.address || billingAddress || '').trim(),
+      gender: primaryGuest.gender || '',
+      dateOfBirth: primaryGuest.dateOfBirth || '',
+      companyName: (companyName || primaryGuest.companyName || '').trim(),
+      gstin: (gstin || primaryGuest.gstin || '').trim().toUpperCase(),
+      hostel
+    };
+
+    if (primaryGuestDoc) {
+      Object.assign(primaryGuestDoc, primaryGuestPayload);
+      await primaryGuestDoc.save();
+    } else {
+      primaryGuestDoc = await Guest.create(primaryGuestPayload);
+    }
+
+    // 3. Generate Unique Group Identifier
+    const timestampStr = Date.now().toString(36).toUpperCase();
+    const randSuffix = Math.floor(1000 + Math.random() * 9000);
+    const groupId = `GRP-${timestampStr}-${randSuffix}`;
+    const resolvedGroupName = (groupName && groupName.trim()) || `${primaryGuestDoc.fullName}'s Group`;
+
+    // 4. Create a Stay document for each selected room
+    const createdStays = [];
+    let groupGrandTotal = 0;
+    const advance = Math.max(0, Number(initialPaymentAmount) || 0);
+
+    for (let i = 0; i < rooms.length; i++) {
+      const roomItem = rooms[i];
+      const rId = roomItem.room || roomItem.roomId;
+      const rDoc = roomDocs.find(d => d._id.toString() === rId.toString());
+
+      // Resolve room guest (either specific guest or default to primaryGuest)
+      let roomGuestId = primaryGuestDoc._id;
+      if (roomItem.guest && roomItem.guest.fullName && roomItem.guest.fullName !== primaryGuestDoc.fullName) {
+        let subGuest;
+        if (roomItem.guest._id) {
+          subGuest = await Guest.findById(roomItem.guest._id);
+        } else if (roomItem.guest.mobileNumber) {
+          subGuest = await Guest.findOne({ mobileNumber: roomItem.guest.mobileNumber.trim(), hostel });
+        }
+        if (!subGuest) {
+          subGuest = await Guest.create({
+            fullName: roomItem.guest.fullName.trim(),
+            mobileNumber: (roomItem.guest.mobileNumber || primaryGuestDoc.mobileNumber).trim(),
+            idProofType: roomItem.guest.idProofType || 'Aadhaar',
+            idProofNumber: roomItem.guest.idProofNumber || '',
+            address: roomItem.guest.address || primaryGuestDoc.address || '',
+            hostel
+          });
+        }
+        roomGuestId = subGuest._id;
+      }
+
+      const roomRate = Math.max(0, Number(roomItem.rate ?? roomItem.price ?? rDoc.price24h) || 0);
+      groupGrandTotal += roomRate;
+
+      // Calculate GST if applied
+      let taxAmount = 0;
+      if (gstApplied && Number(gstRate) > 0) {
+        if (gstType === 'inclusive') {
+          taxAmount = Math.round((roomRate - (roomRate / (1 + Number(gstRate) / 100))) * 100) / 100;
+        } else {
+          taxAmount = Math.round((roomRate * (Number(gstRate) / 100)) * 100) / 100;
+        }
+      }
+
+      const isLeader = (i === 0);
+      // Group advance is attributed to the leader stay's paidAmount
+      const stayPaid = isLeader ? advance : 0;
+
+      const stay = await Stay.create({
+        guest: roomGuestId,
+        hostel,
+        room: rDoc._id,
+        occupants: Math.max(1, Number(roomItem.occupants) || 1),
+        coGuests: Array.isArray(roomItem.coGuests) ? roomItem.coGuests : [],
+        checkInDate: parsedCheckIn,
+        expectedCheckOutDate: parsedExpectedOut,
+        durationOption: durationOption || '24h',
+        totalAmount: roomRate,
+        paidAmount: stayPaid,
+        // Group linkage
+        groupId,
+        groupName: resolvedGroupName,
+        groupType: groupType || 'Corporate',
+        isGroupLeader: isLeader,
+        groupTotalRooms: rooms.length,
+        billingType: 'group_master',
+        // GST & Corporate details
+        gstApplied: Boolean(gstApplied),
+        gstType: gstType || 'none',
+        gstRate: Number(gstRate) || 0,
+        taxAmount,
+        companyName: (companyName || '').trim(),
+        gstin: (gstin || '').trim().toUpperCase(),
+        billingAddress: (billingAddress || '').trim(),
+        commissionTo: isLeader ? (commissionTo || '').trim() : '',
+        commissionPhone: isLeader ? (commissionPhone || '').trim() : '',
+        commissionAmount: isLeader ? (Number(commissionAmount) || 0) : 0,
+        notes: (notes || '').trim(),
+        createdBy: req.user._id
+      });
+
+      createdStays.push(stay);
+    }
+
+    const leaderStay = createdStays[0];
+
+    // 5. Record Advance Payment if made
+    if (advance > 0) {
+      if (Array.isArray(splitPayments) && splitPayments.length > 0) {
+        for (const sp of splitPayments) {
+          const spAmt = Number(sp.amount);
+          if (spAmt > 0) {
+            const pMethod = sp.paymentMethod || 'Cash';
+            await Payment.create({
+              stay: leaderStay._id,
+              groupId,
+              guest: primaryGuestDoc._id,
+              hostel,
+              amount: spAmt,
+              paymentMethod: pMethod,
+              notes: sp.notes || `Group Advance (${resolvedGroupName})`,
+              createdBy: req.user._id
+            });
+            await recordLedgerImpact({
+              guestId: primaryGuestDoc._id,
+              hostelId: hostel,
+              stayId: leaderStay._id,
+              amount: spAmt,
+              paymentMethod: pMethod,
+              description: sp.notes || `Group Advance payment (${pMethod}) for ${resolvedGroupName}`,
+              userId: req.user._id
+            });
+          }
+        }
+      } else {
+        const pMethod = paymentMethod || 'Cash';
+        await Payment.create({
+          stay: leaderStay._id,
+          groupId,
+          guest: primaryGuestDoc._id,
+          hostel,
+          amount: advance,
+          paymentMethod: pMethod,
+          notes: `Group Advance (${resolvedGroupName})`,
+          createdBy: req.user._id
+        });
+        await recordLedgerImpact({
+          guestId: primaryGuestDoc._id,
+          hostelId: hostel,
+          stayId: leaderStay._id,
+          amount: advance,
+          paymentMethod: pMethod,
+          description: `Group Advance payment (${pMethod}) for ${resolvedGroupName}`,
+          userId: req.user._id
+        });
+      }
+    }
+
+    // 6. Dispatch Web Push Notifications to Staff & Owner
+    try {
+      const hostelDoc = await Hostel.findById(hostel).select('name owner createdBy');
+      const recipientIds = new Set();
+      if (hostelDoc?.owner) recipientIds.add(hostelDoc.owner.toString());
+      if (hostelDoc?.createdBy) recipientIds.add(hostelDoc.createdBy.toString());
+      if (req.user?._id) recipientIds.add(req.user._id.toString());
+
+      const adminUsers = await User.find({
+        role: { $in: ['superadmin', 'admin'] },
+        isActive: { $ne: false }
+      }, '_id').lean();
+      adminUsers.forEach(u => recipientIds.add(u._id.toString()));
+
+      const assignedStaff = await User.find({
+        assignedHostel: hostel,
+        isActive: { $ne: false }
+      }, '_id').lean();
+      assignedStaff.forEach(st => recipientIds.add(st._id.toString()));
+
+      const roomNumbersList = roomDocs.map(r => r.roomNumber).join(', ');
+      const hName = hostelDoc?.name || 'Hotel';
+      const advText = advance > 0 ? ` • Advance: ₹${Number(advance).toLocaleString('en-IN')}` : '';
+
+      sendWebPushToUsers(Array.from(recipientIds), {
+        title: `🏢 Group Check-In: ${resolvedGroupName} (${rooms.length} Rooms)`,
+        body: `${hName} • Rooms: ${roomNumbersList} • Total: ₹${Number(groupGrandTotal).toLocaleString('en-IN')}${advText}`,
+        icon: '/logo-192.png',
+        badge: '/logo-192.png',
+        url: '/receptionist/rooms'
+      }).catch(err => console.warn('Group WebPush failed:', err.message));
+    } catch (notifErr) {
+      console.warn('Group notification dispatch warning:', notifErr.message);
+    }
+
+    // Return populated response
+    const populatedStays = await Stay.find({ groupId })
+      .populate('guest', 'fullName mobileNumber idProofType idProofNumber address gender dateOfBirth companyName gstin')
+      .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber address gender dateOfBirth companyName gstin')
+      .populate('room', 'roomNumber price24h extraPerPerson24h')
+      .populate('hostel', 'name address contactNumber email upiId upiPayeeName gstEnabled gstin taxInclusive gstRate hsnSacCode state stateCode invoicePrefix billTerms autoApplyGstOnCheckin')
+      .populate('createdBy', 'name role')
+      .lean();
+
+    res.status(201).json({
+      success: true,
+      message: `Group check-in completed for ${rooms.length} rooms successfully!`,
+      data: {
+        groupId,
+        groupName: resolvedGroupName,
+        groupType: groupType || 'Corporate',
+        totalRooms: rooms.length,
+        groupGrandTotal,
+        advancePaid: advance,
+        balanceDue: Math.max(0, groupGrandTotal - advance),
+        stays: populatedStays
+      }
+    });
+  } catch (error) {
+    sendError(res, next, error);
+  }
+};
+
+/**
+ * @desc    Fetch all stays and payments associated with a group
+ * @route   GET /api/stays/group/:groupId
+ * @access  Private (Receptionist, Admin, Superadmin)
+ */
+exports.getGroupStays = async (req, res, next) => {
+  try {
+    const { groupId } = req.params;
+    if (!groupId) {
+      return res.status(400).json({ success: false, message: 'Group ID is required' });
+    }
+
+    const stays = await Stay.find({ groupId })
+      .populate('guest', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth companyName gstin')
+      .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber address gender dateOfBirth companyName gstin')
+      .populate('room', 'roomNumber price24h extraPerPerson24h')
+      .populate('hostel', 'name address contactNumber email upiId upiPayeeName gstEnabled gstin taxInclusive gstRate hsnSacCode state stateCode invoicePrefix billTerms autoApplyGstOnCheckin')
+      .populate('createdBy', 'name role')
+      .sort('createdAt')
+      .lean();
+
+    if (!stays || stays.length === 0) {
+      return res.status(404).json({ success: false, message: 'No stays found for this group ID' });
+    }
+
+    // Verify hostel access
+    const hostelId = stays[0].hostel?._id || stays[0].hostel;
+    if (!(await userCanAccessHostel(req.user, hostelId))) {
+      return res.status(403).json({ success: false, message: 'Not authorized for this property group' });
+    }
+
+    const stayIds = stays.map(s => s._id);
+    const payments = await Payment.find({
+      $or: [{ groupId }, { stay: { $in: stayIds } }]
+    }).sort('paymentDate').lean();
+
+    // Calculate aggregated totals
+    let totalTariff = 0;
+    let totalAdditionalCharges = 0;
+    let totalStayAmount = 0;
+    let totalPaidFromPayments = payments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+
+    for (const s of stays) {
+      totalStayAmount += (Number(s.totalAmount) || 0);
+      totalAdditionalCharges += (Number(s.additionalCharges) || 0);
+    }
+
+    const balanceDue = Math.max(0, totalStayAmount - totalPaidFromPayments);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        groupId,
+        groupName: stays[0].groupName || 'Group',
+        groupType: stays[0].groupType || 'Corporate',
+        roomCount: stays.length,
+        stays,
+        payments,
+        summary: {
+          totalStayAmount,
+          totalAdditionalCharges,
+          totalPaid: totalPaidFromPayments,
+          balanceDue,
+          allCheckedOut: stays.every(s => s.status === 'Checked Out' || s.status === 'Cancelled')
+        }
+      }
+    });
+  } catch (error) {
+    sendError(res, next, error);
+  }
+};
+
+/**
+ * @desc    Simultaneously check-out all active rooms in a group and settle master bill
+ * @route   POST /api/stays/group/:groupId/checkout
+ * @access  Private (Receptionist, Admin, Superadmin)
+ */
+exports.groupCheckout = async (req, res, next) => {
+  try {
+    const { groupId } = req.params;
+    const { checkoutPayment, paymentMethod, splitPayments, notes } = req.body;
+
+    const stays = await Stay.find({ groupId });
+    if (!stays || stays.length === 0) {
+      return res.status(404).json({ success: false, message: 'Group not found' });
+    }
+
+    const hostelId = stays[0].hostel;
+    await assertHostelAccess(req.user, hostelId, true);
+
+    const activeStays = stays.filter(s => OPEN_STATUSES.includes(s.status));
+    if (activeStays.length === 0) {
+      return res.status(400).json({ success: false, message: 'All rooms in this group are already checked out' });
+    }
+
+    const leaderStay = stays.find(s => s.isGroupLeader) || stays[0];
+    const payAmt = Math.max(0, Number(checkoutPayment) || 0);
+
+    // 1. Record checkout settlement payment if any
+    if (payAmt > 0) {
+      if (Array.isArray(splitPayments) && splitPayments.length > 0) {
+        for (const sp of splitPayments) {
+          const spAmt = Number(sp.amount);
+          if (spAmt > 0) {
+            const pMethod = sp.paymentMethod || 'Cash';
+            await Payment.create({
+              stay: leaderStay._id,
+              groupId,
+              guest: leaderStay.guest,
+              hostel: hostelId,
+              amount: spAmt,
+              paymentMethod: pMethod,
+              notes: sp.notes || notes || `Group Checkout Settlement (${leaderStay.groupName})`,
+              createdBy: req.user._id
+            });
+            await recordLedgerImpact({
+              guestId: leaderStay.guest,
+              hostelId,
+              stayId: leaderStay._id,
+              amount: spAmt,
+              paymentMethod: pMethod,
+              description: sp.notes || `Group Checkout payment (${pMethod}) for ${leaderStay.groupName}`,
+              userId: req.user._id
+            });
+          }
+        }
+      } else {
+        const pMethod = paymentMethod || 'Cash';
+        await Payment.create({
+          stay: leaderStay._id,
+          groupId,
+          guest: leaderStay.guest,
+          hostel: hostelId,
+          amount: payAmt,
+          paymentMethod: pMethod,
+          notes: notes || `Group Checkout Settlement (${leaderStay.groupName})`,
+          createdBy: req.user._id
+        });
+        await recordLedgerImpact({
+          guestId: leaderStay.guest,
+          hostelId,
+          stayId: leaderStay._id,
+          amount: payAmt,
+          paymentMethod: pMethod,
+          description: `Group Checkout payment (${pMethod}) for ${leaderStay.groupName}`,
+          userId: req.user._id
+        });
+      }
+    }
+
+    const checkOutTimestamp = new Date();
+
+    // 2. Mark all active stays in this group as 'Checked Out'
+    const activeStayIds = activeStays.map(s => s._id);
+    await Stay.updateMany(
+      { _id: { $in: activeStayIds } },
+      {
+        $set: {
+          status: 'Checked Out',
+          actualCheckOutDate: checkOutTimestamp
+        }
+      }
+    );
+
+    // If payment was made on leader stay, update leader's paidAmount
+    if (payAmt > 0) {
+      await Stay.findByIdAndUpdate(leaderStay._id, {
+        $inc: { paidAmount: payAmt }
+      });
+    }
+
+    // 3. Dispatch Web Push for Group Checkout
+    try {
+      const hostelDoc = await Hostel.findById(hostelId).select('name owner createdBy');
+      const recipientIds = new Set();
+      if (hostelDoc?.owner) recipientIds.add(hostelDoc.owner.toString());
+      if (hostelDoc?.createdBy) recipientIds.add(hostelDoc.createdBy.toString());
+      if (req.user?._id) recipientIds.add(req.user._id.toString());
+
+      const adminUsers = await User.find({
+        role: { $in: ['superadmin', 'admin'] },
+        isActive: { $ne: false }
+      }, '_id').lean();
+      adminUsers.forEach(u => recipientIds.add(u._id.toString()));
+
+      const assignedStaff = await User.find({
+        assignedHostel: hostelId,
+        isActive: { $ne: false }
+      }, '_id').lean();
+      assignedStaff.forEach(st => recipientIds.add(st._id.toString()));
+
+      const hName = hostelDoc?.name || 'Hotel';
+      const gName = leaderStay.groupName || 'Group';
+
+      sendWebPushToUsers(Array.from(recipientIds), {
+        title: `🚪 Group Check-Out: ${gName} (${activeStays.length} Rooms)`,
+        body: `${hName} • Checked out ${activeStays.length} rooms • Payment received: ₹${Number(payAmt).toLocaleString('en-IN')}`,
+        icon: '/logo-192.png',
+        badge: '/logo-192.png',
+        url: '/receptionist/rooms'
+      }).catch(err => console.warn('Group Checkout Push failed:', err.message));
+    } catch (notifErr) {
+      console.warn('Group checkout notification warning:', notifErr.message);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Group check-out completed for ${activeStays.length} rooms successfully!`,
+      data: {
+        groupId,
+        checkedOutRoomsCount: activeStays.length,
+        settlementPayment: payAmt
+      }
+    });
+  } catch (error) {
+    sendError(res, next, error);
+  }
+};
+

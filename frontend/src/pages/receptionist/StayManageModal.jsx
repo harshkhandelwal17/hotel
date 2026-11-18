@@ -8,6 +8,7 @@ import { getStayWhatsAppUrl } from '../../utils/whatsapp';
 import InvoiceModal from '../../components/InvoiceModal';
 import MergedCorporateInvoiceModal from '../../components/MergedCorporateInvoiceModal';
 import GuestRegistrationCardModal from '../../components/reception/GuestRegistrationCardModal';
+import GroupCheckoutModal from '../../components/reception/GroupCheckoutModal';
 import DynamicUpiQr from '../../components/DynamicUpiQr';
 import PaymentMethodSelector, { validateSplitPayment, buildSplitPayments } from '../../components/common/PaymentMethodSelector';
 import { compressImage } from '../../utils/imageCompression';
@@ -43,6 +44,7 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
   const [success, setSuccess] = useState('');
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [isMergedModalOpen, setIsMergedModalOpen] = useState(false);
+  const [isGroupCheckoutOpen, setIsGroupCheckoutOpen] = useState(false);
   const [activeStaysList, setActiveStaysList] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteMode, setDeleteMode] = useState('full');
@@ -515,6 +517,54 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
         <div className="p-5 overflow-y-auto flex-1 min-h-0 space-y-4">
           {error && <div className="p-3 bg-red-50 border border-red-100 text-red-600 rounded-xl text-sm font-medium flex items-center gap-2"><AlertCircle size={16} /> {error}</div>}
           {success && <div className="p-3 bg-green-50 border border-green-100 text-green-700 rounded-xl text-sm font-bold flex items-center gap-2"><CheckCircle2 size={16} /> {success}</div>}
+
+          {/* GROUP BOOKING MASTER FOLIO BANNER */}
+          {stay.groupId && (
+            <div className="bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-blue-500/10 border border-purple-200 rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-purple-600 text-white rounded-xl shadow-xs">
+                  <Building2 size={16} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-100 text-purple-900 border border-purple-200">
+                      Group Folio
+                    </span>
+                    <span className="text-xs font-black text-slate-900">
+                      {stay.groupName || 'Group Booking'}
+                    </span>
+                    <span className="text-xs font-bold text-purple-700">
+                      ({stay.groupTotalRooms || 'Multi'} Rooms)
+                    </span>
+                  </div>
+                  <p className="text-[10px] font-bold text-slate-500 mt-0.5">
+                    Ref ID: <span className="font-mono text-slate-700">{stay.groupId}</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsMergedModalOpen(true)}
+                  className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-black rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95"
+                >
+                  <FileText size={13} />
+                  <span>Master Group Bill</span>
+                </button>
+                {isOpen && (
+                  <button
+                    type="button"
+                    onClick={() => setIsGroupCheckoutOpen(true)}
+                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95"
+                  >
+                    <CheckCircle2 size={13} />
+                    <span>Group Checkout</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* ---------------- BILL ---------------- */}
           {tab === 'bill' && (
@@ -1453,6 +1503,19 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
         onStayUpdated={() => {
           reload();
           if (onChanged) onChanged();
+        }}
+      />
+    )}
+    {isGroupCheckoutOpen && stay.groupId && (
+      <GroupCheckoutModal
+        isOpen={isGroupCheckoutOpen}
+        groupId={stay.groupId}
+        onClose={() => setIsGroupCheckoutOpen(false)}
+        onSuccess={() => {
+          setIsGroupCheckoutOpen(false);
+          reload();
+          if (onChanged) onChanged();
+          if (onCheckout) onCheckout();
         }}
       />
     )}

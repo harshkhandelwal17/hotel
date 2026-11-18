@@ -31,6 +31,11 @@ const paymentSchema = new mongoose.Schema({
   },
   transactionId: String,
   notes: String,
+  groupId: {
+    type: String,
+    trim: true,
+    index: true
+  },
   createdBy: {
     type: mongoose.Schema.ObjectId,
     ref: 'User',

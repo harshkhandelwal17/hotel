@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useOutletContext, Link } from 'react-router-dom';
 import axios from 'axios';
-import { Users, Clock, CheckCircle2, Wrench, BedDouble, RefreshCw, Search, Sparkles } from 'lucide-react';
+import { Users, Clock, CheckCircle2, Wrench, BedDouble, RefreshCw, Search, Sparkles, Building2 } from 'lucide-react';
 import { format, isPast } from 'date-fns';
 import { apiCache } from '../../utils/apiCache';
+import GroupCheckInModal from '../../components/reception/GroupCheckInModal';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
 
@@ -18,6 +19,7 @@ const RoomsView = () => {
 
   const [housekeepingStatus, setHousekeepingStatus] = useState({});
   const [seedingRooms, setSeedingRooms] = useState(false);
+  const [isGroupCheckInOpen, setIsGroupCheckInOpen] = useState(false);
 
   const handleSeedStarterRooms = async () => {
     try {
@@ -222,6 +224,14 @@ const RoomsView = () => {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
+            type="button"
+            onClick={() => setIsGroupCheckInOpen(true)}
+            className="px-3 sm:px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-xs active:scale-95 transition-all cursor-pointer"
+          >
+            <Users size={14} />
+            <span>Group Check-In</span>
+          </button>
+          <button
             onClick={fetchData}
             className="p-2 text-slate-500 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl shadow-2xs transition-all cursor-pointer"
             title="Refresh Rooms"
@@ -319,6 +329,12 @@ const RoomsView = () => {
                 <div className="p-2.5 sm:p-3 space-y-1.5 sm:space-y-2">
                   {stay ? (
                     <>
+                      {stay.groupId && (
+                        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-purple-100 text-purple-900 border border-purple-200 truncate max-w-full">
+                          <Building2 size={10} className="shrink-0 text-purple-700" />
+                          <span className="truncate">{stay.groupName || 'Group'}</span>
+                        </div>
+                      )}
                       <p className="font-black text-gray-900 text-sm truncate">{stay.guest?.fullName}</p>
                       <p className="text-[10px] font-bold text-gray-500">{stay.occupants} guest{stay.occupants > 1 ? 's' : ''}</p>
                       <div className={`flex items-center gap-1 text-[10px] font-bold ${isOverdue ? 'text-red-600' : 'text-gray-400'}`}>
@@ -423,6 +439,18 @@ const RoomsView = () => {
         </div>,
         document.body
       )}
+
+      {/* Group & Multi-Room Check-In Modal */}
+      <GroupCheckInModal
+        isOpen={isGroupCheckInOpen}
+        onClose={() => setIsGroupCheckInOpen(false)}
+        defaultHostelId={globalProperty !== 'all' ? globalProperty : undefined}
+        rooms={rooms}
+        onSuccess={() => {
+          apiCache.invalidate('rooms');
+          fetchData(true);
+        }}
+      />
     </div>
   );
 };

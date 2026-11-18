@@ -43,6 +43,7 @@ import { scanAadhaarQrFromImage, validateAadhaarNumber } from '../../utils/aadha
 import { apiCache } from '../../utils/apiCache';
 import GuestRegistrationCardModal from '../../components/reception/GuestRegistrationCardModal';
 import BrokersDirectoryModal from '../../components/common/BrokersDirectoryModal';
+import GroupCheckInModal from '../../components/reception/GroupCheckInModal';
 import { getFullImageUrl } from '../../utils/imageUrl';
 import { GST_STATE_CODES } from '../../utils/invoice';
 import DynamicUpiQr from '../../components/DynamicUpiQr';
@@ -121,6 +122,7 @@ const CheckIn = () => {
   const [grcModalOpen, setGrcModalOpen] = useState(false);
   const [createdStayData, setCreatedStayData] = useState(null);
   const [propertyData, setPropertyData] = useState(null);
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
 
   // Broker & Referral Directory State
   const [showBrokersModal, setShowBrokersModal] = useState(false);
@@ -1898,13 +1900,23 @@ const CheckIn = () => {
               {isHindi ? 'आधार/पासपोर्ट एआई स्कैन और डिजिटल रूम असाइनमेंट' : 'Instant AI OCR scanning, room assignment & WhatsApp onboarding'}
             </p>
           </div>
-          <button 
-            onClick={resetForm}
-            className="px-3.5 py-2 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 rounded-xl font-bold text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
-          >
-            <RefreshCw size={13} />
-            <span>{isHindi ? 'फॉर्म रीसेट' : 'Reset Form'}</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsGroupModalOpen(true)}
+              className="px-3.5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-black text-xs transition-all shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95"
+            >
+              <Users size={14} />
+              <span>{isHindi ? 'ग्रुप / मल्टी-रूम चेक-इन' : 'Group Check-In'}</span>
+            </button>
+            <button 
+              onClick={resetForm}
+              className="px-3.5 py-2 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 rounded-xl font-bold text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <RefreshCw size={13} />
+              <span>{isHindi ? 'फॉर्म रीसेट' : 'Reset Form'}</span>
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center gap-3 mt-4">
@@ -4783,6 +4795,18 @@ const CheckIn = () => {
             commissionTo: b.name,
             commissionPhone: b.phone || p.commissionPhone
           }));
+        }}
+      />
+
+      {/* Group & Multi-Room Check-In Modal */}
+      <GroupCheckInModal
+        isOpen={isGroupModalOpen}
+        onClose={() => setIsGroupModalOpen(false)}
+        defaultHostelId={hostelId || (globalProperty && globalProperty !== 'all' ? globalProperty : undefined)}
+        rooms={rooms}
+        onSuccess={() => {
+          apiCache.invalidate('rooms');
+          navigate('/rooms');
         }}
       />
 
