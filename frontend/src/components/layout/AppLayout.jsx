@@ -175,51 +175,6 @@ const AppLayout = ({ children }) => {
     setDevicePermission(res);
   };
 
-  const handleTestDeviceAlert = (type = 'checkin') => {
-    if (type === 'checkout') {
-      playCheckOutChime();
-      triggerDeviceNotification({
-        title: '🚪 Test: Check-Out Alert',
-        body: 'Room 105 • Amit Sharma checked out (Settled: ₹2,100). Bill closed!',
-        tag: 'test-checkout'
-      });
-      setLiveCheckInToast({
-        _id: 'test-out',
-        type: 'checkout',
-        title: '🚪 Test: Check-Out Alert',
-        message: 'Room 105 checked out by Amit Sharma • Settled: ₹2,100',
-        metadata: {
-          hotelName: 'Blue Star Hotel',
-          roomNumber: '105',
-          guestName: 'Amit Sharma',
-          totalAmount: 2100,
-          paidAmount: 2100
-        }
-      });
-    } else {
-      playCheckInChime();
-      triggerDeviceNotification({
-        title: '🛎️ Test: Mobile Check-In Alert',
-        body: 'Room 204 • Harsh Khandelwal checked in (₹1,500 Paid). System alerts working perfectly!',
-        tag: 'test-checkin'
-      });
-      setLiveCheckInToast({
-        _id: 'test-in',
-        type: 'checkin',
-        title: '🛎️ Test: Mobile Check-In Alert',
-        message: 'Room 204 • Harsh Khandelwal checked in (₹1,500 Paid)',
-        metadata: {
-          hotelName: 'Blue Star Hotel',
-          roomNumber: '204',
-          guestName: 'Harsh Khandelwal',
-          totalAmount: 1500,
-          paidAmount: 1500
-        }
-      });
-    }
-    setTimeout(() => setLiveCheckInToast(null), 9000);
-  };
-
   // Global Keyboard Shortcuts (⌘K / Ctrl+K, single-key navigation & cheatsheet)
   useEffect(() => {
     const handleGlobalKeyDown = (e) => {
@@ -801,30 +756,14 @@ const AppLayout = ({ children }) => {
                           </button>
                         </div>
                       ) : (
-                        <div className="px-3 py-1.5 bg-emerald-50/70 border-b border-emerald-100 flex items-center justify-between gap-1.5 text-[10px] shrink-0">
-                          <span className="flex items-center gap-1 font-bold text-emerald-800 truncate">
+                        <div className="px-3.5 py-1.5 bg-emerald-50/70 border-b border-emerald-100 flex items-center justify-between text-[10px] shrink-0">
+                          <span className="flex items-center gap-1.5 font-bold text-emerald-800">
                             <CheckCircle2 size={12} className="text-emerald-600 shrink-0" />
-                            <span className="truncate">Mobile Alerts Active</span>
+                            <span>Mobile Push Alerts Active</span>
                           </span>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => handleTestDeviceAlert('checkin')}
-                              className="text-emerald-700 hover:text-emerald-950 font-black underline cursor-pointer text-[10px]"
-                              title="Test Check-In alert sound & banner"
-                            >
-                              ⚡ Check-In
-                            </button>
-                            <span className="text-emerald-300">•</span>
-                            <button
-                              type="button"
-                              onClick={() => handleTestDeviceAlert('checkout')}
-                              className="text-amber-800 hover:text-amber-950 font-black underline cursor-pointer text-[10px]"
-                              title="Test Check-Out alert sound & banner"
-                            >
-                              🚪 Check-Out
-                            </button>
-                          </div>
+                          <span className="text-emerald-700 font-bold bg-emerald-100/90 border border-emerald-200 px-2 py-0.5 rounded-full text-[9px]">
+                            Live Sync
+                          </span>
                         </div>
                       )}
 
