@@ -203,23 +203,12 @@ const GuestProfile = () => {
     navigate('/checkin', { state: { prefillGuest: prefillPayload } });
   };
 
-  if (loading) return (
-    <div className="flex items-center justify-center min-h-[50vh]">
-      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-black"></div>
-    </div>
-  );
-  if (!guest) return (
-    <div className="text-center py-16">
-      <h3 className="text-lg font-black text-gray-900">Guest not found</h3>
-      <Link to="/guests" className="text-xs font-bold text-black underline mt-2 inline-block">Return to Guest Directory</Link>
-    </div>
-  );
-
-  const activeStay = guest.stays?.find(s => ['Active', 'Upcoming', 'Checkout Due', 'Overdue'].includes(s.status));
-  const historyStays = guest.stays?.filter(s => s._id !== activeStay?._id) || [];
+  const activeStay = guest?.stays?.find(s => ['Active', 'Upcoming', 'Checkout Due', 'Overdue'].includes(s.status));
+  const historyStays = guest?.stays?.filter(s => s._id !== activeStay?._id) || [];
 
   // Group historical stays belonging to the same corporate/group booking into 1 single master entry
   const groupedHistoryStays = useMemo(() => {
+    if (!historyStays || historyStays.length === 0) return [];
     const groupMap = new Map();
     const result = [];
 
@@ -273,6 +262,18 @@ const GuestProfile = () => {
 
     return result;
   }, [historyStays]);
+
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-[50vh]">
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-black"></div>
+    </div>
+  );
+  if (!guest) return (
+    <div className="text-center py-16">
+      <h3 className="text-lg font-black text-gray-900">Guest not found</h3>
+      <Link to="/guests" className="text-xs font-bold text-black underline mt-2 inline-block">Return to Guest Directory</Link>
+    </div>
+  );
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300 w-full mx-auto pb-12">
