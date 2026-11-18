@@ -809,7 +809,7 @@ const CheckoutList = () => {
             {checkoutSuccessToast.stay?.groupId ? (
               <button
                 type="button"
-                onClick={() => handlePrintGroupBill(checkoutSuccessToast.stay)}
+                onClick={() => setGroupModalStay(checkoutSuccessToast.stay)}
                 className="flex-1 py-2 px-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-xs"
               >
                 <Building2 size={13} /> Master Group Bill

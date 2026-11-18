@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { format } from 'date-fns';
-import { User, Phone, CheckCircle, Clock, Printer, FileText, Wallet, BookOpen, Share2, PlusCircle, ArrowDownLeft, ArrowUpRight, X, AlertCircle, UserPlus, Sparkles, Building, Building2, Bed } from 'lucide-react';
+import { User, Phone, CheckCircle, Clock, Printer, FileText, Wallet, BookOpen, Share2, PlusCircle, ArrowDownLeft, ArrowUpRight, X, AlertCircle, UserPlus, Sparkles, Building, Building2, Bed, ChevronRight } from 'lucide-react';
 import { printInvoice, printMergedInvoice } from '../../utils/invoice';
 import ExtendStayModal from './ExtendStayModal';
 import ShiftRoomModal from './ShiftRoomModal';
@@ -36,6 +36,16 @@ const GuestProfile = () => {
   const [formNotes, setFormNotes] = useState('');
   const [submittingLedger, setSubmittingLedger] = useState(false);
   const [ledgerActionError, setLedgerActionError] = useState('');
+  const [expandedGroupIds, setExpandedGroupIds] = useState(new Set());
+
+  const toggleGroupExpand = (groupId) => {
+    setExpandedGroupIds(prev => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (tabParam && (tabParam === 'khata' || tabParam === 'history')) {
@@ -563,57 +573,118 @@ const GuestProfile = () => {
                   {groupedHistoryStays.map((item) => {
                     if (item.isGroup) {
                       const roomListStr = item.roomNumbers.join(', ');
+                      const isExpanded = expandedGroupIds.has(item.groupId);
                       return (
-                        <tr key={item._id} className="hover:bg-purple-50/40 transition-colors bg-purple-50/15">
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="font-black text-indigo-900 text-sm">
-                                Rooms: {roomListStr}
-                              </p>
-                              <span className="bg-purple-100 text-purple-900 text-[10px] px-2.5 py-0.5 rounded-md border border-purple-200 font-black uppercase tracking-wider">
-                                🏢 {item.groupName || 'Corporate Folio'} &bull; {item.stays.length} Rooms
+                        <React.Fragment key={item._id}>
+                          <tr className="hover:bg-purple-50/40 transition-colors bg-purple-50/15">
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-black text-indigo-900 text-sm">
+                                  Rooms: {roomListStr}
+                                </p>
+                                <span className="bg-purple-100 text-purple-900 text-[10px] px-2.5 py-0.5 rounded-md border border-purple-200 font-black uppercase tracking-wider">
+                                  🏢 {item.groupName || 'Corporate Folio'} &bull; {item.stays.length} Rooms
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2.5 mt-1">
+                                <span className="text-[11px] font-bold text-gray-400">{item.occupants} Total Occupants</span>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleGroupExpand(item.groupId)}
+                                  className="text-[11px] font-bold text-purple-700 hover:text-purple-950 hover:underline cursor-pointer flex items-center gap-0.5 transition-colors"
+                                  title="View or hide individual rooms of this group"
+                                >
+                                  <span>{isExpanded ? 'Hide Rooms' : `View ${item.stays.length} Rooms`}</span>
+                                  <ChevronRight size={12} className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
+                                </button>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <p className="font-bold text-gray-900 text-xs">{format(new Date(item.checkInDate), 'dd MMM yyyy')}</p>
+                              <p className="text-[11px] text-gray-400 mt-0.5">{format(new Date(item.checkInDate), 'hh:mm a')}</p>
+                            </td>
+                            <td className="px-6 py-4">
+                              <p className="font-bold text-gray-900 text-xs">{item.actualCheckOutDate ? format(new Date(item.actualCheckOutDate), 'dd MMM yyyy') : format(new Date(item.expectedCheckOutDate), 'dd MMM yyyy')}</p>
+                              <p className="text-[11px] text-gray-400 mt-0.5">{item.actualCheckOutDate ? format(new Date(item.actualCheckOutDate), 'hh:mm a') : format(new Date(item.expectedCheckOutDate), 'hh:mm a')}</p>
+                            </td>
+                            <td className="px-6 py-4">
+                              <p className="font-black text-emerald-800 text-sm font-mono">₹{item.totalAmount?.toLocaleString('en-IN')}</p>
+                              <span className="text-[10px] text-slate-400 font-semibold">• Combined Group Total</span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className="px-2.5 py-0.5 inline-flex text-[10px] font-black uppercase tracking-wider rounded-lg border bg-emerald-50 text-emerald-800 border-emerald-200">
+                                Checked Out
                               </span>
-                            </div>
-                            <p className="text-[11px] font-bold text-gray-400 mt-0.5">{item.occupants} Total Occupants</p>
-                          </td>
-                          <td className="px-6 py-4">
-                            <p className="font-bold text-gray-900 text-xs">{format(new Date(item.checkInDate), 'dd MMM yyyy')}</p>
-                            <p className="text-[11px] text-gray-400 mt-0.5">{format(new Date(item.checkInDate), 'hh:mm a')}</p>
-                          </td>
-                          <td className="px-6 py-4">
-                            <p className="font-bold text-gray-900 text-xs">{item.actualCheckOutDate ? format(new Date(item.actualCheckOutDate), 'dd MMM yyyy') : format(new Date(item.expectedCheckOutDate), 'dd MMM yyyy')}</p>
-                            <p className="text-[11px] text-gray-400 mt-0.5">{item.actualCheckOutDate ? format(new Date(item.actualCheckOutDate), 'hh:mm a') : format(new Date(item.expectedCheckOutDate), 'hh:mm a')}</p>
-                          </td>
-                          <td className="px-6 py-4">
-                            <p className="font-black text-emerald-800 text-sm font-mono">₹{item.totalAmount?.toLocaleString('en-IN')}</p>
-                            <span className="text-[10px] text-slate-400 font-semibold">• Combined Group Total</span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className="px-2.5 py-0.5 inline-flex text-[10px] font-black uppercase tracking-wider rounded-lg border bg-emerald-50 text-emerald-800 border-emerald-200">
-                              Checked Out
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-1.5">
-                              <button 
-                                onClick={() => setCorporateModalStay(item.primaryStay)}
-                                className="bg-purple-600 hover:bg-purple-700 text-white px-2.5 py-1.5 rounded-xl transition-all font-black text-xs shadow-2xs cursor-pointer active:scale-95 flex items-center gap-1"
-                                title="Open Consolidated Corporate Bill Modal"
-                              >
-                                <Building2 size={13} />
-                                <span>Master Bill</span>
-                              </button>
-                              <button 
-                                onClick={() => setSelectedGrcStay(item.primaryStay)}
-                                className="text-gray-700 hover:text-black bg-white hover:bg-gray-50 px-2 py-1.5 rounded-xl transition-colors border border-gray-200 flex items-center gap-1 font-bold text-xs shadow-2xs cursor-pointer active:scale-95"
-                                title="Print Guest Registration Card (GRC)"
-                              >
-                                <FileText size={13} />
-                                <span className="text-[10px] font-black uppercase tracking-wider">GRC</span>
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-1.5">
+                                <button 
+                                  onClick={() => setCorporateModalStay(item.primaryStay)}
+                                  className="bg-purple-600 hover:bg-purple-700 text-white px-2.5 py-1.5 rounded-xl transition-all font-black text-xs shadow-2xs cursor-pointer active:scale-95 flex items-center gap-1"
+                                  title="Open Consolidated Corporate Bill Modal"
+                                >
+                                  <Building2 size={13} />
+                                  <span>Master Bill</span>
+                                </button>
+                                <button 
+                                  onClick={() => setSelectedGrcStay(item.primaryStay)}
+                                  className="text-gray-700 hover:text-black bg-white hover:bg-gray-50 px-2 py-1.5 rounded-xl transition-colors border border-gray-200 flex items-center gap-1 font-bold text-xs shadow-2xs cursor-pointer active:scale-95"
+                                  title="Print Guest Registration Card (GRC)"
+                                >
+                                  <FileText size={13} />
+                                  <span className="text-[10px] font-black uppercase tracking-wider">GRC</span>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+
+                          {/* Sub-room rows when accordion is opened */}
+                          {isExpanded && item.stays.map(subStay => (
+                            <tr key={subStay._id} className="bg-slate-50/85 border-l-4 border-l-purple-500 hover:bg-slate-100/80 transition-colors text-xs">
+                              <td className="px-6 py-3 pl-10">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-slate-900">Room {subStay.room?.roomNumber}</span>
+                                  <span className="text-slate-300">•</span>
+                                  <span className="text-slate-600 font-medium">{subStay.guest?.fullName || 'Occupant'}</span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-3 text-slate-600">
+                                {format(new Date(subStay.checkInDate), 'dd MMM yyyy, hh:mm a')}
+                              </td>
+                              <td className="px-6 py-3 text-slate-600">
+                                {subStay.actualCheckOutDate ? format(new Date(subStay.actualCheckOutDate), 'dd MMM yyyy, hh:mm a') : format(new Date(subStay.expectedCheckOutDate), 'dd MMM yyyy, hh:mm a')}
+                              </td>
+                              <td className="px-6 py-3 font-mono font-bold text-slate-900">
+                                ₹{subStay.totalAmount?.toLocaleString('en-IN')}
+                              </td>
+                              <td className="px-6 py-3">
+                                <span className="text-[10px] text-slate-500 font-bold uppercase">Room Part</span>
+                              </td>
+                              <td className="px-6 py-3">
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => handlePrint(subStay)}
+                                    className="px-2 py-1 text-slate-700 hover:text-black bg-white hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors shadow-2xs cursor-pointer flex items-center gap-1 font-bold text-[11px]"
+                                    title={`Print Single Room ${subStay.room?.roomNumber} Bill`}
+                                  >
+                                    <Printer size={12} />
+                                    <span>Room Bill</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedGrcStay(subStay)}
+                                    className="px-2 py-1 text-slate-700 hover:text-black bg-white hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors shadow-2xs cursor-pointer flex items-center gap-1 font-bold text-[11px]"
+                                    title={`Print Room ${subStay.room?.roomNumber} GRC`}
+                                  >
+                                    <FileText size={12} />
+                                    <span>GRC</span>
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </React.Fragment>
                       );
                     }
 
