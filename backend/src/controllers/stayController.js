@@ -141,7 +141,7 @@ exports.createStay = async (req, res, next) => {
     if (roomDoc.hostel.toString() !== hostel.toString()) {
       throw new Error('This room does not belong to the selected property');
     }
-    if (roomDoc.status !== 'Active') {
+    if (!isPastCheckout && roomDoc.status !== 'Active') {
       throw new Error(`Room ${roomDoc.roomNumber} is not available (${roomDoc.status})`);
     }
 
@@ -1462,7 +1462,7 @@ exports.createGroupStay = async (req, res, next) => {
       if (rDoc.hostel.toString() !== hostel.toString()) {
         throw new Error(`Room ${rDoc.roomNumber} does not belong to this property`);
       }
-      if (rDoc.status !== 'Active') {
+      if (!isPastCheckout && rDoc.status !== 'Active') {
         throw new Error(`Room ${rDoc.roomNumber} is currently not available (${rDoc.status})`);
       }
       const overlapping = await Stay.findOne(
