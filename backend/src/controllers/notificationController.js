@@ -133,18 +133,20 @@ exports.getNotifications = async (req, res, next) => {
     // Enforce strict hotel boundary: never leak other hotels to an admin or receptionist
     if (req.user.role === 'admin') {
       const myHostels = await Hostel.find({ owner: req.user._id }).select('_id');
-      const hostelIds = myHostels.map(h => h._id);
-      filter.hostel = { $in: hostelIds };
+      const hostelIds = myHostels.map(h => h._id.toString());
+      if (req.query.hostel && req.query.hostel !== 'all') {
+        filter.hostel = hostelIds.includes(req.query.hostel.toString()) ? req.query.hostel : { $in: [] };
+      } else {
+        filter.hostel = { $in: hostelIds };
+      }
     } else if (req.user.role === 'receptionist' && req.user.assignedHostel) {
       filter.hostel = req.user.assignedHostel;
+    } else if (req.query.hostel && req.query.hostel !== 'all') {
+      filter.hostel = req.query.hostel;
     }
 
     if (req.query.unreadOnly === 'true') {
       filter.isRead = false;
-    }
-
-    if (req.query.hostel && req.query.hostel !== 'all') {
-      filter.hostel = req.query.hostel;
     }
 
     const limit = Math.min(parseInt(req.query.limit, 10) || 50, 100);
