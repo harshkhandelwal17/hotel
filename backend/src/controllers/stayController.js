@@ -3,6 +3,8 @@ const Stay = require('../models/Stay');
 const Room = require('../models/Room');
 const Payment = require('../models/Payment');
 const Guest = require('../models/Guest');
+const Hostel = require('../models/Hostel');
+const Notification = require('../models/Notification');
 const { assertHostelAccess, getHostelFilter, userCanAccessHostel } = require('../utils/hostelAccess');
 const { recordLedgerImpact } = require('../utils/ledgerHelper');
 
@@ -189,6 +191,39 @@ exports.createStay = async (req, res, next) => {
           userId: req.user._id
         });
       }
+    }
+
+    // 🛎️ Trigger New Check-In Notification for Property Owner (Admin)
+    try {
+      const hostelDoc = await Hostel.findById(hostel).select('name owner');
+      const targetRecipient = hostelDoc?.owner || req.user._id;
+      if (targetRecipient) {
+        const roomDoc = await Room.findById(room).select('roomNumber');
+        const rNum = roomDoc?.roomNumber || 'Room';
+        const gName = (guestDoc?.fullName || 'Guest').trim();
+        const hName = hostelDoc?.name || 'Hotel';
+        const advText = advance > 0 ? ` (Advance: ₹${Number(advance).toLocaleString('en-IN')})` : '';
+
+        await Notification.create({
+          recipient: targetRecipient,
+          hostel: hostelDoc ? hostelDoc._id : hostel,
+          stay: stay._id,
+          type: 'checkin',
+          title: `🛎️ New Check-In at ${hName}`,
+          message: `Room ${rNum} • ${gName} checked in! Tariff: ₹${Number(totalAmount).toLocaleString('en-IN')}${advText}`,
+          metadata: {
+            hotelName: hName,
+            roomNumber: String(rNum),
+            guestName: gName,
+            guestPhone: guestDoc?.mobileNumber || '',
+            totalAmount: Number(totalAmount) || 0,
+            paidAmount: Number(advance) || 0,
+            stayId: stay._id.toString()
+          }
+        });
+      }
+    } catch (notifErr) {
+      console.error('Failed to create check-in notification:', notifErr.message);
     }
 
     res.status(201).json({ success: true, data: stay });

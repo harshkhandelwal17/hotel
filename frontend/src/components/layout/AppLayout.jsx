@@ -2,7 +2,7 @@ import React, { useContext, useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
-import { Home, Users, Bed, LogOut, Bell, PlusCircle, Building, CreditCard, BarChart3, Hexagon, ShieldCheck, Menu, X, ShieldAlert, LayoutGrid, Volume2, VolumeX, Phone, BellRing, ChevronDown, Shirt, Keyboard, Search, Globe } from 'lucide-react';
+import { Home, Users, Bed, LogOut, Bell, PlusCircle, Building, CreditCard, BarChart3, Hexagon, ShieldCheck, Menu, X, ShieldAlert, LayoutGrid, Volume2, VolumeX, Phone, BellRing, ChevronDown, Shirt, Keyboard, Search, Globe, CheckCheck, CheckCircle2, Smartphone, Sparkles } from 'lucide-react';
 import GlobalSearch from '../common/GlobalSearch';
 import CommandPalette from '../common/CommandPalette';
 import ShortcutsModal from '../common/ShortcutsModal';
@@ -12,6 +12,7 @@ import PoliceReportModal from '../../pages/admin/PoliceReportModal';
 import { apiCache, prefetchRoute } from '../../utils/apiCache';
 import { useLanguage } from '../../context/LanguageContext';
 import { COMPANY_SUPPORT } from '../../config/support';
+import { getNotificationPermission, requestNotificationPermission, triggerDeviceNotification, playCheckInChime } from '../../utils/pwaNotifications';
 
 const AppLayout = ({ children }) => {
   const { user, logout } = useContext(AuthContext);
@@ -22,6 +23,11 @@ const AppLayout = ({ children }) => {
   const [globalProperty, setGlobalProperty] = useState(localStorage.getItem('adminGlobalProperty') || 'all');
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [checkInNotifications, setCheckInNotifications] = useState([]);
+  const [unreadCheckInsCount, setUnreadCheckInsCount] = useState(0);
+  const [activeNotifTab, setActiveNotifTab] = useState('checkins');
+  const [devicePermission, setDevicePermission] = useState(getNotificationPermission());
+  const lastNotifiedCheckInIdRef = useRef(sessionStorage.getItem('last_notified_checkin_id') || '');
   const [showPoliceModal, setShowPoliceModal] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
@@ -57,6 +63,93 @@ const AppLayout = ({ children }) => {
     window.addEventListener('propertyChanged', fetchHostels);
     return () => window.removeEventListener('propertyChanged', fetchHostels);
   }, [user]);
+
+  const getTimeAgo = (dateStr) => {
+    if (!dateStr) return '';
+    const diffSecs = Math.floor((new Date() - new Date(dateStr)) / 1000);
+    if (diffSecs < 60) return 'Just now';
+    const diffMins = Math.floor(diffSecs / 60);
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays}d ago`;
+  };
+
+  const fetchCheckInNotifications = async () => {
+    if (!user) return;
+    try {
+      const res = await axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/notifications?limit=30');
+      if (res.data?.success) {
+        const list = res.data.data || [];
+        setCheckInNotifications(list);
+        setUnreadCheckInsCount(res.data.unreadCount || 0);
+
+        // Detect new unread check-in notification for mobile alert
+        const latestUnread = list.find(n => !n.isRead && n.type === 'checkin');
+        if (latestUnread && latestUnread._id !== lastNotifiedCheckInIdRef.current) {
+          lastNotifiedCheckInIdRef.current = latestUnread._id;
+          sessionStorage.setItem('last_notified_checkin_id', latestUnread._id);
+
+          // 1. Play luxury concierge chime
+          playCheckInChime();
+
+          // 2. Trigger native mobile device / desktop notification with vibration
+          triggerDeviceNotification({
+            title: latestUnread.title,
+            body: latestUnread.message,
+            tag: `checkin-${latestUnread._id}`,
+            data: { url: '/checkouts' }
+          });
+        }
+      }
+    } catch (err) {
+      // quiet fail
+    }
+  };
+
+  useEffect(() => {
+    if (!user) return;
+    fetchCheckInNotifications();
+    const interval = setInterval(fetchCheckInNotifications, 18000);
+    const onFocus = () => fetchCheckInNotifications();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [user]);
+
+  const handleMarkCheckInRead = async (id, e) => {
+    if (e) e.stopPropagation();
+    try {
+      await axios.put((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + `/api/notifications/${id}/read`);
+      setCheckInNotifications(prev => prev.map(n => n._id === id ? { ...n, isRead: true } : n));
+      setUnreadCheckInsCount(prev => Math.max(0, prev - 1));
+    } catch (err) {}
+  };
+
+  const handleMarkAllCheckInsRead = async () => {
+    try {
+      await axios.put((import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001') + '/api/notifications/read-all');
+      setCheckInNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      setUnreadCheckInsCount(0);
+    } catch (err) {}
+  };
+
+  const handleEnableDeviceAlerts = async () => {
+    const res = await requestNotificationPermission();
+    setDevicePermission(res);
+  };
+
+  const handleTestDeviceAlert = () => {
+    playCheckInChime();
+    triggerDeviceNotification({
+      title: '🛎️ Test: Mobile Check-In Alert',
+      body: 'Room 204 • Harsh Khandelwal checked in (₹1,500 Paid). System alerts working perfectly!',
+      tag: 'test-checkin'
+    });
+  };
 
   // Global Keyboard Shortcuts (⌘K / Ctrl+K, single-key navigation & cheatsheet)
   useEffect(() => {
@@ -503,41 +596,51 @@ const AppLayout = ({ children }) => {
                 </select>
               )}
 
-              {/* Overdue & Departure Notifications */}
+              {/* 🔔 Unified Notifications & Check-In Alerts Hub */}
               <div className="relative">
-                <button 
-                  onClick={() => setShowNotifications(!showNotifications)}
-                  className={`p-2 rounded-xl transition-colors relative ${notifications.length > 0 ? 'text-gray-900 bg-red-50 hover:bg-red-100' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}
-                  title={notifications.length > 0 ? `${notifications.length} Overdue Checkouts` : 'Checkout Alerts'}
-                >
-                  <Bell size={18} className={notifications.length > 0 ? 'animate-pulse text-red-600' : ''} />
-                  {notifications.length > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 bg-red-600 text-white text-[9px] font-black rounded-full border-2 border-white flex items-center justify-center shadow-sm">
-                      {notifications.length}
-                    </span>
-                  )}
-                </button>
+                {(() => {
+                  const totalUnread = (unreadCheckInsCount || 0) + (notifications.length || 0);
+                  const hasCheckInUnread = unreadCheckInsCount > 0;
+                  return (
+                    <button 
+                      onClick={() => setShowNotifications(!showNotifications)}
+                      className={`p-2 rounded-xl transition-all relative cursor-pointer ${
+                        totalUnread > 0
+                          ? hasCheckInUnread
+                            ? 'text-emerald-950 bg-emerald-50 hover:bg-emerald-100 ring-1 ring-emerald-200'
+                            : 'text-gray-900 bg-red-50 hover:bg-red-100'
+                          : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
+                      }`}
+                      title={totalUnread > 0 ? `${totalUnread} New Notifications & Alerts` : 'Notifications Hub'}
+                    >
+                      <Bell size={18} className={totalUnread > 0 ? (hasCheckInUnread ? 'animate-bounce text-emerald-600' : 'animate-pulse text-red-600') : ''} />
+                      {totalUnread > 0 && (
+                        <span className={`absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 text-white text-[9px] font-black rounded-full border-2 border-white flex items-center justify-center shadow-xs ${
+                          hasCheckInUnread ? 'bg-emerald-600 animate-pulse' : 'bg-red-600'
+                        }`}>
+                          {totalUnread}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })()}
                 
                 {showNotifications && (
-                  <div className="absolute right-0 mt-2 w-[90vw] max-w-sm sm:w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
-                    <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
+                  <div className="absolute right-0 mt-2 w-[92vw] max-w-sm sm:w-[420px] bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
+                    {/* Header Strip */}
+                    <div className="px-4 py-3 bg-gray-50/90 border-b border-gray-100 flex justify-between items-center">
                       <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-black text-gray-900">Checkout Alerts</h3>
-                        <span className="text-[10px] font-bold bg-black text-white px-2 py-0.5 rounded-full">{notifications.length}</span>
+                        <h3 className="text-sm font-black text-gray-900">Notifications & Alerts</h3>
+                        {((unreadCheckInsCount || 0) + (notifications.length || 0)) > 0 && (
+                          <span className="text-[10px] font-bold bg-black text-white px-2 py-0.5 rounded-full">
+                            {(unreadCheckInsCount || 0) + (notifications.length || 0)}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => soundAlert.playHotelBell('double')}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 transition-all active:scale-95"
-                          title="Click to test the 5-second loud concierge bell"
-                        >
-                          <BellRing size={11} className="stroke-[2.5]" />
-                          <span>Test Bell</span>
-                        </button>
                         <button 
                           onClick={toggleSoundMute}
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase transition-all ${
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase transition-all cursor-pointer ${
                             isAlertMuted ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
                           }`}
                           title={isAlertMuted ? "Sound alerts muted. Click to un-mute" : "Sound alerts active. Click to mute"}
@@ -547,44 +650,206 @@ const AppLayout = ({ children }) => {
                         </button>
                       </div>
                     </div>
-                    <div className="max-h-80 overflow-y-auto">
-                      {notifications.length === 0 ? (
-                        <div className="p-6 text-center text-gray-500 text-sm">No checkout alerts right now. All on schedule!</div>
-                      ) : (
-                        <div className="divide-y divide-gray-100">
-                          {notifications.map((notif, idx) => (
-                            <div 
-                              key={idx} 
-                              className={`p-3.5 transition-colors flex items-center justify-between gap-3 ${notif.type === 'danger' ? 'bg-red-50/40' : 'bg-orange-50/40'}`}
-                            >
-                              <Link 
-                                to="/checkouts" 
-                                onClick={() => setShowNotifications(false)}
-                                className="flex items-start gap-2.5 flex-1 min-w-0"
-                              >
-                                <div className={`mt-1 w-2.5 h-2.5 rounded-full flex-shrink-0 ${notif.type === 'danger' ? 'bg-red-500 animate-pulse' : 'bg-orange-400'}`}></div>
-                                <div className="min-w-0">
-                                  <p className={`text-[10px] font-black uppercase tracking-wider ${notif.type === 'danger' ? 'text-red-700' : 'text-orange-700'}`}>{notif.title}</p>
-                                  <p className="text-xs font-bold text-gray-800 leading-snug truncate">{notif.text}</p>
-                                </div>
-                              </Link>
 
-                              {notif.phone && (
-                                <a 
-                                  href={`tel:${notif.phone}`}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm active:scale-95 transition-all shrink-0"
-                                  title={`Call ${notif.guestName} (${notif.phone})`}
-                                  onClick={e => e.stopPropagation()}
-                                >
-                                  <Phone size={11} className="stroke-[2.5]" />
-                                  <span>Call</span>
-                                </a>
-                              )}
-                            </div>
-                          ))}
+                    {/* Mobile Push Notification Setup Strip */}
+                    {devicePermission !== 'granted' ? (
+                      <div className="p-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-indigo-100 flex items-center justify-between gap-2.5">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0">
+                            <Smartphone size={15} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-black text-indigo-950 truncate">Enable Mobile Push Alerts</p>
+                            <p className="text-[10px] text-indigo-700 font-medium truncate">Get instant sound & popup on phone check-ins</p>
+                          </div>
                         </div>
-                      )}
+                        <button
+                          type="button"
+                          onClick={handleEnableDeviceAlerts}
+                          className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider shadow-2xs transition-all active:scale-95 shrink-0 cursor-pointer"
+                        >
+                          Turn On
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="px-3.5 py-1.5 bg-emerald-50/70 border-b border-emerald-100 flex items-center justify-between text-[10px]">
+                        <span className="flex items-center gap-1.5 font-bold text-emerald-800">
+                          <CheckCircle2 size={12} className="text-emerald-600 shrink-0" /> Mobile Push Active on this device
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleTestDeviceAlert}
+                          className="text-emerald-700 hover:text-emerald-950 font-black underline cursor-pointer"
+                        >
+                          ⚡ Test Alert
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Notification Tabs (Live Check-Ins vs Checkout Due) */}
+                    <div className="grid grid-cols-2 p-1 bg-gray-100/80 border-b border-gray-200 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setActiveNotifTab('checkins')}
+                        className={`py-1.5 px-2 rounded-lg font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                          activeNotifTab === 'checkins'
+                            ? 'bg-white text-gray-950 shadow-xs'
+                            : 'text-gray-500 hover:text-gray-900'
+                        }`}
+                      >
+                        <span>🛎️ Check-Ins</span>
+                        {unreadCheckInsCount > 0 && (
+                          <span className="px-1.5 py-0.2 bg-emerald-600 text-white text-[9px] font-black rounded-full animate-pulse">
+                            {unreadCheckInsCount}
+                          </span>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveNotifTab('checkouts')}
+                        className={`py-1.5 px-2 rounded-lg font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                          activeNotifTab === 'checkouts'
+                            ? 'bg-white text-gray-950 shadow-xs'
+                            : 'text-gray-500 hover:text-gray-900'
+                        }`}
+                      >
+                        <span>🚪 Checkout Due</span>
+                        {notifications.length > 0 && (
+                          <span className="px-1.5 py-0.2 bg-red-600 text-white text-[9px] font-black rounded-full">
+                            {notifications.length}
+                          </span>
+                        )}
+                      </button>
                     </div>
+
+                    {/* Tab 1: Live Check-Ins */}
+                    {activeNotifTab === 'checkins' && (
+                      <div className="max-h-84 overflow-y-auto">
+                        <div className="px-3.5 py-2 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between text-[11px]">
+                          <span className="text-gray-500 font-semibold">Live check-ins across properties</span>
+                          {unreadCheckInsCount > 0 && (
+                            <button
+                              type="button"
+                              onClick={handleMarkAllCheckInsRead}
+                              className="text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1 cursor-pointer"
+                            >
+                              <CheckCheck size={12} /> Mark all read
+                            </button>
+                          )}
+                        </div>
+
+                        {checkInNotifications.length === 0 ? (
+                          <div className="p-8 text-center text-gray-400 space-y-1">
+                            <Sparkles size={24} className="mx-auto text-gray-300 stroke-[1.5]" />
+                            <p className="text-xs font-bold text-gray-600">No Check-In Notifications Yet</p>
+                            <p className="text-[11px] text-gray-400">When any of your hotel properties checks in a guest, you will be notified here instantly.</p>
+                          </div>
+                        ) : (
+                          <div className="divide-y divide-gray-100">
+                            {checkInNotifications.map((notif) => {
+                              const meta = notif.metadata || {};
+                              const hotelName = meta.hotelName || notif.hostel?.name || 'Hotel';
+                              const isUnread = !notif.isRead;
+                              return (
+                                <div 
+                                  key={notif._id} 
+                                  onClick={(e) => {
+                                    handleMarkCheckInRead(notif._id, e);
+                                    setShowNotifications(false);
+                                    navigate('/checkouts');
+                                  }}
+                                  className={`p-3 transition-colors cursor-pointer flex items-start justify-between gap-2.5 hover:bg-gray-50 ${
+                                    isUnread ? 'bg-emerald-50/40' : 'bg-white'
+                                  }`}
+                                >
+                                  <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                                    <div className="mt-0.5">
+                                      <span className={`block w-2.5 h-2.5 rounded-full ${
+                                        isUnread ? 'bg-emerald-500 animate-pulse' : 'bg-gray-300'
+                                      }`}></span>
+                                    </div>
+                                    <div className="min-w-0 flex-1 space-y-0.5">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className="px-1.5 py-0.2 bg-blue-100 text-blue-800 text-[9px] font-black uppercase rounded tracking-tight">
+                                          {hotelName}
+                                        </span>
+                                        <span className="text-[10px] text-gray-400 font-medium">
+                                          {getTimeAgo(notif.createdAt)}
+                                        </span>
+                                      </div>
+                                      <p className="text-xs font-bold text-gray-900 leading-snug">
+                                        Room {meta.roomNumber || 'Room'} • <span className="text-gray-950 font-black">{meta.guestName || 'Guest'}</span>
+                                      </p>
+                                      <p className="text-[11px] text-gray-600 font-medium">
+                                        Tariff: <strong className="text-gray-900">₹{Number(meta.totalAmount || 0).toLocaleString('en-IN')}</strong>
+                                        {Number(meta.paidAmount) > 0 && (
+                                          <span className="text-emerald-700 font-bold ml-1.5">
+                                            (₹{Number(meta.paidAmount).toLocaleString('en-IN')} Paid)
+                                          </span>
+                                        )}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  {isUnread && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => handleMarkCheckInRead(notif._id, e)}
+                                      className="p-1 text-gray-400 hover:text-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors shrink-0"
+                                      title="Mark as read"
+                                    >
+                                      <CheckCircle2 size={13} />
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Tab 2: Overdue Checkouts */}
+                    {activeNotifTab === 'checkouts' && (
+                      <div className="max-h-84 overflow-y-auto">
+                        {notifications.length === 0 ? (
+                          <div className="p-8 text-center text-gray-500 text-sm">No checkout alerts right now. All guests on schedule!</div>
+                        ) : (
+                          <div className="divide-y divide-gray-100">
+                            {notifications.map((notif, idx) => (
+                              <div 
+                                key={idx} 
+                                className={`p-3.5 transition-colors flex items-center justify-between gap-3 ${notif.type === 'danger' ? 'bg-red-50/40' : 'bg-orange-50/40'}`}
+                              >
+                                <Link 
+                                  to="/checkouts" 
+                                  onClick={() => setShowNotifications(false)}
+                                  className="flex items-start gap-2.5 flex-1 min-w-0"
+                                >
+                                  <div className={`mt-1 w-2.5 h-2.5 rounded-full flex-shrink-0 ${notif.type === 'danger' ? 'bg-red-500 animate-pulse' : 'bg-orange-400'}`}></div>
+                                  <div className="min-w-0">
+                                    <p className={`text-[10px] font-black uppercase tracking-wider ${notif.type === 'danger' ? 'text-red-700' : 'text-orange-700'}`}>{notif.title}</p>
+                                    <p className="text-xs font-bold text-gray-800 leading-snug truncate">{notif.text}</p>
+                                  </div>
+                                </Link>
+
+                                {notif.phone && (
+                                  <a 
+                                    href={`tel:${notif.phone}`}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm active:scale-95 transition-all shrink-0"
+                                    title={`Call ${notif.guestName} (${notif.phone})`}
+                                    onClick={e => e.stopPropagation()}
+                                  >
+                                    <Phone size={11} className="stroke-[2.5]" />
+                                    <span>Call</span>
+                                  </a>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

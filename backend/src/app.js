@@ -38,6 +38,7 @@ const superAdminRoutes = require('./routes/superAdminRoutes');
 const ocrRoutes = require('./routes/ocrRoutes');
 const whatsappRoutes = require('./routes/whatsappRoutes');
 const laundryRoutes = require('./routes/laundryRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 const expenseRoutes = require('./routes/expenseRoutes');
 const salesRoutes = require('./routes/salesRoutes');
 const path = require('path');
@@ -57,6 +58,7 @@ app.use('/api/sales', salesRoutes);
 app.use('/api/ocr', ocrRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/laundry', laundryRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
   maxAge: '7d',
   etag: true,

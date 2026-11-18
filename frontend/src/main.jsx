@@ -2,6 +2,10 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
+import { registerServiceWorker } from './utils/pwaNotifications'
+
+// Register PWA Service Worker for Mobile App-like notifications
+registerServiceWorker();
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
