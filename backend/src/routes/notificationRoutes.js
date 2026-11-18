@@ -6,7 +6,8 @@ const {
   deleteNotification,
   getVapidKey,
   subscribePush,
-  unsubscribePush
+  unsubscribePush,
+  testPushNotification
 } = require('../controllers/notificationController');
 const { protect } = require('../middlewares/auth');
 
@@ -20,6 +21,7 @@ router.use(protect);
 
 router.post('/subscribe', subscribePush);
 router.post('/unsubscribe', unsubscribePush);
+router.post('/test-push', testPushNotification);
 router.get('/', getNotifications);
 router.put('/read-all', markAllAsRead);
 router.put('/:id/read', markAsRead);

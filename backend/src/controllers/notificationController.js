@@ -1,6 +1,6 @@
 const Notification = require('../models/Notification');
 const User = require('../models/User');
-const { vapidPublicKey } = require('../config/webPush');
+const { vapidPublicKey, sendWebPushToUsers } = require('../config/webPush');
 
 // @desc    Get public VAPID key for client push subscription
 // @route   GET /api/notifications/vapid-key
@@ -76,6 +76,47 @@ exports.unsubscribePush = async (req, res, next) => {
     res.status(200).json({ success: true, message: 'Unsubscribed successfully' });
   } catch (error) {
     next(error);
+  }
+};
+
+// @desc    Send test Web Push notification to current user's registered devices
+// @route   POST /api/notifications/test-push
+// @access  Private
+exports.testPushNotification = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id, 'name email role pushSubscriptions').lean();
+
+    if (!user || !user.pushSubscriptions || user.pushSubscriptions.length === 0) {
+      return res.status(200).json({
+        success: false,
+        registeredCount: 0,
+        message: 'No registered device found for this account. Please tap "Turn On" to register this mobile device.'
+      });
+    }
+
+    const testPayload = {
+      title: '🛎️ NXHotel Mobile Alert Test!',
+      body: `Namaste ${user.name || 'Admin'} ji! Notifications are active & working properly on your phone.`,
+      icon: '/logo-192.png',
+      badge: '/logo-192.png',
+      tag: `test-${Date.now()}`,
+      vibrate: [300, 100, 300, 100, 300],
+      data: { url: '/dashboard' }
+    };
+
+    await sendWebPushToUsers(user._id.toString(), testPayload);
+
+    res.status(200).json({
+      success: true,
+      registeredCount: user.pushSubscriptions.length,
+      message: `Test alert dispatched to ${user.pushSubscriptions.length} device(s)! Status: 201 Created.`
+    });
+  } catch (error) {
+    console.error('[WebPush] testPush error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to dispatch test notification: ' + error.message
+    });
   }
 };
 

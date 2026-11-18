@@ -67,7 +67,7 @@ export const getVapidPublicKey = async () => {
 };
 
 // 4. Subscribe device to Web Push (receives pushes even when app/browser is completely closed)
-export const subscribeDeviceToPush = async () => {
+export const subscribeDeviceToPush = async (forceRefresh = false) => {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
     return null;
   }
@@ -77,10 +77,19 @@ export const subscribeDeviceToPush = async () => {
   }
 
   try {
-    const reg = await navigator.serviceWorker.ready;
-    if (!reg) return null;
+    let reg = await navigator.serviceWorker.getRegistration();
+    if (!reg) {
+      reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+    }
+    await navigator.serviceWorker.ready;
 
     let subscription = await reg.pushManager.getSubscription();
+
+    // If forceRefresh requested, unsubscribe stale/dead subscription
+    if (forceRefresh && subscription) {
+      await subscription.unsubscribe().catch(() => {});
+      subscription = null;
+    }
 
     // If no active push subscription, create a new one using VAPID
     if (!subscription) {
@@ -105,7 +114,7 @@ export const subscribeDeviceToPush = async () => {
       reqConfig.headers = { Authorization: `Bearer ${token}` };
     }
 
-    await axios.post(
+    const res = await axios.post(
       `${apiBase}/api/notifications/subscribe`,
       {
         subscription: subPayload,
@@ -114,7 +123,7 @@ export const subscribeDeviceToPush = async () => {
       reqConfig
     );
 
-    console.log('[PWA Web Push] Push subscription successfully registered with server.');
+    console.log('[PWA Web Push] Push subscription successfully registered with server:', res?.data);
     return subscription;
   } catch (err) {
     console.warn('[PWA Web Push] Subscription error (likely permission or network):', err);

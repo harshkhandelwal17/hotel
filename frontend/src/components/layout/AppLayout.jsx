@@ -196,9 +196,41 @@ const AppLayout = ({ children }) => {
     } catch (err) {}
   };
 
+  const [isSendingTestPush, setIsSendingTestPush] = useState(false);
+
   const handleEnableDeviceAlerts = async () => {
     const res = await requestNotificationPermission();
     setDevicePermission(res);
+    if (res === 'granted') {
+      await subscribeDeviceToPush(true);
+    }
+  };
+
+  const handleSendTestPush = async () => {
+    setIsSendingTestPush(true);
+    try {
+      // 1. Force fresh subscription on this device
+      await subscribeDeviceToPush(true);
+
+      const token = localStorage.getItem('token');
+      const apiBase = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' ? '' : 'http://127.0.0.1:5001');
+
+      const res = await axios.post(
+        `${apiBase}/api/notifications/test-push`,
+        {},
+        token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
+      );
+
+      if (res.data?.success) {
+        alert('✅ ' + (res.data.message || 'Test notification sent to your phone!'));
+      } else {
+        alert('⚠️ ' + (res.data.message || 'No registered device found.'));
+      }
+    } catch (err) {
+      alert('❌ Test push failed: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsSendingTestPush(false);
+    }
   };
 
   // Global Keyboard Shortcuts (⌘K / Ctrl+K, single-key navigation & cheatsheet)
@@ -818,9 +850,15 @@ const AppLayout = ({ children }) => {
                             <CheckCircle2 size={12} className="text-emerald-600 shrink-0" />
                             <span>Mobile Push Alerts Active</span>
                           </span>
-                          <span className="text-emerald-700 font-bold bg-emerald-100/90 border border-emerald-200 px-2 py-0.5 rounded-full text-[9px]">
-                            Live Sync
-                          </span>
+                          <button
+                            type="button"
+                            onClick={handleSendTestPush}
+                            disabled={isSendingTestPush}
+                            className="text-emerald-800 font-bold bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 px-2 py-0.5 rounded-full text-[9px] transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+                            title="Send an immediate test push to this device"
+                          >
+                            {isSendingTestPush ? 'Sending...' : '🔔 Test Alert'}
+                          </button>
                         </div>
                       )}
 

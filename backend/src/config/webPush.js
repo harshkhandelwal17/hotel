@@ -26,11 +26,13 @@ const sendWebPushToUsers = async (userIds, payload = {}) => {
 
   try {
     const users = await User.find(
-      { _id: { $in: ids }, 'pushSubscriptions.0': { $exists: true } },
-      'pushSubscriptions'
+      { _id: { $in: ids } },
+      '_id email role pushSubscriptions'
     ).lean();
 
-    if (!users || users.length === 0) {
+    const usersWithSubs = users.filter(u => Array.isArray(u.pushSubscriptions) && u.pushSubscriptions.length > 0);
+
+    if (!usersWithSubs || usersWithSubs.length === 0) {
       console.log('[WebPush] No registered push subscriptions found for recipient IDs:', ids);
       return;
     }
@@ -48,9 +50,7 @@ const sendWebPushToUsers = async (userIds, payload = {}) => {
     const pushPromises = [];
     const deadSubscriptions = [];
 
-    for (const u of users) {
-      if (!Array.isArray(u.pushSubscriptions)) continue;
-
+    for (const u of usersWithSubs) {
       for (const sub of u.pushSubscriptions) {
         if (!sub.endpoint || !sub.keys?.p256dh || !sub.keys?.auth) continue;
 
@@ -67,7 +67,7 @@ const sendWebPushToUsers = async (userIds, payload = {}) => {
           webpush.sendNotification(pushSub, stringifiedPayload, {
             TTL: 60 * 60 * 24 // 24 hours
           }).then(res => {
-            console.log(`[WebPush] Push successfully delivered to device endpoint (status ${res?.statusCode || 201})`);
+            console.log(`[WebPush] Push delivered to user ${u.email} (${u.role}) - status ${res?.statusCode || 201}`);
           }).catch(err => {
             console.warn('[WebPush] Delivery warning:', err.statusCode || err.message);
             // 410 Gone or 404 Not Found means the device unregistered the push subscription
