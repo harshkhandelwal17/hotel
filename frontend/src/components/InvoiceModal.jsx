@@ -349,7 +349,7 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
 
             {/* PARTICULARS TABLE */}
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
+              <table className="w-full min-w-[480px] text-left text-xs border-collapse">
                 <thead>
                   <tr className="border-b-2 border-gray-200 bg-slate-100 text-gray-700 font-extrabold uppercase text-[10px]">
                     <th className="py-2.5 px-3">#</th>

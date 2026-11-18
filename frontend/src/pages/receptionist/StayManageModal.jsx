@@ -1075,7 +1075,7 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
 
                         <div>
                           <label className={labelCls}>Payment Mode</label>
-                          <div className="grid grid-cols-4 gap-1.5 mt-1">
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mt-1">
                             {['Cash', 'UPI', 'Card', 'Bank Transfer'].map(method => (
                               <button
                                 type="button"

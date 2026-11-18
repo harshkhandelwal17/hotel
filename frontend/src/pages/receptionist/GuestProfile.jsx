@@ -693,7 +693,7 @@ const GuestProfile = () => {
             </div>
           ) : (
             <div className="overflow-x-auto max-h-[560px] overflow-y-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full min-w-[640px] text-left border-collapse">
                 <thead className="sticky top-0 bg-gray-50/95 backdrop-blur-xs z-10">
                   <tr className="border-b border-gray-200 text-[10px] font-black uppercase tracking-wider text-gray-500">
                     <th className="py-3 px-5">{t('common.date', 'Date')}</th>

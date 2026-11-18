@@ -100,8 +100,8 @@ const ManageStaff = () => {
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-2xs border border-slate-200/80 overflow-hidden overflow-x-auto">
-        <table className="min-w-full divide-y divide-slate-200/80">
+      <div className="bg-white rounded-2xl shadow-2xs border border-slate-200/80 overflow-x-auto">
+        <table className="w-full min-w-[500px] divide-y divide-slate-200/80">
           <thead className="bg-slate-50/75">
             <tr>
               <th className="px-6 py-3.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Staff Details</th>

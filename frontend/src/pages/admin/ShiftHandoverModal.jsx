@@ -162,8 +162,8 @@ export default function ShiftHandoverModal({
                 </h3>
                 <span className="text-xs font-black text-red-600">Total: -₹{totalExpenses.toLocaleString('en-IN')}</span>
               </div>
-              <div className="border border-red-100 rounded-2xl overflow-hidden">
-                <table className="w-full text-left text-xs">
+              <div className="border border-red-100 rounded-2xl overflow-x-auto">
+                <table className="w-full min-w-[500px] text-left text-xs">
                   <thead className="bg-red-50/60 border-b border-red-100 text-[10px] font-black text-red-800 uppercase">
                     <tr>
                       <th className="py-2 px-3">Date / Time</th>
@@ -207,8 +207,8 @@ export default function ShiftHandoverModal({
               <h3 className="text-xs font-black uppercase tracking-wider text-gray-600">
                 Staff-Wise Collections ({staffBreakdown.length} Receptionists)
               </h3>
-              <div className="border border-gray-200 rounded-2xl overflow-hidden">
-                <table className="w-full text-left text-xs">
+              <div className="border border-gray-200 rounded-2xl overflow-x-auto">
+                <table className="w-full min-w-[480px] text-left text-xs">
                   <thead className="bg-gray-100/80 border-b border-gray-200 font-black text-gray-700 uppercase tracking-wider text-[10px]">
                     <tr>
                       <th className="py-2 px-4">Staff Name</th>
@@ -243,8 +243,8 @@ export default function ShiftHandoverModal({
               <span className="text-[11px] font-bold text-gray-400 print:hidden">Sorted latest first</span>
             </div>
             
-            <div className="border border-gray-200 rounded-2xl overflow-hidden">
-              <table className="w-full text-left text-xs">
+            <div className="border border-gray-200 rounded-2xl overflow-x-auto">
+              <table className="w-full min-w-[520px] text-left text-xs">
                 <thead className="bg-gray-100/80 border-b border-gray-200 font-black text-gray-700 uppercase tracking-wider text-[10px]">
                   <tr>
                     <th className="py-2.5 px-3">Time & Date</th>

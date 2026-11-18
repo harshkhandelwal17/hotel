@@ -491,8 +491,8 @@ export default function MergedCorporateInvoiceModal({
               </span>
             </div>
 
-            <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
-              <table className="w-full text-left border-collapse text-xs">
+            <div className="border border-slate-200 rounded-2xl overflow-x-auto shadow-2xs">
+              <table className="w-full min-w-[560px] text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-slate-900 text-white">
                     <th className="py-2.5 px-3 font-bold text-center w-10">#</th>

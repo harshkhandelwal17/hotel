@@ -2949,9 +2949,9 @@ const CheckIn = () => {
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-12 gap-1.5 sm:gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-1.5 sm:gap-2">
                     {/* 1. Broker Name with Autocomplete */}
-                    <div className="col-span-5 relative">
+                    <div className="sm:col-span-5 relative">
                       <input
                         type="text"
                         placeholder="Broker / Auto Name"
@@ -3007,7 +3007,7 @@ const CheckIn = () => {
                     </div>
 
                     {/* 2. Broker Mobile Number with Direct Call Link */}
-                    <div className="col-span-4 relative">
+                    <div className="sm:col-span-4 relative">
                       <input
                         type="tel"
                         maxLength={13}
@@ -3033,7 +3033,7 @@ const CheckIn = () => {
                     </div>
 
                     {/* 3. Commission Amount */}
-                    <div className="col-span-3">
+                    <div className="sm:col-span-3">
                       <input
                         type="number"
                         placeholder="₹ Comm"
