@@ -44,6 +44,7 @@ import { apiCache } from '../../utils/apiCache';
 import GuestRegistrationCardModal from '../../components/reception/GuestRegistrationCardModal';
 import BrokersDirectoryModal from '../../components/common/BrokersDirectoryModal';
 import { getFullImageUrl } from '../../utils/imageUrl';
+import { GST_STATE_CODES } from '../../utils/invoice';
 import DynamicUpiQr from '../../components/DynamicUpiQr';
 import PaymentMethodSelector, { validateSplitPayment, buildSplitPayments } from '../../components/common/PaymentMethodSelector';
 import { useLanguage } from '../../context/LanguageContext';
@@ -4089,31 +4090,82 @@ const CheckIn = () => {
                           <span className="flex items-center gap-1.5">
                             <Building2 size={13} className="text-slate-600" />
                             <span>Corporate / Company Details (Optional for GST Billing)</span>
+                            {Boolean(guest.companyName || guest.gstin) && (
+                              <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 text-[9px] font-bold rounded">Active</span>
+                            )}
                           </span>
                           <span className="text-[10px] font-bold text-slate-400 group-open:rotate-90 transition-transform">▸</span>
                         </summary>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2.5">
-                          <div>
-                            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Company / Organization Name</label>
-                            <input
-                              type="text"
-                              placeholder="e.g. Tata Consultancy Services"
-                              value={guest.companyName || ''}
-                              onChange={(e) => handleGuestChange(index, 'companyName', e.target.value)}
-                              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:border-black focus:bg-white outline-none font-bold text-xs text-gray-900"
-                            />
+                        <div className="space-y-2.5 pt-2.5">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Company / Organization Name</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. Tata Consultancy Services"
+                                value={guest.companyName || ''}
+                                onChange={(e) => handleGuestChange(index, 'companyName', e.target.value)}
+                                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:border-black focus:bg-white outline-none font-bold text-xs text-gray-900"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Company GSTIN (15 Digits)</label>
+                              <input
+                                type="text"
+                                maxLength={15}
+                                placeholder="e.g. 08AAAAA0000A1Z5"
+                                value={guest.gstin || ''}
+                                onChange={(e) => {
+                                  const val = e.target.value.toUpperCase();
+                                  handleGuestChange(index, 'gstin', val);
+                                  // Auto activate GST if not already on
+                                  if (val.length === 15 && (stayInfo.gstType === 'none' || Number(stayInfo.gstRate) === 0)) {
+                                    handleSelectGstRate(12);
+                                  }
+                                }}
+                                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:border-black focus:bg-white outline-none font-mono font-bold uppercase text-xs text-gray-900"
+                              />
+                            </div>
                           </div>
-                          <div>
-                            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Company GSTIN (15 Digits)</label>
-                            <input
-                              type="text"
-                              maxLength={15}
-                              placeholder="e.g. 08AAAAA0000A1Z5"
-                              value={guest.gstin || ''}
-                              onChange={(e) => handleGuestChange(index, 'gstin', e.target.value.toUpperCase())}
-                              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:border-black focus:bg-white outline-none font-mono font-bold uppercase text-xs text-gray-900"
-                            />
-                          </div>
+
+                          {/* Live GSTIN Detection & State Mapping */}
+                          {guest.gstin && (
+                            <div className="p-2.5 rounded-xl border text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50 border-slate-200">
+                              <div className="flex items-center gap-2">
+                                <span className={`w-2 h-2 rounded-full ${guest.gstin.length === 15 ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`}></span>
+                                <div>
+                                  <span className="font-bold text-gray-800">
+                                    {guest.gstin.length === 15 ? '✓ Valid 15-Digit GSTIN' : `Entering GSTIN (${guest.gstin.length}/15 digits)`}
+                                  </span>
+                                  {guest.gstin.length >= 2 && (
+                                    <span className="text-gray-500 text-[11px] ml-1.5">
+                                      • State: <strong className="text-gray-900">{GST_STATE_CODES[guest.gstin.slice(0, 2)] || `Code ${guest.gstin.slice(0, 2)}`}</strong>
+                                      {activeHostel?.gstin && activeHostel.gstin.length >= 2 && (
+                                        <span className={`ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-black ${
+                                          activeHostel.gstin.slice(0, 2) === guest.gstin.slice(0, 2)
+                                            ? 'bg-blue-100 text-blue-800'
+                                            : 'bg-purple-100 text-purple-800'
+                                        }`}>
+                                          {activeHostel.gstin.slice(0, 2) === guest.gstin.slice(0, 2) ? 'Intra-State (CGST+SGST)' : 'Inter-State (IGST)'}
+                                        </span>
+                                      )}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Alert if GST mode is OFF */}
+                              {(stayInfo.gstType === 'none' || Number(stayInfo.gstRate) === 0) && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSelectGstRate(12)}
+                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-[11px] transition-all cursor-pointer shadow-2xs shrink-0 self-start sm:self-auto"
+                                >
+                                  ⚡ Enable 12% GST Invoice
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </details>
                     </div>

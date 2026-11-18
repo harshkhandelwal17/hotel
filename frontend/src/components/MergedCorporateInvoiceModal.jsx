@@ -11,7 +11,8 @@ import {
   calculateMergedInvoiceData, 
   printMergedInvoice, 
   getMergedInvoiceWhatsAppUrl,
-  numberToWordsINR 
+  numberToWordsINR,
+  GST_STATE_CODES 
 } from '../utils/invoice';
 
 export default function MergedCorporateInvoiceModal({ 
@@ -338,15 +339,33 @@ export default function MergedCorporateInvoiceModal({
                   </div>
 
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1 text-[11px]">
-                      Company GSTIN (15 Digits)
+                    <label className="block font-bold text-slate-700 mb-1 text-[11px] flex items-center justify-between">
+                      <span>Company GSTIN (15 Digits)</span>
+                      <div className="flex items-center gap-1">
+                        {guestGstin.length >= 2 && (
+                          <span className="text-[9px] font-bold text-slate-600 bg-slate-100 px-1 rounded">
+                            {GST_STATE_CODES[guestGstin.slice(0, 2)] || `State ${guestGstin.slice(0, 2)}`}
+                          </span>
+                        )}
+                        {inv?.isInterState ? (
+                          <span className="text-[9px] font-bold text-purple-800 bg-purple-100 px-1 rounded">IGST</span>
+                        ) : guestGstin ? (
+                          <span className="text-[9px] font-bold text-blue-800 bg-blue-100 px-1 rounded">CGST+SGST</span>
+                        ) : null}
+                      </div>
                     </label>
                     <input 
                       type="text"
                       maxLength={15}
                       placeholder="e.g. 08AAAAA0000A1Z5"
                       value={guestGstin}
-                      onChange={e => setGuestGstin(e.target.value.toUpperCase())}
+                      onChange={e => {
+                        const val = e.target.value.toUpperCase();
+                        setGuestGstin(val);
+                        if (val.length === 15 && !gstEnabled) {
+                          setGstEnabled(true);
+                        }
+                      }}
                       className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-mono font-bold uppercase text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs text-xs"
                     />
                   </div>

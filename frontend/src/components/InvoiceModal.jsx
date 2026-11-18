@@ -6,7 +6,7 @@ import {
   X, Printer, Share2, FileText, CheckCircle2, 
   Building2, Percent, AlertCircle, RefreshCw, Eye
 } from 'lucide-react';
-import { calculateInvoiceData, printInvoice, numberToWordsINR } from '../utils/invoice';
+import { calculateInvoiceData, printInvoice, numberToWordsINR, GST_STATE_CODES } from '../utils/invoice';
 import { getStayWhatsAppUrl } from '../utils/whatsapp';
 import MergedCorporateInvoiceModal from './MergedCorporateInvoiceModal';
 
@@ -197,15 +197,30 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
               <div>
                 <label className="block font-bold text-gray-700 mb-1 flex items-center justify-between">
                   <span>Guest / Company GSTIN</span>
-                  {inv.isInterState && (
-                    <span className="text-[9px] font-bold text-amber-800 bg-amber-100 px-1 rounded">Inter-State IGST</span>
-                  )}
+                  <div className="flex items-center gap-1.5">
+                    {guestGstin.length >= 2 && (
+                      <span className="text-[9px] font-bold text-gray-600 bg-gray-100 px-1 rounded">
+                        {GST_STATE_CODES[guestGstin.slice(0, 2)] || `State ${guestGstin.slice(0, 2)}`}
+                      </span>
+                    )}
+                    {inv.isInterState ? (
+                      <span className="text-[9px] font-bold text-purple-800 bg-purple-100 px-1 rounded">Inter-State (IGST)</span>
+                    ) : guestGstin ? (
+                      <span className="text-[9px] font-bold text-blue-800 bg-blue-100 px-1 rounded">Intra-State (CGST+SGST)</span>
+                    ) : null}
+                  </div>
                 </label>
                 <input 
                   type="text" 
                   placeholder="e.g. 08AAAAA0000A1Z5"
                   value={guestGstin}
-                  onChange={e => setGuestGstin(e.target.value.toUpperCase())}
+                  onChange={e => {
+                    const val = e.target.value.toUpperCase();
+                    setGuestGstin(val);
+                    if (val.length === 15 && !gstEnabled) {
+                      setGstEnabled(true);
+                    }
+                  }}
                   maxLength={15}
                   className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg font-mono font-bold uppercase outline-none focus:ring-2 focus:ring-black text-xs"
                 />

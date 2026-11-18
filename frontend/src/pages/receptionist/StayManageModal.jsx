@@ -1393,15 +1393,26 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
       <InvoiceModal 
         stay={stay} 
         payments={payments} 
-        onClose={() => setIsInvoiceModalOpen(false)} 
+        onClose={() => {
+          setIsInvoiceModalOpen(false);
+          reload();
+          if (onChanged) onChanged();
+        }} 
       />
     )}
     {isMergedModalOpen && (
       <MergedCorporateInvoiceModal
         initialStays={[stay]}
         allStays={activeStaysList.length > 0 ? activeStaysList : [stay]}
-        onClose={() => setIsMergedModalOpen(false)}
-        onStayUpdated={reload}
+        onClose={() => {
+          setIsMergedModalOpen(false);
+          reload();
+          if (onChanged) onChanged();
+        }}
+        onStayUpdated={() => {
+          reload();
+          if (onChanged) onChanged();
+        }}
       />
     )}
     {showGrcModal && (
