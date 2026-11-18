@@ -1885,7 +1885,9 @@ const CheckIn = () => {
     (isGroupMode ? groupSelectedRooms.length > 0 : stayInfo.room) &&
     (
       Number(stayInfo.durationDays) > 0 ||
-      Number(stayInfo.durationHours) > 0
+      Number(stayInfo.durationHours) > 0 ||
+      Boolean(stayInfo.isMorningCheckout) ||
+      Boolean(stayInfo.isBackdated && stayInfo.isAlreadyCheckedOut && stayInfo.actualCheckOutDate)
     ) &&
     stayInfo.occupants >= 1 &&
     stayInfo.totalAmount !== '';
@@ -1894,7 +1896,8 @@ const CheckIn = () => {
     // Every guest must have a name
     if (!g.fullName || !g.fullName.trim()) return false;
     // Only primary guest MUST have a valid 10-digit mobile
-    if (idx === 0 && g.mobileNumber.length !== 10) return false;
+    const cleanMobile = (g.mobileNumber || '').replace(/\D/g, '');
+    if (idx === 0 && cleanMobile.length !== 10) return false;
     return true;
   });
 
