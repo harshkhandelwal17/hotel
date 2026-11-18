@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { format, isPast, isToday } from 'date-fns';
 import CheckoutModal from './CheckoutModal';
 import StayManageModal from './StayManageModal';
 import MergedCorporateInvoiceModal from '../../components/MergedCorporateInvoiceModal';
-import { Users, Clock, Download, AlertTriangle, Search, ChevronRight, Phone, MessageSquare, Building2, Check, CheckCircle2, Printer, Share2, X } from 'lucide-react';
+import { Users, Clock, Download, AlertTriangle, Search, ChevronRight, ChevronDown, Phone, MessageSquare, Building2, Check, CheckCircle2, Printer, Share2, X } from 'lucide-react';
 import { printInvoice, printMergedInvoice, getMergedInvoiceWhatsAppUrl } from '../../utils/invoice';
 import { apiCache } from '../../utils/apiCache';
 import { useLanguage } from '../../context/LanguageContext';
@@ -205,6 +205,98 @@ const CheckoutList = () => {
     );
   };
 
+  // State to track expanded multi-room group cards in checkout history
+  const [expandedGroupIds, setExpandedGroupIds] = useState(new Set());
+
+  const toggleGroupExpand = (groupId) => {
+    setExpandedGroupIds(prev => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  };
+
+  // Group checkout history so multi-room corporate/family groups collapse into 1 single master card
+  const groupedHistory = useMemo(() => {
+    const groupMap = new Map();
+    const result = [];
+
+    historyStays.forEach(stay => {
+      if (stay.groupId) {
+        if (!groupMap.has(stay.groupId)) {
+          const groupEntry = {
+            _id: `group-${stay.groupId}`,
+            groupId: stay.groupId,
+            isGroup: true,
+            groupName: stay.groupName || 'Corporate Folio',
+            primaryGuest: stay.guest,
+            companyName: stay.companyName || stay.guest?.companyName || '',
+            gstin: stay.gstin || stay.guest?.gstin || '',
+            stays: [],
+            roomNumbers: [],
+            totalAmount: 0,
+            paidAmount: 0,
+            actualCheckOutDate: stay.actualCheckOutDate || stay.expectedCheckOutDate,
+            primaryStay: stay
+          };
+          groupMap.set(stay.groupId, groupEntry);
+          result.push(groupEntry);
+        }
+        const g = groupMap.get(stay.groupId);
+        g.stays.push(stay);
+        const rn = stay.room?.roomNumber;
+        if (rn && !g.roomNumbers.includes(rn)) {
+          g.roomNumbers.push(rn);
+        }
+        g.totalAmount += Number(stay.totalAmount) || 0;
+        g.paidAmount += Number(stay.paidAmount) || 0;
+        if (stay.isGroupLeader || (stay.guest?.mobileNumber && !g.primaryGuest?.mobileNumber)) {
+          g.primaryGuest = stay.guest;
+          g.primaryStay = stay;
+        }
+        if (stay.companyName && !g.companyName) g.companyName = stay.companyName;
+        if (stay.actualCheckOutDate && new Date(stay.actualCheckOutDate) > new Date(g.actualCheckOutDate)) {
+          g.actualCheckOutDate = stay.actualCheckOutDate;
+        }
+      } else {
+        result.push({
+          ...stay,
+          isGroup: false
+        });
+      }
+    });
+
+    return result;
+  }, [historyStays]);
+
+  const filteredHistory = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return groupedHistory;
+
+    return groupedHistory.filter(item => {
+      if (item.isGroup) {
+        const matchesGuest = item.primaryGuest?.fullName?.toLowerCase().includes(term);
+        const matchesPhone = item.primaryGuest?.mobileNumber?.includes(term);
+        const matchesGroup = item.groupName?.toLowerCase().includes(term);
+        const matchesCompany = item.companyName?.toLowerCase().includes(term);
+        const matchesRoom = item.roomNumbers.some(rn => rn.toLowerCase().includes(term));
+        const matchesSubStay = item.stays.some(s => 
+          s.guest?.fullName?.toLowerCase().includes(term) ||
+          s.guest?.mobileNumber?.includes(term) ||
+          s.room?.roomNumber?.toLowerCase().includes(term)
+        );
+        return matchesGuest || matchesPhone || matchesGroup || matchesCompany || matchesRoom || matchesSubStay;
+      }
+      return (
+        item.guest?.fullName?.toLowerCase().includes(term) ||
+        item.guest?.mobileNumber?.includes(term) ||
+        item.room?.roomNumber?.toLowerCase().includes(term) ||
+        item.groupName?.toLowerCase().includes(term)
+      );
+    });
+  }, [groupedHistory, search]);
+
   if (loading) return (
     <div className="space-y-6 animate-pulse">
       <div className="h-10 w-64 bg-gray-200 rounded-xl" />
@@ -265,7 +357,7 @@ const CheckoutList = () => {
           { key: 'all', label: `${t('common.all', 'All Active')} (${stays.length})` },
           { key: 'overdue', label: `${t('common.overdue', 'Overdue')} (${overdueCt})`, warn: overdueCt > 0 },
           { key: 'today', label: `${t('common.dueToday', 'Checkout Today')} (${todayCt})`, warn: todayCt > 0 },
-          { key: 'history', label: `📜 ${isHindi ? 'चेकआउट इतिहास' : 'Checked Out History'} (${historyStays.length})` }
+          { key: 'history', label: `📜 ${isHindi ? 'चेकआउट इतिहास' : 'Checked Out History'} (${groupedHistory.length})` }
         ].map(tab => (
           <button
             key={tab.key}
@@ -290,14 +382,7 @@ const CheckoutList = () => {
             <div className="p-12 flex justify-center items-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900"></div>
             </div>
-          ) : historyStays.filter(s => {
-            const term = search.toLowerCase();
-            return !search ||
-              s.guest?.fullName?.toLowerCase().includes(term) ||
-              s.guest?.mobileNumber?.includes(term) ||
-              s.room?.roomNumber?.toLowerCase().includes(term) ||
-              s.groupName?.toLowerCase().includes(term);
-          }).length === 0 ? (
+          ) : filteredHistory.length === 0 ? (
             <div className="p-12 text-center">
               <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-gray-50 text-gray-400 mb-3">
                 <Users size={28} />
@@ -306,128 +391,236 @@ const CheckoutList = () => {
               <p className="text-sm text-gray-500 mt-1">Past completed stays will appear here.</p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-50">
-              {historyStays
-                .filter(s => {
-                  const term = search.toLowerCase();
-                  return !search ||
-                    s.guest?.fullName?.toLowerCase().includes(term) ||
-                    s.guest?.mobileNumber?.includes(term) ||
-                    s.room?.roomNumber?.toLowerCase().includes(term) ||
-                    s.groupName?.toLowerCase().includes(term);
-                })
-                .map(stay => {
-                  const outDate = stay.actualCheckOutDate || stay.expectedCheckOutDate;
-                  const formattedOut = outDate ? format(new Date(outDate), 'dd MMM yyyy, hh:mm a') : 'Completed';
+            <div className="divide-y divide-gray-100">
+              {filteredHistory.map(item => {
+                const outDate = item.actualCheckOutDate || item.expectedCheckOutDate;
+                const formattedOut = outDate ? format(new Date(outDate), 'dd MMM yyyy, hh:mm a') : 'Completed';
+
+                if (item.isGroup) {
+                  const isExpanded = expandedGroupIds.has(item.groupId);
+                  const roomListStr = item.roomNumbers.join(', ');
                   return (
-                    <div
-                      key={stay._id}
-                      className="p-5 hover:bg-gray-50/60 transition-colors cursor-pointer"
-                      onClick={() => setManagedStay(stay)}
-                    >
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div className="flex items-center space-x-3.5">
-                          <div className="h-10 w-10 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-sm shrink-0 border border-emerald-200">
-                            ✓
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h4 className="text-base font-bold text-gray-900">{stay.guest?.fullName || 'Guest'}</h4>
-                              {(stay.groupId || stay.isGroupStay) && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-purple-100 text-purple-800 border border-purple-200">
-                                  🏢 {stay.groupName || 'Group Folio'} {stay.groupTotalRooms ? `(${stay.groupTotalRooms} Rooms)` : ''}
+                    <div key={item._id} className="transition-colors">
+                      {/* MASTER CONSOLIDATED GROUP ROW */}
+                      <div
+                        className="p-5 hover:bg-purple-50/40 transition-colors cursor-pointer bg-white"
+                        onClick={() => setGroupModalStay(item.primaryStay)}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="flex items-center space-x-3.5">
+                            <div className="h-10 w-10 rounded-full bg-purple-100 text-purple-800 flex items-center justify-center font-bold text-sm shrink-0 border border-purple-200 shadow-2xs">
+                              <Building2 size={18} />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h4 className="text-base font-black text-gray-900">
+                                  {item.primaryGuest?.fullName || item.companyName || 'Corporate Group'}
+                                </h4>
+                                {item.companyName && item.primaryGuest?.fullName && (
+                                  <span className="text-xs font-semibold text-slate-500">
+                                    ({item.companyName})
+                                  </span>
+                                )}
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-purple-100 text-purple-900 border border-purple-200 shadow-2xs">
+                                  🏢 {item.groupName || 'Corporate Folio'} &bull; {item.stays.length} Rooms
                                 </span>
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border bg-emerald-50 text-emerald-800 border-emerald-200">
+                                  ✓ Checked Out
+                                </span>
+                              </div>
+                              <div className="flex items-center space-x-2 text-xs text-gray-500 mt-1 font-medium flex-wrap">
+                                {item.primaryGuest?.mobileNumber && (
+                                  <>
+                                    <span>📞 {item.primaryGuest.mobileNumber}</span>
+                                    <span>&bull;</span>
+                                  </>
+                                )}
+                                <span className="text-indigo-700 font-bold bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                                  Rooms: {roomListStr} ({item.stays.length} Rooms Merged)
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto mt-2 sm:mt-0 border-t sm:border-0 border-gray-100 pt-3 sm:pt-0 gap-3">
+                            <div className="text-left sm:text-right">
+                              <div className="flex items-center text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+                                <Clock size={12} className="mr-1" />
+                                Checked Out At
+                              </div>
+                              <div className="text-sm font-bold text-gray-900">
+                                {formattedOut}
+                              </div>
+                            </div>
+
+                            <div className="hidden sm:block text-right ml-2">
+                              <div className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">Total Bill</div>
+                              <div className="text-sm font-bold text-emerald-700 font-mono">
+                                ₹{item.totalAmount.toLocaleString('en-IN')} <span className="text-slate-400 font-normal">• Paid</span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                              {/* Master Bill Print */}
+                              <button
+                                type="button"
+                                onClick={() => printMergedInvoice(item.stays, [])}
+                                className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
+                                title="Print Consolidated Master Bill (All Rooms Combined)"
+                              >
+                                <Building2 size={13} />
+                                <span>Master Group Bill</span>
+                              </button>
+
+                              {/* Master WhatsApp Bill */}
+                              {item.primaryGuest?.mobileNumber && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const url = getMergedInvoiceWhatsAppUrl(item.stays);
+                                    if (url) window.open(url, '_blank');
+                                  }}
+                                  className="p-2 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-xl border border-emerald-200 transition-colors cursor-pointer"
+                                  title="WhatsApp Consolidated Corporate Bill to Booker"
+                                >
+                                  <MessageSquare size={15} />
+                                </button>
                               )}
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border bg-slate-100 text-slate-700 border-slate-200">
-                                Checked Out
-                              </span>
-                            </div>
-                            <div className="flex items-center space-x-2 text-xs text-gray-500 mt-1 font-medium">
-                              <span>📞 {stay.guest?.mobileNumber}</span>
-                              <span>&bull;</span>
-                              <span className="text-indigo-600 font-bold">Room {stay.room?.roomNumber}</span>
-                            </div>
-                          </div>
-                        </div>
 
-                        <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto mt-2 sm:mt-0 border-t sm:border-0 border-gray-100 pt-3 sm:pt-0 gap-4">
-                          <div className="text-left sm:text-right">
-                            <div className="flex items-center text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">
-                              <Clock size={12} className="mr-1" />
-                              Checked Out At
+                              {/* Expand / Collapse Sub-rooms toggle */}
+                              <button
+                                type="button"
+                                onClick={() => toggleGroupExpand(item.groupId)}
+                                className={`px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer border ${
+                                  isExpanded
+                                    ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
+                                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                                }`}
+                                title={isExpanded ? "Hide individual room breakdown" : "Expand to view individual room breakdown"}
+                              >
+                                <span>{isExpanded ? 'Hide' : `Rooms (${item.stays.length})`}</span>
+                                <ChevronRight size={13} className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
+                              </button>
                             </div>
-                            <div className="text-sm font-bold text-gray-900">
-                              {formattedOut}
-                            </div>
-                          </div>
-
-                          <div className="hidden sm:block text-right ml-2">
-                            <div className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">Total Bill</div>
-                            <div className="text-sm font-bold text-emerald-700">
-                              ₹{stay.totalAmount} <span className="text-slate-400 font-normal">• Paid</span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                            {(stay.groupId || stay.isGroupStay) ? (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => handlePrintGroupBill(stay)}
-                                  className="px-2.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
-                                  title="Print Consolidated Master Group Bill"
-                                >
-                                  <Building2 size={13} />
-                                  <span>Master Group Bill</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => printInvoice(stay, stay.payments || [])}
-                                  className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl border border-slate-200 transition-colors cursor-pointer"
-                                  title="Print Single Room Bill"
-                                >
-                                  <Printer size={15} />
-                                </button>
-                                {stay.guest?.mobileNumber && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleShareGroupWhatsApp(stay)}
-                                    className="p-2 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-xl border border-emerald-200 transition-colors cursor-pointer"
-                                    title="WhatsApp Master Group Bill"
-                                  >
-                                    <MessageSquare size={15} />
-                                  </button>
-                                )}
-                              </>
-                            ) : (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => printInvoice(stay, stay.payments || [])}
-                                  className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl border border-slate-200 transition-colors cursor-pointer"
-                                  title="Print Invoice"
-                                >
-                                  <Printer size={15} />
-                                </button>
-                                {stay.guest?.mobileNumber && (
-                                  <a
-                                    href={getStayWhatsAppUrl(stay, 'bill')}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="p-2 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-xl border border-emerald-200 transition-colors"
-                                    title="WhatsApp Bill"
-                                  >
-                                    <MessageSquare size={15} />
-                                  </a>
-                                )}
-                              </>
-                            )}
                           </div>
                         </div>
                       </div>
+
+                      {/* INDIVIDUAL ROOM ACCORDION BREAKDOWN */}
+                      {isExpanded && (
+                        <div className="bg-slate-50 border-t border-b border-slate-200 px-5 sm:px-8 py-3.5 space-y-2">
+                          <div className="text-[11px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                            <span>Individual Room Folios ({item.stays.length} Rooms):</span>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                            {item.stays.map(subStay => (
+                              <div
+                                key={subStay._id}
+                                onClick={() => setManagedStay(subStay)}
+                                className="p-3 bg-white border border-slate-200 hover:border-slate-300 rounded-xl flex items-center justify-between transition-all cursor-pointer shadow-2xs hover:shadow-xs"
+                              >
+                                <div>
+                                  <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+                                    <span className="text-indigo-600 font-black">Room {subStay.room?.roomNumber}</span>
+                                    <span className="text-slate-300">&bull;</span>
+                                    <span className="truncate max-w-[120px]">{subStay.guest?.fullName || 'Occupant'}</span>
+                                  </div>
+                                  <div className="text-[11px] text-slate-500 font-medium mt-0.5">
+                                    Rent: <b className="font-mono text-slate-800">₹{subStay.totalAmount?.toLocaleString('en-IN')}</b>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                                  <button
+                                    type="button"
+                                    onClick={() => printInvoice(subStay, subStay.payments || [])}
+                                    className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer"
+                                    title={`Print Single Room ${subStay.room?.roomNumber} Bill`}
+                                  >
+                                    <Printer size={13} />
+                                  </button>
+                                  <ChevronRight size={14} className="text-slate-400" />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
-                })}
+                }
+
+                // Normal Single Stay Row (Not part of a multi-room group)
+                const stay = item;
+                return (
+                  <div
+                    key={stay._id}
+                    className="p-5 hover:bg-gray-50/60 transition-colors cursor-pointer bg-white"
+                    onClick={() => setManagedStay(stay)}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-center space-x-3.5">
+                        <div className="h-10 w-10 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-sm shrink-0 border border-emerald-200">
+                          ✓
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="text-base font-bold text-gray-900">{stay.guest?.fullName || 'Guest'}</h4>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border bg-slate-100 text-slate-700 border-slate-200">
+                              Checked Out
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-2 text-xs text-gray-500 mt-1 font-medium">
+                            <span>📞 {stay.guest?.mobileNumber}</span>
+                            <span>&bull;</span>
+                            <span className="text-indigo-600 font-bold">Room {stay.room?.roomNumber}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto mt-2 sm:mt-0 border-t sm:border-0 border-gray-100 pt-3 sm:pt-0 gap-4">
+                        <div className="text-left sm:text-right">
+                          <div className="flex items-center text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+                            <Clock size={12} className="mr-1" />
+                            Checked Out At
+                          </div>
+                          <div className="text-sm font-bold text-gray-900">
+                            {formattedOut}
+                          </div>
+                        </div>
+
+                        <div className="hidden sm:block text-right ml-2">
+                          <div className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">Total Bill</div>
+                          <div className="text-sm font-bold text-emerald-700 font-mono">
+                            ₹{stay.totalAmount?.toLocaleString('en-IN')} <span className="text-slate-400 font-normal">• Paid</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={() => printInvoice(stay, stay.payments || [])}
+                            className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl border border-slate-200 transition-colors cursor-pointer"
+                            title="Print Invoice"
+                          >
+                            <Printer size={15} />
+                          </button>
+                          {stay.guest?.mobileNumber && (
+                            <a
+                              href={getStayWhatsAppUrl(stay, 'bill')}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="p-2 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-xl border border-emerald-200 transition-colors"
+                              title="WhatsApp Bill"
+                            >
+                              <MessageSquare size={15} />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )
         ) : filteredStays.length === 0 ? (
