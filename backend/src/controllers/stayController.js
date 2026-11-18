@@ -1255,6 +1255,13 @@ exports.createGroupStay = async (req, res, next) => {
 
     let hostel = req.user.assignedHostel;
     if (req.user.role === 'admin' || req.user.role === 'superadmin') {
+      if (!req.body.hostel && Array.isArray(rooms) && rooms.length > 0) {
+        const firstRoomId = rooms[0].room || rooms[0].roomId;
+        const firstRoomDoc = await Room.findById(firstRoomId).select('hostel');
+        if (firstRoomDoc?.hostel) {
+          req.body.hostel = firstRoomDoc.hostel;
+        }
+      }
       if (!req.body.hostel) throw new Error('Hostel is required');
       await assertHostelAccess(req.user, req.body.hostel, true);
       hostel = req.body.hostel;

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import PaymentMethodSelector, { validateSplitPayment, buildSplitPayments } from '../common/PaymentMethodSelector';
 import MergedCorporateInvoiceModal from '../MergedCorporateInvoiceModal';
+import { apiCache } from '../../utils/apiCache';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
 
@@ -85,6 +86,8 @@ export default function GroupCheckoutModal({
       };
 
       await axios.post(`${API}/api/stays/group/${groupId}/checkout`, payload);
+      apiCache.invalidate('rooms');
+      window.dispatchEvent(new Event('hotelDataInvalidated'));
       setIsSuccess(true);
       if (onSuccess) onSuccess();
     } catch (err) {

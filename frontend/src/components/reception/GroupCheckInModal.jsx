@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import PaymentMethodSelector, { validateSplitPayment, buildSplitPayments } from '../common/PaymentMethodSelector';
 import MergedCorporateInvoiceModal from '../MergedCorporateInvoiceModal';
+import { apiCache } from '../../utils/apiCache';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
 
@@ -35,6 +36,25 @@ export default function GroupCheckInModal({
   const [showMergedInvoice, setShowMergedInvoice] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  const handleClose = () => {
+    setModalView('form');
+    setCreatedGroupData(null);
+    setSelectedRoomsMap({});
+    setGroupName('');
+    setBookerName('');
+    setBookerMobile('');
+    setBookerEmail('');
+    setBookerIdNumber('');
+    setBookerAddress('');
+    setHasCorporateGst(false);
+    setCompanyName('');
+    setGstin('');
+    setAdvanceAmount('');
+    setNotes('');
+    setError('');
+    onClose();
+  };
 
   // 1. Group Meta
   const [groupType, setGroupType] = useState('Corporate'); // 'Corporate' | 'Family' | 'Tour' | 'Other'
@@ -98,9 +118,9 @@ export default function GroupCheckInModal({
     }
   }, [bookerMobile]);
 
-  // Extract available rooms (status === 'Active' or not occupied)
+  // Extract available rooms (status === 'Active' and NOT occupied)
   const availableRoomsList = useMemo(() => {
-    return rooms.filter(r => r.status === 'Active');
+    return rooms.filter(r => r.status === 'Active' && !r.isOccupied);
   }, [rooms]);
 
   // Distinct floors
@@ -282,6 +302,8 @@ export default function GroupCheckInModal({
       };
 
       const res = await axios.post(`${API}/api/stays/group-checkin`, payload);
+      apiCache.invalidate('rooms');
+      window.dispatchEvent(new Event('hotelDataInvalidated'));
       setCreatedGroupData(res.data?.data);
       setModalView('success');
       if (onSuccess) onSuccess(res.data?.data);
@@ -321,7 +343,7 @@ export default function GroupCheckInModal({
   return createPortal(
     <div
       className="fixed inset-0 z-[99999] bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-y-auto"
-      onClick={onClose}
+      onClick={handleClose}
     >
       <div
         className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-4xl my-auto overflow-hidden animate-in fade-in zoom-in-95 duration-200"
@@ -349,7 +371,7 @@ export default function GroupCheckInModal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer"
           >
             <X size={20} />
@@ -422,7 +444,7 @@ export default function GroupCheckInModal({
               </button>
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleClose}
                 className="px-5 py-2.5 bg-slate-900 hover:bg-black text-white font-bold text-xs rounded-xl transition-all cursor-pointer"
               >
                 Done (Go to Rooms)
@@ -942,7 +964,7 @@ export default function GroupCheckInModal({
             <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleClose}
                 disabled={submitting}
                 className="px-5 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer"
               >
