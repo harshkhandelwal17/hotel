@@ -461,12 +461,12 @@ const CheckoutList = () => {
                             </div>
 
                             <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
-                              {/* Master Bill Print */}
+                              {/* Open Consolidated Corporate Bill Modal */}
                               <button
                                 type="button"
-                                onClick={() => printMergedInvoice(item.stays, [])}
+                                onClick={() => setGroupModalStay(item.primaryStay)}
                                 className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
-                                title="Print Consolidated Master Bill (All Rooms Combined)"
+                                title="Open Consolidated Corporate Bill Modal"
                               >
                                 <Building2 size={13} />
                                 <span>Master Group Bill</span>

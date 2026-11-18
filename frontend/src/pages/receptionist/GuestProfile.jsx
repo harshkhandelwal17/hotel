@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { format } from 'date-fns';
-import { User, Phone, CheckCircle, Clock, Printer, FileText, Wallet, BookOpen, Share2, PlusCircle, ArrowDownLeft, ArrowUpRight, X, AlertCircle, UserPlus, Sparkles, Building, Bed } from 'lucide-react';
+import { User, Phone, CheckCircle, Clock, Printer, FileText, Wallet, BookOpen, Share2, PlusCircle, ArrowDownLeft, ArrowUpRight, X, AlertCircle, UserPlus, Sparkles, Building, Building2, Bed } from 'lucide-react';
 import { printInvoice, printMergedInvoice } from '../../utils/invoice';
 import ExtendStayModal from './ExtendStayModal';
 import ShiftRoomModal from './ShiftRoomModal';
 import GuestRegistrationCardModal from '../../components/reception/GuestRegistrationCardModal';
+import MergedCorporateInvoiceModal from '../../components/MergedCorporateInvoiceModal';
 import { useLanguage } from '../../context/LanguageContext';
 
 const GuestProfile = () => {
@@ -23,6 +24,7 @@ const GuestProfile = () => {
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [selectedStay, setSelectedStay] = useState(null);
   const [selectedGrcStay, setSelectedGrcStay] = useState(null);
+  const [corporateModalStay, setCorporateModalStay] = useState(null);
 
   // Ledger / Khata state
   const [ledgerEntries, setLedgerEntries] = useState([]);
@@ -151,13 +153,8 @@ const GuestProfile = () => {
   const handlePrint = async (stayToPrint) => {
     try {
       if (stayToPrint?.groupId) {
-        const gRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/stays/group/${stayToPrint.groupId}`);
-        const groupStays = gRes.data?.data?.stays || [];
-        const groupPayments = gRes.data?.data?.payments || [];
-        if (groupStays.length > 0) {
-          printMergedInvoice(groupStays, groupPayments);
-          return;
-        }
+        setCorporateModalStay(stayToPrint);
+        return;
       }
       const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/payments?stay=${stayToPrint._id}`);
       printInvoice(stayToPrint, res.data.data);
@@ -220,6 +217,62 @@ const GuestProfile = () => {
 
   const activeStay = guest.stays?.find(s => ['Active', 'Upcoming', 'Checkout Due', 'Overdue'].includes(s.status));
   const historyStays = guest.stays?.filter(s => s._id !== activeStay?._id) || [];
+
+  // Group historical stays belonging to the same corporate/group booking into 1 single master entry
+  const groupedHistoryStays = useMemo(() => {
+    const groupMap = new Map();
+    const result = [];
+
+    historyStays.forEach(stay => {
+      if (stay.groupId) {
+        if (!groupMap.has(stay.groupId)) {
+          const groupEntry = {
+            _id: `group-${stay.groupId}`,
+            groupId: stay.groupId,
+            isGroup: true,
+            groupName: stay.groupName || 'Corporate Folio',
+            stays: [],
+            roomNumbers: [],
+            totalAmount: 0,
+            paidAmount: 0,
+            checkInDate: stay.checkInDate,
+            actualCheckOutDate: stay.actualCheckOutDate || stay.expectedCheckOutDate,
+            expectedCheckOutDate: stay.expectedCheckOutDate,
+            status: stay.status || 'Checked Out',
+            occupants: 0,
+            primaryStay: stay
+          };
+          groupMap.set(stay.groupId, groupEntry);
+          result.push(groupEntry);
+        }
+        const g = groupMap.get(stay.groupId);
+        g.stays.push(stay);
+        const rn = stay.room?.roomNumber;
+        if (rn && !g.roomNumbers.includes(rn)) {
+          g.roomNumbers.push(rn);
+        }
+        g.totalAmount += Number(stay.totalAmount) || 0;
+        g.paidAmount += Number(stay.paidAmount) || 0;
+        g.occupants += Number(stay.occupants) || 1;
+        if (stay.isGroupLeader) {
+          g.primaryStay = stay;
+        }
+        if (stay.checkInDate && new Date(stay.checkInDate) < new Date(g.checkInDate)) {
+          g.checkInDate = stay.checkInDate;
+        }
+        if (stay.actualCheckOutDate && new Date(stay.actualCheckOutDate) > new Date(g.actualCheckOutDate)) {
+          g.actualCheckOutDate = stay.actualCheckOutDate;
+        }
+      } else {
+        result.push({
+          ...stay,
+          isGroup: false
+        });
+      }
+    });
+
+    return result;
+  }, [historyStays]);
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300 w-full mx-auto pb-12">
@@ -439,7 +492,7 @@ const GuestProfile = () => {
             <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
               activeTab === 'history' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
             }`}>
-              {historyStays.length}
+              {groupedHistoryStays.length}
             </span>
           </button>
 
@@ -483,11 +536,11 @@ const GuestProfile = () => {
               <Clock size={16} className="mr-2 text-gray-400" /> Past Stay History
             </h2>
             <span className="text-[11px] font-bold text-gray-500 bg-gray-200/60 px-3 py-1 rounded-full">
-              {historyStays.length} {historyStays.length === 1 ? 'Stay' : 'Stays'} Recorded
+              {groupedHistoryStays.length} {groupedHistoryStays.length === 1 ? 'Stay' : 'Stays'} Recorded
             </span>
           </div>
           
-          {(!historyStays || historyStays.length === 0) ? (
+          {(!groupedHistoryStays || groupedHistoryStays.length === 0) ? (
             <div className="p-12 text-center text-gray-400 font-medium">
               <Clock size={32} className="mx-auto mb-2 opacity-30" />
               <p className="text-xs font-bold text-gray-500">No past stays found for this guest.</p>
@@ -506,78 +559,135 @@ const GuestProfile = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-50">
-                  {historyStays.map((stay) => {
+                  {groupedHistoryStays.map((item) => {
+                    if (item.isGroup) {
+                      const roomListStr = item.roomNumbers.join(', ');
+                      return (
+                        <tr key={item._id} className="hover:bg-purple-50/40 transition-colors bg-purple-50/15">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-black text-indigo-900 text-sm">
+                                Rooms: {roomListStr}
+                              </p>
+                              <span className="bg-purple-100 text-purple-900 text-[10px] px-2.5 py-0.5 rounded-md border border-purple-200 font-black uppercase tracking-wider">
+                                🏢 {item.groupName || 'Corporate Folio'} &bull; {item.stays.length} Rooms
+                              </span>
+                            </div>
+                            <p className="text-[11px] font-bold text-gray-400 mt-0.5">{item.occupants} Total Occupants</p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="font-bold text-gray-900 text-xs">{format(new Date(item.checkInDate), 'dd MMM yyyy')}</p>
+                            <p className="text-[11px] text-gray-400 mt-0.5">{format(new Date(item.checkInDate), 'hh:mm a')}</p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="font-bold text-gray-900 text-xs">{item.actualCheckOutDate ? format(new Date(item.actualCheckOutDate), 'dd MMM yyyy') : format(new Date(item.expectedCheckOutDate), 'dd MMM yyyy')}</p>
+                            <p className="text-[11px] text-gray-400 mt-0.5">{item.actualCheckOutDate ? format(new Date(item.actualCheckOutDate), 'hh:mm a') : format(new Date(item.expectedCheckOutDate), 'hh:mm a')}</p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="font-black text-emerald-800 text-sm font-mono">₹{item.totalAmount?.toLocaleString('en-IN')}</p>
+                            <span className="text-[10px] text-slate-400 font-semibold">• Combined Group Total</span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="px-2.5 py-0.5 inline-flex text-[10px] font-black uppercase tracking-wider rounded-lg border bg-emerald-50 text-emerald-800 border-emerald-200">
+                              Checked Out
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-1.5">
+                              <button 
+                                onClick={() => setCorporateModalStay(item.primaryStay)}
+                                className="bg-purple-600 hover:bg-purple-700 text-white px-2.5 py-1.5 rounded-xl transition-all font-black text-xs shadow-2xs cursor-pointer active:scale-95 flex items-center gap-1"
+                                title="Open Consolidated Corporate Bill Modal"
+                              >
+                                <Building2 size={13} />
+                                <span>Master Bill</span>
+                              </button>
+                              <button 
+                                onClick={() => setSelectedGrcStay(item.primaryStay)}
+                                className="text-gray-700 hover:text-black bg-white hover:bg-gray-50 px-2 py-1.5 rounded-xl transition-colors border border-gray-200 flex items-center gap-1 font-bold text-xs shadow-2xs cursor-pointer active:scale-95"
+                                title="Print Guest Registration Card (GRC)"
+                              >
+                                <FileText size={13} />
+                                <span className="text-[10px] font-black uppercase tracking-wider">GRC</span>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    const stay = item;
                     const isPrimary = (typeof stay.guest === 'object' ? stay.guest?._id : stay.guest) === guest._id;
                     return (
-                    <tr key={stay._id} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <p className="font-black text-gray-900 text-sm">{stay.room?.roomNumber || 'N/A'}</p>
-                          {!isPrimary && (
-                            <span className="bg-gray-100 text-gray-700 text-[9px] px-2 py-0.5 rounded border border-gray-200 font-black uppercase tracking-widest">Co-Guest</span>
-                          )}
-                        </div>
-                        <p className="text-[11px] font-bold text-gray-400 mt-0.5">{stay.occupants} Guests</p>
-                        
-                        {!isPrimary && stay.guest?._id ? (
-                          <Link to={`/guests/${stay.guest._id}`} className="inline-block text-[10px] font-bold text-gray-700 hover:text-black hover:underline mt-1 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
-                            Primary: {stay.guest?.fullName || 'Unknown'}
-                          </Link>
-                        ) : null}
-                        
-                        {stay.coGuests && stay.coGuests.filter(cg => cg._id !== guest._id).length > 0 && (
-                          <div className="mt-2 flex flex-col gap-1">
-                            <p className="text-[9px] font-black uppercase text-gray-400 tracking-wider">With:</p>
-                            <div className="flex flex-wrap gap-1">
-                              {stay.coGuests.filter(cg => cg._id !== guest._id).map(cg => (
-                                <Link to={`/guests/${cg._id}`} key={cg._id} className="text-[9px] font-bold bg-gray-50 text-gray-700 hover:bg-gray-100 hover:text-black px-2 py-0.5 rounded border border-gray-200 transition-colors">
-                                  {cg.fullName || 'Unknown'}
-                                </Link>
-                              ))}
-                            </div>
+                      <tr key={stay._id} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <p className="font-black text-gray-900 text-sm">{stay.room?.roomNumber || 'N/A'}</p>
+                            {!isPrimary && (
+                              <span className="bg-gray-100 text-gray-700 text-[9px] px-2 py-0.5 rounded border border-gray-200 font-black uppercase tracking-widest">Co-Guest</span>
+                            )}
                           </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="font-bold text-gray-900 text-xs">{format(new Date(stay.checkInDate), 'dd MMM yyyy')}</p>
-                        <p className="text-[11px] text-gray-400 mt-0.5">{format(new Date(stay.checkInDate), 'hh:mm a')}</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="font-bold text-gray-900 text-xs">{stay.actualCheckOutDate ? format(new Date(stay.actualCheckOutDate), 'dd MMM yyyy') : format(new Date(stay.expectedCheckOutDate), 'dd MMM yyyy')}</p>
-                        <p className="text-[11px] text-gray-400 mt-0.5">{stay.actualCheckOutDate ? format(new Date(stay.actualCheckOutDate), 'hh:mm a') : format(new Date(stay.expectedCheckOutDate), 'hh:mm a')}</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="font-black text-gray-900 text-sm">₹{stay.totalAmount}</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2.5 py-0.5 inline-flex text-[10px] font-black uppercase tracking-wider rounded-lg border ${
-                          stay.status === 'Completed' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 
-                          stay.status === 'Cancelled' ? 'bg-rose-50 text-rose-800 border-rose-200' : 'bg-gray-50 text-gray-700 border-gray-200'
-                        }`}>
-                          {stay.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-1.5">
-                          <button 
-                            onClick={() => handlePrint(stay)}
-                            className="text-gray-500 hover:text-black bg-white hover:bg-gray-50 p-2 rounded-xl transition-colors border border-gray-200 cursor-pointer shadow-2xs"
-                            title="Print Invoice / Bill"
-                          >
-                            <Printer size={15} />
-                          </button>
-                          <button 
-                            onClick={() => setSelectedGrcStay(stay)}
-                            className="text-gray-700 hover:text-black bg-white hover:bg-gray-50 px-2.5 py-1.5 rounded-xl transition-colors border border-gray-200 flex items-center gap-1 font-bold text-xs shadow-2xs cursor-pointer active:scale-95"
-                            title="Print Guest Registration Card (GRC)"
-                          >
-                            <FileText size={13} />
-                            <span className="text-[10px] font-black uppercase tracking-wider">GRC</span>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
+                          <p className="text-[11px] font-bold text-gray-400 mt-0.5">{stay.occupants} Guests</p>
+                          
+                          {!isPrimary && stay.guest?._id ? (
+                            <Link to={`/guests/${stay.guest._id}`} className="inline-block text-[10px] font-bold text-gray-700 hover:text-black hover:underline mt-1 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
+                              Primary: {stay.guest?.fullName || 'Unknown'}
+                            </Link>
+                          ) : null}
+                          
+                          {stay.coGuests && stay.coGuests.filter(cg => cg._id !== guest._id).length > 0 && (
+                            <div className="mt-2 flex flex-col gap-1">
+                              <p className="text-[9px] font-black uppercase text-gray-400 tracking-wider">With:</p>
+                              <div className="flex flex-wrap gap-1">
+                                {stay.coGuests.filter(cg => cg._id !== guest._id).map(cg => (
+                                  <Link to={`/guests/${cg._id}`} key={cg._id} className="text-[9px] font-bold bg-gray-50 text-gray-700 hover:bg-gray-100 hover:text-black px-2 py-0.5 rounded border border-gray-200 transition-colors">
+                                    {cg.fullName || 'Unknown'}
+                                  </Link>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="font-bold text-gray-900 text-xs">{format(new Date(stay.checkInDate), 'dd MMM yyyy')}</p>
+                          <p className="text-[11px] text-gray-400 mt-0.5">{format(new Date(stay.checkInDate), 'hh:mm a')}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="font-bold text-gray-900 text-xs">{stay.actualCheckOutDate ? format(new Date(stay.actualCheckOutDate), 'dd MMM yyyy') : format(new Date(stay.expectedCheckOutDate), 'dd MMM yyyy')}</p>
+                          <p className="text-[11px] text-gray-400 mt-0.5">{stay.actualCheckOutDate ? format(new Date(stay.actualCheckOutDate), 'hh:mm a') : format(new Date(stay.expectedCheckOutDate), 'hh:mm a')}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="font-black text-gray-900 text-sm font-mono">₹{stay.totalAmount?.toLocaleString('en-IN')}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`px-2.5 py-0.5 inline-flex text-[10px] font-black uppercase tracking-wider rounded-lg border ${
+                            stay.status === 'Completed' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 
+                            stay.status === 'Cancelled' ? 'bg-rose-50 text-rose-800 border-rose-200' : 'bg-gray-50 text-gray-700 border-gray-200'
+                          }`}>
+                            {stay.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-1.5">
+                            <button 
+                              onClick={() => handlePrint(stay)}
+                              className="text-gray-500 hover:text-black bg-white hover:bg-gray-50 p-2 rounded-xl transition-colors border border-gray-200 cursor-pointer shadow-2xs"
+                              title="Print Invoice / Bill"
+                            >
+                              <Printer size={15} />
+                            </button>
+                            <button 
+                              onClick={() => setSelectedGrcStay(stay)}
+                              className="text-gray-700 hover:text-black bg-white hover:bg-gray-50 px-2.5 py-1.5 rounded-xl transition-colors border border-gray-200 flex items-center gap-1 font-bold text-xs shadow-2xs cursor-pointer active:scale-95"
+                              title="Print Guest Registration Card (GRC)"
+                            >
+                              <FileText size={13} />
+                              <span className="text-[10px] font-black uppercase tracking-wider">GRC</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
                   })}
                 </tbody>
               </table>
@@ -987,6 +1097,16 @@ const GuestProfile = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Corporate Consolidated Invoice Modal */}
+      {corporateModalStay && (
+        <MergedCorporateInvoiceModal
+          initialStays={[corporateModalStay]}
+          allStays={[corporateModalStay]}
+          onClose={() => setCorporateModalStay(null)}
+          onStayUpdated={() => fetchGuest()}
+        />
       )}
     </div>
   );
