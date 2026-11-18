@@ -896,15 +896,23 @@ const Reports = () => {
   };
 
   const handleDeleteStay = async (stayId) => {
-    if (window.confirm("Are you sure you want to permanently delete this stay and all its payments? This action cannot be undone.")) {
-      try {
-        await axios.delete(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/stays/${stayId}`);
-        setStays(stays.filter(s => s._id !== stayId));
-        setPayments(payments.filter(p => p.stay?._id !== stayId));
-      } catch (err) {
-        console.error(err);
-        alert(err.response?.data?.message || 'Failed to delete stay');
+    const choice = window.prompt(
+      "Stay Delete Options:\n\nType '1' for History Only Delete (Room freed, payments kept in drawer)\nType '2' for Full Wipeout Delete (Delete Stay, Payments, Ledger completely)\n\nEnter 1 or 2:"
+    );
+    if (!choice) return;
+    const mode = choice.trim() === '1' ? 'history_only' : 'full';
+    try {
+      const res = await axios.delete(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/stays/${stayId}?mode=${mode}`);
+      if (mode === 'full') {
+        setStays(prev => prev.filter(s => s._id !== stayId));
+        setPayments(prev => prev.filter(p => (p.stay?._id || p.stay) !== stayId));
+      } else {
+        setStays(prev => prev.map(s => s._id === stayId ? { ...s, status: 'Cancelled' } : s));
       }
+      alert(res.data?.message || 'Stay deleted successfully');
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || 'Failed to delete stay');
     }
   };
 

@@ -865,15 +865,72 @@ exports.shiftRoom = async (req, res, next) => {
   }
 };
 
+// @desc    Delete or cancel a stay entry (Mistake correction)
+// @route   DELETE /api/stays/:id?mode=history_only|full
+// @access  Private (Admin, Superadmin, Receptionist)
 exports.deleteStay = async (req, res, next) => {
   try {
-    if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
-      return res.status(403).json({ success: false, message: 'Not authorized to delete stay' });
-    }
     const stay = await loadAuthorizedStay(req);
-    await Payment.deleteMany({ stay: stay._id });
+    await assertHostelAccess(req.user, stay.hostel, true);
+
+    const mode = (req.query.mode || req.body?.mode || 'full').toLowerCase();
+
+    if (mode === 'history_only' || mode === 'soft') {
+      // MODE 1: Only remove stay from history / active list, but PRESERVE financial ledger records & payments
+      stay.status = 'Cancelled';
+      stay.notes = (stay.notes ? stay.notes + ' | ' : '') + `[Cancelled by ${req.user.name || req.user.email} on ${new Date().toLocaleString('en-IN')}]`;
+      await stay.save();
+
+      // Clean notifications for this stay
+      await Notification.deleteMany({ stay: stay._id }).catch(() => {});
+
+      return res.status(200).json({
+        success: true,
+        mode: 'history_only',
+        message: 'Stay successfully removed from active history. Financial transactions were preserved.'
+      });
+    }
+
+    // MODE 2: Complete Wipeout (Delete stay + all payments + revert ledger + cleanup)
+    // 1. Revert any Ledger entries (Wallet / Khata) created for this stay
+    try {
+      const GuestLedger = require('../models/GuestLedger');
+      const ledgerEntries = await GuestLedger.find({ stay: stay._id });
+      for (const entry of ledgerEntries) {
+        if (entry.guest && entry.amount) {
+          const gDoc = await Guest.findById(entry.guest);
+          if (gDoc) {
+            // Revert deduction: add the amount back to ledgerBalance
+            gDoc.ledgerBalance = Math.round(((Number(gDoc.ledgerBalance) || 0) + entry.amount) * 100) / 100;
+            await gDoc.save().catch(() => {});
+          }
+        }
+      }
+      await GuestLedger.deleteMany({ stay: stay._id }).catch(() => {});
+    } catch (ledgerErr) {
+      console.warn('[deleteStay] Ledger reversal warning:', ledgerErr.message);
+    }
+
+    // 2. Delete all payments associated with this stay
+    await Payment.deleteMany({ stay: stay._id }).catch(() => {});
+
+    // 3. Delete laundry orders if any
+    try {
+      const LaundryOrder = require('../models/LaundryOrder');
+      await LaundryOrder.deleteMany({ stay: stay._id }).catch(() => {});
+    } catch (_) {}
+
+    // 4. Delete notifications tied to this stay
+    await Notification.deleteMany({ stay: stay._id }).catch(() => {});
+
+    // 5. Delete the stay document itself
     await stay.deleteOne();
-    res.status(200).json({ success: true, message: 'Stay deleted successfully' });
+
+    return res.status(200).json({
+      success: true,
+      mode: 'full',
+      message: 'Stay and all associated financial & ledger records completely wiped out.'
+    });
   } catch (error) {
     sendError(res, next, error);
   }

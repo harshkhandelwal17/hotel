@@ -24,6 +24,6 @@ router.post('/:id/charges', addCharge);
 router.delete('/:id/charges/:chargeId', removeCharge);
 router.post('/:id/payments', addPayment);
 
-router.delete('/:id', authorize('admin', 'superadmin'), deleteStay);
+router.delete('/:id', authorize('admin', 'superadmin', 'receptionist'), deleteStay);
 
 module.exports = router;
