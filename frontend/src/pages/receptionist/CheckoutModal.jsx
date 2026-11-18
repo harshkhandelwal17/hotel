@@ -218,10 +218,10 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
                 <>
                   <button
                     type="button"
-                    onClick={() => handlePrintGroupBill(completedStay || stay)}
+                    onClick={() => setShowMergedInvoiceModal(true)}
                     className="w-full py-3 px-4 bg-purple-700 hover:bg-purple-800 text-white font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer"
                   >
-                    <Building2 size={15} /> Print Master Group Invoice
+                    <Building2 size={15} /> Master Group Bill (Preview & Print)
                   </button>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <button

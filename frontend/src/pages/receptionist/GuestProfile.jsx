@@ -2,12 +2,13 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { format } from 'date-fns';
-import { User, Phone, CheckCircle, Clock, Printer, FileText, Wallet, BookOpen, Share2, PlusCircle, ArrowDownLeft, ArrowUpRight, X, AlertCircle, UserPlus, Sparkles, Building, Building2, Bed, ChevronRight } from 'lucide-react';
+import { User, Phone, CheckCircle, Clock, Printer, FileText, Wallet, BookOpen, Share2, PlusCircle, ArrowDownLeft, ArrowUpRight, X, AlertCircle, UserPlus, Sparkles, Building, Building2, Bed, ChevronRight, Eye } from 'lucide-react';
 import { printInvoice, printMergedInvoice } from '../../utils/invoice';
 import ExtendStayModal from './ExtendStayModal';
 import ShiftRoomModal from './ShiftRoomModal';
 import GuestRegistrationCardModal from '../../components/reception/GuestRegistrationCardModal';
 import MergedCorporateInvoiceModal from '../../components/MergedCorporateInvoiceModal';
+import InvoiceModal from '../../components/InvoiceModal';
 import { useLanguage } from '../../context/LanguageContext';
 
 const GuestProfile = () => {
@@ -25,6 +26,8 @@ const GuestProfile = () => {
   const [selectedStay, setSelectedStay] = useState(null);
   const [selectedGrcStay, setSelectedGrcStay] = useState(null);
   const [corporateModalStay, setCorporateModalStay] = useState(null);
+  const [invoiceModalStay, setInvoiceModalStay] = useState(null);
+  const [invoiceModalPayments, setInvoiceModalPayments] = useState([]);
 
   // Ledger / Khata state
   const [ledgerEntries, setLedgerEntries] = useState([]);
@@ -172,6 +175,20 @@ const GuestProfile = () => {
       console.error('Failed to fetch payments', err);
       printInvoice(stayToPrint, []);
     }
+  };
+
+  const handleOpenInvoiceModal = async (stayToView) => {
+    if (stayToView?.groupId) {
+      setCorporateModalStay(stayToView);
+      return;
+    }
+    try {
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/payments?stay=${stayToView._id}`);
+      setInvoiceModalPayments(res.data?.data || []);
+    } catch (err) {
+      setInvoiceModalPayments([]);
+    }
+    setInvoiceModalStay(stayToView);
   };
 
   const handleStartBookingForGuest = () => {
@@ -427,6 +444,13 @@ const GuestProfile = () => {
                 <FileText size={14} className="text-gray-500" /> Print GRC
               </button>
               <button 
+                onClick={() => handleOpenInvoiceModal(activeStay)}
+                className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs uppercase tracking-wider border border-indigo-200 rounded-xl transition-all shadow-2xs active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                title="View / Customize Invoice"
+              >
+                <Eye size={14} /> {isHindi ? 'बिल देखें' : 'View Bill'}
+              </button>
+              <button 
                 onClick={() => handlePrint(activeStay)}
                 className="px-4 py-2 bg-black hover:bg-gray-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-sm active:scale-95 flex items-center gap-1.5 cursor-pointer"
               >
@@ -664,6 +688,15 @@ const GuestProfile = () => {
                                 <div className="flex items-center gap-1.5">
                                   <button
                                     type="button"
+                                    onClick={() => handleOpenInvoiceModal(subStay)}
+                                    className="px-2 py-1 text-indigo-700 hover:text-indigo-950 bg-indigo-50 hover:bg-indigo-100 rounded-lg border border-indigo-200 transition-colors shadow-2xs cursor-pointer flex items-center gap-1 font-bold text-[11px]"
+                                    title={`View / Customize Room ${subStay.room?.roomNumber} Bill`}
+                                  >
+                                    <Eye size={12} />
+                                    <span>View</span>
+                                  </button>
+                                  <button
+                                    type="button"
                                     onClick={() => handlePrint(subStay)}
                                     className="px-2 py-1 text-slate-700 hover:text-black bg-white hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors shadow-2xs cursor-pointer flex items-center gap-1 font-bold text-[11px]"
                                     title={`Print Single Room ${subStay.room?.roomNumber} Bill`}
@@ -741,6 +774,13 @@ const GuestProfile = () => {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-1.5">
+                            <button 
+                              onClick={() => handleOpenInvoiceModal(stay)}
+                              className="text-indigo-600 hover:text-indigo-900 bg-indigo-50/70 hover:bg-indigo-100 p-2 rounded-xl transition-colors border border-indigo-200 cursor-pointer shadow-2xs"
+                              title="View / Customize Invoice"
+                            >
+                              <Eye size={15} />
+                            </button>
                             <button 
                               onClick={() => handlePrint(stay)}
                               className="text-gray-500 hover:text-black bg-white hover:bg-gray-50 p-2 rounded-xl transition-colors border border-gray-200 cursor-pointer shadow-2xs"
@@ -1169,6 +1209,15 @@ const GuestProfile = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Single Stay Invoice Modal */}
+      {invoiceModalStay && (
+        <InvoiceModal
+          stay={invoiceModalStay}
+          payments={invoiceModalPayments}
+          onClose={() => setInvoiceModalStay(null)}
+        />
       )}
 
       {/* Corporate Consolidated Invoice Modal */}

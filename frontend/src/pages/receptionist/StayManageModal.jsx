@@ -653,23 +653,76 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-gray-200 divide-y divide-gray-100 text-sm">
-                <div className="flex justify-between p-3"><span className="text-gray-500 font-semibold">Room Rent</span><span className="font-black">₹{roomRent}</span></div>
+              {/* ── BILL BREAKDOWN ── */}
+              <div className="rounded-2xl border border-gray-200 overflow-hidden text-sm">
+                <div className="flex justify-between items-center p-3 bg-gray-50/70">
+                  <span className="text-gray-500 font-semibold text-xs uppercase tracking-wider">Room Rent</span>
+                  <span className="font-black">₹{roomRent.toLocaleString('en-IN')}</span>
+                </div>
                 {(stay.charges || []).map(c => (
-                  <div key={c._id} className="flex justify-between items-center p-3">
+                  <div key={c._id} className="flex justify-between items-center p-3 border-t border-gray-100 hover:bg-amber-50/40 transition-colors group">
                     <div>
                       <p className="font-semibold text-gray-800">{c.description}{c.quantity > 1 ? ` ×${c.quantity}` : ''}</p>
                       <p className="text-[11px] text-gray-400">{c.category} &bull; {format(new Date(c.date), 'dd MMM, hh:mm a')}</p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="font-black">₹{c.amount}</span>
-                      {isOpen && <button onClick={() => removeCharge(c._id)} className="text-gray-300 hover:text-red-500"><Trash2 size={15} /></button>}
+                      <span className="font-black text-amber-700">₹{c.amount}</span>
+                      {isOpen && <button onClick={() => removeCharge(c._id)} className="text-gray-200 hover:text-red-500 group-hover:text-gray-400 transition-colors"><Trash2 size={14} /></button>}
                     </div>
                   </div>
                 ))}
-                <div className="flex justify-between p-3 bg-gray-50"><span className="font-bold">Total</span><span className="font-black">₹{stay.totalAmount}</span></div>
-                <div className="flex justify-between p-3"><span className="text-gray-500 font-semibold">Paid</span><span className="font-black text-green-600">₹{displayPaid}</span></div>
-                <div className="flex justify-between p-3"><span className="font-bold">Balance Due</span><span className={`font-black text-lg ${balance > 0 ? 'text-red-600' : 'text-green-600'}`}>₹{balance}</span></div>
+                {(stay.charges || []).length > 0 && (
+                  <div className="flex justify-between items-center p-3 border-t border-gray-200 bg-gray-50/50">
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Extra Charges</span>
+                    <span className="font-black text-amber-700">+₹{chargesTotal.toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center p-4 border-t-2 border-gray-200 bg-white">
+                  <span className="font-black text-gray-900">Total Bill</span>
+                  <span className="font-black text-lg text-gray-900">₹{stay.totalAmount.toLocaleString('en-IN')}</span>
+                </div>
+              </div>
+
+              {/* ── PAYMENT STATUS CARD ── */}
+              <div className={`rounded-2xl border-2 p-4 space-y-3 ${balance > 0 ? 'border-red-200 bg-red-50/40' : 'border-emerald-200 bg-emerald-50/40'}`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2.5 h-2.5 rounded-full ${balance > 0 ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`} />
+                    <span className={`text-xs font-black uppercase tracking-wider ${balance > 0 ? 'text-red-700' : 'text-emerald-700'}`}>
+                      {balance > 0 ? 'Balance Due' : 'Fully Paid ✓'}
+                    </span>
+                  </div>
+                  <span className={`text-2xl font-black ${balance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                    ₹{balance.toLocaleString('en-IN')}
+                  </span>
+                </div>
+
+                {/* Payment Progress Bar */}
+                {stay.totalAmount > 0 && (
+                  <div>
+                    <div className="flex justify-between text-[11px] font-bold text-gray-500 mb-1.5">
+                      <span>Paid: ₹{displayPaid.toLocaleString('en-IN')}</span>
+                      <span>{Math.round((displayPaid / stay.totalAmount) * 100)}% collected</span>
+                    </div>
+                    <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${balance > 0 ? 'bg-gradient-to-r from-orange-400 to-red-500' : 'bg-gradient-to-r from-emerald-400 to-green-500'}`}
+                        style={{ width: `${Math.min(100, Math.round((displayPaid / stay.totalAmount) * 100))}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Quick Pay button when balance > 0 */}
+                {balance > 0 && isOpen && (
+                  <button
+                    type="button"
+                    onClick={() => { setTab('pay'); setError(''); }}
+                    className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white rounded-xl font-black text-sm flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.98] cursor-pointer"
+                  >
+                    <Wallet size={15} /> Record Payment of ₹{balance.toLocaleString('en-IN')}
+                  </button>
+                )}
               </div>
 
               {loadingPayments ? (
@@ -678,33 +731,38 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                   <span>Loading payment records...</span>
                 </div>
               ) : payments.length > 0 ? (
-                <div>
-                  <div className="flex justify-between items-center mb-1.5">
-                    <p className={labelCls}>Payment History</p>
+                <div className="rounded-2xl border border-gray-200 overflow-hidden">
+                  <div className="flex justify-between items-center px-4 py-2.5 bg-gray-50 border-b border-gray-200">
+                    <p className="text-xs font-black uppercase tracking-wider text-gray-500">💳 Payment Log</p>
                     <button
                       type="button"
                       onClick={() => setTab('edit')}
                       className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
                     >
-                      <Edit3 size={11} /> Edit Payment Mode / Amount
+                      <Edit3 size={11} /> Edit
                     </button>
                   </div>
-                  <div className="space-y-1.5">
-                    {payments.map(p => (
-                      <div key={p._id} className="flex justify-between items-center text-xs font-semibold text-gray-600 bg-gray-50 rounded-lg px-3 py-2">
-                        <div className="flex items-center gap-2">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                  <div className="divide-y divide-gray-100">
+                    {payments.map((p, idx) => (
+                      <div key={p._id} className="flex justify-between items-center px-4 py-2.5 hover:bg-gray-50/60 transition-colors">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="text-xs font-bold text-gray-400 w-4 shrink-0">#{idx + 1}</span>
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider shrink-0 ${
                             p.paymentMethod === 'Cash' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
                             p.paymentMethod === 'UPI' ? 'bg-purple-100 text-purple-800 border border-purple-200' :
                             p.paymentMethod === 'Card' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
-                            'bg-gray-200 text-gray-800 border border-gray-300'
+                            p.paymentMethod === 'Khata' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
+                            p.paymentMethod === 'Wallet' ? 'bg-teal-100 text-teal-800 border border-teal-200' :
+                            'bg-gray-100 text-gray-700 border border-gray-200'
                           }`}>
                             {p.paymentMethod}
                           </span>
-                          <span>{format(new Date(p.paymentDate), 'dd MMM, hh:mm a')}</span>
-                          {p.notes && <span className="text-gray-400 font-normal italic">({p.notes})</span>}
+                          <span className="text-xs text-gray-500 font-medium truncate">
+                            {format(new Date(p.paymentDate), 'dd MMM, hh:mm a')}
+                            {p.notes && <span className="text-gray-400 italic ml-1">• {p.notes}</span>}
+                          </span>
                         </div>
-                        <span className="text-green-600 font-black">₹{p.amount}</span>
+                        <span className="text-emerald-700 font-black text-sm shrink-0">₹{Number(p.amount).toLocaleString('en-IN')}</span>
                       </div>
                     ))}
                   </div>
