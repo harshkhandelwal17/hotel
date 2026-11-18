@@ -27,6 +27,7 @@ const AppLayout = ({ children }) => {
   const [unreadCheckInsCount, setUnreadCheckInsCount] = useState(0);
   const [activeNotifTab, setActiveNotifTab] = useState('checkins');
   const [devicePermission, setDevicePermission] = useState(getNotificationPermission());
+  const [dismissNotifBanner, setDismissNotifBanner] = useState(false);
   const isInitialNotifLoadRef = useRef(true);
   const lastNotifiedCheckInIdRef = useRef(localStorage.getItem('last_notified_checkin_id') || '');
   const [liveCheckInToast, setLiveCheckInToast] = useState(null);
@@ -528,6 +529,39 @@ const AppLayout = ({ children }) => {
           </div>
         </div>
       )}
+
+      {/* Floating Prompt on Mobile/Desktop if push notification permission not granted yet */}
+      {devicePermission === 'default' && !dismissNotifBanner && (
+        <div className="fixed bottom-20 sm:bottom-4 right-3 sm:right-4 left-3 sm:left-auto sm:max-w-md z-[990] bg-slate-950/95 backdrop-blur-md text-white p-3 rounded-2xl shadow-2xl border border-indigo-500/40 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-md">
+              <Smartphone size={16} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-black text-white leading-tight truncate">Enable Mobile Alerts</p>
+              <p className="text-[10px] text-indigo-200 truncate">Receive sound & lock-screen alerts on check-in</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={handleEnableDeviceAlerts}
+              className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer shadow-sm active:scale-95"
+            >
+              Turn On
+            </button>
+            <button
+              type="button"
+              onClick={() => setDismissNotifBanner(true)}
+              className="p-1 text-gray-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+              title="Dismiss"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {isImpersonating && (
         <div className={`px-4 py-2 text-xs font-black uppercase tracking-widest flex items-center justify-between shadow-sm z-50 relative w-full text-white ${
           isSalesMode ? 'bg-indigo-600' : 'bg-orange-500'

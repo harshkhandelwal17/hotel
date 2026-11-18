@@ -42,12 +42,13 @@ exports.subscribePush = async (req, res, next) => {
       subscribedAt: new Date()
     };
 
-    // Remove any existing subscription with this endpoint for this user to avoid duplicates
-    await User.findByIdAndUpdate(req.user._id, {
-      $pull: { pushSubscriptions: { endpoint } }
-    });
+    // Remove this endpoint from any existing user's subscriptions to prevent duplicates or cross-account delivery
+    await User.updateMany(
+      { 'pushSubscriptions.endpoint': endpoint },
+      { $pull: { pushSubscriptions: { endpoint } } }
+    );
 
-    // Add updated subscription
+    // Add updated subscription to current logged-in user
     await User.findByIdAndUpdate(req.user._id, {
       $push: { pushSubscriptions: newSub }
     });
