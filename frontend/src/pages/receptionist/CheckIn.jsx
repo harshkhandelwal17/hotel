@@ -308,7 +308,7 @@ const CheckIn = () => {
   }, [location.search]);
 
   const toggleGroupRoom = (room) => {
-    if (!room || !room._id) return;
+    if (!room || !room._id || room.isOccupied) return;
     const id = room._id;
     setGroupSelectedRooms(prev => {
       const exists = prev.includes(id);
@@ -365,7 +365,7 @@ const CheckIn = () => {
       const cacheKey = `rooms_${globalProperty}`;
       const cached = apiCache.get(cacheKey);
       if (cached && !forceSpinner) {
-        setRooms(cached.filter((room) => room.status === 'Active'));
+        setRooms(cached.filter((room) => room.status === 'Active' && !room.isOccupied));
         setLoadingRooms(false); // Instant render in 0ms!
       } else if (!cached) {
         setLoadingRooms(true);
@@ -385,7 +385,7 @@ const CheckIn = () => {
         apiCache.set(cacheKey, allRooms);
         setRooms(
           allRooms.filter(
-            (room) => room.status === 'Active'
+            (room) => room.status === 'Active' && !room.isOccupied
           )
         );
       } catch (err) {
@@ -423,18 +423,16 @@ const CheckIn = () => {
 
   const availableFloors = useMemo(() => {
     const floorMap = {};
-    const allowOccupied = Boolean(stayInfo.isBackdated && stayInfo.isAlreadyCheckedOut);
-    rooms.filter(r => allowOccupied || !r.isOccupied).forEach(r => {
+    rooms.filter(r => !r.isOccupied).forEach(r => {
       const fl = (r.floor || '1').toString().trim();
       floorMap[fl] = (floorMap[fl] || 0) + 1;
     });
     return Object.entries(floorMap).map(([floor, count]) => ({ floor, count }));
-  }, [rooms, stayInfo.isBackdated, stayInfo.isAlreadyCheckedOut]);
+  }, [rooms]);
 
   const filteredRooms = useMemo(() => {
-    const allowOccupied = Boolean(stayInfo.isBackdated && stayInfo.isAlreadyCheckedOut);
     return rooms
-      .filter((r) => allowOccupied || !r.isOccupied)
+      .filter((r) => !r.isOccupied)
       .filter((r) => {
         if (selectedFloorFilter !== 'All') {
           const fl = (r.floor || '1').toString().trim();
@@ -445,7 +443,7 @@ const CheckIn = () => {
         }
         return true;
       });
-  }, [rooms, selectedFloorFilter, roomSearchQuery, stayInfo.isBackdated, stayInfo.isAlreadyCheckedOut]);
+  }, [rooms, selectedFloorFilter, roomSearchQuery]);
 
   const expectedOutPreviewFormatted = useMemo(() => {
     if (stayInfo.isAlreadyCheckedOut && stayInfo.actualCheckOutDate) {
@@ -2828,6 +2826,7 @@ const CheckIn = () => {
                           key={room._id}
                           type="button"
                           onClick={() => {
+                            if (room.isOccupied) return;
                             if (isGroupMode) {
                               toggleGroupRoom(room);
                             } else {

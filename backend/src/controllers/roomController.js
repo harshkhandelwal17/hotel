@@ -75,14 +75,22 @@ exports.getRooms = async (req, res, next) => {
       stayFilter.hostel = filter.hostel;
     }
     const activeStays = await Stay.find(stayFilter).select('room').lean();
-    const occupiedRoomIds = new Set(activeStays.map(s => s.room.toString()));
+    const occupiedRoomIds = new Set(
+      activeStays
+        .filter(s => s.room)
+        .map(s => (s.room?._id || s.room).toString())
+    );
 
-    const roomsWithStatus = rooms.map(room => ({
+    let roomsWithStatus = rooms.map(room => ({
       ...room,
       isOccupied: occupiedRoomIds.has(room._id.toString())
     }));
 
-    res.status(200).json({ success: true, count: rooms.length, data: roomsWithStatus });
+    if (req.query.vacantOnly === 'true') {
+      roomsWithStatus = roomsWithStatus.filter(r => !r.isOccupied);
+    }
+
+    res.status(200).json({ success: true, count: roomsWithStatus.length, data: roomsWithStatus });
   } catch (error) {
     if (error.statusCode) {
       return res.status(error.statusCode).json({ success: false, message: error.message });
