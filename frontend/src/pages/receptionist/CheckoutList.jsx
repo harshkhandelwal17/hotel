@@ -268,6 +268,12 @@ const CheckoutList = () => {
                           <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border ${badge.color}`}>
                             {badge.label}
                           </span>
+                          {stay.groupId && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-purple-100 text-purple-900 border border-purple-200 truncate max-w-[200px]" title={stay.groupName}>
+                              <Building2 size={10} className="text-purple-700 shrink-0" />
+                              <span className="truncate">{stay.groupName || 'Group'}</span>
+                            </span>
+                          )}
                         </div>
                         <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-gray-500 mt-1">
                           <span className="text-gray-700 font-bold">{stay.guest?.mobileNumber}</span>

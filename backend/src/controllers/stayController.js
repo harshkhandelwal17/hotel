@@ -991,6 +991,18 @@ exports.deleteStay = async (req, res, next) => {
       // Clean notifications for this stay
       await Notification.deleteMany({ stay: stay._id }).catch(() => {});
 
+      if (stay.groupId) {
+        const remainingCount = await Stay.countDocuments({
+          groupId: stay.groupId,
+          _id: { $ne: stay._id },
+          status: { $ne: 'Cancelled' }
+        });
+        await Stay.updateMany(
+          { groupId: stay.groupId },
+          { $set: { groupTotalRooms: remainingCount } }
+        ).catch(() => {});
+      }
+
       return res.status(200).json({
         success: true,
         mode: 'history_only',
@@ -1032,6 +1044,17 @@ exports.deleteStay = async (req, res, next) => {
 
     // 5. Delete the stay document itself
     await stay.deleteOne();
+
+    if (stay.groupId) {
+      const remainingCount = await Stay.countDocuments({
+        groupId: stay.groupId,
+        status: { $ne: 'Cancelled' }
+      });
+      await Stay.updateMany(
+        { groupId: stay.groupId },
+        { $set: { groupTotalRooms: remainingCount } }
+      ).catch(() => {});
+    }
 
     return res.status(200).json({
       success: true,
