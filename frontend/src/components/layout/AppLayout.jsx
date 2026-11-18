@@ -11,6 +11,7 @@ import soundAlert from '../../utils/soundAlert';
 import PoliceReportModal from '../../pages/admin/PoliceReportModal';
 import { apiCache, prefetchRoute } from '../../utils/apiCache';
 import { useLanguage } from '../../context/LanguageContext';
+import { COMPANY_SUPPORT } from '../../config/support';
 
 const AppLayout = ({ children }) => {
   const { user, logout } = useContext(AuthContext);
@@ -733,18 +734,30 @@ const AppLayout = ({ children }) => {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
-                {user?.role === 'admin' ? (
+              <div className="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto">
+                <a
+                  href={COMPANY_SUPPORT.getRenewalWaUrl(activeHostel?.name, activeHostel?.plan, 'expired')}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex-1 sm:flex-none text-center px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                >
+                  <span>💬 WhatsApp Renew ({COMPANY_SUPPORT.phone})</span>
+                </a>
+                <a
+                  href={`tel:${COMPANY_SUPPORT.phone}`}
+                  className="px-3 py-2 bg-white/20 hover:bg-white/30 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-1"
+                  title="Direct Call Company Support"
+                >
+                  <Phone size={13} />
+                  <span>Call</span>
+                </a>
+                {user?.role === 'admin' && (
                   <Link
                     to="/admin/hostels"
-                    className="flex-1 sm:flex-none text-center px-4 py-2 bg-white text-red-700 hover:bg-red-50 font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95"
+                    className="flex-1 sm:flex-none text-center px-3 py-2 bg-white text-red-700 hover:bg-red-50 font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95"
                   >
-                    View Plan Details
+                    View Plan
                   </Link>
-                ) : (
-                  <div className="text-xs font-bold bg-white/10 px-3 py-1.5 rounded-xl border border-white/20 text-white">
-                    Please contact Admin / SuperAdmin to renew
-                  </div>
                 )}
               </div>
             </div>

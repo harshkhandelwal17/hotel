@@ -24,6 +24,7 @@ import { AuthContext } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { apiCache } from '../../utils/apiCache';
 import { getStayWhatsAppUrl } from '../../utils/whatsapp';
+import { COMPANY_SUPPORT } from '../../config/support';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
 
@@ -154,20 +155,20 @@ const ReceptionistDashboard = () => {
       : (endDate ? Math.ceil((endDate - now) / (1000 * 60 * 60 * 24)) : 0);
     const isTrial = currentHostel.plan === 'demo' || currentHostel.planStatus === 'trial';
 
-    const repPhone = currentHostel.assignedSalesAgent?.phone || currentHostel.onboardedBy?.phone || '8955896504';
+    const repPhone = currentHostel.assignedSalesAgent?.phone || currentHostel.onboardedBy?.phone || COMPANY_SUPPORT.phone;
     const repName = currentHostel.assignedSalesAgent?.name || currentHostel.onboardedBy?.name || 'Support Team';
-    const cleanRep = repPhone.replace(/\D/g, '').slice(-10);
+    const cleanRep = repPhone.replace(/\D/g, '').slice(-10) || COMPANY_SUPPORT.phone;
 
     const waMsg = [
-      `🏨 *NexisParkX Hotel Software - Subscription Activation / Renewal*`,
+      `🏨 *NXHotel Software - Subscription Activation / Renewal*`,
       `Namaste *${repName}*,`,
-      `I would like to activate / renew the subscription for our property *${currentHostel.name}*.`,
+      `I would like to activate / renew the subscription for our hotel *${currentHostel.name}*.`,
       `• Current Plan: ${isTrial ? '7-Day Free Trial' : (currentHostel.plan?.toUpperCase() || 'Monthly Plan')}`,
       `• Days Left: ${daysRemaining} days`,
       `Please assist with payment and plan activation. Thank you!`
     ].join('\n');
 
-    const waUrl = cleanRep ? `https://wa.me/91${cleanRep}?text=${encodeURIComponent(waMsg)}` : null;
+    const waUrl = `https://wa.me/91${cleanRep}?text=${encodeURIComponent(waMsg)}`;
 
     if (isExpired) {
       return {

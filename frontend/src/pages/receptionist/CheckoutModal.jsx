@@ -8,6 +8,7 @@ import InvoiceModal from '../../components/InvoiceModal';
 import DynamicUpiQr from '../../components/DynamicUpiQr';
 import PaymentMethodSelector, { validateSplitPayment, buildSplitPayments } from '../../components/common/PaymentMethodSelector';
 import { apiCache } from '../../utils/apiCache';
+import { COMPANY_SUPPORT } from '../../config/support';
 
 const CheckoutModal = ({ stay, onClose, onSuccess }) => {
   const [chargesList, setChargesList] = useState([]);
@@ -182,9 +183,19 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
           <div className="p-4 sm:p-6 space-y-5 sm:space-y-6 overflow-y-auto flex-1 min-h-0">
             {error && <div className="p-3 bg-red-50 border border-red-100 text-red-600 rounded-xl font-medium text-sm flex items-center gap-2"><AlertCircle size={16}/> {error}</div>}
             {isHostelExpired && (
-              <div className="p-3.5 bg-red-50 border-2 border-red-300 text-red-900 rounded-xl font-bold text-xs flex items-center gap-2">
-                <AlertCircle size={18} className="text-red-600 shrink-0" />
-                <span>Subscription plan has expired for this property. Checkout is locked. Please contact Super Admin to renew.</span>
+              <div className="p-3.5 bg-red-50 border-2 border-red-300 text-red-900 rounded-xl font-bold text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2">
+                  <AlertCircle size={18} className="text-red-600 shrink-0" />
+                  <span>Subscription plan has expired for this property. Checkout is locked.</span>
+                </div>
+                <a
+                  href={COMPANY_SUPPORT.getRenewalWaUrl(stay?.hostel?.name, stay?.hostel?.plan, 'expired')}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1 shadow-xs shrink-0"
+                >
+                  💬 WhatsApp Support ({COMPANY_SUPPORT.phone})
+                </a>
               </div>
             )}
             

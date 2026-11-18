@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { Building, Plus, X, MapPin, Phone, Mail, CheckCircle, ShieldCheck, Sparkles, Calendar, HelpCircle, QrCode, Receipt, FileText } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
+import { COMPANY_SUPPORT } from '../../config/support';
 
 const ManageProperties = () => {
   const { user } = useContext(AuthContext);
@@ -237,11 +238,19 @@ const ManageProperties = () => {
               </div>
 
               {!isSuperAdmin && (
-                <div className="p-4 bg-amber-50/50 border-t border-amber-100/80 rounded-b-2xl">
-                  <p className="text-[11px] font-semibold text-amber-800 flex items-center gap-1.5">
+                <div className="p-3.5 bg-amber-50/60 border-t border-amber-100/80 rounded-b-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                  <p className="text-[11px] font-semibold text-amber-900 flex items-center gap-1.5">
                     <HelpCircle size={13} className="text-amber-600 flex-shrink-0" />
-                    To add another branch/property or upgrade your plan, contact Central Support.
+                    <span>To renew plan or upgrade rooms, contact Support: <strong>{COMPANY_SUPPORT.displayPhone}</strong></span>
                   </p>
+                  <a
+                    href={COMPANY_SUPPORT.getRenewalWaUrl(property.name, property.plan, isExpired ? 'expired' : 'active')}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-[10px] flex items-center justify-center gap-1 shrink-0 shadow-2xs transition-all active:scale-95"
+                  >
+                    💬 WhatsApp ({COMPANY_SUPPORT.phone})
+                  </a>
                 </div>
               )}
             </div>
