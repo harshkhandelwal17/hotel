@@ -597,7 +597,7 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
 
     @page {
       size: A4 portrait;
-      margin: 10mm 12mm;
+      margin: 8mm 10mm;
     }
 
     @media print {
@@ -611,8 +611,8 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
         margin: 0 !important;
         padding: 0 !important;
         width: 100% !important;
-        font-size: 12px !important;
-        line-height: 1.45 !important;
+        font-size: 11.5px !important;
+        line-height: 1.4 !important;
         color: #0f172a !important;
       }
       .no-print-bar { display: none !important; }
@@ -623,51 +623,53 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
         margin: 0 !important;
         max-width: 100% !important;
         width: 100% !important;
-        min-height: 265mm !important;
-        display: flex !important;
-        flex-direction: column !important;
-        justify-content: space-between !important;
+        min-height: auto !important;
+        display: block !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
       }
       .invoice-content-top {
-        flex: 1 0 auto !important;
+        display: block !important;
       }
       .invoice-footer-wrap {
-        flex-shrink: 0 !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        margin-top: 8px !important;
       }
       .header {
-        padding-bottom: 14px !important;
-        margin-bottom: 16px !important;
+        padding-bottom: 8px !important;
+        margin-bottom: 10px !important;
         border-bottom: 2px solid #0f172a !important;
       }
       .hotel-name {
-        font-size: 22px !important;
-        margin-bottom: 4px !important;
+        font-size: 20px !important;
+        margin-bottom: 2px !important;
       }
       .hotel-meta {
-        font-size: 11.5px !important;
-        line-height: 1.4 !important;
+        font-size: 11px !important;
+        line-height: 1.35 !important;
       }
       .invoice-type {
-        font-size: 18px !important;
-        margin-bottom: 3px !important;
+        font-size: 16px !important;
+        margin-bottom: 2px !important;
       }
       .info-grid {
-        padding: 12px 16px !important;
-        margin-bottom: 16px !important;
-        gap: 16px !important;
+        padding: 8px 12px !important;
+        margin-bottom: 10px !important;
+        gap: 10px !important;
         background: #f8fafc !important;
         border: 1.5px solid #e2e8f0 !important;
         border-radius: 8px !important;
       }
       .info-title {
-        font-size: 10px !important;
-        margin-bottom: 3px !important;
+        font-size: 9.5px !important;
+        margin-bottom: 2px !important;
       }
       .info-val {
-        font-size: 13.5px !important;
+        font-size: 12.5px !important;
       }
       table {
-        margin-bottom: 14px !important;
+        margin-bottom: 10px !important;
         page-break-inside: auto !important;
       }
       thead {
@@ -680,50 +682,50 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
       th {
         background-color: #0f172a !important;
         color: #ffffff !important;
-        padding: 8px 10px !important;
-        font-size: 10.5px !important;
+        padding: 6px 8px !important;
+        font-size: 10px !important;
         border: 1px solid #0f172a !important;
       }
       td {
-        padding: 7px 10px !important;
-        font-size: 11.5px !important;
+        padding: 5px 8px !important;
+        font-size: 11px !important;
         border-bottom: 1px solid #e2e8f0 !important;
       }
       .summary-section {
-        margin-top: 10px !important;
-        margin-bottom: 14px !important;
-        padding-top: 6px !important;
-        gap: 18px !important;
+        margin-top: 6px !important;
+        margin-bottom: 8px !important;
+        padding-top: 4px !important;
+        gap: 12px !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
       }
       .amount-words-box {
-        padding: 10px 12px !important;
-        margin-bottom: 10px !important;
+        padding: 6px 10px !important;
+        margin-bottom: 6px !important;
         background: #f8fafc !important;
         border: 1px solid #e2e8f0 !important;
         border-radius: 8px !important;
       }
       .words-label {
-        font-size: 9.5px !important;
+        font-size: 9px !important;
       }
       .words-val {
-        font-size: 12px !important;
+        font-size: 11px !important;
       }
       .totals-table td {
-        padding: 4.5px 8px !important;
-        font-size: 12px !important;
+        padding: 3px 6px !important;
+        font-size: 11px !important;
       }
       .totals-table tr.total-row td {
-        font-size: 14.5px !important;
-        padding: 7px 8px !important;
+        font-size: 13.5px !important;
+        padding: 5px 6px !important;
         border-top: 2px solid #0f172a !important;
         border-bottom: 2px solid #0f172a !important;
       }
       .footer {
-        margin-top: 14px !important;
-        padding-top: 12px !important;
-        gap: 16px !important;
+        margin-top: 8px !important;
+        padding-top: 6px !important;
+        gap: 10px !important;
         border-top: 1.5px solid #e2e8f0 !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
@@ -946,10 +948,10 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
       </div>
     </div>
 
-    <!-- PAYMENTS RECEIVED TABLE (IF ANY) -->
-    ${effectivePayments.length > 0 ? `
-      <div style="margin-top: 10px;">
-        <div class="info-title" style="margin-bottom: 8px;">Payments Received / Settlement Log</div>
+    <!-- PAYMENTS RECEIVED TABLE (OPTIONAL, OFF BY DEFAULT TO KEEP INVOICE ON 1 PAGE) -->
+    ${options.showPaymentHistory && effectivePayments.length > 0 ? `
+      <div style="margin-top: 8px; page-break-inside: avoid; break-inside: avoid;">
+        <div class="info-title" style="margin-bottom: 4px;">Payments Received / Settlement Log</div>
         <table>
           <thead>
             <tr>
@@ -1727,7 +1729,7 @@ export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {
 
     @page {
       size: A4 portrait;
-      margin: 10mm 12mm;
+      margin: 8mm 10mm;
     }
 
     @media print {
@@ -1741,8 +1743,8 @@ export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {
         margin: 0 !important;
         padding: 0 !important;
         width: 100% !important;
-        font-size: 12px !important;
-        line-height: 1.45 !important;
+        font-size: 11.5px !important;
+        line-height: 1.4 !important;
         color: #0f172a !important;
       }
       .no-print-bar { display: none !important; }
@@ -1753,51 +1755,53 @@ export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {
         margin: 0 !important;
         max-width: 100% !important;
         width: 100% !important;
-        min-height: 265mm !important;
-        display: flex !important;
-        flex-direction: column !important;
-        justify-content: space-between !important;
+        min-height: auto !important;
+        display: block !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
       }
       .invoice-content-top {
-        flex: 1 0 auto !important;
+        display: block !important;
       }
       .invoice-footer-wrap {
-        flex-shrink: 0 !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        margin-top: 8px !important;
       }
       .header {
-        padding-bottom: 14px !important;
-        margin-bottom: 16px !important;
+        padding-bottom: 8px !important;
+        margin-bottom: 10px !important;
         border-bottom: 2px solid #0f172a !important;
       }
       .hotel-name {
-        font-size: 22px !important;
-        margin-bottom: 4px !important;
+        font-size: 20px !important;
+        margin-bottom: 2px !important;
       }
       .hotel-meta {
-        font-size: 11.5px !important;
-        line-height: 1.4 !important;
+        font-size: 11px !important;
+        line-height: 1.35 !important;
       }
       .invoice-type {
-        font-size: 18px !important;
-        margin-bottom: 3px !important;
+        font-size: 16px !important;
+        margin-bottom: 2px !important;
       }
       .info-grid {
-        padding: 12px 16px !important;
-        margin-bottom: 16px !important;
-        gap: 16px !important;
+        padding: 8px 12px !important;
+        margin-bottom: 10px !important;
+        gap: 10px !important;
         background: #f8fafc !important;
         border: 1.5px solid #e2e8f0 !important;
         border-radius: 8px !important;
       }
       .info-title {
-        font-size: 10px !important;
-        margin-bottom: 3px !important;
+        font-size: 9.5px !important;
+        margin-bottom: 2px !important;
       }
       .info-val {
-        font-size: 13.5px !important;
+        font-size: 12.5px !important;
       }
       table {
-        margin-bottom: 14px !important;
+        margin-bottom: 10px !important;
         page-break-inside: auto !important;
       }
       thead {
@@ -1810,50 +1814,50 @@ export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {
       th {
         background-color: #0f172a !important;
         color: #ffffff !important;
-        padding: 8px 10px !important;
-        font-size: 10.5px !important;
+        padding: 6px 8px !important;
+        font-size: 10px !important;
         border: 1px solid #0f172a !important;
       }
       td {
-        padding: 7px 10px !important;
-        font-size: 11.5px !important;
+        padding: 5px 8px !important;
+        font-size: 11px !important;
         border-bottom: 1px solid #e2e8f0 !important;
       }
       .summary-section {
-        margin-top: 10px !important;
-        margin-bottom: 14px !important;
-        padding-top: 6px !important;
-        gap: 18px !important;
+        margin-top: 6px !important;
+        margin-bottom: 8px !important;
+        padding-top: 4px !important;
+        gap: 12px !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
       }
       .amount-words-box {
-        padding: 10px 12px !important;
-        margin-bottom: 10px !important;
+        padding: 6px 10px !important;
+        margin-bottom: 6px !important;
         background: #f8fafc !important;
         border: 1px solid #e2e8f0 !important;
         border-radius: 8px !important;
       }
       .words-label {
-        font-size: 9.5px !important;
+        font-size: 9px !important;
       }
       .words-val {
-        font-size: 12px !important;
+        font-size: 11px !important;
       }
       .totals-table td {
-        padding: 4.5px 8px !important;
-        font-size: 12px !important;
+        padding: 3px 6px !important;
+        font-size: 11px !important;
       }
       .totals-table tr.total-row td {
-        font-size: 14.5px !important;
-        padding: 7px 8px !important;
+        font-size: 13.5px !important;
+        padding: 5px 6px !important;
         border-top: 2px solid #0f172a !important;
         border-bottom: 2px solid #0f172a !important;
       }
       .footer {
-        margin-top: 14px !important;
-        padding-top: 12px !important;
-        gap: 16px !important;
+        margin-top: 8px !important;
+        padding-top: 6px !important;
+        gap: 10px !important;
         border-top: 1.5px solid #e2e8f0 !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
@@ -2063,10 +2067,10 @@ export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {
       </div>
     </div>
 
-    <!-- PAYMENTS RECEIVED TABLE (IF ANY) -->
-    ${effectiveMergedPayments.length > 0 ? `
-      <div style="margin-top: 14px;">
-        <div class="info-title" style="margin-bottom: 6px;">Consolidated Settlement & Payment History</div>
+    <!-- PAYMENTS RECEIVED TABLE (OPTIONAL, OFF BY DEFAULT TO KEEP INVOICE ON 1 PAGE) -->
+    ${options.showPaymentHistory && effectiveMergedPayments.length > 0 ? `
+      <div style="margin-top: 8px; page-break-inside: avoid; break-inside: avoid;">
+        <div class="info-title" style="margin-bottom: 4px;">Consolidated Settlement & Payment History</div>
         <table>
           <thead>
             <tr>

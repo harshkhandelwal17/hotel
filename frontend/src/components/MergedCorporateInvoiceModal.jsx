@@ -119,6 +119,8 @@ export default function MergedCorporateInvoiceModal({
 
   // Tariff display mode: 'detailed' (room-wise fair split) or 'package' (lump sum)
   const [rateDisplayMode, setRateDisplayMode] = useState('detailed');
+  // Optional detailed payment transactions table (off by default so bill fits on 1 single page)
+  const [showPaymentHistory, setShowPaymentHistory] = useState(false);
 
   const [showConfig, setShowConfig] = useState(true);
 
@@ -186,9 +188,10 @@ export default function MergedCorporateInvoiceModal({
     gstRate: Number(gstRate),
     taxInclusive,
     rateDisplayMode,
+    showPaymentHistory,
     markAllPaid: markBalancePaid,
     balancePaymentMethod
-  }), [hostel, guestCompany, guestGstin, billingAddress, bookerName, bookerPhone, poNumber, gstEnabled, gstRate, taxInclusive, rateDisplayMode, markBalancePaid, balancePaymentMethod]);
+  }), [hostel, guestCompany, guestGstin, billingAddress, bookerName, bookerPhone, poNumber, gstEnabled, gstRate, taxInclusive, rateDisplayMode, showPaymentHistory, markBalancePaid, balancePaymentMethod]);
 
   const inv = useMemo(() => {
     if (selectedStays.length === 0) return null;
@@ -554,32 +557,52 @@ export default function MergedCorporateInvoiceModal({
                 Consolidated Particulars ({inv.roomBreakdown.length} Rooms):
               </span>
 
-              {/* Tariff Display Mode Selector */}
-              <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setRateDisplayMode('detailed')}
-                  className={`px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer ${
-                    rateDisplayMode === 'detailed'
-                      ? 'bg-white text-slate-900 shadow-2xs'
-                      : 'text-slate-500 hover:text-slate-900'
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Tariff Display Mode Selector */}
+                <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setRateDisplayMode('detailed')}
+                    className={`px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer ${
+                      rateDisplayMode === 'detailed'
+                        ? 'bg-white text-slate-900 shadow-2xs'
+                        : 'text-slate-500 hover:text-slate-900'
+                    }`}
+                    title="Fairly splits package price evenly across all rooms so no room shows ₹0"
+                  >
+                    Room-wise Split
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRateDisplayMode('package')}
+                    className={`px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer ${
+                      rateDisplayMode === 'package'
+                        ? 'bg-white text-slate-900 shadow-2xs'
+                        : 'text-slate-500 hover:text-slate-900'
+                    }`}
+                    title="Shows consolidated package lump sum total for corporate folios"
+                  >
+                    Package Lump Sum
+                  </button>
+                </div>
+
+                {/* Optional Payment History Toggle */}
+                <label 
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition-all cursor-pointer select-none ${
+                    showPaymentHistory 
+                      ? 'bg-slate-900 text-white border-slate-900' 
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200'
                   }`}
-                  title="Fairly splits package price evenly across all rooms so no room shows ₹0"
+                  title="Toggle payment transaction vouchers table (keep OFF for clean 1-page bill)"
                 >
-                  Room-wise Split
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRateDisplayMode('package')}
-                  className={`px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer ${
-                    rateDisplayMode === 'package'
-                      ? 'bg-white text-slate-900 shadow-2xs'
-                      : 'text-slate-500 hover:text-slate-900'
-                  }`}
-                  title="Shows consolidated package lump sum total for corporate folios"
-                >
-                  Package Lump Sum
-                </button>
+                  <input
+                    type="checkbox"
+                    checked={showPaymentHistory}
+                    onChange={e => setShowPaymentHistory(e.target.checked)}
+                    className="hidden"
+                  />
+                  <span>Payment History {showPaymentHistory ? '(ON)' : '(OFF)'}</span>
+                </label>
               </div>
             </div>
 

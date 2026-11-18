@@ -24,6 +24,7 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
   const [billingAddress, setBillingAddress] = useState(stay.billingAddress || guest.address || '');
   const [discountAmount, setDiscountAmount] = useState(stay.discountAmount || 0);
   const [showTaxOptions, setShowTaxOptions] = useState(false);
+  const [showPaymentHistory, setShowPaymentHistory] = useState(false);
   const [showMergedModal, setShowMergedModal] = useState(false);
   const [activeStaysList, setActiveStaysList] = useState([]);
   const [savingTax, setSavingTax] = useState(false);
@@ -93,7 +94,8 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
     guestCompany,
     guestGstin: guestGstin.trim().toUpperCase(),
     billingAddress: billingAddress.trim(),
-    discountAmount: Number(discountAmount) || 0
+    discountAmount: Number(discountAmount) || 0,
+    showPaymentHistory
   };
 
   const inv = calculateInvoiceData(stay, payments, invOptions);
@@ -140,7 +142,7 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
 
         {/* CUSTOMIZE TOOLBAR STRIP */}
         <div className="px-5 sm:px-8 py-2.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs shrink-0">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <label className="flex items-center gap-2 cursor-pointer font-bold text-gray-700 select-none">
               <input 
                 type="checkbox" 
@@ -149,6 +151,16 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
                 className="w-4 h-4 rounded text-black focus:ring-black accent-black cursor-pointer"
               />
               <span>Generate GST Tax Invoice</span>
+            </label>
+
+            <label className="flex items-center gap-1.5 cursor-pointer font-bold text-gray-600 hover:text-gray-900 select-none" title="Keep unchecked for compact 1-page bill">
+              <input 
+                type="checkbox" 
+                checked={showPaymentHistory} 
+                onChange={e => setShowPaymentHistory(e.target.checked)} 
+                className="w-3.5 h-3.5 rounded text-black focus:ring-black accent-black cursor-pointer"
+              />
+              <span>Payment Log Table {showPaymentHistory ? '(ON)' : '(OFF)'}</span>
             </label>
 
             <button 
