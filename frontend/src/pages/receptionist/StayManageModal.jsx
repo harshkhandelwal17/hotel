@@ -357,7 +357,10 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
     }, '✅ Entry & Payment details updated successfully!');
   };
 
-  const balance = stay.totalAmount - stay.paidAmount;
+  const displayPaid = (stay.isGroupStay || stay.groupId)
+    ? Math.min(Number(stay.paidAmount) || 0, Number(stay.totalAmount) || 0)
+    : (Number(stay.paidAmount) || 0);
+  const balance = Math.max(0, (Number(stay.totalAmount) || 0) - displayPaid);
   const chargesTotal = (stay.charges || []).reduce((s, c) => s + c.amount, 0);
   const roomRent = Math.max(0, stay.totalAmount - chargesTotal);
   const isOpen = ['Active', 'Checkout Due', 'Overdue'].includes(stay.status);
@@ -660,8 +663,8 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                   </div>
                 ))}
                 <div className="flex justify-between p-3 bg-gray-50"><span className="font-bold">Total</span><span className="font-black">₹{stay.totalAmount}</span></div>
-                <div className="flex justify-between p-3"><span className="text-gray-500 font-semibold">Paid</span><span className="font-black text-green-600">₹{Math.min(stay.paidAmount, stay.totalAmount)}</span></div>
-                <div className="flex justify-between p-3"><span className="font-bold">Balance Due</span><span className={`font-black text-lg ${balance > 0 ? 'text-red-600' : 'text-green-600'}`}>₹{Math.max(0, balance)}</span></div>
+                <div className="flex justify-between p-3"><span className="text-gray-500 font-semibold">Paid</span><span className="font-black text-green-600">₹{displayPaid}</span></div>
+                <div className="flex justify-between p-3"><span className="font-bold">Balance Due</span><span className={`font-black text-lg ${balance > 0 ? 'text-red-600' : 'text-green-600'}`}>₹{balance}</span></div>
               </div>
 
               {loadingPayments ? (

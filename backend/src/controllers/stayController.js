@@ -300,6 +300,81 @@ exports.createStay = async (req, res, next) => {
   }
 };
 
+// ---------------------------------------------------------------------------
+// Helper: detect if a group's payments are skewed (e.g. leader has all advance)
+// ---------------------------------------------------------------------------
+const checkGroupNeedsRebalance = (items) => {
+  if (!items || items.length <= 1) return false;
+  const hasOverpaid = items.some(s => (Number(s.paidAmount) || 0) > (Number(s.totalAmount) || 0));
+  const singleHoldingAll = items.filter(s => (Number(s.paidAmount) || 0) > 0).length === 1 &&
+    items.some(s => (Number(s.paidAmount) || 0) === 0);
+  return hasOverpaid || singleHoldingAll;
+};
+
+// ---------------------------------------------------------------------------
+// Helper: evenly & proportionately distribute advance across rooms in a group
+// ---------------------------------------------------------------------------
+const autoRebalanceGroupStays = async (groupId) => {
+  if (!groupId) return;
+  try {
+    const groupStays = await Stay.find({ groupId }).lean();
+    if (!groupStays || groupStays.length <= 1) return;
+
+    if (!checkGroupNeedsRebalance(groupStays)) return;
+
+    const groupPayments = await Payment.find({
+      $or: [{ groupId }, { stay: { $in: groupStays.map(s => s._id) } }]
+    }).lean();
+
+    const totalPaid = groupPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+    const totalTariff = groupStays.reduce((acc, s) => acc + (Number(s.totalAmount) || 0), 0);
+
+    let allocated = 0;
+    for (let i = 0; i < groupStays.length; i++) {
+      const gs = groupStays[i];
+      let newPaid = 0;
+      if (totalPaid >= totalTariff) {
+        newPaid = Number(gs.totalAmount) || 0;
+      } else if (totalTariff > 0) {
+        if (i === groupStays.length - 1) {
+          newPaid = Math.max(0, totalPaid - allocated);
+        } else {
+          newPaid = Math.min(Number(gs.totalAmount) || 0, Math.round(((Number(gs.totalAmount) || 0) / totalTariff) * totalPaid));
+          allocated += newPaid;
+        }
+      }
+      await Stay.findByIdAndUpdate(gs._id, { $set: { paidAmount: newPaid } });
+
+      const existingPay = await Payment.findOne({ stay: gs._id });
+      if (!existingPay && newPaid > 0) {
+        await Payment.create({
+          stay: gs._id,
+          groupId,
+          guest: gs.guest,
+          hostel: gs.hostel,
+          amount: newPaid,
+          paymentMethod: groupPayments[0]?.paymentMethod || 'Cash',
+          notes: `Group Advance (${groupStays[0].groupName || 'Group'})`,
+          createdBy: groupPayments[0]?.createdBy
+        });
+        await recordLedgerImpact({
+          guestId: gs.guest,
+          hostelId: gs.hostel,
+          stayId: gs._id,
+          amount: newPaid,
+          paymentMethod: groupPayments[0]?.paymentMethod || 'Cash',
+          description: `Group Advance (${groupStays[0].groupName || 'Group'})`,
+          userId: groupPayments[0]?.createdBy
+        });
+      } else if (existingPay && Number(existingPay.amount) !== newPaid) {
+        await Payment.findByIdAndUpdate(existingPay._id, { $set: { amount: newPaid } });
+      }
+    }
+  } catch (err) {
+    console.warn('Auto-rebalance group stays error:', err.message);
+  }
+};
+
 exports.getStays = async (req, res, next) => {
   try {
     const filter = await getHostelFilter(req.user, req.query.hostel);
@@ -322,7 +397,7 @@ exports.getStays = async (req, res, next) => {
       let rebalancedAny = false;
       for (const gId of gIds) {
         const groupItems = stays.filter(s => s.groupId === gId);
-        if (groupItems.some(s => s.paidAmount > s.totalAmount) && groupItems.some(s => s.paidAmount === 0)) {
+        if (checkGroupNeedsRebalance(groupItems)) {
           await autoRebalanceGroupStays(gId);
           rebalancedAny = true;
         }
@@ -345,62 +420,6 @@ exports.getStays = async (req, res, next) => {
       return res.status(error.statusCode).json({ success: false, message: error.message });
     }
     next(error);
-  }
-};
-
-// ---------------------------------------------------------------------------
-// Helper: load a stay and make sure the logged-in user is allowed to touch it.
-// ---------------------------------------------------------------------------
-const autoRebalanceGroupStays = async (groupId) => {
-  if (!groupId) return;
-  try {
-    const groupStays = await Stay.find({ groupId }).lean();
-    if (!groupStays || groupStays.length <= 1) return;
-
-    const needsRebalance = groupStays.some(s => s.paidAmount > s.totalAmount) && groupStays.some(s => s.paidAmount === 0);
-    if (!needsRebalance) return;
-
-    const groupPayments = await Payment.find({
-      $or: [{ groupId }, { stay: { $in: groupStays.map(s => s._id) } }]
-    }).lean();
-
-    const totalPaid = groupPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
-    const totalTariff = groupStays.reduce((acc, s) => acc + (Number(s.totalAmount) || 0), 0);
-
-    let allocated = 0;
-    for (let i = 0; i < groupStays.length; i++) {
-      const gs = groupStays[i];
-      let newPaid = 0;
-      if (totalPaid >= totalTariff) {
-        newPaid = gs.totalAmount;
-      } else if (totalTariff > 0) {
-        if (i === groupStays.length - 1) {
-          newPaid = Math.max(0, totalPaid - allocated);
-        } else {
-          newPaid = Math.min(gs.totalAmount, Math.round((gs.totalAmount / totalTariff) * totalPaid));
-          allocated += newPaid;
-        }
-      }
-      await Stay.findByIdAndUpdate(gs._id, { $set: { paidAmount: newPaid } });
-
-      const existingPay = await Payment.findOne({ stay: gs._id });
-      if (!existingPay && newPaid > 0) {
-        await Payment.create({
-          stay: gs._id,
-          groupId,
-          guest: gs.guest,
-          hostel: gs.hostel,
-          amount: newPaid,
-          paymentMethod: groupPayments[0]?.paymentMethod || 'Cash',
-          notes: `Group Advance (${groupStays[0].groupName || 'Group'})`,
-          createdBy: groupPayments[0]?.createdBy
-        });
-      } else if (existingPay && existingPay.amount !== newPaid) {
-        await Payment.findByIdAndUpdate(existingPay._id, { $set: { amount: newPaid } });
-      }
-    }
-  } catch (err) {
-    console.warn('Auto-rebalance group stays error:', err.message);
   }
 };
 
@@ -1690,6 +1709,8 @@ exports.getGroupStays = async (req, res, next) => {
     if (!groupId) {
       return res.status(400).json({ success: false, message: 'Group ID is required' });
     }
+
+    await autoRebalanceGroupStays(groupId);
 
     const stays = await Stay.find({ groupId })
       .populate('guest', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth companyName gstin')
