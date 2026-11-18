@@ -326,16 +326,27 @@ const sendError = (res, next, error) => {
   return next(error);
 };
 
-// GET /api/stays/:id
+// GET /api/stays/:id (Blazing fast parallel lookup)
 exports.getStay = async (req, res, next) => {
   try {
-    const authorized = await loadAuthorizedStay(req);
-    const stay = await Stay.findById(authorized._id)
-      .populate('guest', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth companyName gstin')
-      .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth companyName gstin')
-      .populate('room', 'roomNumber price24h extraPerPerson24h')
-      .populate('hostel', 'name address contactNumber email upiId upiPayeeName gstEnabled gstin taxInclusive gstRate hsnSacCode state stateCode invoicePrefix billTerms autoApplyGstOnCheckin');
-    const payments = await Payment.find({ stay: stay._id }).sort('paymentDate');
+    const stayId = req.params.id;
+    const [stay, payments] = await Promise.all([
+      Stay.findById(stayId)
+        .populate('guest', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth companyName gstin')
+        .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber address gender dateOfBirth companyName gstin')
+        .populate('room', 'roomNumber price24h extraPerPerson24h')
+        .populate('hostel', 'name address contactNumber email upiId upiPayeeName gstEnabled gstin taxInclusive gstRate hsnSacCode state stateCode invoicePrefix billTerms autoApplyGstOnCheckin')
+        .lean(),
+      Payment.find({ stay: stayId }).sort('paymentDate').lean()
+    ]);
+
+    if (!stay) {
+      return res.status(404).json({ success: false, message: 'Stay not found' });
+    }
+    if (!(await userCanAccessHostel(req.user, stay.hostel))) {
+      return res.status(403).json({ success: false, message: 'Not authorized for this stay' });
+    }
+
     res.status(200).json({ success: true, data: { stay, payments } });
   } catch (error) {
     sendError(res, next, error);

@@ -36,7 +36,8 @@ const TABS = [
 const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) => {
   const [tab, setTab] = useState('bill');
   const [stay, setStay] = useState(initialStay);
-  const [payments, setPayments] = useState([]);
+  const [payments, setPayments] = useState(initialStay?.payments || []);
+  const [loadingPayments, setLoadingPayments] = useState(!initialStay?.payments);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -163,11 +164,17 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
   const [savingNotes, setSavingNotes] = useState(false);
 
   const reload = useCallback(async () => {
-    const res = await axios.get(`${API}/api/stays/${initialStay._id}`);
-    const freshStay = res.data.data.stay;
-    setStay(freshStay);
-    setStayNotes(freshStay.notes || '');
-    setPayments(res.data.data.payments);
+    try {
+      const res = await axios.get(`${API}/api/stays/${initialStay._id}`);
+      const freshStay = res.data?.data?.stay || res.data?.data;
+      setStay(freshStay);
+      setStayNotes(freshStay?.notes || '');
+      setPayments(res.data?.data?.payments || []);
+    } catch (e) {
+      console.warn('Reload stay error:', e);
+    } finally {
+      setLoadingPayments(false);
+    }
   }, [initialStay._id]);
 
   const handleSaveNotes = async () => {
@@ -563,14 +570,19 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                 <div className="flex justify-between p-3"><span className="font-bold">Balance Due</span><span className={`font-black text-lg ${balance > 0 ? 'text-red-600' : 'text-green-600'}`}>₹{Math.max(0, balance)}</span></div>
               </div>
 
-              {payments.length > 0 && (
+              {loadingPayments ? (
+                <div className="p-3 bg-gray-50 rounded-xl border border-gray-200/60 flex items-center gap-2.5 text-xs text-gray-500 font-bold animate-pulse">
+                  <div className="w-3.5 h-3.5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                  <span>Loading payment records...</span>
+                </div>
+              ) : payments.length > 0 ? (
                 <div>
                   <div className="flex justify-between items-center mb-1.5">
                     <p className={labelCls}>Payment History</p>
                     <button
                       type="button"
                       onClick={() => setTab('edit')}
-                      className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                      className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
                     >
                       <Edit3 size={11} /> Edit Payment Mode / Amount
                     </button>
@@ -595,7 +607,7 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                     ))}
                   </div>
                 </div>
-              )}
+              ) : null}
 
               {stay.roomHistory?.length > 0 && (
                 <div>
@@ -1514,10 +1526,19 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
       </div>
     )}
 
-    {/* 2-Option Delete Stay Confirmation Modal */}
-    {showDeleteModal && (
-      <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
-        <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-5 animate-in zoom-in-95">
+    {/* 2-Option Delete Stay Confirmation Modal (Decoupled Portal) */}
+    {showDeleteModal && createPortal(
+      <div 
+        className="fixed inset-0 z-[100000] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+        onClick={(e) => {
+          e.stopPropagation();
+          setShowDeleteModal(false);
+        }}
+      >
+        <div 
+          className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-5 animate-in zoom-in-95 text-left"
+          onClick={(e) => e.stopPropagation()}
+        >
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
               <div className="w-11 h-11 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 shadow-xs">
@@ -1532,7 +1553,10 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
             </div>
             <button
               type="button"
-              onClick={() => setShowDeleteModal(false)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowDeleteModal(false);
+              }}
               className="p-1.5 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
             >
               <X size={18} />
@@ -1546,7 +1570,10 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
 
             {/* Option 1: Soft / History-only Delete */}
             <div
-              onClick={() => setDeleteMode('history_only')}
+              onClick={(e) => {
+                e.stopPropagation();
+                setDeleteMode('history_only');
+              }}
               className={`p-4 rounded-2xl border-2 transition-all cursor-pointer ${
                 deleteMode === 'history_only'
                   ? 'border-amber-500 bg-amber-50/60 shadow-xs'
@@ -1559,6 +1586,7 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                   name="deleteMode"
                   checked={deleteMode === 'history_only'}
                   onChange={() => setDeleteMode('history_only')}
+                  onClick={(e) => e.stopPropagation()}
                   className="mt-1 h-4 w-4 text-amber-600 border-slate-300 focus:ring-amber-500 cursor-pointer"
                 />
                 <div className="flex-1 min-w-0">
@@ -1579,7 +1607,10 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
 
             {/* Option 2: Full Wipeout Delete */}
             <div
-              onClick={() => setDeleteMode('full')}
+              onClick={(e) => {
+                e.stopPropagation();
+                setDeleteMode('full');
+              }}
               className={`p-4 rounded-2xl border-2 transition-all cursor-pointer ${
                 deleteMode === 'full'
                   ? 'border-rose-600 bg-rose-50/70 shadow-xs'
@@ -1592,6 +1623,7 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                   name="deleteMode"
                   checked={deleteMode === 'full'}
                   onChange={() => setDeleteMode('full')}
+                  onClick={(e) => e.stopPropagation()}
                   className="mt-1 h-4 w-4 text-rose-600 border-slate-300 focus:ring-rose-500 cursor-pointer"
                 />
                 <div className="flex-1 min-w-0">
@@ -1614,7 +1646,10 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
           <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
             <button
               type="button"
-              onClick={() => setShowDeleteModal(false)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowDeleteModal(false);
+              }}
               disabled={isDeleting}
               className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer"
             >
@@ -1622,7 +1657,10 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
             </button>
             <button
               type="button"
-              onClick={handleDeleteStay}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteStay();
+              }}
               disabled={isDeleting}
               className={`px-5 py-2 text-xs font-black uppercase tracking-wider text-white rounded-xl transition-all shadow-md active:scale-95 cursor-pointer flex items-center gap-1.5 ${
                 deleteMode === 'full' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-amber-600 hover:bg-amber-700'
@@ -1639,7 +1677,8 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
             </button>
           </div>
         </div>
-      </div>
+      </div>,
+      document.body
     )}
   </div>,
   document.body
