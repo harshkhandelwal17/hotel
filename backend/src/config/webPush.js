@@ -36,8 +36,8 @@ const sendWebPushToUsers = async (userIds, payload = {}) => {
     const stringifiedPayload = JSON.stringify({
       title: payload.title || '🛎️ New Hotel Alert',
       body: payload.body || 'A new guest activity occurred.',
-      icon: payload.icon || '/favicon.svg',
-      badge: payload.badge || '/favicon.svg',
+      icon: payload.icon || '/logo-192.png',
+      badge: payload.badge || '/logo-192.png',
       tag: notifTag,
       vibrate: payload.vibrate || [300, 100, 300, 100, 300],
       silent: false,

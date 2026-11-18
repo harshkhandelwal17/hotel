@@ -532,11 +532,9 @@ const AppLayout = ({ children }) => {
             {/* Logo & Navigation */}
             <div className="flex items-center space-x-2 xl:space-x-4 min-w-0">
               <Link to={user?.role === 'superadmin' ? '/superadmin' : '/dashboard'} className="flex-shrink-0 flex items-center gap-2.5 sm:gap-3 mr-1 sm:mr-3">
-                <div className="w-9 h-9 bg-slate-950 text-white rounded-xl flex items-center justify-center font-bold shadow-xs shrink-0">
-                  <Hexagon size={18} className="stroke-[2.5]" />
-                </div>
+                <img src="/logo.png" alt="NXHotel Logo" className="w-9 h-9 rounded-xl object-contain shadow-xs shrink-0 bg-white border border-slate-200/80 p-0.5" />
                 <div className="flex items-center gap-1.5">
-                  <span className="font-extrabold text-slate-950 text-base tracking-tight">NX<span className="text-slate-400">Hotel</span></span>
+                  <span className="font-extrabold text-slate-950 text-base tracking-tight">NX<span className="text-emerald-600">Hotel</span></span>
                   <span className="hidden sm:inline-flex text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full border border-slate-200">
                     {user?.role === 'admin' ? 'Hotel Admin' : 'Front Desk'}
                   </span>
@@ -1210,10 +1208,8 @@ const AppLayout = ({ children }) => {
           <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white shadow-2xl animate-in slide-in-from-left duration-300">
             <div className="p-4 sm:p-5 border-b border-slate-100 flex justify-between items-center">
               <Link to={user?.role === 'superadmin' ? '/superadmin' : '/dashboard'} onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-2.5">
-                <div className="w-8 h-8 bg-slate-950 text-white rounded-xl flex items-center justify-center font-bold">
-                  <Hexagon className="stroke-[2.5] w-4 h-4" />
-                </div>
-                <span className="text-base font-extrabold tracking-tight text-slate-950">NX<span className="text-slate-400">Hotel</span></span>
+                <img src="/logo.png" alt="NXHotel Logo" className="w-8 h-8 rounded-xl object-contain shadow-xs shrink-0 bg-white border border-slate-200/80 p-0.5" />
+                <span className="text-base font-extrabold tracking-tight text-slate-950">NX<span className="text-emerald-600">Hotel</span></span>
               </Link>
               <button onClick={() => setIsMobileMenuOpen(false)} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
                 <X size={20} />

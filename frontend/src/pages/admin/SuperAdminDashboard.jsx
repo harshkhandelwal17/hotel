@@ -652,12 +652,10 @@ const SuperAdminDashboard = () => {
           <div className="flex items-center justify-between h-16 gap-2 sm:gap-3">
             {/* Left: Brand & Badge */}
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-              <div className="w-9 h-9 rounded-xl bg-slate-950 text-white flex items-center justify-center font-bold shadow-xs">
-                <Hexagon size={18} className="stroke-[2.5]" />
-              </div>
+              <img src="/logo.png" alt="NXHotel Logo" className="w-9 h-9 rounded-xl object-contain shadow-xs shrink-0 bg-white border border-slate-200/80 p-0.5" />
               <div>
                 <div className="flex items-center gap-1.5">
-                  <h1 className="font-extrabold text-slate-950 text-base tracking-tight">NX<span className="text-slate-400">Hotel</span></h1>
+                  <h1 className="font-extrabold text-slate-950 text-base tracking-tight">NX<span className="text-emerald-600">Hotel</span></h1>
                   <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 border border-slate-200">
                     Super Admin
                   </span>

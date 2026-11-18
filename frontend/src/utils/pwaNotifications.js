@@ -161,7 +161,7 @@ export const requestNotificationPermission = async () => {
 export const triggerDeviceNotification = async ({
   title = '🛎️ New Check-In Alert',
   body = '',
-  icon = '/favicon.svg',
+  icon = '/logo-192.png',
   data = { url: '/checkouts' },
   tag = 'nx-checkin'
 } = {}) => {

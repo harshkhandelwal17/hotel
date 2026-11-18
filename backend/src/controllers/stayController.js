@@ -232,8 +232,8 @@ exports.createStay = async (req, res, next) => {
       sendWebPushToUsers(Array.from(recipientIds), {
         title: `🛎️ New Check-In at ${hName}`,
         body: `Room ${rNum} • ${gName} checked in! Tariff: ₹${Number(totalAmount).toLocaleString('en-IN')}${advText}`,
-        icon: '/favicon.svg',
-        badge: '/favicon.svg',
+        icon: '/logo-192.png',
+        badge: '/logo-192.png',
         tag: `checkin-${stay._id}`,
         vibrate: [250, 100, 250, 100, 250],
         data: {
@@ -641,8 +641,8 @@ exports.checkout = async (req, res, next) => {
       sendWebPushToUsers(Array.from(recipientIds), {
         title: `🚪 Check-Out: ${hName}`,
         body: `Room ${rNum} checked out by ${gName}${settText}`,
-        icon: '/favicon.svg',
-        badge: '/favicon.svg',
+        icon: '/logo-192.png',
+        badge: '/logo-192.png',
         tag: `checkout-${stay._id}`,
         vibrate: [250, 100, 250, 100, 250],
         data: {

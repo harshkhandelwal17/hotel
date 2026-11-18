@@ -41,11 +41,9 @@ const Login = () => {
         <div className="absolute -top-20 -right-20 w-72 h-72 bg-white/5 rounded-full blur-2xl" />
         <div className="absolute -bottom-32 -left-16 w-80 h-80 bg-white/5 rounded-full blur-3xl" />
         
-        <div className="relative z-10 flex items-center gap-2.5">
-          <div className="w-9 h-9 bg-white text-slate-950 rounded-xl flex items-center justify-center font-bold shadow-xs">
-            <Hexagon size={18} className="stroke-[2.5]" />
-          </div>
-          <div className="text-white text-xl font-extrabold tracking-tight">NX<span className="text-slate-400">Hotel</span></div>
+        <div className="relative z-10 flex items-center gap-3">
+          <img src="/logo.png" alt="NXHotel Logo" className="w-11 h-11 rounded-2xl object-contain bg-white shadow-md p-1 shrink-0" />
+          <div className="text-white text-2xl font-extrabold tracking-tight">NX<span className="text-emerald-400">Hotel</span></div>
         </div>
         
         <div className="relative z-10 max-w-md">
@@ -80,11 +78,9 @@ const Login = () => {
           
           {/* Mobile Logo */}
           <div className="flex items-center gap-2.5 mb-8 lg:hidden">
-            <div className="w-8 h-8 bg-slate-950 text-white rounded-xl flex items-center justify-center font-bold">
-              <Hexagon size={16} className="stroke-[2.5]" />
-            </div>
-            <div className="text-slate-950 text-lg font-extrabold tracking-tight">
-              NX<span className="text-slate-400">Hotel</span>
+            <img src="/logo.png" alt="NXHotel Logo" className="w-9 h-9 rounded-xl object-contain bg-white shadow-xs p-0.5 border border-slate-100 shrink-0" />
+            <div className="text-slate-950 text-xl font-extrabold tracking-tight">
+              NX<span className="text-emerald-600">Hotel</span>
             </div>
           </div>
 

@@ -27,8 +27,8 @@ self.addEventListener('push', (event) => {
     const notifTag = data.tag || `nx-${Date.now()}`;
     const options = {
       body: data.body || 'A guest has checked in.',
-      icon: data.icon || '/favicon.svg',
-      badge: data.badge || '/favicon.svg',
+      icon: data.icon || '/logo-192.png',
+      badge: data.badge || '/logo-192.png',
       vibrate: data.vibrate || [300, 100, 300, 100, 300],
       tag: notifTag,
       renotify: true,
