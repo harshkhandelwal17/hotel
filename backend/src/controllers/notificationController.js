@@ -5,13 +5,20 @@ const Notification = require('../models/Notification');
 // @access  Private
 exports.getNotifications = async (req, res, next) => {
   try {
-    const filter = { recipient: req.user._id };
+    const filter = req.user.role === 'superadmin' 
+      ? {} 
+      : { recipient: req.user._id };
 
     if (req.query.unreadOnly === 'true') {
       filter.isRead = false;
     }
 
+    if (req.query.hostel && req.query.hostel !== 'all') {
+      filter.hostel = req.query.hostel;
+    }
+
     const limit = Math.min(parseInt(req.query.limit, 10) || 50, 100);
+    const countFilter = { ...filter, isRead: false };
 
     const [notifications, unreadCount] = await Promise.all([
       Notification.find(filter)
@@ -19,7 +26,7 @@ exports.getNotifications = async (req, res, next) => {
         .sort('-createdAt')
         .limit(limit)
         .lean(),
-      Notification.countDocuments({ recipient: req.user._id, isRead: false })
+      Notification.countDocuments(countFilter)
     ]);
 
     res.status(200).json({
@@ -38,8 +45,12 @@ exports.getNotifications = async (req, res, next) => {
 // @access  Private
 exports.markAsRead = async (req, res, next) => {
   try {
+    const query = req.user.role === 'superadmin'
+      ? { _id: req.params.id }
+      : { _id: req.params.id, recipient: req.user._id };
+
     const notification = await Notification.findOneAndUpdate(
-      { _id: req.params.id, recipient: req.user._id },
+      query,
       { $set: { isRead: true } },
       { new: true }
     );
@@ -59,8 +70,12 @@ exports.markAsRead = async (req, res, next) => {
 // @access  Private
 exports.markAllAsRead = async (req, res, next) => {
   try {
+    const filter = req.user.role === 'superadmin'
+      ? { isRead: false }
+      : { recipient: req.user._id, isRead: false };
+
     await Notification.updateMany(
-      { recipient: req.user._id, isRead: false },
+      filter,
       { $set: { isRead: true } }
     );
 

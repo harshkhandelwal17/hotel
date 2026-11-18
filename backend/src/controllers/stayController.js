@@ -193,19 +193,23 @@ exports.createStay = async (req, res, next) => {
       }
     }
 
-    // 🛎️ Trigger New Check-In Notification for Property Owner (Admin)
+    // 🛎️ Trigger New Check-In Notification for Property Owner & Admins
     try {
-      const hostelDoc = await Hostel.findById(hostel).select('name owner');
-      const targetRecipient = hostelDoc?.owner || req.user._id;
-      if (targetRecipient) {
-        const roomDoc = await Room.findById(room).select('roomNumber');
-        const rNum = roomDoc?.roomNumber || 'Room';
-        const gName = (guestDoc?.fullName || 'Guest').trim();
-        const hName = hostelDoc?.name || 'Hotel';
-        const advText = advance > 0 ? ` (Advance: ₹${Number(advance).toLocaleString('en-IN')})` : '';
+      const hostelDoc = await Hostel.findById(hostel).select('name owner createdBy');
+      const recipientIds = new Set();
+      if (hostelDoc?.owner) recipientIds.add(hostelDoc.owner.toString());
+      if (hostelDoc?.createdBy) recipientIds.add(hostelDoc.createdBy.toString());
+      if (req.user?.role === 'admin') recipientIds.add(req.user._id.toString());
+      if (recipientIds.size === 0 && req.user?._id) recipientIds.add(req.user._id.toString());
 
+      const rNum = roomDoc?.roomNumber || 'Room';
+      const gName = (guestDoc?.fullName || 'Guest').trim();
+      const hName = hostelDoc?.name || 'Hotel';
+      const advText = advance > 0 ? ` (Advance: ₹${Number(advance).toLocaleString('en-IN')})` : '';
+
+      for (const recId of recipientIds) {
         await Notification.create({
-          recipient: targetRecipient,
+          recipient: recId,
           hostel: hostelDoc ? hostelDoc._id : hostel,
           stay: stay._id,
           type: 'checkin',

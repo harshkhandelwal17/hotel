@@ -28,6 +28,7 @@ const AppLayout = ({ children }) => {
   const [activeNotifTab, setActiveNotifTab] = useState('checkins');
   const [devicePermission, setDevicePermission] = useState(getNotificationPermission());
   const lastNotifiedCheckInIdRef = useRef(sessionStorage.getItem('last_notified_checkin_id') || '');
+  const [liveCheckInToast, setLiveCheckInToast] = useState(null);
   const [showPoliceModal, setShowPoliceModal] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
@@ -101,6 +102,10 @@ const AppLayout = ({ children }) => {
             tag: `checkin-${latestUnread._id}`,
             data: { url: '/checkouts' }
           });
+
+          // 3. Show instant floating In-App toast banner
+          setLiveCheckInToast(latestUnread);
+          setTimeout(() => setLiveCheckInToast(null), 9000);
         }
       }
     } catch (err) {
@@ -149,6 +154,19 @@ const AppLayout = ({ children }) => {
       body: 'Room 204 • Harsh Khandelwal checked in (₹1,500 Paid). System alerts working perfectly!',
       tag: 'test-checkin'
     });
+    setLiveCheckInToast({
+      _id: 'test',
+      title: '🛎️ Test: Mobile Check-In Alert',
+      message: 'Room 204 • Harsh Khandelwal checked in (₹1,500 Paid)',
+      metadata: {
+        hotelName: 'Blue Star Hotel',
+        roomNumber: '204',
+        guestName: 'Harsh Khandelwal',
+        totalAmount: 1500,
+        paidAmount: 1500
+      }
+    });
+    setTimeout(() => setLiveCheckInToast(null), 9000);
   };
 
   // Global Keyboard Shortcuts (⌘K / Ctrl+K, single-key navigation & cheatsheet)
@@ -427,6 +445,52 @@ const AppLayout = ({ children }) => {
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] flex flex-col font-sans overflow-x-hidden w-full max-w-full">
+      {/* 🛎️ Instant Floating Check-In Notification Banner */}
+      {liveCheckInToast && (
+        <div className="fixed top-4 right-4 z-[999] max-w-sm w-[92vw] sm:w-[400px] bg-gray-950/95 backdrop-blur-md text-white p-3.5 rounded-2xl shadow-2xl border border-emerald-500/50 flex items-start gap-3 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shrink-0 shadow-md">
+            <BellRing size={20} className="animate-bounce" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 text-[10px] font-black uppercase rounded tracking-tight border border-emerald-500/30">
+                {liveCheckInToast.metadata?.hotelName || liveCheckInToast.hostel?.name || 'Hotel'}
+              </span>
+              <span className="text-[10px] text-gray-400 font-semibold">• Just Now</span>
+            </div>
+            <p className="text-xs font-black text-white mt-1 leading-snug">
+              Room {liveCheckInToast.metadata?.roomNumber || 'Room'} • <span className="text-emerald-300">{liveCheckInToast.metadata?.guestName || 'Guest'}</span>
+            </p>
+            <p className="text-[11px] text-gray-300 font-medium">
+              Tariff: <strong className="text-white">₹{Number(liveCheckInToast.metadata?.totalAmount || 0).toLocaleString('en-IN')}</strong>
+              {Number(liveCheckInToast.metadata?.paidAmount) > 0 && (
+                <span className="text-emerald-400 font-bold ml-1.5">
+                  (₹{Number(liveCheckInToast.metadata?.paidAmount).toLocaleString('en-IN')} Paid)
+                </span>
+              )}
+            </p>
+          </div>
+          <div className="flex flex-col gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setLiveCheckInToast(null);
+                navigate('/checkouts');
+              }}
+              className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer shadow-sm active:scale-95"
+            >
+              View
+            </button>
+            <button
+              type="button"
+              onClick={() => setLiveCheckInToast(null)}
+              className="text-[11px] text-gray-400 hover:text-white text-center py-0.5 cursor-pointer font-bold"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
       {isImpersonating && (
         <div className={`px-4 py-2 text-xs font-black uppercase tracking-widest flex items-center justify-between shadow-sm z-50 relative w-full text-white ${
           isSalesMode ? 'bg-indigo-600' : 'bg-orange-500'
