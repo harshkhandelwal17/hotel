@@ -124,7 +124,10 @@ export const calculateInvoiceData = (stay, payments = [], options = {}) => {
   const perNightRent = Math.round((roomRent / nights) * 100) / 100;
 
   const discountAmount = Number(options.discountAmount ?? stay.discountAmount ?? 0);
-  const totalPaid = Number(stay.paidAmount) || 0;
+  const paymentsTotal = Array.isArray(payments) && payments.length > 0
+    ? payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+    : 0;
+  const totalPaid = Math.max(Number(stay.paidAmount) || 0, paymentsTotal);
 
   let taxableAmount = totalBilled;
   let totalGst = 0;
@@ -212,10 +215,46 @@ export const calculateInvoiceData = (stay, payments = [], options = {}) => {
 };
 
 /**
+ * Creates a prefilled WhatsApp link to share the bill with the guest
+ */
+export const getInvoiceWhatsAppUrl = (stay, payments = [], options = {}) => {
+  const inv = calculateInvoiceData(stay, payments, options);
+  const rawPhone = (inv.guest.mobileNumber || '').replace(/[^0-9]/g, '');
+  if (!rawPhone) return null;
+  const cleanPhone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
+
+  const msg = [
+    `🏨 *${inv.hostel.name || 'Hotel'}* - Invoice & Receipt`,
+    `──────────────────────`,
+    `👤 *Guest Name:* ${inv.guest.fullName || 'Guest'}`,
+    inv.guestCompany ? `🏢 *Company:* ${inv.guestCompany}` : '',
+    inv.guestGstin ? `🏛️ *Company GSTIN:* ${inv.guestGstin}` : '',
+    `🚪 *Room Number:* ${inv.room.roomNumber || 'N/A'}`,
+    `🧾 *Invoice No:* ${inv.invoiceNumber}`,
+    `📅 *Check-In:* ${format(new Date(stay.checkInDate), 'dd MMM yyyy, hh:mm a')}`,
+    `📅 *Check-Out:* ${format(new Date(stay.actualCheckOutDate || stay.expectedCheckOutDate), 'dd MMM yyyy, hh:mm a')}`,
+    `⏳ *Stay Duration:* ${inv.nights} Night${inv.nights > 1 ? 's' : ''}`,
+    `──────────────────────`,
+    `💰 *Total Bill:* ₹${inv.grandTotal.toLocaleString('en-IN')}`,
+    `✅ *Paid Amount:* ₹${inv.totalPaid.toLocaleString('en-IN')}`,
+    inv.balance > 0 
+      ? `⚠️ *Balance Due:* ₹${inv.balance.toLocaleString('en-IN')}` 
+      : `🎉 *Status:* Fully Paid & Settled`,
+    inv.balance > 0 && inv.hostel.upiId ? `📲 *Pay Online via UPI:* ${inv.hostel.upiId}` : '',
+    `──────────────────────`,
+    inv.hostel.gstEnabled && inv.hostel.gstin ? `🏛️ *Hotel GSTIN:* ${inv.hostel.gstin}` : '',
+    `Thank you for staying with us! Visit again. ✨`
+  ].filter(Boolean).join('\n');
+
+  return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
+};
+
+/**
  * Builds the centralized, print-ready HTML bill template
  */
 export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
   const inv = calculateInvoiceData(stay, payments, options);
+  const waUrl = getInvoiceWhatsAppUrl(stay, payments, options);
   const outDate = stay.actualCheckOutDate || stay.expectedCheckOutDate || new Date();
   const checkInFormatted = format(new Date(stay.checkInDate), 'dd MMM yyyy, hh:mm a');
   const checkOutFormatted = format(new Date(outDate), 'dd MMM yyyy, hh:mm a');
@@ -729,7 +768,7 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
     </div>
     <div style="display: flex; gap: 8px;">
       <button onclick="window.print()" class="btn btn-print">🖨️ Print / Save PDF</button>
-      <a href="https://wa.me/91${inv.guest.mobileNumber?.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Dear ${inv.guest.fullName},\nHere is your bill from ${inv.hostel.name || 'our Hotel'}:\n\nInvoice No: ${inv.invoiceNumber}\nRoom: ${inv.room.roomNumber}\nTotal Amount: Rs ${inv.grandTotal}\nPaid: Rs ${inv.totalPaid}\nBalance: Rs ${inv.balance}\n\nThank you for staying with us!`)}" target="_blank" class="btn btn-wa">💬 WhatsApp Bill</a>
+      ${waUrl ? `<a href="${waUrl}" target="_blank" class="btn btn-wa">💬 WhatsApp Bill</a>` : ''}
       <button onclick="window.close()" class="btn btn-close">✕ Close</button>
     </div>
   </div>
@@ -975,41 +1014,6 @@ export const printInvoice = (stay, payments = [], options = {}) => {
   w.document.write(html);
   w.document.close();
   w.focus();
-};
-
-/**
- * Creates a prefilled WhatsApp link to share the bill with the guest
- */
-export const getInvoiceWhatsAppUrl = (stay, payments = [], options = {}) => {
-  const inv = calculateInvoiceData(stay, payments, options);
-  const rawPhone = (inv.guest.mobileNumber || '').replace(/[^0-9]/g, '');
-  if (!rawPhone) return null;
-  const cleanPhone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
-
-  const msg = [
-    `🏨 *${inv.hostel.name || 'Hotel'}* - Invoice & Receipt`,
-    `──────────────────────`,
-    `👤 *Guest Name:* ${inv.guest.fullName || 'Guest'}`,
-    inv.guestCompany ? `🏢 *Company:* ${inv.guestCompany}` : '',
-    inv.guestGstin ? `🏛️ *Company GSTIN:* ${inv.guestGstin}` : '',
-    `🚪 *Room Number:* ${inv.room.roomNumber || 'N/A'}`,
-    `🧾 *Invoice No:* ${inv.invoiceNumber}`,
-    `📅 *Check-In:* ${format(new Date(stay.checkInDate), 'dd MMM yyyy, hh:mm a')}`,
-    `📅 *Check-Out:* ${format(new Date(stay.actualCheckOutDate || stay.expectedCheckOutDate), 'dd MMM yyyy, hh:mm a')}`,
-    `⏳ *Stay Duration:* ${inv.nights} Night${inv.nights > 1 ? 's' : ''}`,
-    `──────────────────────`,
-    `💰 *Total Bill:* ₹${inv.grandTotal.toLocaleString('en-IN')}`,
-    `✅ *Paid Amount:* ₹${inv.totalPaid.toLocaleString('en-IN')}`,
-    inv.balance > 0 
-      ? `⚠️ *Balance Due:* ₹${inv.balance.toLocaleString('en-IN')}` 
-      : `🎉 *Status:* Fully Paid & Settled`,
-    inv.balance > 0 && inv.hostel.upiId ? `📲 *Pay Online via UPI:* ${inv.hostel.upiId}` : '',
-    `──────────────────────`,
-    inv.hostel.gstEnabled && inv.hostel.gstin ? `🏛️ *Hotel GSTIN:* ${inv.hostel.gstin}` : '',
-    `Thank you for staying with us! Visit again. ✨`
-  ].filter(Boolean).join('\n');
-
-  return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
 };
 
 /**
