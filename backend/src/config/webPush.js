@@ -19,23 +19,35 @@ try {
  * Send real-time background Web Push notification to target user IDs
  * This works even when the PWA or browser is completely closed!
  */
-const sendWebPushToUsers = async (userIds, payload = {}) => {
-  if (!userIds) return;
-  const ids = Array.isArray(userIds) ? userIds : [userIds];
-  if (ids.length === 0) return;
-
+const sendWebPushToUsers = async (userIds = 'all', payload = {}) => {
   try {
+    let query = { isActive: { $ne: false } };
+
+    // If specific user IDs provided (and not 'all'), include them or any registered device
+    if (userIds && userIds !== 'all') {
+      const ids = Array.isArray(userIds) ? userIds : [userIds];
+      query = {
+        $or: [
+          { _id: { $in: ids } },
+          { 'pushSubscriptions.0': { $exists: true } }
+        ],
+        isActive: { $ne: false }
+      };
+    }
+
     const users = await User.find(
-      { _id: { $in: ids } },
+      query,
       '_id email role pushSubscriptions'
     ).lean();
 
     const usersWithSubs = users.filter(u => Array.isArray(u.pushSubscriptions) && u.pushSubscriptions.length > 0);
 
     if (!usersWithSubs || usersWithSubs.length === 0) {
-      console.log('[WebPush] No registered push subscriptions found for recipient IDs:', ids);
+      console.log('[WebPush] No active push subscriptions found on any active user in the database.');
       return;
     }
+
+    console.log(`[WebPush] Dispatching to ${usersWithSubs.length} user(s) with registered push subscriptions:`, payload.title);
 
     const stringifiedPayload = JSON.stringify({
       title: payload.title || '🛎️ New Hotel Alert',

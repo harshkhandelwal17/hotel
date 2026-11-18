@@ -194,14 +194,13 @@ exports.createStay = async (req, res, next) => {
       }
     }
 
-    // 🛎️ Trigger New Check-In Notification for Property Owner & Admins
+    // 🛎️ Trigger New Check-In Notification for Property Owner, Admins & All Staff
     try {
       const hostelDoc = await Hostel.findById(hostel).select('name owner createdBy');
       const recipientIds = new Set();
       if (hostelDoc?.owner) recipientIds.add(hostelDoc.owner.toString());
       if (hostelDoc?.createdBy) recipientIds.add(hostelDoc.createdBy.toString());
-      if (req.user?.role === 'admin') recipientIds.add(req.user._id.toString());
-      if (recipientIds.size === 0 && req.user?._id) recipientIds.add(req.user._id.toString());
+      if (req.user?._id) recipientIds.add(req.user._id.toString());
 
       // Also notify all active superadmins and admins
       const adminUsers = await User.find({
@@ -222,30 +221,10 @@ exports.createStay = async (req, res, next) => {
       const hName = hostelDoc?.name || 'Hotel';
       const advText = advance > 0 ? ` (Advance: ₹${Number(advance).toLocaleString('en-IN')})` : '';
 
-      for (const recId of recipientIds) {
-        await Notification.create({
-          recipient: recId,
-          hostel: hostelDoc ? hostelDoc._id : hostel,
-          stay: stay._id,
-          type: 'checkin',
-          title: `🛎️ New Check-In at ${hName}`,
-          message: `Room ${rNum} • ${gName} checked in! Tariff: ₹${Number(totalAmount).toLocaleString('en-IN')}${advText}`,
-          metadata: {
-            hotelName: hName,
-            roomNumber: String(rNum),
-            guestName: gName,
-            guestPhone: guestDoc?.mobileNumber || '',
-            totalAmount: Number(totalAmount) || 0,
-            paidAmount: Number(advance) || 0,
-            stayId: stay._id.toString()
-          }
-        });
-      }
-
-      // 📲 Dispatch Background Web Push (Wakes up Mobile PWA even when closed)
+      // 📲 1. Dispatch Background Web Push IMMEDIATELY (Wakes up mobile even when closed!)
       sendWebPushToUsers(Array.from(recipientIds), {
-        title: `🛎️ New Check-In at ${hName}`,
-        body: `Room ${rNum} • ${gName} checked in! Tariff: ₹${Number(totalAmount).toLocaleString('en-IN')}${advText}`,
+        title: `🛎️ New Check-In: Room ${rNum}`,
+        body: `${hName} • ${gName} checked in (Tariff: ₹${Number(totalAmount).toLocaleString('en-IN')}${advText})`,
         icon: '/logo-192.png',
         badge: '/logo-192.png',
         tag: `checkin-${stay._id}`,
@@ -255,7 +234,32 @@ exports.createStay = async (req, res, next) => {
           stayId: stay._id.toString(),
           hotelName: hName
         }
-      });
+      }).catch(err => console.error('[WebPush] Check-in push error:', err));
+
+      // 📥 2. Save in-app notification record for unread bell counts
+      for (const recId of recipientIds) {
+        try {
+          await Notification.create({
+            recipient: recId,
+            hostel: hostelDoc ? hostelDoc._id : hostel,
+            stay: stay._id,
+            type: 'checkin',
+            title: `🛎️ New Check-In at ${hName}`,
+            message: `Room ${rNum} • ${gName} checked in! Tariff: ₹${Number(totalAmount).toLocaleString('en-IN')}${advText}`,
+            metadata: {
+              hotelName: hName,
+              roomNumber: String(rNum),
+              guestName: gName,
+              guestPhone: guestDoc?.mobileNumber || '',
+              totalAmount: Number(totalAmount) || 0,
+              paidAmount: Number(advance) || 0,
+              stayId: stay._id.toString()
+            }
+          });
+        } catch (singleErr) {
+          // Ignore individual duplicate / error
+        }
+      }
     } catch (notifErr) {
       console.error('Failed to create check-in notification:', notifErr.message);
     }
@@ -622,8 +626,7 @@ exports.checkout = async (req, res, next) => {
       const recipientIds = new Set();
       if (hostelDoc?.owner) recipientIds.add(hostelDoc.owner.toString());
       if (hostelDoc?.createdBy) recipientIds.add(hostelDoc.createdBy.toString());
-      if (req.user?.role === 'admin') recipientIds.add(req.user._id.toString());
-      if (recipientIds.size === 0 && req.user?._id) recipientIds.add(req.user._id.toString());
+      if (req.user?._id) recipientIds.add(req.user._id.toString());
 
       // Also notify all active superadmins and admins
       const adminUsers = await User.find({
@@ -645,30 +648,10 @@ exports.checkout = async (req, res, next) => {
       const settledAmount = Number(checkoutPayment) || 0;
       const settText = settledAmount > 0 ? ` • Settled ₹${settledAmount.toLocaleString('en-IN')}` : ' • Settled';
 
-      for (const recId of recipientIds) {
-        await Notification.create({
-          recipient: recId,
-          hostel: hostelDoc ? hostelDoc._id : stay.hostel,
-          stay: stay._id,
-          type: 'checkout',
-          title: `🚪 Check-Out: ${hName}`,
-          message: `Room ${rNum} checked out by ${gName}${settText}`,
-          metadata: {
-            hotelName: hName,
-            roomNumber: String(rNum),
-            guestName: gName,
-            guestPhone: populated?.guest?.mobileNumber || '',
-            totalAmount: Number(stay.totalAmount) || 0,
-            paidAmount: settledAmount,
-            stayId: stay._id.toString()
-          }
-        });
-      }
-
-      // 📲 Dispatch Background Web Push (Wakes up Mobile PWA even when closed)
+      // 📲 1. Dispatch Background Web Push IMMEDIATELY (Wakes up mobile even when closed!)
       sendWebPushToUsers(Array.from(recipientIds), {
-        title: `🚪 Check-Out: ${hName}`,
-        body: `Room ${rNum} checked out by ${gName}${settText}`,
+        title: `🚪 Check-Out: Room ${rNum}`,
+        body: `${hName} • Room ${rNum} checked out by ${gName}${settText}`,
         icon: '/logo-192.png',
         badge: '/logo-192.png',
         tag: `checkout-${stay._id}`,
@@ -678,7 +661,32 @@ exports.checkout = async (req, res, next) => {
           stayId: stay._id.toString(),
           hotelName: hName
         }
-      });
+      }).catch(err => console.error('[WebPush] Checkout push error:', err));
+
+      // 📥 2. Save in-app notification record for unread bell counts
+      for (const recId of recipientIds) {
+        try {
+          await Notification.create({
+            recipient: recId,
+            hostel: hostelDoc ? hostelDoc._id : stay.hostel,
+            stay: stay._id,
+            type: 'checkout',
+            title: `🚪 Check-Out: ${hName}`,
+            message: `Room ${rNum} checked out by ${gName}${settText}`,
+            metadata: {
+              hotelName: hName,
+              roomNumber: String(rNum),
+              guestName: gName,
+              guestPhone: populated?.guest?.mobileNumber || '',
+              totalAmount: Number(stay.totalAmount) || 0,
+              paidAmount: settledAmount,
+              stayId: stay._id.toString()
+            }
+          });
+        } catch (singleErr) {
+          // Ignore individual duplicate / error
+        }
+      }
     } catch (notifErr) {
       console.error('Failed to create check-out notification:', notifErr.message);
     }
