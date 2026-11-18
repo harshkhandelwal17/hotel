@@ -5,7 +5,8 @@ import { format, isPast, isToday } from 'date-fns';
 import CheckoutModal from './CheckoutModal';
 import StayManageModal from './StayManageModal';
 import MergedCorporateInvoiceModal from '../../components/MergedCorporateInvoiceModal';
-import { Users, Clock, Download, AlertTriangle, Search, ChevronRight, Phone, MessageSquare, Building2, Check } from 'lucide-react';
+import { Users, Clock, Download, AlertTriangle, Search, ChevronRight, Phone, MessageSquare, Building2, Check, CheckCircle2, Printer, Share2, X } from 'lucide-react';
+import { printInvoice } from '../../utils/invoice';
 import { apiCache } from '../../utils/apiCache';
 import { useLanguage } from '../../context/LanguageContext';
 import { getStayWhatsAppUrl } from '../../utils/whatsapp';
@@ -18,6 +19,7 @@ const CheckoutList = () => {
   const [managedStay, setManagedStay] = useState(null);
   const [selectedStayIdsForMerge, setSelectedStayIdsForMerge] = useState([]);
   const [showMergedModal, setShowMergedModal] = useState(false);
+  const [checkoutSuccessToast, setCheckoutSuccessToast] = useState(null);
   const [filter, setFilter] = useState('all'); // 'all', 'overdue', 'today', 'active'
   const [search, setSearch] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
@@ -347,12 +349,66 @@ const CheckoutList = () => {
         <CheckoutModal
           stay={selectedStay}
           onClose={() => setSelectedStay(null)}
-          onSuccess={() => {
+          onSuccess={(completedStay, stayPayments) => {
+            // Close modal immediately so it never lingers or reappears
             setSelectedStay(null);
             setManagedStay(null);
             fetchStays(true);
+            setCheckoutSuccessToast({
+              stay: completedStay,
+              payments: stayPayments || []
+            });
+            setTimeout(() => setCheckoutSuccessToast(null), 15000);
           }}
         />
+      )}
+
+      {/* Floating Success Toast when a checkout finishes - One-click Print Bill & WhatsApp without blocking the UI */}
+      {checkoutSuccessToast && (
+        <div className="fixed bottom-6 right-4 sm:right-6 z-[9999] bg-slate-900 text-white p-4 sm:p-5 rounded-2xl shadow-2xl border border-slate-700 max-w-sm sm:max-w-md w-[92%] sm:w-auto animate-in slide-in-from-bottom-5 duration-300">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                <CheckCircle2 size={22} />
+              </div>
+              <div>
+                <h4 className="font-black text-sm text-white">
+                  Room {checkoutSuccessToast.stay?.room?.roomNumber} Checked Out!
+                </h4>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {checkoutSuccessToast.stay?.guest?.fullName} &bull; ₹{checkoutSuccessToast.stay?.totalAmount} settled
+                </p>
+              </div>
+            </div>
+            <button 
+              type="button"
+              onClick={() => setCheckoutSuccessToast(null)}
+              className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          
+          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-800">
+            <button
+              type="button"
+              onClick={() => printInvoice(checkoutSuccessToast.stay, checkoutSuccessToast.payments)}
+              className="flex-1 py-2 px-3 bg-white hover:bg-slate-100 text-slate-900 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-xs"
+            >
+              <Printer size={13} /> Print Bill
+            </button>
+            {checkoutSuccessToast.stay?.guest?.mobileNumber && (
+              <a
+                href={getStayWhatsAppUrl(checkoutSuccessToast.stay, 'bill') || `https://wa.me/${checkoutSuccessToast.stay.guest.mobileNumber.replace(/\D/g, '')}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all active:scale-95 text-center cursor-pointer shadow-xs"
+              >
+                <Share2 size={13} /> WhatsApp
+              </a>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Floating Action Banner when rooms are checked for merge */}

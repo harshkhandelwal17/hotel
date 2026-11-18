@@ -85,11 +85,19 @@ const CheckoutModal = ({ stay, onClose, onSuccess }) => {
       apiCache.invalidate();
       window.dispatchEvent(new Event('hotelDataInvalidated'));
       
-      // Keep completed stay and show print/WhatsApp success screen
-      setCompletedStay(res.data.data);
-      setPayments(res.data.payments || []);
-      setCheckoutComplete(true);
-      setLoading(false);
+      const completed = res.data.data || stay;
+      const stayPayments = res.data.payments || [];
+
+      // If parent supplied onSuccess callback, close immediately and hand off to parent toast/list
+      if (onSuccess) {
+        onSuccess(completed, stayPayments);
+      } else {
+        // Fallback: Show print/WhatsApp success screen inside modal
+        setCompletedStay(completed);
+        setPayments(stayPayments);
+        setCheckoutComplete(true);
+        setLoading(false);
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to checkout. Please try again.');
       setLoading(false);
