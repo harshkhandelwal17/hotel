@@ -23,14 +23,11 @@ const sendWebPushToUsers = async (userIds = 'all', payload = {}) => {
   try {
     let query = { isActive: { $ne: false } };
 
-    // If specific user IDs provided (and not 'all'), include them or any registered device
+    // If specific user IDs provided (and not 'all'), ONLY deliver strictly to those target users
     if (userIds && userIds !== 'all') {
-      const ids = Array.isArray(userIds) ? userIds : [userIds];
+      const ids = (Array.isArray(userIds) ? userIds : [userIds]).map(id => id.toString());
       query = {
-        $or: [
-          { _id: { $in: ids } },
-          { 'pushSubscriptions.0': { $exists: true } }
-        ],
+        _id: { $in: ids },
         isActive: { $ne: false }
       };
     }
@@ -77,7 +74,8 @@ const sendWebPushToUsers = async (userIds = 'all', payload = {}) => {
 
         pushPromises.push(
           webpush.sendNotification(pushSub, stringifiedPayload, {
-            TTL: 60 * 60 * 24 // 24 hours
+            TTL: 60 * 60 * 24 * 28, // 28 days (Max standard TTL - queues and delivers even if phone/browser was closed for 10-25 days)
+            urgency: 'high'
           }).then(res => {
             console.log(`[WebPush] Push delivered to user ${u.email} (${u.role}) - status ${res?.statusCode || 201}`);
           }).catch(err => {

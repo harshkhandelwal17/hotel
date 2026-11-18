@@ -23,6 +23,50 @@ const roomOverlapFilter = (roomId, checkInDate, expectedCheckOutDate, excludeSta
   return filter;
 };
 
+/**
+ * Resolve recipients strictly belonging to THIS specific hotel property.
+ * Prevents cross-property leakage so other hotel owners (role: 'admin') NEVER receive alerts of another hotel!
+ */
+const getHotelPropertyNotificationRecipients = async (hostelId, reqUser = null) => {
+  const recipientIds = new Set();
+  try {
+    const rawId = typeof hostelId === 'object' && hostelId !== null
+      ? (hostelId._id || hostelId)
+      : hostelId;
+
+    const hostelDoc = await Hostel.findById(rawId).select('name owner createdBy');
+    if (hostelDoc?.owner) recipientIds.add(hostelDoc.owner.toString());
+    if (hostelDoc?.createdBy) recipientIds.add(hostelDoc.createdBy.toString());
+
+    // Staff / receptionists assigned strictly to THIS hotel
+    const staff = await User.find({
+      assignedHostel: rawId,
+      isActive: { $ne: false }
+    }, '_id').lean();
+    staff.forEach(s => recipientIds.add(s._id.toString()));
+
+    // User who performed the check-in / check-out
+    if (reqUser?._id) {
+      recipientIds.add(reqUser._id.toString());
+    }
+
+    // Platform Super Admin (platform master overseer only - NEVER other hotel admins!)
+    const superAdmins = await User.find({
+      role: 'superadmin',
+      isActive: { $ne: false }
+    }, '_id').lean();
+    superAdmins.forEach(sa => recipientIds.add(sa._id.toString()));
+
+    return {
+      recipientIds: Array.from(recipientIds),
+      hostelDoc
+    };
+  } catch (err) {
+    console.warn('Error resolving hotel notification recipients:', err.message);
+    return { recipientIds: [], hostelDoc: null };
+  }
+};
+
 exports.createStay = async (req, res, next) => {
   try {
     const {
@@ -195,27 +239,9 @@ exports.createStay = async (req, res, next) => {
       }
     }
 
-    // 🛎️ Trigger New Check-In Notification for Property Owner, Admins & All Staff
+    // 🛎️ Trigger New Check-In Notification strictly for THIS Property's Owner & Staff
     try {
-      const hostelDoc = await Hostel.findById(hostel).select('name owner createdBy');
-      const recipientIds = new Set();
-      if (hostelDoc?.owner) recipientIds.add(hostelDoc.owner.toString());
-      if (hostelDoc?.createdBy) recipientIds.add(hostelDoc.createdBy.toString());
-      if (req.user?._id) recipientIds.add(req.user._id.toString());
-
-      // Also notify all active superadmins and admins
-      const adminUsers = await User.find({
-        role: { $in: ['superadmin', 'admin'] },
-        isActive: { $ne: false }
-      }, '_id').lean();
-      adminUsers.forEach(u => recipientIds.add(u._id.toString()));
-
-      // Also notify any staff/receptionist assigned to this hostel
-      const assignedStaff = await User.find({
-        assignedHostel: stay.hostel,
-        isActive: { $ne: false }
-      }, '_id').lean();
-      assignedStaff.forEach(st => recipientIds.add(st._id.toString()));
+      const { recipientIds, hostelDoc } = await getHotelPropertyNotificationRecipients(hostel, req.user);
 
       const rNum = roomDoc?.roomNumber || 'Room';
       const gName = (guestDoc?.fullName || 'Guest').trim();
@@ -633,27 +659,9 @@ exports.checkout = async (req, res, next) => {
       .populate('room', 'roomNumber price24h extraPerPerson24h')
       .populate('hostel', 'name address contactNumber email upiId upiPayeeName gstEnabled gstin taxInclusive gstRate hsnSacCode state stateCode invoicePrefix billTerms autoApplyGstOnCheckin');
 
-    // 🚪 Trigger Check-Out Notification for Property Owner & Admins
+    // 🚪 Trigger Check-Out Notification strictly for THIS Property's Owner & Staff
     try {
-      const hostelDoc = await Hostel.findById(stay.hostel).select('name owner createdBy');
-      const recipientIds = new Set();
-      if (hostelDoc?.owner) recipientIds.add(hostelDoc.owner.toString());
-      if (hostelDoc?.createdBy) recipientIds.add(hostelDoc.createdBy.toString());
-      if (req.user?._id) recipientIds.add(req.user._id.toString());
-
-      // Also notify all active superadmins and admins
-      const adminUsers = await User.find({
-        role: { $in: ['superadmin', 'admin'] },
-        isActive: { $ne: false }
-      }, '_id').lean();
-      adminUsers.forEach(u => recipientIds.add(u._id.toString()));
-
-      // Also notify any staff/receptionist assigned to this hostel
-      const assignedStaff = await User.find({
-        assignedHostel: stay.hostel,
-        isActive: { $ne: false }
-      }, '_id').lean();
-      assignedStaff.forEach(st => recipientIds.add(st._id.toString()));
+      const { recipientIds, hostelDoc } = await getHotelPropertyNotificationRecipients(stay.hostel, req.user);
 
       const rNum = populated?.room?.roomNumber || 'Room';
       const gName = (populated?.guest?.fullName || 'Guest').trim();
@@ -1494,25 +1502,9 @@ exports.createGroupStay = async (req, res, next) => {
       }
     }
 
-    // 6. Dispatch Web Push Notifications to Staff & Owner
+    // 6. Dispatch Web Push Notifications strictly to THIS Property's Staff & Owner
     try {
-      const hostelDoc = await Hostel.findById(hostel).select('name owner createdBy');
-      const recipientIds = new Set();
-      if (hostelDoc?.owner) recipientIds.add(hostelDoc.owner.toString());
-      if (hostelDoc?.createdBy) recipientIds.add(hostelDoc.createdBy.toString());
-      if (req.user?._id) recipientIds.add(req.user._id.toString());
-
-      const adminUsers = await User.find({
-        role: { $in: ['superadmin', 'admin'] },
-        isActive: { $ne: false }
-      }, '_id').lean();
-      adminUsers.forEach(u => recipientIds.add(u._id.toString()));
-
-      const assignedStaff = await User.find({
-        assignedHostel: hostel,
-        isActive: { $ne: false }
-      }, '_id').lean();
-      assignedStaff.forEach(st => recipientIds.add(st._id.toString()));
+      const { recipientIds, hostelDoc } = await getHotelPropertyNotificationRecipients(hostel, req.user);
 
       const roomNumbersList = roomDocs.map(r => r.roomNumber).join(', ');
       const hName = hostelDoc?.name || 'Hotel';
@@ -1523,8 +1515,32 @@ exports.createGroupStay = async (req, res, next) => {
         body: `${hName} • Rooms: ${roomNumbersList} • Total: ₹${Number(groupGrandTotal).toLocaleString('en-IN')}${advText}`,
         icon: '/logo-192.png',
         badge: '/logo-192.png',
-        url: '/receptionist/rooms'
+        tag: `grp-checkin-${groupId}`,
+        vibrate: [250, 100, 250, 100, 250],
+        data: { url: '/receptionist/rooms' }
       }).catch(err => console.warn('Group WebPush failed:', err.message));
+
+      // Save in-app notification record for bell counts
+      for (const recId of recipientIds) {
+        try {
+          await Notification.create({
+            recipient: recId,
+            hostel,
+            stay: leaderStay._id,
+            type: 'checkin',
+            title: `🏢 Group Check-In: ${resolvedGroupName}`,
+            message: `${hName} • Rooms: ${roomNumbersList} • Total: ₹${Number(groupGrandTotal).toLocaleString('en-IN')}${advText}`,
+            metadata: {
+              hotelName: hName,
+              groupName: resolvedGroupName,
+              totalAmount: Number(groupGrandTotal) || 0,
+              paidAmount: Number(advance) || 0,
+              roomCount: rooms.length,
+              stayId: leaderStay._id.toString()
+            }
+          });
+        } catch (singleErr) {}
+      }
     } catch (notifErr) {
       console.warn('Group notification dispatch warning:', notifErr.message);
     }
@@ -1728,25 +1744,9 @@ exports.groupCheckout = async (req, res, next) => {
       });
     }
 
-    // 3. Dispatch Web Push for Group Checkout
+    // 3. Dispatch Web Push for Group Checkout strictly to THIS Property's Staff & Owner
     try {
-      const hostelDoc = await Hostel.findById(hostelId).select('name owner createdBy');
-      const recipientIds = new Set();
-      if (hostelDoc?.owner) recipientIds.add(hostelDoc.owner.toString());
-      if (hostelDoc?.createdBy) recipientIds.add(hostelDoc.createdBy.toString());
-      if (req.user?._id) recipientIds.add(req.user._id.toString());
-
-      const adminUsers = await User.find({
-        role: { $in: ['superadmin', 'admin'] },
-        isActive: { $ne: false }
-      }, '_id').lean();
-      adminUsers.forEach(u => recipientIds.add(u._id.toString()));
-
-      const assignedStaff = await User.find({
-        assignedHostel: hostelId,
-        isActive: { $ne: false }
-      }, '_id').lean();
-      assignedStaff.forEach(st => recipientIds.add(st._id.toString()));
+      const { recipientIds, hostelDoc } = await getHotelPropertyNotificationRecipients(hostelId, req.user);
 
       const hName = hostelDoc?.name || 'Hotel';
       const gName = leaderStay.groupName || 'Group';
@@ -1756,8 +1756,31 @@ exports.groupCheckout = async (req, res, next) => {
         body: `${hName} • Checked out ${activeStays.length} rooms • Payment received: ₹${Number(payAmt).toLocaleString('en-IN')}`,
         icon: '/logo-192.png',
         badge: '/logo-192.png',
-        url: '/receptionist/rooms'
+        tag: `grp-checkout-${groupId}`,
+        vibrate: [250, 100, 250, 100, 250],
+        data: { url: '/receptionist/rooms' }
       }).catch(err => console.warn('Group Checkout Push failed:', err.message));
+
+      // Save in-app notification record for bell counts
+      for (const recId of recipientIds) {
+        try {
+          await Notification.create({
+            recipient: recId,
+            hostel: hostelId,
+            stay: leaderStay._id,
+            type: 'checkout',
+            title: `🚪 Group Check-Out: ${gName}`,
+            message: `${hName} • Checked out ${activeStays.length} rooms • Payment: ₹${Number(payAmt).toLocaleString('en-IN')}`,
+            metadata: {
+              hotelName: hName,
+              groupName: gName,
+              roomCount: activeStays.length,
+              settledAmount: Number(payAmt) || 0,
+              stayId: leaderStay._id.toString()
+            }
+          });
+        } catch (singleErr) {}
+      }
     } catch (notifErr) {
       console.warn('Group checkout notification warning:', notifErr.message);
     }

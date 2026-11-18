@@ -125,9 +125,19 @@ exports.testPushNotification = async (req, res, next) => {
 // @access  Private
 exports.getNotifications = async (req, res, next) => {
   try {
+    const Hostel = require('../models/Hostel');
     const filter = req.user.role === 'superadmin' 
       ? {} 
       : { recipient: req.user._id };
+
+    // Enforce strict hotel boundary: never leak other hotels to an admin or receptionist
+    if (req.user.role === 'admin') {
+      const myHostels = await Hostel.find({ owner: req.user._id }).select('_id');
+      const hostelIds = myHostels.map(h => h._id);
+      filter.hostel = { $in: hostelIds };
+    } else if (req.user.role === 'receptionist' && req.user.assignedHostel) {
+      filter.hostel = req.user.assignedHostel;
+    }
 
     if (req.query.unreadOnly === 'true') {
       filter.isRead = false;

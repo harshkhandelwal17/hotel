@@ -38,7 +38,7 @@ self.addEventListener('push', (event) => {
     icon: data.icon || '/logo-192.png',
     badge: data.badge || '/logo-192.png',
     vibrate: data.vibrate || [250, 100, 250, 100, 250],
-    tag: data.tag || 'nx-checkin',
+    tag: data.tag || ('nx-' + Date.now()),
     renotify: true,
     data: data.data || { url: '/checkouts' }
   };
