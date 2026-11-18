@@ -2,11 +2,12 @@ import React, { useContext, useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
-import { Home, Users, Bed, LogOut, Bell, PlusCircle, Building, CreditCard, BarChart3, Hexagon, ShieldCheck, Menu, X, ShieldAlert, LayoutGrid, Volume2, VolumeX, Phone, BellRing, ChevronDown, Shirt, Keyboard, Search, Globe, CheckCheck, CheckCircle2, Smartphone, Sparkles, MessageSquare, Trash2 } from 'lucide-react';
+import { Home, Users, Bed, LogOut, Bell, PlusCircle, Building, CreditCard, BarChart3, Hexagon, ShieldCheck, Menu, X, ShieldAlert, LayoutGrid, Volume2, VolumeX, Phone, BellRing, ChevronDown, Shirt, Keyboard, Search, Globe, CheckCheck, CheckCircle2, Smartphone, Sparkles, MessageSquare, Trash2, KeyRound } from 'lucide-react';
 import GlobalSearch from '../common/GlobalSearch';
 import CommandPalette from '../common/CommandPalette';
 import ShortcutsModal from '../common/ShortcutsModal';
 import LanguageSettingsModal from '../common/LanguageSettingsModal';
+import ChangePasswordModal from '../common/ChangePasswordModal';
 import soundAlert from '../../utils/soundAlert';
 import PoliceReportModal from '../../pages/admin/PoliceReportModal';
 import { apiCache, prefetchRoute } from '../../utils/apiCache';
@@ -35,6 +36,7 @@ const AppLayout = ({ children }) => {
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
   const [showLangModal, setShowLangModal] = useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
@@ -1216,6 +1218,18 @@ const AppLayout = ({ children }) => {
                       </button>
                     </div>
 
+                    {/* Password & Security */}
+                    <div className="border-t border-gray-100 pt-1 mt-1">
+                      <button
+                        type="button"
+                        onClick={() => { setIsUserMenuOpen(false); setShowChangePasswordModal(true); }}
+                        className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50 hover:text-black transition-colors text-left cursor-pointer"
+                      >
+                        <KeyRound size={15} className="text-amber-600 shrink-0" />
+                        <span>{isHindi ? 'पासवर्ड बदलें (सुरक्षा)' : 'Change Password'}</span>
+                      </button>
+                    </div>
+
                     {/* Sign Out */}
                     <div className="border-t border-gray-100 pt-1 mt-1">
                       <button
@@ -1377,6 +1391,15 @@ const AppLayout = ({ children }) => {
                     {isHindi ? 'हिंदी' : 'English'}
                   </span>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setIsMobileMenuOpen(false); setShowChangePasswordModal(true); }}
+                  className="w-full mt-2 flex items-center gap-2.5 px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-xl text-sm font-bold text-gray-800 border border-gray-200 transition-colors"
+                >
+                  <KeyRound size={18} className="text-amber-600" />
+                  <span>{isHindi ? 'पासवर्ड बदलें (सुरक्षा)' : 'Change Password'}</span>
+                </button>
               </div>
             </nav>
             
@@ -1458,6 +1481,13 @@ const AppLayout = ({ children }) => {
       <LanguageSettingsModal
         isOpen={showLangModal}
         onClose={() => setShowLangModal(false)}
+      />
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={showChangePasswordModal}
+        onClose={() => setShowChangePasswordModal(false)}
+        user={user}
       />
       
     </div>

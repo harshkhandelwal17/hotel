@@ -78,3 +78,51 @@ exports.deleteUser = async (req, res, next) => {
     next(error);
   }
 };
+
+// @desc    Update/Reset receptionist staff password by property owner
+// @route   PUT /api/users/:id/password
+// @access  Private (Admin, Superadmin)
+exports.updateStaffPassword = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { newPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters' });
+    }
+
+    const targetUser = await User.findById(id).select('+password');
+    if (!targetUser) {
+      return res.status(404).json({ success: false, message: 'Staff user not found' });
+    }
+
+    if (targetUser.role !== 'receptionist') {
+      return res.status(403).json({ success: false, message: 'Only receptionist passwords can be changed from here' });
+    }
+
+    // Verify admin owns the property where this staff is assigned
+    if (req.user.role !== 'superadmin') {
+      if (!targetUser.assignedHostel) {
+        return res.status(403).json({ success: false, message: 'Staff has no assigned property' });
+      }
+      const ownsHostel = await Hostel.exists({
+        _id: targetUser.assignedHostel,
+        owner: userId(req.user)
+      });
+      if (!ownsHostel) {
+        return res.status(403).json({ success: false, message: 'Not authorized to change password for staff of another property' });
+      }
+    }
+
+    targetUser.password = newPassword;
+    targetUser.tokenVersion = (targetUser.tokenVersion || 0) + 1; // Invalidate previous session
+    await targetUser.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Password for ${targetUser.name} updated successfully!`
+    });
+  } catch (error) {
+    next(error);
+  }
+};

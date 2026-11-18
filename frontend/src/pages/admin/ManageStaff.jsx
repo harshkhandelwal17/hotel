@@ -1,16 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
-import { Users, Plus, Trash2, Building, ShieldCheck, Phone } from 'lucide-react';
+import { Users, Plus, Trash2, Building, ShieldCheck, Phone, KeyRound, Eye, EyeOff, AlertCircle, CheckCircle2, X } from 'lucide-react';
+
+const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
 
 const ManageStaff = () => {
   const [staff, setStaff] = useState([]);
   const [hostels, setHostels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // Password change modal state
+  const [passwordStaff, setPasswordStaff] = useState(null);
+  const [newStaffPassword, setNewStaffPassword] = useState('');
+  const [confirmStaffPassword, setConfirmStaffPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
 
   useEffect(() => {
-    if (isModalOpen) {
+    if (isModalOpen || passwordStaff) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -18,7 +29,7 @@ const ManageStaff = () => {
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [isModalOpen]);
+  }, [isModalOpen, passwordStaff]);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -72,10 +83,44 @@ const ManageStaff = () => {
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to remove this staff member?')) return;
     try {
-      await axios.delete(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001'}/api/users/${id}`);
+      await axios.delete(`${API}/api/users/${id}`);
       fetchData();
     } catch (err) {
       alert(err.response?.data?.message || 'Error deleting user');
+    }
+  };
+
+  const handlePasswordSubmit = async (e) => {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    if (newStaffPassword.length < 6) {
+      setPasswordError('New password must be at least 6 characters long.');
+      return;
+    }
+
+    if (newStaffPassword !== confirmStaffPassword) {
+      setPasswordError('Passwords do not match.');
+      return;
+    }
+
+    setPasswordSaving(true);
+    try {
+      const res = await axios.put(`${API}/api/users/${passwordStaff._id}/password`, {
+        newPassword: newStaffPassword
+      });
+      setPasswordSuccess(res.data?.message || 'Staff password updated successfully!');
+      setTimeout(() => {
+        setPasswordStaff(null);
+        setNewStaffPassword('');
+        setConfirmStaffPassword('');
+        setPasswordSuccess('');
+      }, 1500);
+    } catch (err) {
+      setPasswordError(err.response?.data?.message || 'Failed to update staff password');
+    } finally {
+      setPasswordSaving(false);
     }
   };
 
@@ -146,9 +191,31 @@ const ManageStaff = () => {
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <button onClick={() => handleDelete(user._id)} className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 p-2 rounded-lg border border-transparent hover:border-rose-200/60 transition-colors">
-                    <Trash2 size={16} />
-                  </button>
+                  <div className="flex items-center justify-end gap-1.5">
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        setPasswordStaff(user);
+                        setNewStaffPassword('');
+                        setConfirmStaffPassword('');
+                        setPasswordError('');
+                        setPasswordSuccess('');
+                      }} 
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100 transition-colors cursor-pointer shadow-2xs"
+                      title="Change Password"
+                    >
+                      <KeyRound size={13} className="text-amber-700" />
+                      <span>Change Password</span>
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => handleDelete(user._id)} 
+                      className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 p-2 rounded-xl border border-transparent hover:border-rose-200/60 transition-colors cursor-pointer"
+                      title="Delete Staff"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -217,6 +284,120 @@ const ManageStaff = () => {
                 </button>
                 <button type="submit" disabled={saving} className="w-full sm:flex-1 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-slate-800 transition-colors disabled:opacity-50 shadow-xs active:scale-95">
                   {saving ? 'Creating...' : 'Add Staff'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Staff Password Change / Reset Modal */}
+      {passwordStaff && createPortal(
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto"
+          onClick={() => setPasswordStaff(null)}
+        >
+          <div 
+            className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-md my-0 sm:my-auto flex flex-col max-h-[92dvh] sm:max-h-[88vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-200"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="px-5 sm:px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/75 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2 bg-amber-500 text-white rounded-xl shadow-xs">
+                  <KeyRound size={18} />
+                </span>
+                <div>
+                  <h2 className="text-base font-black text-slate-900">Change Staff Password</h2>
+                  <p className="text-xs text-slate-500 font-medium">
+                    {passwordStaff.name} ({passwordStaff.email})
+                  </p>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setPasswordStaff(null)} 
+                className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handlePasswordSubmit} className="flex flex-col flex-1 min-h-0">
+              <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
+                {passwordError && (
+                  <div className="p-3 bg-rose-50 text-rose-700 text-xs rounded-xl border border-rose-200 font-medium flex items-center gap-2">
+                    <AlertCircle size={15} className="shrink-0" />
+                    <span>{passwordError}</span>
+                  </div>
+                )}
+
+                {passwordSuccess && (
+                  <div className="p-3 bg-emerald-50 text-emerald-700 text-xs rounded-xl border border-emerald-200 font-bold flex items-center gap-2">
+                    <CheckCircle2 size={15} className="shrink-0" />
+                    <span>{passwordSuccess}</span>
+                  </div>
+                )}
+
+                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600">
+                  <span className="font-bold text-slate-900 block mb-0.5">Assigned Property:</span>
+                  <span>{passwordStaff.assignedHostel?.name || 'Unassigned'}</span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">
+                    New Password (Min 6 Characters)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      minLength={6}
+                      value={newStaffPassword}
+                      onChange={e => setNewStaffPassword(e.target.value)}
+                      placeholder="Enter new password for staff"
+                      className="w-full pl-3.5 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">
+                    Confirm New Password
+                  </label>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    minLength={6}
+                    value={confirmStaffPassword}
+                    onChange={e => setConfirmStaffPassword(e.target.value)}
+                    placeholder="Re-type new password"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-4 bg-slate-50 border-t border-slate-100 flex flex-col-reverse sm:flex-row gap-2.5 rounded-b-none sm:rounded-b-2xl shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setPasswordStaff(null)}
+                  className="w-full sm:flex-1 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={passwordSaving}
+                  className="w-full sm:flex-1 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-50 shadow-xs active:scale-95 cursor-pointer"
+                >
+                  {passwordSaving ? 'Updating...' : 'Save Password ✓'}
                 </button>
               </div>
             </form>
