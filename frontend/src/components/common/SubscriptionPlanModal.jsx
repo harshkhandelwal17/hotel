@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import axios from 'axios';
 import { 
   Sparkles, 
   Calendar, 
@@ -23,7 +24,11 @@ import {
   Receipt,
   Settings2,
   Edit3,
-  CalendarPlus
+  CalendarPlus,
+  Trash2,
+  Info,
+  CheckCircle,
+  HelpCircle
 } from 'lucide-react';
 
 export default function SubscriptionPlanModal({
@@ -36,13 +41,15 @@ export default function SubscriptionPlanModal({
 }) {
   if (!isOpen || !hotel) return null;
 
-  // 4 Crystal-Clear Modes:
-  // 1. 'renew' -> 🔄 1-Click Renew / Extend (+1 Month, +3 Months, +1 Year)
-  // 2. 'assign' -> ⚙️ Assign New Plan Tier (Switch to Monthly / Annual / Custom)
-  // 3. 'edit' -> ✏️ Edit Current Plan Details (Manually fix dates, room limit, price)
-  // 4. 'history' -> 📜 Subscription Invoices & History
+  // 4 Standard Enterprise Modes:
+  // 1. 'renew' -> 🔄 Next Month Renewal (अगले महीने के लिए रिन्यू करें)
+  // 2. 'assign' -> ⚡ Change / Upgrade Plan Tier (प्लान पैकेज बदलें)
+  // 3. 'edit' -> ✏️ Fix Mistake / Edit Details (गलती सुधारें - बिना नया बिल बनाए)
+  // 4. 'history' -> 📜 Invoices & Ledger (बिलिंग हिस्ट्री व गलत एंट्री हटाएं)
   const [activeTab, setActiveTab] = useState('renew');
   const [copiedKey, setCopiedKey] = useState(null);
+  const [deletingHistoryId, setDeletingHistoryId] = useState(null);
+  const [localHistory, setLocalHistory] = useState([]);
 
   const now = new Date();
   const currentStart = hotel.planStartDate ? new Date(hotel.planStartDate) : now;
@@ -55,9 +62,8 @@ export default function SubscriptionPlanModal({
     : Math.ceil((currentEnd - now) / (1000 * 60 * 60 * 24));
 
   // --- MODE 1: RENEW / EXTEND STATE ---
-  const [extendOption, setExtendOption] = useState(30); // 30, 60, 90, 180, 365, or custom number
+  const [extendOption, setExtendOption] = useState(30); // 30, 60, 90, 365, or 'custom'
   const [customDays, setCustomDays] = useState('');
-  // Start from: 'previousExpiry' or 'today'
   const [startFrom, setStartFrom] = useState(() => {
     // If expired more than 15 days ago, start from today; otherwise extend continuous from current expiry
     if (isExpired && Math.abs(daysRemaining) > 15) return 'today';
@@ -94,7 +100,7 @@ export default function SubscriptionPlanModal({
     };
   }, [extendOption, customDays, startFrom, hotel.planEndDate]);
 
-  // --- MODE 2: ASSIGN NEW PLAN STATE ---
+  // --- MODE 2: ASSIGN / CHANGE PLAN STATE ---
   const [newPlanTier, setNewPlanTier] = useState(hotel.plan === 'demo' ? 'monthly' : (hotel.plan || 'monthly'));
   const [assignDurationDays, setAssignDurationDays] = useState(30);
   const [assignStartDate, setAssignStartDate] = useState(now.toISOString().split('T')[0]);
@@ -111,7 +117,7 @@ export default function SubscriptionPlanModal({
     return e.toISOString().split('T')[0];
   }, [assignStartDate, assignDurationDays]);
 
-  // --- MODE 3: DIRECT EDIT STATE ---
+  // --- MODE 3: DIRECT EDIT (FIX MISTAKE) STATE ---
   const [editForm, setEditForm] = useState({
     plan: hotel.plan || 'monthly',
     planStatus: hotel.planStatus || 'active',
@@ -139,6 +145,7 @@ export default function SubscriptionPlanModal({
         billingCycle: hotel.billingCycle || 'monthly',
         planNotes: hotel.planNotes || ''
       });
+      setLocalHistory(Array.isArray(hotel.subscriptionHistory) ? [...hotel.subscriptionHistory] : []);
       setActiveTab('renew');
     }
   }, [hotel?._id]);
@@ -152,9 +159,52 @@ export default function SubscriptionPlanModal({
   }, []);
 
   const handleCopy = (text, key) => {
+    if (!text) return;
     navigator.clipboard.writeText(text);
     setCopiedKey(key);
     setTimeout(() => setCopiedKey(null), 2000);
+  };
+
+  // Helper presets for Edit Mode
+  const applyEditPreset = (type) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const startStr = today.toISOString().split('T')[0];
+
+    if (type === '30days') {
+      const end = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+      setEditForm(prev => ({
+        ...prev,
+        plan: 'monthly',
+        planStatus: 'active',
+        planStartDate: startStr,
+        planEndDate: end.toISOString().split('T')[0],
+        planPrice: 1000,
+        planNotes: 'Reset to standard 30-day active monthly plan'
+      }));
+    } else if (type === '7days_demo') {
+      const end = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+      setEditForm(prev => ({
+        ...prev,
+        plan: 'demo',
+        planStatus: 'trial',
+        planStartDate: startStr,
+        planEndDate: end.toISOString().split('T')[0],
+        planPrice: 0,
+        planNotes: 'Reset to 7-day free trial demo'
+      }));
+    } else if (type === '365days') {
+      const end = new Date(today.getTime() + 365 * 24 * 60 * 60 * 1000);
+      setEditForm(prev => ({
+        ...prev,
+        plan: 'yearly',
+        planStatus: 'active',
+        planStartDate: startStr,
+        planEndDate: end.toISOString().split('T')[0],
+        planPrice: 9600,
+        planNotes: 'Reset to 1-year annual plan'
+      }));
+    }
   };
 
   // SUBMIT HANDLER FOR MODE 1: RENEW / EXTEND
@@ -204,7 +254,7 @@ export default function SubscriptionPlanModal({
     onSavePlan(payload);
   };
 
-  // SUBMIT HANDLER FOR MODE 3: DIRECT EDIT
+  // SUBMIT HANDLER FOR MODE 3: DIRECT EDIT (FIX MISTAKE WITHOUT EXTRA PAYMENT)
   const handleEditSubmit = (e) => {
     e.preventDefault();
     if (!onSavePlan) return;
@@ -214,16 +264,43 @@ export default function SubscriptionPlanModal({
       planPrice: Number(editForm.planPrice) || 0,
       maxRooms: Number(editForm.maxRooms) || 20,
       actionType: 'adjustment',
-      finalAmount: 0
+      finalAmount: 0 // 🛡️ Direct correction does NOT add phantom revenue
     };
 
     onSavePlan(payload);
   };
 
+  // DELETE / VOID MISTAKEN TRANSACTION IN HISTORY
+  const handleDeleteHistory = async (historyId) => {
+    if (!historyId) return;
+    if (!window.confirm('⚠️ Are you sure you want to delete / void this mistaken transaction record?\n\nThis will remove it from history and recalculate total revenue.')) {
+      return;
+    }
+
+    try {
+      setDeletingHistoryId(historyId);
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      const endpoint = currentUserRole === 'sales'
+        ? `${API}/api/sales/properties/${hotel._id}/subscription-history/${historyId}`
+        : `${API}/api/superadmin/hostels/${hotel._id}/subscription-history/${historyId}`;
+
+      await axios.delete(endpoint);
+      setLocalHistory(prev => prev.filter(item => item._id && item._id.toString() !== historyId.toString()));
+      alert('✅ Transaction record deleted / voided successfully. Revenue has been recalculated.');
+      if (onSavePlan) {
+        onSavePlan({ _action: 'refresh_only' });
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to delete transaction record');
+    } finally {
+      setDeletingHistoryId(null);
+    }
+  };
+
   // Collect history records (newest first)
   const historyList = useMemo(() => {
-    if (hotel.subscriptionHistory && hotel.subscriptionHistory.length > 0) {
-      return [...hotel.subscriptionHistory].reverse();
+    if (localHistory && localHistory.length > 0) {
+      return [...localHistory].reverse();
     }
     return [
       {
@@ -242,7 +319,11 @@ export default function SubscriptionPlanModal({
         createdAt: hotel.createdAt || now
       }
     ];
-  }, [hotel]);
+  }, [localHistory, hotel]);
+
+  const totalCollectedFromHotel = useMemo(() => {
+    return historyList.reduce((sum, item) => sum + (Number(item.finalAmount) || 0), 0);
+  }, [historyList]);
 
   // WhatsApp notification link
   const getWhatsAppRenewalUrl = () => {
@@ -254,14 +335,14 @@ export default function SubscriptionPlanModal({
       `🏨 *${hotel.name} - Subscription Renewal Update*`,
       `──────────────────────`,
       `Namaste *${hotel.owner?.name || 'Partner'}* ji,`,
-      `Your hotel management software subscription has been renewed successfully:`,
+      `Your hotel management software subscription has been updated successfully:`,
       `📦 *Plan:* ${hotel.plan === 'yearly' ? 'Annual Plan' : 'Monthly Plan'}`,
-      `💰 *Billed Amount:* ₹${(Number(renewalAmount) || 0).toLocaleString('en-IN')} (${renewalPaymentMethod})`,
+      `💰 *Amount:* ₹${(Number(renewalAmount) || 0).toLocaleString('en-IN')} (${renewalPaymentMethod})`,
       renewalPaymentRef ? `🧾 *Ref / UTR:* ${renewalPaymentRef}` : '',
-      `📅 *New Expiry Date:* ${endDate}`,
+      `📅 *Valid Until:* ${endDate}`,
       `🏢 *Status:* Active ✓`,
       `──────────────────────`,
-      `Thank you for your partnership with NXHotel! ✨`
+      `Thank you for using NXHotel! ✨`
     ].filter(Boolean).join('\n');
 
     return `https://wa.me/91${phone}?text=${encodeURIComponent(msg)}`;
@@ -269,67 +350,77 @@ export default function SubscriptionPlanModal({
 
   const modalContent = (
     <div 
-      className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] overflow-y-auto animate-in fade-in duration-200 flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6"
+      className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-[9999] overflow-y-auto animate-in fade-in duration-200 flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6"
       onClick={onClose}
     >
       <div 
-        className="bg-white rounded-t-3xl sm:rounded-2xl max-w-xl w-full my-0 sm:my-8 overflow-hidden shadow-2xl border border-slate-200/90 max-h-[92dvh] sm:max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-200 text-left"
+        className="bg-white rounded-t-3xl sm:rounded-2xl max-w-2xl w-full my-0 sm:my-8 overflow-hidden shadow-2xl border border-slate-200/90 max-h-[94dvh] sm:max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200 text-left"
         onClick={e => e.stopPropagation()}
       >
         {/* ─── MODAL HEADER ─── */}
-        <div className="p-5 sm:p-6 bg-slate-900 text-white flex justify-between items-start shrink-0">
+        <div className="p-5 sm:p-6 bg-slate-950 text-white flex justify-between items-start shrink-0 border-b border-slate-800">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700 flex items-center gap-1">
+              <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 flex items-center gap-1.5">
                 <ShieldAlert size={12} className="text-amber-400" />
-                <span>Subscription & Billing Center</span>
+                <span>Subscription Management</span>
               </span>
               <span className="text-xs text-slate-400 font-mono">
                 ID: {hotel._id?.slice(-6).toUpperCase()}
               </span>
             </div>
-            <h3 className="text-lg sm:text-xl font-black tracking-tight text-white mt-1.5 flex items-center gap-2">
+            <h3 className="text-lg sm:text-2xl font-black tracking-tight text-white mt-1.5 flex items-center gap-2">
               <span>🏨 {hotel.name}</span>
             </h3>
-            <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-2 flex-wrap">
+            <p className="text-xs text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
               <span>Owner: <strong className="text-slate-200">{hotel.owner?.name || 'Unassigned'}</strong></span>
               {hotel.owner?.phone && (
-                <span className="font-mono text-emerald-400">📞 {hotel.owner.phone}</span>
+                <span className="font-mono text-emerald-400 font-bold">📞 {hotel.owner.phone}</span>
+              )}
+              {hotel.city && (
+                <span className="text-slate-400">📍 {hotel.city}</span>
               )}
             </p>
           </div>
           <button 
             onClick={onClose} 
             className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+            title="Close"
           >
             <X size={20} />
           </button>
         </div>
 
-        {/* ─── LIVE CURRENT STATUS STRIP ─── */}
-        <div className={`p-3.5 px-5 border-b shrink-0 flex items-center justify-between gap-3 flex-wrap ${
+        {/* ─── HERO CURRENT SUBSCRIPTION STATUS CARD ─── */}
+        <div className={`p-4 px-5 border-b shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
           isExpired 
-            ? 'bg-rose-50 border-rose-200/80 text-rose-900' 
+            ? 'bg-rose-50/90 border-rose-200 text-rose-950' 
             : daysRemaining <= 7 
-            ? 'bg-amber-50 border-amber-200/80 text-amber-900' 
-            : 'bg-emerald-50 border-emerald-200/80 text-emerald-900'
+            ? 'bg-amber-50/90 border-amber-200 text-amber-950' 
+            : 'bg-emerald-50/90 border-emerald-200 text-emerald-950'
         }`}>
-          <div className="flex items-center gap-2.5">
-            <span className={`w-2.5 h-2.5 rounded-full ${isExpired ? 'bg-rose-600 animate-pulse' : daysRemaining <= 7 ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-black uppercase tracking-wider">
-                  {isExpired ? 'Subscription Expired' : daysRemaining <= 7 ? 'Expiring Soon' : 'Active Subscription'}
-                </span>
-                <span className="text-[10px] font-bold px-2 py-0.2 rounded-md bg-white border border-current">
-                  {hotel.plan === 'demo' ? '7-Day Free Trial' : hotel.plan === 'yearly' || hotel.plan === 'annual' ? 'Annual Plan' : 'Monthly Plan'}
-                </span>
-              </div>
-              <p className="text-xs font-medium mt-0.5">
-                {isExpired 
-                  ? `Expired on ${currentEnd.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} (${Math.abs(daysRemaining)} days ago)` 
-                  : `Valid until ${currentEnd.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} (${daysRemaining} days remaining)`}
-              </p>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`w-2.5 h-2.5 rounded-full ${isExpired ? 'bg-rose-600 animate-pulse' : daysRemaining <= 7 ? 'bg-amber-500' : 'bg-emerald-600'}`} />
+              <span className="text-xs font-black uppercase tracking-wider">
+                {isExpired ? 'Subscription Expired / Overdue' : daysRemaining <= 7 ? 'Expiring Soon' : 'Subscription Active'}
+              </span>
+              <span className="text-[11px] font-black px-2 py-0.5 rounded-md bg-white border border-current shadow-2xs">
+                {hotel.plan === 'demo' ? '7-Day Free Trial' : hotel.plan === 'yearly' || hotel.plan === 'annual' ? 'Annual Plan' : 'Monthly Plan'}
+              </span>
+              <span className="text-xs font-mono font-black">
+                ₹{(hotel.planPrice || 0).toLocaleString()} / {hotel.billingCycle || 'mo'}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3 text-xs font-medium mt-1.5 flex-wrap">
+              <span>
+                📅 Period: <strong className="font-mono font-bold">{currentStart.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</strong> ➔ <strong className="font-mono font-bold">{currentEnd.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</strong>
+              </span>
+              <span className={`font-bold ${isExpired ? 'text-rose-700' : daysRemaining <= 7 ? 'text-amber-700' : 'text-emerald-700'}`}>
+                ({isExpired ? `Expired ${Math.abs(daysRemaining)}d ago` : `${daysRemaining} days remaining`})
+              </span>
+              <span>🚪 Capacity: <strong className="font-bold">{hotel.maxRooms || 20} Rooms</strong></span>
             </div>
           </div>
 
@@ -338,81 +429,106 @@ export default function SubscriptionPlanModal({
               href={getWhatsAppRenewalUrl()}
               target="_blank"
               rel="noreferrer"
-              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-2xs transition-colors shrink-0"
-              title="Send status message to Hotel Owner on WhatsApp"
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all self-start sm:self-auto shrink-0"
+              title="Send WhatsApp notice to Hotel Owner"
             >
-              <MessageSquare size={12} />
-              <span>WhatsApp</span>
+              <MessageSquare size={13} />
+              <span>WhatsApp Notice</span>
             </a>
           )}
         </div>
 
-        {/* ─── 4 SIMPLE TABS: RENEW | ASSIGN NEW | EDIT | HISTORY ─── */}
-        <div className="flex border-b border-slate-200 bg-slate-50/80 px-4 pt-2 shrink-0 gap-1 overflow-x-auto no-scrollbar">
-          <button
-            type="button"
-            onClick={() => setActiveTab('renew')}
-            className={`px-3.5 py-2 text-xs font-black uppercase tracking-wider rounded-t-xl transition-all border-b-2 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'renew'
-                ? 'bg-white text-slate-900 border-slate-900 shadow-2xs'
-                : 'text-slate-500 hover:text-slate-800 border-transparent'
-            }`}
-          >
-            <Repeat size={13} className="text-emerald-600" />
-            <span>1. Renew / Extend (+30d)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('assign')}
-            className={`px-3.5 py-2 text-xs font-black uppercase tracking-wider rounded-t-xl transition-all border-b-2 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'assign'
-                ? 'bg-white text-slate-900 border-slate-900 shadow-2xs'
-                : 'text-slate-500 hover:text-slate-800 border-transparent'
-            }`}
-          >
-            <Settings2 size={13} className="text-indigo-600" />
-            <span>2. Change Plan Tier</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('edit')}
-            className={`px-3.5 py-2 text-xs font-black uppercase tracking-wider rounded-t-xl transition-all border-b-2 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'edit'
-                ? 'bg-white text-slate-900 border-slate-900 shadow-2xs'
-                : 'text-slate-500 hover:text-slate-800 border-transparent'
-            }`}
-          >
-            <Edit3 size={13} className="text-amber-600" />
-            <span>3. Edit Details</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('history')}
-            className={`px-3.5 py-2 text-xs font-black uppercase tracking-wider rounded-t-xl transition-all border-b-2 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'history'
-                ? 'bg-white text-slate-900 border-slate-900 shadow-2xs'
-                : 'text-slate-500 hover:text-slate-800 border-transparent'
-            }`}
-          >
-            <History size={13} className="text-purple-600" />
-            <span>4. Invoices ({historyList.length})</span>
-          </button>
+        {/* ─── 4 CRYSTAL-CLEAR OPERATION MODES (SEGMENTED TABS) ─── */}
+        <div className="p-3 bg-slate-100/80 border-b border-slate-200 shrink-0">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {[
+              {
+                id: 'renew',
+                title: '1. Renew Plan',
+                sub: 'रिन्यू करें (+30d)',
+                icon: Repeat,
+                activeColor: 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+              },
+              {
+                id: 'assign',
+                title: '2. Change Tier',
+                sub: 'प्लान बदलें / अपग्रेड',
+                icon: Settings2,
+                activeColor: 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+              },
+              {
+                id: 'edit',
+                title: '3. Fix Mistake',
+                sub: 'गलती सुधारें (No Bill)',
+                icon: Edit3,
+                activeColor: 'bg-amber-600 text-white border-amber-600 shadow-sm'
+              },
+              {
+                id: 'history',
+                title: '4. Invoices',
+                sub: `हिस्ट्री (${historyList.length})`,
+                icon: History,
+                activeColor: 'bg-slate-900 text-white border-slate-900 shadow-sm'
+              }
+            ].map(tab => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`p-2 sm:p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                    isActive
+                      ? tab.activeColor
+                      : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <Icon size={14} className={isActive ? 'text-white' : 'text-slate-500'} />
+                    <span className="text-xs font-black tracking-tight">{tab.title}</span>
+                  </div>
+                  <span className={`text-[10px] mt-1 font-medium ${isActive ? 'text-white/90' : 'text-slate-500'}`}>
+                    {tab.sub}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* ══════════════════════════════════════════════════════════════════ */}
-        {/* MODE 1: 🔄 RENEW / EXTEND PLAN (+1 Month, +3 Months, +1 Year)      */}
+        {/* MODE 1: 🔄 RENEW PLAN (+1 Month, +3 Months, +1 Year)              */}
         {/* ══════════════════════════════════════════════════════════════════ */}
         {activeTab === 'renew' && (
           <form onSubmit={handleRenewSubmit} className="flex flex-col flex-1 min-h-0">
             <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
               
+              {/* Visual Extension Timeline Box */}
+              <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-2xl flex items-center justify-between gap-2 flex-wrap">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 block">Current Expiry</span>
+                  <span className="text-xs font-mono font-bold text-slate-800">
+                    {hotel.planEndDate ? new Date(hotel.planEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Today'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 text-emerald-600 font-bold text-xs">
+                  <ArrowRight size={16} />
+                  <span>+{renewalDates.days} Days Extension</span>
+                  <ArrowRight size={16} />
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 block">New Expiry After Renewal</span>
+                  <span className="text-sm font-mono font-black text-emerald-800 bg-white px-2 py-0.5 rounded border border-emerald-300">
+                    {renewalDates.endDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </span>
+                </div>
+              </div>
+
               {/* Quick Duration Chips */}
               <div>
                 <label className="block text-[11px] font-black uppercase tracking-wider text-slate-700 mb-2">
-                  1. Choose Extension Duration (अवधि चुनें)
+                  1. Select Extension Period (अवधि चुनें)
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {[
@@ -443,106 +559,57 @@ export default function SubscriptionPlanModal({
                 </div>
               </div>
 
-              {/* Start Extension From: Previous Expiry vs Today */}
-              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/90 space-y-2">
-                <span className="text-[11px] font-black uppercase tracking-wider text-slate-700 block">
-                  2. Start Extension From (कहाँ से शुरू करें)
-                </span>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-bold">
-                  {/* Option A: Continuous from Previous Expiry */}
-                  <label 
+              {/* Start Extension From Option */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between gap-3 text-xs">
+                <span className="font-bold text-slate-700">Calculate Extension From:</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
                     onClick={() => setStartFrom('previousExpiry')}
-                    className={`p-2.5 rounded-xl border flex items-start gap-2.5 cursor-pointer transition-all ${
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
                       startFrom === 'previousExpiry'
-                        ? 'border-emerald-500 bg-emerald-50/60 text-emerald-950 shadow-2xs'
-                        : 'border-slate-200 bg-white text-slate-700'
+                        ? 'bg-slate-900 text-white shadow-2xs'
+                        : 'bg-white text-slate-600 border border-slate-200'
                     }`}
                   >
-                    <input
-                      type="radio"
-                      name="startFrom"
-                      checked={startFrom === 'previousExpiry'}
-                      onChange={() => setStartFrom('previousExpiry')}
-                      className="mt-0.5 text-emerald-600 focus:ring-0"
-                    />
-                    <div>
-                      <div className="font-black">From Previous Expiry Date</div>
-                      <p className="text-[10.5px] font-normal text-slate-500 mt-0.5 leading-snug">
-                        {currentEnd.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} (No gap in monthly cycle)
-                      </p>
-                    </div>
-                  </label>
-
-                  {/* Option B: From Today */}
-                  <label 
+                    Previous Expiry Date
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setStartFrom('today')}
-                    className={`p-2.5 rounded-xl border flex items-start gap-2.5 cursor-pointer transition-all ${
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
                       startFrom === 'today'
-                        ? 'border-emerald-500 bg-emerald-50/60 text-emerald-950 shadow-2xs'
-                        : 'border-slate-200 bg-white text-slate-700'
+                        ? 'bg-slate-900 text-white shadow-2xs'
+                        : 'bg-white text-slate-600 border border-slate-200'
                     }`}
                   >
-                    <input
-                      type="radio"
-                      name="startFrom"
-                      checked={startFrom === 'today'}
-                      onChange={() => setStartFrom('today')}
-                      className="mt-0.5 text-emerald-600 focus:ring-0"
-                    />
-                    <div>
-                      <div className="font-black">From Today (आज से)</div>
-                      <p className="text-[10.5px] font-normal text-slate-500 mt-0.5 leading-snug">
-                        {now.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} (Fresh restart from today)
-                      </p>
-                    </div>
-                  </label>
+                    Today ({now.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })})
+                  </button>
                 </div>
               </div>
 
-              {/* 🌟 New Calculated Validity Live Preview Box */}
-              <div className="p-4 bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-300 rounded-2xl">
-                <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 flex items-center gap-1">
-                    <CheckCircle2 size={13} className="text-emerald-600" />
-                    <span>New Subscription Validity:</span>
-                  </span>
-                  <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-600 text-white px-2 py-0.5 rounded-full">
-                    Active Status ✓
-                  </span>
-                </div>
-                <div className="text-sm sm:text-base font-black text-slate-900 mt-1 flex items-center gap-2 flex-wrap">
-                  <span className="font-mono text-emerald-900">{renewalDates.startDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                  <span className="text-emerald-500">➔</span>
-                  <span className="font-mono text-emerald-900 font-extrabold">{renewalDates.endDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                  <span className="text-xs font-bold text-emerald-700 bg-white px-2 py-0.5 rounded-md border border-emerald-200">
-                    +{renewalDates.days} Days
-                  </span>
-                </div>
-              </div>
-
-              {/* Payment & Amount Collected */}
+              {/* Amount & Payment Mode */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
-                  <label className="block text-[11px] font-black uppercase tracking-wider text-slate-700 mb-1.5">
-                    Amount Collected (₹)
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Renewal Amount Billed (₹) *
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-slate-400">₹</span>
+                    <span className="absolute left-3 top-2.5 text-slate-400 font-bold">₹</span>
                     <input
                       type="number"
                       required
                       min="0"
                       value={renewalAmount}
                       onChange={e => setRenewalAmount(e.target.value)}
-                      className="w-full pl-8 pr-3.5 py-2.5 bg-white border border-slate-200 rounded-xl font-mono font-black text-sm text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
+                      className="w-full pl-8 pr-3.5 py-2.5 bg-white border border-slate-200 rounded-xl font-mono font-bold text-sm text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-black uppercase tracking-wider text-slate-700 mb-1.5">
-                    Payment Mode
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Payment Method *
                   </label>
                   <select
                     value={renewalPaymentMethod}
@@ -562,11 +629,11 @@ export default function SubscriptionPlanModal({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Payment Reference / UTR Number (Optional)
+                    Payment Reference / UTR Number
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. UPI Ref / UTR / Cheque No."
+                    placeholder="e.g. 12-digit UPI Ref / UTR / Cheque No."
                     value={renewalPaymentRef}
                     onChange={e => setRenewalPaymentRef(e.target.value)}
                     className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl font-mono text-xs text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
@@ -575,11 +642,11 @@ export default function SubscriptionPlanModal({
 
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Renewal Notes / Remarks (Optional)
+                    Renewal Remarks / Notes
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. Month 2 renewal received via UPI"
+                    placeholder="e.g. Next month renewal received"
                     value={renewalNotes}
                     onChange={e => setRenewalNotes(e.target.value)}
                     className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl font-medium text-xs text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
@@ -593,7 +660,7 @@ export default function SubscriptionPlanModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 border border-slate-200 text-slate-700 font-bold rounded-xl text-xs hover:bg-slate-100 transition-colors"
+                className="px-4 py-2.5 border border-slate-200 text-slate-700 font-bold rounded-xl text-xs hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -608,7 +675,7 @@ export default function SubscriptionPlanModal({
                 ) : (
                   <>
                     <Check size={14} className="stroke-[3]" />
-                    <span>Confirm Renewal (+{renewalDates.days} Days) ✓</span>
+                    <span>Confirm Renewal (+{renewalDates.days} Days) & Record ₹{Number(renewalAmount || 0).toLocaleString()} ✓</span>
                   </>
                 )}
               </button>
@@ -617,7 +684,7 @@ export default function SubscriptionPlanModal({
         )}
 
         {/* ══════════════════════════════════════════════════════════════════ */}
-        {/* MODE 2: ⚙️ CHANGE PLAN TIER (Monthly, Annual, Custom, Demo)         */}
+        {/* MODE 2: ⚡ CHANGE PLAN TIER (Monthly, Annual, Custom, Demo)         */}
         {/* ══════════════════════════════════════════════════════════════════ */}
         {activeTab === 'assign' && (
           <form onSubmit={handleAssignSubmit} className="flex flex-col flex-1 min-h-0">
@@ -768,21 +835,57 @@ export default function SubscriptionPlanModal({
                 disabled={isSaving}
                 className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer"
               >
-                {isSaving ? 'Applying Plan...' : 'Apply New Plan Tier'}
+                {isSaving ? 'Applying Plan...' : 'Apply New Plan Tier ✓'}
               </button>
             </div>
           </form>
         )}
 
         {/* ══════════════════════════════════════════════════════════════════ */}
-        {/* MODE 3: ✏️ EDIT CURRENT PLAN DETAILS                               */}
+        {/* MODE 3: ✏️ FIX MISTAKE / EDIT DETAILS (NO EXTRA PAYMENT)            */}
         {/* ══════════════════════════════════════════════════════════════════ */}
         {activeTab === 'edit' && (
           <form onSubmit={handleEditSubmit} className="flex flex-col flex-1 min-h-0">
             <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
-              <p className="text-xs text-slate-500 font-medium">
-                Manually adjust dates, status, or capacity without creating a duplicate renewal payment.
-              </p>
+              
+              {/* Informative Alert Banner */}
+              <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-2.5 text-xs text-amber-900">
+                <Info size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="block font-black text-amber-950">Fix Configuration / Mistake Mode (गलती सुधारें):</strong>
+                  <span>Use this if you made an error while assigning the plan (e.g. wrong expiry date, wrong room count, or typo). Saving here updates active hotel properties directly <strong>without generating a duplicate invoice or adding fake revenue</strong>.</span>
+                </div>
+              </div>
+
+              {/* ⚡ Quick Reset Helper Chips */}
+              <div>
+                <label className="block text-[11px] font-black uppercase tracking-wider text-slate-700 mb-1.5">
+                  Quick Preset Fixes (एक क्लिक में रीसेट करें)
+                </label>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => applyEditPreset('30days')}
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-all border border-slate-300 cursor-pointer"
+                  >
+                    ⚡ Set Active +30 Days from Today
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyEditPreset('7days_demo')}
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-all border border-slate-300 cursor-pointer"
+                  >
+                    ⚡ Set 7-Day Demo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyEditPreset('365days')}
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-all border border-slate-300 cursor-pointer"
+                  >
+                    ⚡ Set 1-Year Active
+                  </button>
+                </div>
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
@@ -849,7 +952,7 @@ export default function SubscriptionPlanModal({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Plan Price (₹)
+                    Plan Tariff Rate (₹)
                   </label>
                   <input
                     type="number"
@@ -862,7 +965,7 @@ export default function SubscriptionPlanModal({
 
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Max Rooms Limit
+                    Max Room Capacity (कमरे)
                   </label>
                   <input
                     type="number"
@@ -876,13 +979,13 @@ export default function SubscriptionPlanModal({
 
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Plan Notes
+                  Reason for Correction / Notes
                 </label>
                 <textarea
                   rows={2}
                   value={editForm.planNotes}
                   onChange={e => setEditForm({ ...editForm, planNotes: e.target.value })}
-                  placeholder="Additional remarks or notes..."
+                  placeholder="e.g. Corrected wrong expiry date entered during setup..."
                   className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-medium text-xs text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
                 />
               </div>
@@ -900,9 +1003,9 @@ export default function SubscriptionPlanModal({
               <button
                 type="submit"
                 disabled={isSaving}
-                className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer"
+                className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
               >
-                {isSaving ? 'Saving Changes...' : 'Save Plan Edits'}
+                {isSaving ? 'Saving Corrections...' : 'Save Corrections / गलती ठीक करें ✓'}
               </button>
             </div>
           </form>
@@ -916,11 +1019,16 @@ export default function SubscriptionPlanModal({
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <span className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                 <Receipt size={14} className="text-slate-900" />
-                <span>Historical Subscription Invoices & Renewals</span>
+                <span>Historical Subscription Invoices & Ledger</span>
               </span>
-              <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                {historyList.length} Records Logged
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  Total Collected: ₹{totalCollectedFromHotel.toLocaleString('en-IN')}
+                </span>
+                <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                  {historyList.length} Records
+                </span>
+              </div>
             </div>
 
             <div className="space-y-2.5">
@@ -928,6 +1036,7 @@ export default function SubscriptionPlanModal({
                 const sDate = entry.startDate ? new Date(entry.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A';
                 const eDate = entry.endDate ? new Date(entry.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A';
                 const cDate = entry.createdAt ? new Date(entry.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A';
+                const isRealMongoId = entry._id && !entry._id.toString().startsWith('init-') && !entry._id.toString().startsWith('legacy-');
 
                 return (
                   <div key={entry._id || idx} className="p-3.5 bg-slate-50 border border-slate-200/90 rounded-2xl hover:border-slate-300 transition-all space-y-2">
@@ -944,7 +1053,7 @@ export default function SubscriptionPlanModal({
                             {entry.plan === 'demo' ? '7-Day Free Trial' : entry.plan === 'yearly' || entry.plan === 'annual' ? 'Annual Plan' : 'Monthly Plan'}
                           </span>
                           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-white border border-slate-200 px-1.5 py-0.2 rounded">
-                            {entry.actionType || 'Renewal'}
+                            {entry.actionType === 'adjustment' ? 'Configuration Fix' : entry.actionType || 'Renewal'}
                           </span>
                         </div>
                         <p className="text-xs font-bold text-slate-900 mt-1">
@@ -968,13 +1077,28 @@ export default function SubscriptionPlanModal({
                         {entry.paymentReference && (
                           <span className="font-mono text-slate-700 font-medium">Ref: {entry.paymentReference} • </span>
                         )}
-                        <span>Processed by <strong className="text-slate-800">{entry.recordedByName || 'Super Admin'}</strong> on {cDate}</span>
+                        <span>Recorded by <strong className="text-slate-800">{entry.recordedByName || 'Staff'}</strong> on {cDate}</span>
                       </div>
-                      {entry.notes && (
-                        <div className="text-[10px] text-slate-600 italic bg-white px-2 py-0.5 rounded border border-slate-200/80">
-                          "{entry.notes}"
-                        </div>
-                      )}
+
+                      <div className="flex items-center gap-2">
+                        {entry.notes && (
+                          <span className="text-[10px] text-slate-600 italic bg-white px-2 py-0.5 rounded border border-slate-200/80">
+                            "{entry.notes}"
+                          </span>
+                        )}
+
+                        {isRealMongoId && (
+                          <button
+                            type="button"
+                            disabled={deletingHistoryId === entry._id}
+                            onClick={() => handleDeleteHistory(entry._id)}
+                            className="p-1 text-rose-500 hover:text-white hover:bg-rose-600 rounded-md transition-colors cursor-pointer border border-rose-200"
+                            title="Void / Delete mistaken entry from ledger"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );

@@ -7,6 +7,7 @@ const {
   createSalesStaff,
   updateSalesProperty,
   updateSalesPropertyPlan,
+  deleteSalesPropertySubscriptionHistory,
   toggleSalesPropertyStatus,
   toggleSalesUserStatus,
   updateSalesUser,
@@ -38,6 +39,7 @@ router.post('/properties', createSalesProperty);
 router.post('/staff', createSalesStaff);
 router.put('/properties/:id', updateSalesProperty);
 router.put('/properties/:id/plan', updateSalesPropertyPlan);
+router.delete('/properties/:id/subscription-history/:historyId', deleteSalesPropertySubscriptionHistory);
 router.put('/properties/:id/toggle-status', toggleSalesPropertyStatus);
 router.put('/properties/:id/toggle-feature', toggleSalesPropertyFeature);
 router.put('/users/:id', updateSalesUser);

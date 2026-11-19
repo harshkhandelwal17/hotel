@@ -1067,6 +1067,34 @@ exports.updateSalesPropertyPlan = async (req, res, next) => {
 };
 
 /**
+ * 🗑️ Void / Delete an Accidental Subscription History Record for Sales Property
+ */
+exports.deleteSalesPropertySubscriptionHistory = async (req, res, next) => {
+  try {
+    const { id, historyId } = req.params;
+    const hostel = await Hostel.findById(id);
+    if (!hostel) return res.status(404).json({ success: false, message: 'Property not found' });
+
+    if (!canManageHostel(req.user, hostel)) {
+      return res.status(403).json({ success: false, message: 'Not authorized to manage this property' });
+    }
+
+    hostel.subscriptionHistory = (hostel.subscriptionHistory || []).filter(
+      item => item._id && item._id.toString() !== historyId
+    );
+    await hostel.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Subscription transaction record voided / deleted successfully',
+      data: hostel
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
  * 🔒 Toggle Property Active/Locked Status
  */
 exports.toggleSalesPropertyStatus = async (req, res, next) => {

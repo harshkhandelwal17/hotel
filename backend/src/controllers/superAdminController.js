@@ -552,6 +552,30 @@ exports.updateHostelPlan = async (req, res, next) => {
 };
 
 /**
+ * 🗑️ Void / Delete an Accidental Subscription History Transaction Record
+ */
+exports.deleteHostelSubscriptionHistory = async (req, res, next) => {
+  try {
+    const { id, historyId } = req.params;
+    const hostel = await Hostel.findById(id);
+    if (!hostel) return res.status(404).json({ success: false, message: 'Property not found' });
+
+    hostel.subscriptionHistory = (hostel.subscriptionHistory || []).filter(
+      item => item._id && item._id.toString() !== historyId
+    );
+    await hostel.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Subscription transaction record voided / deleted successfully',
+      data: hostel
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * 🧾 Super Admin Full Platform Subscription & Renewal Transactions Ledger
  */
 exports.getSubscriptionTransactions = async (req, res, next) => {

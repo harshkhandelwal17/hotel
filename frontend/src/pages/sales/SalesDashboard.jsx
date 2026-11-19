@@ -394,6 +394,10 @@ const SalesDashboard = () => {
   // 🎟️ Plan Save Handler
   const handleSavePlan = async (planData) => {
     if (!selectedPlanHotel) return;
+    if (planData?._action === 'refresh_only') {
+      await fetchData();
+      return;
+    }
     try {
       setSavingPlan(true);
       const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';

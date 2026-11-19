@@ -14,6 +14,7 @@ const {
   toggleHostelLaundry,
   toggleHostelStatus, 
   updateHostelPlan,
+  deleteHostelSubscriptionHistory,
   getSubscriptionTransactions,
   getSalesTeamPerformance,
   updateSalesAgentSettings,
@@ -40,6 +41,7 @@ router.put('/hostels/:id/toggle-ai-ocr', toggleHostelAiOcr);
 router.put('/hostels/:id/toggle-whatsapp-sync', toggleHostelWhatsAppSync);
 router.put('/hostels/:id/toggle-laundry', toggleHostelLaundry);
 router.put('/hostels/:id/plan', updateHostelPlan);
+router.delete('/hostels/:id/subscription-history/:historyId', deleteHostelSubscriptionHistory);
 router.get('/subscription-transactions', getSubscriptionTransactions);
 router.put('/hostels/:id/assign-sales', assignHostelSalesAgent);
 router.get('/sales-team', getSalesTeamPerformance);
