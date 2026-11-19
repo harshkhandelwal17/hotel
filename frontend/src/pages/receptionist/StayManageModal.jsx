@@ -8,7 +8,6 @@ import { getStayWhatsAppUrl } from '../../utils/whatsapp';
 import InvoiceModal from '../../components/InvoiceModal';
 import MergedCorporateInvoiceModal from '../../components/MergedCorporateInvoiceModal';
 import GuestRegistrationCardModal from '../../components/reception/GuestRegistrationCardModal';
-import DigitalAadhaarCard from '../../components/common/DigitalAadhaarCard';
 import GroupCheckoutModal from '../../components/reception/GroupCheckoutModal';
 import DynamicUpiQr from '../../components/DynamicUpiQr';
 import PaymentMethodSelector, { validateSplitPayment, buildSplitPayments } from '../../components/common/PaymentMethodSelector';
@@ -1686,15 +1685,22 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
           </div>
 
           <div className="space-y-4 flex-1">
-            {stay.hostel?.digitalAadhaarEnabled && (!stay.guest?.idProofType || stay.guest?.idProofType === 'Aadhaar') && (
-              <div className="p-3 bg-amber-50/70 rounded-2xl border border-amber-200/80 space-y-2">
-                <div className="flex items-center justify-between text-xs font-black text-amber-950 uppercase tracking-wider">
-                  <span>⚡ Smart UIDAI Digital E-Aadhaar</span>
-                  <span className="text-[10px] text-amber-800 bg-amber-100 px-2 py-0.5 rounded font-bold">Auto-Reconstructed</span>
+            {stay.guest?.isAadhaarVerified && (
+              <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={18} className="text-emerald-600" />
+                  <div>
+                    <p className="text-xs font-black text-emerald-950 uppercase tracking-wide">
+                      UIDAI Cryptographic QR Verified
+                    </p>
+                    <p className="text-[10px] text-emerald-800 font-medium">
+                      Physical ID cryptographically matched with UIDAI secure digital signature.
+                    </p>
+                  </div>
                 </div>
-                <div className="flex justify-center py-1">
-                  <DigitalAadhaarCard guest={stay.guest} side="both" showWatermark={true} />
-                </div>
+                <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+                  AUTHENTIC
+                </span>
               </div>
             )}
             {stay.guest?.idProofImage ? (

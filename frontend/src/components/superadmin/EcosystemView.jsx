@@ -460,12 +460,12 @@ const EcosystemView = ({
                                 <button
                                   onClick={() => onToggleDigitalAadhaar(h._id)}
                                   className={`px-2 py-1 rounded-lg font-bold flex items-center gap-1 transition-all cursor-pointer ${
-                                    h.digitalAadhaarEnabled ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                    h.digitalAadhaarEnabled ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                                   }`}
-                                  title="Smart Digital E-Aadhaar Reconstructor"
+                                  title="UIDAI Secure QR Verification Audit"
                                 >
                                   <ShieldCheck size={11} />
-                                  <span>E-Aadhaar: {h.digitalAadhaarEnabled ? 'ON' : 'OFF'}</span>
+                                  <span>UIDAI QR: {h.digitalAadhaarEnabled ? 'ON' : 'OFF'}</span>
                                 </button>
                               )}
                             </div>

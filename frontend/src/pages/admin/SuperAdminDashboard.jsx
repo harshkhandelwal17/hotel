@@ -1376,13 +1376,13 @@ const SuperAdminDashboard = () => {
                             onClick={() => handleToggleDigitalAadhaar(h._id)}
                             className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase transition-all shadow-sm active:scale-95 ${
                               h.digitalAadhaarEnabled
-                                ? 'bg-amber-50 text-amber-800 border border-amber-300'
+                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
                                 : 'bg-gray-100 text-gray-400 border border-gray-200'
                             }`}
-                            title="Toggle Smart Digital E-Aadhaar Reconstructor"
+                            title="Toggle UIDAI Secure QR Cryptographic Verification Audit"
                           >
-                            <ShieldCheck size={11} className={h.digitalAadhaarEnabled ? 'text-amber-600 fill-amber-500' : 'text-gray-400'} />
-                            {h.digitalAadhaarEnabled ? 'E-Aadhaar On' : 'E-Aadhaar Off'}
+                            <ShieldCheck size={11} className={h.digitalAadhaarEnabled ? 'text-emerald-600 fill-emerald-500' : 'text-gray-400'} />
+                            {h.digitalAadhaarEnabled ? 'UIDAI QR On' : 'UIDAI QR Off'}
                           </button>
                         </div>
                       </td>
