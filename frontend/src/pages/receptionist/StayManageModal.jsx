@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { format, addDays, addHours } from 'date-fns';
-import { X, Receipt, Plus, Wallet, ArrowRightLeft, CalendarPlus, Printer, Trash2, LogOut, AlertCircle, CheckCircle2, Phone, Edit3, Image as ImageIcon, Eye, FileText, MessageSquare, Building2 } from 'lucide-react';
+import { X, Receipt, Plus, Wallet, ArrowRightLeft, CalendarPlus, Printer, Trash2, LogOut, AlertCircle, CheckCircle2, Phone, Edit3, Image as ImageIcon, Eye, FileText, MessageSquare, Building2, RotateCw, Sparkles, Crop } from 'lucide-react';
 import { printInvoice } from '../../utils/invoice';
 import { getStayWhatsAppUrl } from '../../utils/whatsapp';
 import InvoiceModal from '../../components/InvoiceModal';
@@ -14,6 +14,8 @@ import PaymentMethodSelector, { validateSplitPayment, buildSplitPayments } from 
 import { compressImage } from '../../utils/imageCompression';
 import { getFullImageUrl } from '../../utils/imageUrl';
 import { apiCache } from '../../utils/apiCache';
+import { autoEnhanceIdDocument, rotateCanvas, loadImage, canvasToFile } from '../../utils/documentEnhancer';
+import DocumentCropModal from '../../components/common/DocumentCropModal';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
 
@@ -161,6 +163,7 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
   const [showAddPaymentRow, setShowAddPaymentRow] = useState(false);
   const [showGrcModal, setShowGrcModal] = useState(false);
   const [showIdProofModal, setShowIdProofModal] = useState(false);
+  const [cropModalData, setCropModalData] = useState({ isOpen: false, side: 'front', imageSrc: '' });
   const [stayNotes, setStayNotes] = useState(initialStay.notes || '');
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [savingNotes, setSavingNotes] = useState(false);
@@ -286,7 +289,13 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
       if (side === 'front') setUploadingFront(true);
       else setUploadingBack(true);
 
-      const compressed = await compressImage(file);
+      let fileToUpload = file;
+      try {
+        const enh = await autoEnhanceIdDocument(file, { filterMode: 'magic', autoCrop: true, autoRotate: false });
+        if (enh?.success && enh?.file) fileToUpload = enh.file;
+      } catch (_) {}
+
+      const compressed = await compressImage(fileToUpload);
       const fd = new FormData();
       fd.append('image', compressed);
       const res = await axios.post(`${API}/api/upload`, fd, {
@@ -297,9 +306,69 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
         ...prev,
         [side === 'front' ? 'idProofImage' : 'idProofImageBack']: resolved
       }));
-      flash(`✅ ${side === 'front' ? 'Front' : 'Back'} photo uploaded! Click Save to apply.`);
+      flash(`✅ ${side === 'front' ? 'Front' : 'Back'} photo uploaded & cleaned! Click Save to apply.`);
     } catch (err) {
       setError(`Failed to upload ${side} image: ` + (err.response?.data?.message || err.message));
+    } finally {
+      if (side === 'front') setUploadingFront(false);
+      else setUploadingBack(false);
+    }
+  };
+
+  const handleQuickRotate = async (side) => {
+    const imageSrc = side === 'front' ? editForm.idProofImage : editForm.idProofImageBack;
+    if (!imageSrc) return;
+    try {
+      if (side === 'front') setUploadingFront(true);
+      else setUploadingBack(true);
+
+      const img = await loadImage(getFullImageUrl(imageSrc));
+      const baseCanvas = document.createElement('canvas');
+      baseCanvas.width = img.naturalWidth || img.width;
+      baseCanvas.height = img.naturalHeight || img.height;
+      const bCtx = baseCanvas.getContext('2d');
+      bCtx.drawImage(img, 0, 0);
+
+      const rotCanvas = rotateCanvas(baseCanvas, 90);
+      const res = await canvasToFile(rotCanvas, 'rotated_id.jpg', 0.92);
+      const fd = new FormData();
+      fd.append('image', res.file);
+      const uploadRes = await axios.post(`${API}/api/upload`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      const resolved = getFullImageUrl(uploadRes.data.url);
+      setEditForm(prev => ({
+        ...prev,
+        [side === 'front' ? 'idProofImage' : 'idProofImageBack']: resolved
+      }));
+      flash(`✅ Rotated ${side.toUpperCase()} ID 90°! Click Save to apply.`);
+    } catch (err) {
+      setError('Failed to rotate: ' + err.message);
+    } finally {
+      if (side === 'front') setUploadingFront(false);
+      else setUploadingBack(false);
+    }
+  };
+
+  const handleApplyCropResult = async (file, dataUrl) => {
+    const side = cropModalData.side;
+    try {
+      if (side === 'front') setUploadingFront(true);
+      else setUploadingBack(true);
+
+      const fd = new FormData();
+      fd.append('image', file);
+      const uploadRes = await axios.post(`${API}/api/upload`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      const resolved = getFullImageUrl(uploadRes.data.url);
+      setEditForm(prev => ({
+        ...prev,
+        [side === 'front' ? 'idProofImage' : 'idProofImageBack']: resolved
+      }));
+      flash(`✨ Enhanced & cleaned ${side.toUpperCase()} ID! Click Save to apply.`);
+    } catch (err) {
+      setError('Failed to save cropped image: ' + err.message);
     } finally {
       if (side === 'front') setUploadingFront(false);
       else setUploadingBack(false);
@@ -1082,12 +1151,20 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                     <label className={labelCls}>ID Front Photo</label>
                     <div className="flex items-center gap-2 mt-1">
                       {editForm.idProofImage ? (
-                        <a href={getFullImageUrl(editForm.idProofImage)} target="_blank" rel="noreferrer" className="relative group shrink-0">
+                        <div className="relative group shrink-0">
                           <img src={getFullImageUrl(editForm.idProofImage)} alt="ID Front" className="w-14 h-10 object-cover rounded-lg border border-gray-300 shadow-xs" />
-                          <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Eye size={14} className="text-white" />
+                          <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <a href={getFullImageUrl(editForm.idProofImage)} target="_blank" rel="noreferrer" className="text-white hover:text-emerald-400 p-0.5" title="View Full Photo">
+                              <Eye size={12} />
+                            </a>
+                            <button type="button" onClick={() => handleQuickRotate('front')} className="text-white hover:text-emerald-400 p-0.5 cursor-pointer" title="Rotate 90°">
+                              <RotateCw size={12} />
+                            </button>
+                            <button type="button" onClick={() => setCropModalData({ isOpen: true, side: 'front', imageSrc: getFullImageUrl(editForm.idProofImage) })} className="text-white hover:text-emerald-400 p-0.5 cursor-pointer" title="Crop & CamScanner Clean">
+                              <Crop size={12} />
+                            </button>
                           </div>
-                        </a>
+                        </div>
                       ) : (
                         <div className="w-14 h-10 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center shrink-0">
                           <ImageIcon size={16} className="text-gray-400" />
@@ -1099,6 +1176,26 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                         </span>
                         <input type="file" accept="image/*" className="hidden" onChange={e => handleUploadImage(e.target.files[0], 'front')} />
                       </label>
+                      {editForm.idProofImage && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleQuickRotate('front')}
+                            className="p-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl border border-gray-200 cursor-pointer"
+                            title="1-Click Rotate 90°"
+                          >
+                            <RotateCw size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCropModalData({ isOpen: true, side: 'front', imageSrc: getFullImageUrl(editForm.idProofImage) })}
+                            className="p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl border border-emerald-200 cursor-pointer"
+                            title="Crop & CamScanner Clean"
+                          >
+                            <Sparkles size={13} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1107,12 +1204,20 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                     <label className={labelCls}>ID Back Photo</label>
                     <div className="flex items-center gap-2 mt-1">
                       {editForm.idProofImageBack ? (
-                        <a href={getFullImageUrl(editForm.idProofImageBack)} target="_blank" rel="noreferrer" className="relative group shrink-0">
+                        <div className="relative group shrink-0">
                           <img src={getFullImageUrl(editForm.idProofImageBack)} alt="ID Back" className="w-14 h-10 object-cover rounded-lg border border-gray-300 shadow-xs" />
-                          <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Eye size={14} className="text-white" />
+                          <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <a href={getFullImageUrl(editForm.idProofImageBack)} target="_blank" rel="noreferrer" className="text-white hover:text-emerald-400 p-0.5" title="View Full Photo">
+                              <Eye size={12} />
+                            </a>
+                            <button type="button" onClick={() => handleQuickRotate('back')} className="text-white hover:text-emerald-400 p-0.5 cursor-pointer" title="Rotate 90°">
+                              <RotateCw size={12} />
+                            </button>
+                            <button type="button" onClick={() => setCropModalData({ isOpen: true, side: 'back', imageSrc: getFullImageUrl(editForm.idProofImageBack) })} className="text-white hover:text-emerald-400 p-0.5 cursor-pointer" title="Crop & CamScanner Clean">
+                              <Crop size={12} />
+                            </button>
                           </div>
-                        </a>
+                        </div>
                       ) : (
                         <div className="w-14 h-10 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center shrink-0">
                           <ImageIcon size={16} className="text-gray-400" />
@@ -1124,6 +1229,26 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                         </span>
                         <input type="file" accept="image/*" className="hidden" onChange={e => handleUploadImage(e.target.files[0], 'back')} />
                       </label>
+                      {editForm.idProofImageBack && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleQuickRotate('back')}
+                            className="p-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl border border-gray-200 cursor-pointer"
+                            title="1-Click Rotate 90°"
+                          >
+                            <RotateCw size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCropModalData({ isOpen: true, side: 'back', imageSrc: getFullImageUrl(editForm.idProofImageBack) })}
+                            className="p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl border border-emerald-200 cursor-pointer"
+                            title="Crop & CamScanner Clean"
+                          >
+                            <Sparkles size={13} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1892,6 +2017,15 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
       </div>,
       document.body
     )}
+
+    {/* ✂️ DOCUMENT AUTO-CROP & MAGIC ENHANCER MODAL */}
+    <DocumentCropModal
+      isOpen={cropModalData.isOpen}
+      onClose={() => setCropModalData(d => ({ ...d, isOpen: false }))}
+      imageSrc={cropModalData.imageSrc}
+      title={`Clean & Enhance ${cropModalData.side === 'front' ? 'Front' : 'Back'} ID Card`}
+      onApply={handleApplyCropResult}
+    />
   </div>,
   document.body
 );

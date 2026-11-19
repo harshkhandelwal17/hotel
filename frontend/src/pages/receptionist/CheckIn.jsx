@@ -34,14 +34,15 @@ import {
   Percent,
   Car,
   Building2,
-  Crop
+  Crop,
+  RotateCw
 } from 'lucide-react';
 
 import { format, isPast } from 'date-fns';
 import { useToast } from '../../components/ui/Toast';
 import { compressImage } from '../../utils/imageCompression';
 import { scanAadhaarQrFromImage, validateAadhaarNumber } from '../../utils/aadhaarQrHelper';
-import { autoEnhanceIdDocument } from '../../utils/documentEnhancer';
+import { autoEnhanceIdDocument, loadImage, canvasToFile, rotateCanvas } from '../../utils/documentEnhancer';
 import DocumentCropModal from '../../components/common/DocumentCropModal';
 import { apiCache } from '../../utils/apiCache';
 import GuestRegistrationCardModal from '../../components/reception/GuestRegistrationCardModal';
@@ -919,16 +920,15 @@ const CheckIn = () => {
     setUploadingImage(true);
 
     try {
-      // ⚡ Smart Document Auto-Crop & Magic Enhancer
-      // 1. Auto-Rotates to landscape if sideways or portrait
-      // 2. Auto-Detects card edges & crops out bedsheet/table background
-      // 3. Removes shadows & yellow room cast, whitens paper, sharpens text
+      // ⚡ Smart Document Auto-Crop & CamScanner Enhancer
+      // Trims outer bedsheet/table margin safely, whitens document paper, sharpens text
+      // NOTE: autoRotate is set to false to prevent rotating upright landscape cards
       let processedFile = file;
       try {
         const enhResult = await autoEnhanceIdDocument(file, {
           filterMode: 'magic',
           autoCrop: true,
-          autoRotate: true
+          autoRotate: false
         });
         if (enhResult && enhResult.success && enhResult.file) {
           processedFile = enhResult.file;
@@ -1293,6 +1293,48 @@ const CheckIn = () => {
     }
   };
 
+  const handleQuickRotate = async (guestIdx, side, deg = 90) => {
+    const curGuest = guests[guestIdx];
+    const imageSrc = side === 'front' ? curGuest?.idProofImage : curGuest?.idProofImageBack;
+    if (!imageSrc) return;
+
+    try {
+      setUploadingImage(true);
+      const img = await loadImage(getFullImageUrl(imageSrc));
+      const baseCanvas = document.createElement('canvas');
+      baseCanvas.width = img.naturalWidth || img.width;
+      baseCanvas.height = img.naturalHeight || img.height;
+      const bCtx = baseCanvas.getContext('2d');
+      bCtx.drawImage(img, 0, 0);
+
+      const rotCanvas = rotateCanvas(baseCanvas, deg);
+
+      const res = await canvasToFile(rotCanvas, 'rotated_id.jpg', 0.92);
+      const formData = new FormData();
+      formData.append('image', res.file);
+      const uploadRes = await axios.post(`${API}/api/upload`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      const newUrl = getFullImageUrl(uploadRes.data.url);
+      setGuests(prev => {
+        const updated = [...prev];
+        if (side === 'back') {
+          updated[guestIdx] = { ...updated[guestIdx], idProofImageBack: newUrl };
+        } else {
+          updated[guestIdx] = { ...updated[guestIdx], idProofImage: newUrl };
+        }
+        return updated;
+      });
+
+      toast({ message: `Rotated ${side.toUpperCase()} ID 90°!`, type: 'success' });
+    } catch (err) {
+      toast({ message: 'Failed to rotate: ' + err.message, type: 'error' });
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   // =========================================================
   // WHATSAPP PHOTO ATTACHMENT & CONNECTION
   // =========================================================
@@ -1302,12 +1344,12 @@ const CheckIn = () => {
       let resolvedUrl = getFullImageUrl(imageUrl);
 
       // ⚡ Smart Auto-Enhance WhatsApp Photo:
-      // Trim bedsheet/table background, rotate upright, remove shadows & glare
+      // Trim bedsheet/table background, whiten paper, remove shadows & glare
       try {
         const enhResult = await autoEnhanceIdDocument(resolvedUrl, {
           filterMode: 'magic',
           autoCrop: true,
-          autoRotate: true
+          autoRotate: false
         });
         if (enhResult && enhResult.success && enhResult.file) {
           const formData = new FormData();
@@ -4387,6 +4429,14 @@ const CheckIn = () => {
                               </a>
                               <button
                                 type="button"
+                                onClick={() => handleQuickRotate(index, 'front')}
+                                className="text-white text-[10px] font-black uppercase tracking-widest bg-gray-800/90 hover:bg-gray-700 px-2 py-1 rounded-full backdrop-blur-sm transition-colors flex items-center gap-1 shadow-xs"
+                                title="1-Click Rotate 90°"
+                              >
+                                <RotateCw size={10} /> 90°
+                              </button>
+                              <button
+                                type="button"
                                 onClick={() => handleOpenCropModal(index, 'front', guest.idProofImage)}
                                 className="text-white text-[10px] font-black uppercase tracking-widest bg-blue-600/90 hover:bg-blue-500 px-2 py-1 rounded-full backdrop-blur-sm transition-colors flex items-center gap-1 shadow-xs"
                                 title="Crop & Enhance Document"
@@ -4412,6 +4462,25 @@ const CheckIn = () => {
                               title="Remove Image"
                             >
                               <X size={14} />
+                            </button>
+                          </div>
+                          {/* ⚡ Quick Action Bar under Front ID */}
+                          <div className="flex items-center gap-1 mt-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleQuickRotate(index, 'front', 90)}
+                              className="flex-1 py-1 px-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[11px] font-bold rounded-lg flex items-center justify-center gap-1 transition-colors border border-gray-200 cursor-pointer active:scale-95"
+                              title="Rotate 90 degrees clockwise"
+                            >
+                              <RotateCw size={11} className="text-gray-500" /> Rotate
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenCropModal(index, 'front', guest.idProofImage)}
+                              className="flex-1 py-1 px-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[11px] font-bold rounded-lg flex items-center justify-center gap-1 transition-colors border border-emerald-200 cursor-pointer active:scale-95"
+                              title="Crop table edge & CamScanner paper whitening"
+                            >
+                              <Sparkles size={11} className="text-emerald-600" /> Clean/Crop
                             </button>
                           </div>
                           {scanningQr.index === index && scanningQr.side === 'front' && (
@@ -4538,6 +4607,14 @@ const CheckIn = () => {
                               </a>
                               <button
                                 type="button"
+                                onClick={() => handleQuickRotate(index, 'back')}
+                                className="text-white text-[10px] font-black uppercase tracking-widest bg-gray-800/90 hover:bg-gray-700 px-2 py-1 rounded-full backdrop-blur-sm transition-colors flex items-center gap-1 shadow-xs"
+                                title="1-Click Rotate 90°"
+                              >
+                                <RotateCw size={10} /> 90°
+                              </button>
+                              <button
+                                type="button"
                                 onClick={() => handleOpenCropModal(index, 'back', guest.idProofImageBack)}
                                 className="text-white text-[10px] font-black uppercase tracking-widest bg-blue-600/90 hover:bg-blue-500 px-2 py-1 rounded-full backdrop-blur-sm transition-colors flex items-center gap-1 shadow-xs"
                                 title="Crop & Enhance Document"
@@ -4563,6 +4640,25 @@ const CheckIn = () => {
                               title="Remove Image"
                             >
                               <X size={14} />
+                            </button>
+                          </div>
+                          {/* ⚡ Quick Action Bar under Back ID */}
+                          <div className="flex items-center gap-1 mt-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleQuickRotate(index, 'back', 90)}
+                              className="flex-1 py-1 px-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[11px] font-bold rounded-lg flex items-center justify-center gap-1 transition-colors border border-gray-200 cursor-pointer active:scale-95"
+                              title="Rotate 90 degrees clockwise"
+                            >
+                              <RotateCw size={11} className="text-gray-500" /> Rotate
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenCropModal(index, 'back', guest.idProofImageBack)}
+                              className="flex-1 py-1 px-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[11px] font-bold rounded-lg flex items-center justify-center gap-1 transition-colors border border-emerald-200 cursor-pointer active:scale-95"
+                              title="Crop table edge & CamScanner paper whitening"
+                            >
+                              <Sparkles size={11} className="text-emerald-600" /> Clean/Crop
                             </button>
                           </div>
                           {scanningQr.index === index && scanningQr.side === 'back' && (

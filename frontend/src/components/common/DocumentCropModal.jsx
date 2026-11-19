@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  X, RotateCw, Sparkles, Check, Sliders, 
-  Maximize2, Crop, RefreshCcw, FileText, Image as ImageIcon 
+  X, RotateCw, RotateCcw, Sparkles, Check, Sliders, 
+  Maximize2, Crop, RefreshCcw, Eye, ShieldCheck, Image as ImageIcon 
 } from 'lucide-react';
 import { 
   loadImage, 
   applyMagicDocumentFilter, 
-  autoRotateLandscape,
+  rotateCanvas,
   detectCardBoundingBox,
   cropCanvas,
   canvasToFile
@@ -14,7 +14,14 @@ import {
 
 /**
  * ✂️ DocumentCropModal
- * Super-fast, intuitive 1-click Document Cropper & Magic Enhancer for Receptionists.
+ * 
+ * High-precision Document Crop & CamScanner-Fidelity Enhancer for Indian ID Cards.
+ * Features:
+ * - 1-Click Rotation (⟲ -90°, ⟳ +90°, 180°)
+ * - Smart Presets: Auto Edge Detect, Aadhaar Ratio (1.6:1), Trim 5%, Trim 10%, Full 100%
+ * - CamScanner Paper Whitening, Xerox B&W, Shadow/Yellow light fix
+ * - Hold-to-Compare original button
+ * - Fine-tune margin sliders
  */
 export default function DocumentCropModal({
   isOpen,
@@ -24,12 +31,13 @@ export default function DocumentCropModal({
   onApply
 }) {
   const [rotation, setRotation] = useState(0);
-  const [filterMode, setFilterMode] = useState('magic'); // 'magic' | 'xerox' | 'original'
+  const [filterMode, setFilterMode] = useState('magic'); // 'magic' | 'xerox' | 'shadow_fix' | 'original'
   const [isProcessing, setIsProcessing] = useState(false);
   const [previewDataUrl, setPreviewDataUrl] = useState(imageSrc);
   const [originalLoaded, setOriginalLoaded] = useState(null);
+  const [isHoldingOriginal, setIsHoldingOriginal] = useState(false);
 
-  // Crop percentage coordinates [0..100]
+  // Crop percentage coordinates [0..35]
   const [cropBox, setCropBox] = useState({ top: 0, left: 0, right: 0, bottom: 0 });
 
   // Load base image on open
@@ -49,7 +57,7 @@ export default function DocumentCropModal({
       ctx.drawImage(img, 0, 0);
 
       const box = detectCardBoundingBox(initialCanvas);
-      if (box && box.width < initialCanvas.width * 0.98) {
+      if (box && box.confidence === 'high' && (box.width < initialCanvas.width * 0.96 || box.height < initialCanvas.height * 0.96)) {
         const pTop = Math.round((box.y / initialCanvas.height) * 100);
         const pLeft = Math.round((box.x / initialCanvas.width) * 100);
         const pRight = Math.round(((initialCanvas.width - (box.x + box.width)) / initialCanvas.width) * 100);
@@ -72,39 +80,36 @@ export default function DocumentCropModal({
 
     const renderPreview = async () => {
       try {
-        const rad = (rotation % 360) * (Math.PI / 180);
-        const is90or270 = Math.abs(rotation % 180) === 90;
-
         const origW = originalLoaded.naturalWidth || originalLoaded.width;
         const origH = originalLoaded.naturalHeight || originalLoaded.height;
 
-        const rotW = is90or270 ? origH : origW;
-        const rotH = is90or270 ? origW : origH;
+        // 1. Draw base image
+        const baseCanvas = document.createElement('canvas');
+        baseCanvas.width = origW;
+        baseCanvas.height = origH;
+        const bCtx = baseCanvas.getContext('2d');
+        bCtx.drawImage(originalLoaded, 0, 0);
 
-        const rotCanvas = document.createElement('canvas');
-        rotCanvas.width = rotW;
-        rotCanvas.height = rotH;
-        const rCtx = rotCanvas.getContext('2d');
+        // 2. Rotate
+        let workingCanvas = rotateCanvas(baseCanvas, rotation);
 
-        rCtx.translate(rotW / 2, rotH / 2);
-        rCtx.rotate(rad);
-        rCtx.drawImage(originalLoaded, -origW / 2, -origH / 2);
+        // 3. Crop
+        const curW = workingCanvas.width;
+        const curH = workingCanvas.height;
+        const cutX = Math.round((cropBox.left / 100) * curW);
+        const cutY = Math.round((cropBox.top / 100) * curH);
+        const cutW = Math.max(40, Math.round(curW - cutX - ((cropBox.right / 100) * curW)));
+        const cutH = Math.max(40, Math.round(curH - cutY - ((cropBox.bottom / 100) * curH)));
 
-        // Apply Crop
-        const cutX = Math.round((cropBox.left / 100) * rotW);
-        const cutY = Math.round((cropBox.top / 100) * rotH);
-        const cutW = Math.max(50, Math.round(rotW - cutX - ((cropBox.right / 100) * rotW)));
-        const cutH = Math.max(50, Math.round(rotH - cutY - ((cropBox.bottom / 100) * rotH)));
+        workingCanvas = cropCanvas(workingCanvas, { x: cutX, y: cutY, width: cutW, height: cutH });
 
-        let finalCanvas = cropCanvas(rotCanvas, { x: cutX, y: cutY, width: cutW, height: cutH });
-
-        // Apply Filter
+        // 4. Filter
         if (filterMode !== 'original') {
-          finalCanvas = applyMagicDocumentFilter(finalCanvas, filterMode);
+          workingCanvas = applyMagicDocumentFilter(workingCanvas, filterMode);
         }
 
         if (!isCancelled) {
-          setPreviewDataUrl(finalCanvas.toDataURL('image/jpeg', 0.88));
+          setPreviewDataUrl(workingCanvas.toDataURL('image/jpeg', 0.88));
         }
       } catch (err) {
         console.warn('Preview render error:', err);
@@ -117,36 +122,83 @@ export default function DocumentCropModal({
 
   if (!isOpen) return null;
 
-  const handleRotate90 = () => {
-    setRotation(r => (r + 90) % 360);
-  };
+  // Rotation Handlers
+  const handleRotateCw = () => setRotation(r => (r + 90) % 360);
+  const handleRotateCcw = () => setRotation(r => ((r - 90) % 360 + 360) % 360);
+  const handleRotate180 = () => setRotation(r => (r + 180) % 360);
 
-  const handleResetCrop = () => {
+  // Preset Handlers
+  const handlePresetFull = () => {
     setCropBox({ top: 0, left: 0, right: 0, bottom: 0 });
-    setRotation(0);
-    setFilterMode('original');
   };
 
-  const handleAutoMagicCrop = () => {
+  const handlePresetTrim5 = () => {
+    setCropBox({ top: 5, left: 5, right: 5, bottom: 5 });
+  };
+
+  const handlePresetTrim10 = () => {
+    setCropBox({ top: 10, left: 10, right: 10, bottom: 10 });
+  };
+
+  const handlePresetAadhaarRatio = () => {
+    if (!originalLoaded) return;
+    const is90or270 = Math.abs(rotation % 180) === 90;
+    const w = is90or270 ? originalLoaded.height : originalLoaded.width;
+    const h = is90or270 ? originalLoaded.width : originalLoaded.height;
+
+    // Standard Aadhaar ratio is ~1.58 (landscape) or 0.63 (portrait)
+    const targetRatio = w >= h ? 1.58 : 0.63;
+    const currentRatio = w / h;
+
+    if (currentRatio > targetRatio) {
+      // Current image is too wide -> trim left/right
+      const idealW = h * targetRatio;
+      const cutTotalPercent = ((w - idealW) / w) * 100;
+      const sideCut = Math.min(25, Math.max(0, Math.round(cutTotalPercent / 2)));
+      setCropBox({ top: 2, bottom: 2, left: sideCut, right: sideCut });
+    } else {
+      // Current image is too tall -> trim top/bottom
+      const idealH = w / targetRatio;
+      const cutTotalPercent = ((h - idealH) / h) * 100;
+      const sideCut = Math.min(25, Math.max(0, Math.round(cutTotalPercent / 2)));
+      setCropBox({ top: sideCut, bottom: sideCut, left: 2, right: 2 });
+    }
+  };
+
+  const handleAutoMagicDetect = () => {
     if (!originalLoaded) return;
     setIsProcessing(true);
     setTimeout(() => {
-      setRotation(0);
-      setFilterMode('magic');
-      const initialCanvas = document.createElement('canvas');
-      initialCanvas.width = originalLoaded.naturalWidth || originalLoaded.width;
-      initialCanvas.height = originalLoaded.naturalHeight || originalLoaded.height;
-      const ctx = initialCanvas.getContext('2d');
+      const origW = originalLoaded.naturalWidth || originalLoaded.width;
+      const origH = originalLoaded.naturalHeight || originalLoaded.height;
+      const baseCanvas = document.createElement('canvas');
+      baseCanvas.width = origW;
+      baseCanvas.height = origH;
+      const ctx = baseCanvas.getContext('2d');
       ctx.drawImage(originalLoaded, 0, 0);
 
-      const box = detectCardBoundingBox(initialCanvas);
-      const pTop = Math.round((box.y / initialCanvas.height) * 100);
-      const pLeft = Math.round((box.x / initialCanvas.width) * 100);
-      const pRight = Math.round(((initialCanvas.width - (box.x + box.width)) / initialCanvas.width) * 100);
-      const pBottom = Math.round(((initialCanvas.height - (box.y + box.height)) / initialCanvas.height) * 100);
-      setCropBox({ top: pTop, left: pLeft, right: pRight, bottom: pBottom });
+      const rotCanvas = rotateCanvas(baseCanvas, rotation);
+      const box = detectCardBoundingBox(rotCanvas);
+
+      if (box && box.confidence === 'high') {
+        const pTop = Math.round((box.y / rotCanvas.height) * 100);
+        const pLeft = Math.round((box.x / rotCanvas.width) * 100);
+        const pRight = Math.round(((rotCanvas.width - (box.x + box.width)) / rotCanvas.width) * 100);
+        const pBottom = Math.round(((rotCanvas.height - (box.y + box.height)) / rotCanvas.height) * 100);
+        setCropBox({ top: pTop, left: pLeft, right: pRight, bottom: pBottom });
+      } else {
+        // Safe default 4% trim if contour ambiguous
+        setCropBox({ top: 4, left: 4, right: 4, bottom: 4 });
+      }
+      setFilterMode('magic');
       setIsProcessing(false);
-    }, 50);
+    }, 40);
+  };
+
+  const handleReset = () => {
+    setCropBox({ top: 0, left: 0, right: 0, bottom: 0 });
+    setRotation(0);
+    setFilterMode('original');
   };
 
   const handleSaveAndApply = async () => {
@@ -154,36 +206,31 @@ export default function DocumentCropModal({
     setIsProcessing(true);
 
     try {
-      const rad = (rotation % 360) * (Math.PI / 180);
-      const is90or270 = Math.abs(rotation % 180) === 90;
-
       const origW = originalLoaded.naturalWidth || originalLoaded.width;
       const origH = originalLoaded.naturalHeight || originalLoaded.height;
 
-      const rotW = is90or270 ? origH : origW;
-      const rotH = is90or270 ? origW : origH;
+      const baseCanvas = document.createElement('canvas');
+      baseCanvas.width = origW;
+      baseCanvas.height = origH;
+      const bCtx = baseCanvas.getContext('2d');
+      bCtx.drawImage(originalLoaded, 0, 0);
 
-      const rotCanvas = document.createElement('canvas');
-      rotCanvas.width = rotW;
-      rotCanvas.height = rotH;
-      const rCtx = rotCanvas.getContext('2d');
+      let finalCanvas = rotateCanvas(baseCanvas, rotation);
 
-      rCtx.translate(rotW / 2, rotH / 2);
-      rCtx.rotate(rad);
-      rCtx.drawImage(originalLoaded, -origW / 2, -origH / 2);
+      const curW = finalCanvas.width;
+      const curH = finalCanvas.height;
+      const cutX = Math.round((cropBox.left / 100) * curW);
+      const cutY = Math.round((cropBox.top / 100) * curH);
+      const cutW = Math.max(40, Math.round(curW - cutX - ((cropBox.right / 100) * curW)));
+      const cutH = Math.max(40, Math.round(curH - cutY - ((cropBox.bottom / 100) * curH)));
 
-      const cutX = Math.round((cropBox.left / 100) * rotW);
-      const cutY = Math.round((cropBox.top / 100) * rotH);
-      const cutW = Math.max(50, Math.round(rotW - cutX - ((cropBox.right / 100) * rotW)));
-      const cutH = Math.max(50, Math.round(rotH - cutY - ((cropBox.bottom / 100) * rotH)));
-
-      let finalCanvas = cropCanvas(rotCanvas, { x: cutX, y: cutY, width: cutW, height: cutH });
+      finalCanvas = cropCanvas(finalCanvas, { x: cutX, y: cutY, width: cutW, height: cutH });
 
       if (filterMode !== 'original') {
         finalCanvas = applyMagicDocumentFilter(finalCanvas, filterMode);
       }
 
-      const result = await canvasToFile(finalCanvas, 'cleaned_id_proof.jpg', 0.90);
+      const result = await canvasToFile(finalCanvas, 'cleaned_id_proof.jpg', 0.92);
       onApply(result.file, result.dataUrl);
       onClose();
     } catch (err) {
@@ -195,23 +242,28 @@ export default function DocumentCropModal({
 
   return (
     <div 
-      className="fixed inset-0 bg-black/85 backdrop-blur-xs z-[10000] flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150"
+      className="fixed inset-0 bg-black/85 backdrop-blur-xs z-[10000] flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150"
       onClick={onClose}
     >
       <div 
-        className="bg-gray-900 text-white rounded-3xl max-w-2xl w-full p-4 sm:p-5 shadow-2xl border border-gray-800 flex flex-col space-y-3 animate-in zoom-in-95 duration-200 max-h-[94vh] overflow-y-auto"
+        className="bg-gray-900 text-white rounded-3xl max-w-2xl w-full p-4 sm:p-5 shadow-2xl border border-gray-800 flex flex-col space-y-3 animate-in zoom-in-95 duration-200 max-h-[96vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* HEADER */}
         <div className="flex items-center justify-between pb-2 border-b border-gray-800 shrink-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
               <Sparkles size={16} />
             </div>
             <div>
-              <h3 className="text-sm font-black text-white tracking-wide">{title}</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-black text-white tracking-wide">{title}</h3>
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                  <ShieldCheck size={10} /> 100% Genuine ID
+                </span>
+              </div>
               <p className="text-[11px] text-gray-400 font-medium">
-                Auto-crop background table/bed, straighten angle & clean shadows
+                Trim table/bed background, fix rotation & CamScanner paper whitening
               </p>
             </div>
           </div>
@@ -225,12 +277,12 @@ export default function DocumentCropModal({
         </div>
 
         {/* IMAGE PREVIEW STAGE */}
-        <div className="w-full bg-black/60 rounded-2xl border border-gray-800 p-2 sm:p-4 flex items-center justify-center min-h-[260px] max-h-[420px] overflow-hidden relative">
+        <div className="w-full bg-black/70 rounded-2xl border border-gray-800 p-2 sm:p-3 flex items-center justify-center min-h-[250px] max-h-[380px] overflow-hidden relative select-none">
           {previewDataUrl ? (
             <img 
-              src={previewDataUrl} 
+              src={isHoldingOriginal ? imageSrc : previewDataUrl} 
               alt="Enhanced ID Preview" 
-              className="max-h-[380px] w-auto max-w-full object-contain rounded-xl shadow-lg border border-gray-700/60"
+              className="max-h-[350px] w-auto max-w-full object-contain rounded-xl shadow-lg border border-gray-700/60"
             />
           ) : (
             <div className="text-gray-500 flex flex-col items-center">
@@ -239,132 +291,218 @@ export default function DocumentCropModal({
             </div>
           )}
 
+          {/* Hold to Compare Overlay Button */}
+          <button
+            type="button"
+            onMouseDown={() => setIsHoldingOriginal(true)}
+            onMouseUp={() => setIsHoldingOriginal(false)}
+            onTouchStart={() => setIsHoldingOriginal(true)}
+            onTouchEnd={() => setIsHoldingOriginal(false)}
+            className="absolute bottom-3 right-3 bg-black/75 hover:bg-black text-gray-300 hover:text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-xl border border-gray-700 backdrop-blur-sm flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+            title="Press and hold to see the original unedited photo"
+          >
+            <Eye size={12} />
+            <span>{isHoldingOriginal ? 'Showing Original' : 'Hold to Compare'}</span>
+          </button>
+
           {isProcessing && (
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-2xs flex items-center justify-center gap-2 text-white text-xs font-black">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-2xs flex items-center justify-center gap-2 text-white text-xs font-black">
               <span className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
               <span>Enhancing Document...</span>
             </div>
           )}
         </div>
 
-        {/* FAST ACTION CONTROLS */}
-        <div className="space-y-2 pt-1">
+        {/* CONTROLS SECTION */}
+        <div className="space-y-2.5 pt-1">
+          {/* ROTATION & AUTO-DETECT ROW */}
           <div className="flex flex-wrap items-center justify-between gap-2">
-            {/* Rotate & Presets */}
-            <div className="flex items-center gap-1.5">
+            {/* Quick Rotate Buttons */}
+            <div className="flex items-center gap-1 bg-gray-950/60 p-1 rounded-xl border border-gray-800">
+              <span className="text-[10px] uppercase font-bold text-gray-500 px-1">Rotate:</span>
               <button
                 type="button"
-                onClick={handleRotate90}
-                className="px-2.5 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-black uppercase tracking-wider rounded-xl transition-all border border-gray-700 flex items-center gap-1 cursor-pointer active:scale-95"
-                title="Rotate 90 degrees"
+                onClick={handleRotateCcw}
+                className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-bold rounded-lg border border-gray-700 flex items-center gap-1 cursor-pointer active:scale-95"
+                title="Rotate 90 degrees counter-clockwise (Left)"
               >
-                <RotateCw size={13} />
-                <span>Rotate 90°</span>
+                <RotateCcw size={12} /> ⟲ -90°
               </button>
-
               <button
                 type="button"
-                onClick={handleAutoMagicCrop}
-                className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-1 cursor-pointer shadow-sm active:scale-95"
-                title="Re-run auto edge crop & color pop"
+                onClick={handleRotateCw}
+                className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-bold rounded-lg border border-gray-700 flex items-center gap-1 cursor-pointer active:scale-95"
+                title="Rotate 90 degrees clockwise (Right)"
               >
-                <Sparkles size={13} />
-                <span>Auto-Magic</span>
+                <RotateCw size={12} /> ⟳ +90°
               </button>
-
               <button
                 type="button"
-                onClick={handleResetCrop}
-                className="px-2 py-1.5 text-gray-400 hover:text-white text-xs font-bold rounded-xl transition-all cursor-pointer"
-                title="Reset to original uploaded photo"
+                onClick={handleRotate180}
+                className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-bold rounded-lg border border-gray-700 flex items-center gap-1 cursor-pointer active:scale-95"
+                title="Flip 180 degrees"
               >
-                <RefreshCcw size={12} className="inline mr-1" />
-                <span>Reset</span>
+                180°
               </button>
             </div>
 
-            {/* Filter Mode Selector */}
-            <div className="flex items-center bg-gray-800/80 p-0.5 rounded-xl border border-gray-700 text-xs font-bold">
+            {/* Smart Presets */}
+            <div className="flex items-center gap-1 bg-gray-950/60 p-1 rounded-xl border border-gray-800">
+              <button
+                type="button"
+                onClick={handleAutoMagicDetect}
+                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase tracking-wider rounded-lg flex items-center gap-1 cursor-pointer shadow-sm active:scale-95"
+                title="Smart Auto-Detect Card Boundary"
+              >
+                <Sparkles size={12} />
+                <span>Auto Edge</span>
+              </button>
+              <button
+                type="button"
+                onClick={handlePresetAadhaarRatio}
+                className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-bold rounded-lg border border-gray-700 cursor-pointer active:scale-95"
+                title="Fit to standard Indian Aadhaar / ID Card ratio (1.58:1)"
+              >
+                🪪 Aadhaar (1.6:1)
+              </button>
+              <button
+                type="button"
+                onClick={handlePresetTrim5}
+                className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-bold rounded-lg border border-gray-700 cursor-pointer active:scale-95"
+                title="Trim 5% margin around the edges"
+              >
+                ✂️ Trim 5%
+              </button>
+              <button
+                type="button"
+                onClick={handlePresetFull}
+                className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-bold rounded-lg border border-gray-700 cursor-pointer active:scale-95"
+                title="Full 100% original frame"
+              >
+                🖼️ Full
+              </button>
+              <button
+                type="button"
+                onClick={handleReset}
+                className="px-2 py-1 text-gray-400 hover:text-white text-xs font-bold rounded-lg cursor-pointer"
+                title="Reset all edits"
+              >
+                <RefreshCcw size={12} />
+              </button>
+            </div>
+          </div>
+
+          {/* FILTER MODES ROW */}
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-gray-950/40 p-1.5 rounded-xl border border-gray-800">
+            <span className="text-[10px] uppercase font-bold text-gray-400 px-1">CamScanner Filter:</span>
+            <div className="flex items-center gap-1 text-xs font-bold">
               <button
                 type="button"
                 onClick={() => setFilterMode('magic')}
                 className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                  filterMode === 'magic' ? 'bg-emerald-500 text-gray-950 font-black shadow-xs' : 'text-gray-300 hover:text-white'
+                  filterMode === 'magic' ? 'bg-emerald-500 text-gray-950 font-black shadow-xs' : 'text-gray-300 hover:text-white bg-gray-800/60'
                 }`}
+                title="CamScanner Magic: Pure white paper, deep text, vibrant natural photo"
               >
-                ✨ Magic Color
+                ✨ CamScanner Magic
               </button>
               <button
                 type="button"
                 onClick={() => setFilterMode('xerox')}
                 className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                  filterMode === 'xerox' ? 'bg-emerald-500 text-gray-950 font-black shadow-xs' : 'text-gray-300 hover:text-white'
+                  filterMode === 'xerox' ? 'bg-emerald-500 text-gray-950 font-black shadow-xs' : 'text-gray-300 hover:text-white bg-gray-800/60'
                 }`}
+                title="Clean B&W Photocopy: High contrast monochrome for registration card printouts"
               >
-                📄 Clean Xerox
+                📄 Clean B&W Xerox
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterMode('shadow_fix')}
+                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                  filterMode === 'shadow_fix' ? 'bg-emerald-500 text-gray-950 font-black shadow-xs' : 'text-gray-300 hover:text-white bg-gray-800/60'
+                }`}
+                title="Shadow & Yellow Cast Fix: Natural lighting without paper whitening"
+              >
+                💡 Shadow Fix
               </button>
               <button
                 type="button"
                 onClick={() => setFilterMode('original')}
                 className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                  filterMode === 'original' ? 'bg-emerald-500 text-gray-950 font-black shadow-xs' : 'text-gray-300 hover:text-white'
+                  filterMode === 'original' ? 'bg-emerald-500 text-gray-950 font-black shadow-xs' : 'text-gray-300 hover:text-white bg-gray-800/60'
                 }`}
+                title="Original unaltered colors"
               >
                 Original
               </button>
             </div>
           </div>
 
-          {/* CROP ADJUSTMENT SLIDERS (OPTIONAL FINE-TUNING) */}
-          <details className="group text-xs text-gray-400">
-            <summary className="cursor-pointer select-none py-1 hover:text-white flex items-center justify-between font-bold text-[11px] uppercase tracking-wider">
-              <span className="flex items-center gap-1">
+          {/* CROP ADJUSTMENT SLIDERS */}
+          <div className="bg-gray-950/60 p-2.5 rounded-xl border border-gray-800">
+            <div className="flex items-center justify-between text-[11px] font-bold text-gray-400 mb-1.5 uppercase tracking-wider">
+              <span className="flex items-center gap-1 text-gray-300">
                 <Crop size={12} />
-                <span>Fine-Tune Margins (Top / Bottom / Left / Right)</span>
+                <span>Fine-Tune Margins (Cut Table/Bedsheet Edge)</span>
               </span>
-              <span className="group-open:rotate-180 transition-transform">▾</span>
-            </summary>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 bg-gray-950/60 p-2.5 rounded-xl border border-gray-800 mt-1">
+              <span className="text-[10px] text-gray-500 font-normal">
+                T: {cropBox.top}% • B: {cropBox.bottom}% • L: {cropBox.left}% • R: {cropBox.right}%
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <div>
-                <label className="text-[10px] uppercase font-bold text-gray-500 block">Top Margin: {cropBox.top}%</label>
+                <div className="flex justify-between text-[10px] font-bold text-gray-400 mb-0.5">
+                  <span>Top:</span>
+                  <span className="text-emerald-400">{cropBox.top}%</span>
+                </div>
                 <input 
                   type="range" min="0" max="30" value={cropBox.top} 
                   onChange={(e) => setCropBox(b => ({ ...b, top: Number(e.target.value) }))}
-                  className="w-full accent-emerald-500 cursor-pointer"
+                  className="w-full accent-emerald-500 cursor-pointer h-1.5 bg-gray-700 rounded-lg"
                 />
               </div>
               <div>
-                <label className="text-[10px] uppercase font-bold text-gray-500 block">Bottom: {cropBox.bottom}%</label>
+                <div className="flex justify-between text-[10px] font-bold text-gray-400 mb-0.5">
+                  <span>Bottom:</span>
+                  <span className="text-emerald-400">{cropBox.bottom}%</span>
+                </div>
                 <input 
                   type="range" min="0" max="30" value={cropBox.bottom} 
                   onChange={(e) => setCropBox(b => ({ ...b, bottom: Number(e.target.value) }))}
-                  className="w-full accent-emerald-500 cursor-pointer"
+                  className="w-full accent-emerald-500 cursor-pointer h-1.5 bg-gray-700 rounded-lg"
                 />
               </div>
               <div>
-                <label className="text-[10px] uppercase font-bold text-gray-500 block">Left Margin: {cropBox.left}%</label>
+                <div className="flex justify-between text-[10px] font-bold text-gray-400 mb-0.5">
+                  <span>Left:</span>
+                  <span className="text-emerald-400">{cropBox.left}%</span>
+                </div>
                 <input 
                   type="range" min="0" max="30" value={cropBox.left} 
                   onChange={(e) => setCropBox(b => ({ ...b, left: Number(e.target.value) }))}
-                  className="w-full accent-emerald-500 cursor-pointer"
+                  className="w-full accent-emerald-500 cursor-pointer h-1.5 bg-gray-700 rounded-lg"
                 />
               </div>
               <div>
-                <label className="text-[10px] uppercase font-bold text-gray-500 block">Right Margin: {cropBox.right}%</label>
+                <div className="flex justify-between text-[10px] font-bold text-gray-400 mb-0.5">
+                  <span>Right:</span>
+                  <span className="text-emerald-400">{cropBox.right}%</span>
+                </div>
                 <input 
                   type="range" min="0" max="30" value={cropBox.right} 
                   onChange={(e) => setCropBox(b => ({ ...b, right: Number(e.target.value) }))}
-                  className="w-full accent-emerald-500 cursor-pointer"
+                  className="w-full accent-emerald-500 cursor-pointer h-1.5 bg-gray-700 rounded-lg"
                 />
               </div>
             </div>
-          </details>
+          </div>
         </div>
 
         {/* FOOTER ACTIONS */}
         <div className="pt-2 border-t border-gray-800 flex items-center justify-between gap-3 shrink-0">
           <span className="text-[11px] text-gray-400 font-medium hidden sm:inline">
-            🔒 Genuine physical card scan — 100% legal & police compliant.
+            🔒 Original submitted physical ID enhanced for crisp registration printouts.
           </span>
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             <button
