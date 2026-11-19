@@ -33,13 +33,16 @@ import {
   AlertTriangle,
   Percent,
   Car,
-  Building2
+  Building2,
+  Crop
 } from 'lucide-react';
 
 import { format, isPast } from 'date-fns';
 import { useToast } from '../../components/ui/Toast';
 import { compressImage } from '../../utils/imageCompression';
 import { scanAadhaarQrFromImage, validateAadhaarNumber } from '../../utils/aadhaarQrHelper';
+import { autoEnhanceIdDocument } from '../../utils/documentEnhancer';
+import DocumentCropModal from '../../components/common/DocumentCropModal';
 import { apiCache } from '../../utils/apiCache';
 import GuestRegistrationCardModal from '../../components/reception/GuestRegistrationCardModal';
 import BrokersDirectoryModal from '../../components/common/BrokersDirectoryModal';
@@ -92,6 +95,12 @@ const CheckIn = () => {
   const [scanningQr, setScanningQr] = useState({ index: null, side: null });
   const [aiOcrEnabled, setAiOcrEnabled] = useState(false);
   const [digitalAadhaarEnabled, setDigitalAadhaarEnabled] = useState(false);
+  const [cropModalData, setCropModalData] = useState({
+    isOpen: false,
+    index: 0,
+    side: 'front',
+    imageSrc: ''
+  });
   const guestsRef = useRef([]);
   // Keep ORIGINAL full-resolution ID photos so QR re-scan never works on a compressed copy
   const originalIdFilesRef = useRef({});
@@ -905,12 +914,30 @@ const CheckIn = () => {
     }
 
     // =========================================================
-    // STEP 2: CLOUD UPLOAD & BACKEND STORAGE
+    // STEP 2: CLOUD UPLOAD & BACKEND STORAGE (WITH AUTO-ENHANCE)
     // =========================================================
     setUploadingImage(true);
 
     try {
-      const compressedFile = await compressImage(file);
+      // ⚡ Smart Document Auto-Crop & Magic Enhancer
+      // 1. Auto-Rotates to landscape if sideways or portrait
+      // 2. Auto-Detects card edges & crops out bedsheet/table background
+      // 3. Removes shadows & yellow room cast, whitens paper, sharpens text
+      let processedFile = file;
+      try {
+        const enhResult = await autoEnhanceIdDocument(file, {
+          filterMode: 'magic',
+          autoCrop: true,
+          autoRotate: true
+        });
+        if (enhResult && enhResult.success && enhResult.file) {
+          processedFile = enhResult.file;
+        }
+      } catch (enhErr) {
+        console.log('[CheckIn] Document auto-enhance notice:', enhErr?.message);
+      }
+
+      const compressedFile = await compressImage(processedFile);
       const formData = new FormData();
       formData.append('image', compressedFile);
 
@@ -1214,12 +1241,88 @@ const CheckIn = () => {
   }, [step]);
 
   // =========================================================
+  // DOCUMENT AUTO-CROP & ENHANCE MODAL
+  // =========================================================
+
+  const handleOpenCropModal = (guestIndex, side, imageSrc) => {
+    if (!imageSrc) return;
+    setCropModalData({
+      isOpen: true,
+      index: guestIndex,
+      side,
+      imageSrc: getFullImageUrl(imageSrc)
+    });
+  };
+
+  const handleApplyCropResult = async (croppedFile, croppedDataUrl) => {
+    const { index, side } = cropModalData;
+    if (!croppedFile) return;
+
+    try {
+      setUploadingImage(true);
+      const compressedFile = await compressImage(croppedFile);
+      const formData = new FormData();
+      formData.append('image', compressedFile);
+
+      const res = await axios.post(`${API}/api/upload`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      const resolvedUrl = getFullImageUrl(res.data.url);
+      setGuests(prev => {
+        const updated = [...prev];
+        if (side === 'back') {
+          updated[index] = { ...updated[index], idProofImageBack: resolvedUrl, localBackDataUrl: croppedDataUrl };
+        } else {
+          updated[index] = { ...updated[index], idProofImage: resolvedUrl, localFrontDataUrl: croppedDataUrl };
+        }
+        return updated;
+      });
+
+      toast({
+        message: `✨ Enhanced & Cleaned ${side === 'front' ? 'Front' : 'Back'} ID Card successfully!`,
+        type: 'success'
+      });
+    } catch (err) {
+      toast({
+        message: 'Failed to save cropped image: ' + err.message,
+        type: 'error'
+      });
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  // =========================================================
   // WHATSAPP PHOTO ATTACHMENT & CONNECTION
   // =========================================================
 
   const handleApplyWhatsAppPhoto = async (index, imageUrl, side, mediaId) => {
     try {
-      const resolvedUrl = getFullImageUrl(imageUrl);
+      let resolvedUrl = getFullImageUrl(imageUrl);
+
+      // ⚡ Smart Auto-Enhance WhatsApp Photo:
+      // Trim bedsheet/table background, rotate upright, remove shadows & glare
+      try {
+        const enhResult = await autoEnhanceIdDocument(resolvedUrl, {
+          filterMode: 'magic',
+          autoCrop: true,
+          autoRotate: true
+        });
+        if (enhResult && enhResult.success && enhResult.file) {
+          const formData = new FormData();
+          formData.append('image', enhResult.file);
+          const uploadRes = await axios.post(`${API}/api/upload`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+          if (uploadRes.data?.url) {
+            resolvedUrl = getFullImageUrl(uploadRes.data.url);
+          }
+        }
+      } catch (enhErr) {
+        console.log('[CheckIn] WhatsApp auto-enhance notice:', enhErr?.message);
+      }
+
       setGuests(prev => {
         const updated = [...prev];
         if (side === 'back') {
@@ -4279,16 +4382,24 @@ const CheckIn = () => {
                               }}
                             />
                             <div className="absolute inset-0 bg-black/40 flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <a href={getFullImageUrl(guest.idProofImage)} target="_blank" rel="noreferrer" className="text-white text-[10px] font-black uppercase tracking-widest bg-black/60 px-2.5 py-1.5 rounded-full backdrop-blur-sm hover:bg-black transition-colors">
-                                View Full
+                              <a href={getFullImageUrl(guest.idProofImage)} target="_blank" rel="noreferrer" className="text-white text-[10px] font-black uppercase tracking-widest bg-black/60 px-2 py-1 rounded-full backdrop-blur-sm hover:bg-black transition-colors">
+                                View
                               </a>
                               <button
                                 type="button"
+                                onClick={() => handleOpenCropModal(index, 'front', guest.idProofImage)}
+                                className="text-white text-[10px] font-black uppercase tracking-widest bg-blue-600/90 hover:bg-blue-500 px-2 py-1 rounded-full backdrop-blur-sm transition-colors flex items-center gap-1 shadow-xs"
+                                title="Crop & Enhance Document"
+                              >
+                                <Crop size={10} /> Crop
+                              </button>
+                              <button
+                                type="button"
                                 onClick={() => handleManualScanAadhaarQr(index, guest.idProofImage, 'front')}
-                                className="text-white text-[10px] font-black uppercase tracking-widest bg-emerald-600/90 hover:bg-emerald-500 px-2.5 py-1.5 rounded-full backdrop-blur-sm transition-colors flex items-center gap-1 shadow-xs"
+                                className="text-white text-[10px] font-black uppercase tracking-widest bg-emerald-600/90 hover:bg-emerald-500 px-2 py-1 rounded-full backdrop-blur-sm transition-colors flex items-center gap-1 shadow-xs"
                                 title="Scan Aadhaar QR"
                               >
-                                <QrCode size={11} /> Scan QR
+                                <QrCode size={10} /> QR
                               </button>
                             </div>
                             <button 
@@ -4422,16 +4533,24 @@ const CheckIn = () => {
                               }}
                             />
                             <div className="absolute inset-0 bg-black/40 flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <a href={getFullImageUrl(guest.idProofImageBack)} target="_blank" rel="noreferrer" className="text-white text-[10px] font-black uppercase tracking-widest bg-black/60 px-2.5 py-1.5 rounded-full backdrop-blur-sm hover:bg-black transition-colors">
-                                View Full
+                              <a href={getFullImageUrl(guest.idProofImageBack)} target="_blank" rel="noreferrer" className="text-white text-[10px] font-black uppercase tracking-widest bg-black/60 px-2 py-1 rounded-full backdrop-blur-sm hover:bg-black transition-colors">
+                                View
                               </a>
                               <button
                                 type="button"
+                                onClick={() => handleOpenCropModal(index, 'back', guest.idProofImageBack)}
+                                className="text-white text-[10px] font-black uppercase tracking-widest bg-blue-600/90 hover:bg-blue-500 px-2 py-1 rounded-full backdrop-blur-sm transition-colors flex items-center gap-1 shadow-xs"
+                                title="Crop & Enhance Document"
+                              >
+                                <Crop size={10} /> Crop
+                              </button>
+                              <button
+                                type="button"
                                 onClick={() => handleManualScanAadhaarQr(index, guest.idProofImageBack, 'back')}
-                                className="text-white text-[10px] font-black uppercase tracking-widest bg-emerald-600/90 hover:bg-emerald-500 px-2.5 py-1.5 rounded-full backdrop-blur-sm transition-colors flex items-center gap-1 shadow-xs"
+                                className="text-white text-[10px] font-black uppercase tracking-widest bg-emerald-600/90 hover:bg-emerald-500 px-2 py-1 rounded-full backdrop-blur-sm transition-colors flex items-center gap-1 shadow-xs"
                                 title="Scan Aadhaar QR"
                               >
-                                <QrCode size={11} /> Scan QR
+                                <QrCode size={10} /> QR
                               </button>
                             </div>
                             <button 
@@ -5301,6 +5420,15 @@ const CheckIn = () => {
             commissionPhone: b.phone || p.commissionPhone
           }));
         }}
+      />
+
+      {/* ✂️ DOCUMENT AUTO-CROP & MAGIC ENHANCER MODAL */}
+      <DocumentCropModal
+        isOpen={cropModalData.isOpen}
+        onClose={() => setCropModalData(d => ({ ...d, isOpen: false }))}
+        imageSrc={cropModalData.imageSrc}
+        title={`Clean & Enhance ${cropModalData.side === 'front' ? 'Front' : 'Back'} ID Card`}
+        onApply={handleApplyCropResult}
       />
 
     </div>
