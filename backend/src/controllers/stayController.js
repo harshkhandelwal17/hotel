@@ -50,13 +50,6 @@ const getHotelPropertyNotificationRecipients = async (hostelId, reqUser = null) 
       recipientIds.add(reqUser._id.toString());
     }
 
-    // Platform Super Admin (platform master overseer only - NEVER other hotel admins!)
-    const superAdmins = await User.find({
-      role: 'superadmin',
-      isActive: { $ne: false }
-    }, '_id').lean();
-    superAdmins.forEach(sa => recipientIds.add(sa._id.toString()));
-
     return {
       recipientIds: Array.from(recipientIds),
       hostelDoc
