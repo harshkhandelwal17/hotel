@@ -55,6 +55,7 @@ import { AuthContext } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import OnboardingWizardModal from '../../components/common/OnboardingWizardModal';
 import SubscriptionPlanModal from '../../components/common/SubscriptionPlanModal';
+import SubscriptionsView from '../../components/superadmin/SubscriptionsView';
 
 const SalesDashboard = () => {
   const { user, logout } = useContext(AuthContext);
@@ -69,6 +70,7 @@ const SalesDashboard = () => {
   const [owners, setOwners] = useState([]);
   const [staffUsers, setStaffUsers] = useState([]);
   const [leads, setLeads] = useState([]);
+  const [subscriptionTransactions, setSubscriptionTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -238,10 +240,11 @@ const SalesDashboard = () => {
     try {
       setRefreshing(true);
       const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
-      const [statsRes, ecoRes, leadsRes] = await Promise.all([
+      const [statsRes, ecoRes, leadsRes, txRes] = await Promise.all([
         axios.get(`${API}/api/sales/stats`),
         axios.get(`${API}/api/sales/ecosystem`),
-        axios.get(`${API}/api/sales/leads`).catch(() => ({ data: { data: [] } }))
+        axios.get(`${API}/api/sales/leads`).catch(() => ({ data: { data: [] } })),
+        axios.get(`${API}/api/sales/subscription-transactions`).catch(() => ({ data: { data: [] } }))
       ]);
 
       setStats(statsRes.data?.data || null);
@@ -249,6 +252,7 @@ const SalesDashboard = () => {
       setOwners(ecoRes.data?.data?.owners || []);
       setStaffUsers(ecoRes.data?.data?.staffUsers || []);
       setLeads(leadsRes.data?.data || []);
+      setSubscriptionTransactions(txRes.data?.data || []);
       setError('');
     } catch (err) {
       console.error('Failed to load sales ecosystem data:', err);
@@ -1054,6 +1058,7 @@ Please let us know your available time today! 🙏`;
               { id: 'ecosystem', name: 'Hierarchy Tree', icon: Network, badge: 'Portfolio' },
               { id: 'leads', name: 'Leads CRM', icon: Target, badge: todayFollowUpsCount + overdueFollowUpsCount > 0 ? `${todayFollowUpsCount + overdueFollowUpsCount}` : leads.length },
               { id: 'properties', name: 'Properties', icon: Building, badge: hostels.length },
+              { id: 'subscriptions', name: 'Renewals & Ledger', icon: CreditCard, badge: (stats?.expiringSoonCount || 0) + (stats?.expiredCount || 0) > 0 ? `⚠️ ${(stats?.expiringSoonCount || 0) + (stats?.expiredCount || 0)}` : `₹${(stats?.totalPortfolioRevenue || 0).toLocaleString()}` },
               { id: 'owners', name: 'Owners', icon: Crown, badge: owners.length },
               { id: 'staff', name: 'Staff Logins', icon: Users, badge: staffUsers.length },
               { id: 'outreach', name: 'WhatsApp Pitch', icon: MessageSquare, badge: 'Pitch' },
@@ -2063,6 +2068,20 @@ Please let us know your available time today! 🙏`;
       )}
 
       {/* ============================================================== */}
+      {/* TAB: 💳 SUBSCRIPTIONS, RENEWALS & REVENUE LEDGER */}
+      {/* ============================================================== */}
+      {activeTab === 'subscriptions' && (
+        <SubscriptionsView
+          stats={stats}
+          hostels={hostels}
+          allHostels={hostels}
+          transactions={subscriptionTransactions}
+          onOpenPlanModal={openPlanModal}
+          onRefresh={fetchData}
+        />
+      )}
+
+      {/* ============================================================== */}
       {/* TAB 4: 👑 HOTEL OWNERS (ADMINS) */}
       {/* ============================================================== */}
       {activeTab === 'owners' && (
@@ -2662,6 +2681,31 @@ Please let us know your available time today! 🙏`;
                     onChange={e => setPropertyForm({ ...propertyForm, maxRooms: Number(e.target.value) })}
                     className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-black"
                   />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 uppercase mb-1">Initial Subscription Plan</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'demo', label: '7-Day Trial', sub: 'Free Live Demo' },
+                    { id: 'monthly', label: 'Monthly Plan', sub: '₹1,000 / month' },
+                    { id: 'yearly', label: 'Annual Plan', sub: '₹9,600 / year' },
+                  ].map(p => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setPropertyForm(prev => ({ ...prev, plan: p.id }))}
+                      className={`p-2.5 rounded-xl text-center border font-bold transition-all cursor-pointer ${
+                        propertyForm.plan === p.id 
+                          ? 'border-black bg-black text-white shadow-sm' 
+                          : 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <div className="text-xs font-black">{p.label}</div>
+                      <div className={`text-[10px] ${propertyForm.plan === p.id ? 'text-gray-300' : 'text-gray-500'}`}>{p.sub}</div>
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -3621,6 +3665,15 @@ Please let us know your available time today! 🙏`;
               <Sparkles size={20} className="text-amber-300" />
             </button>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('subscriptions')}
+            className={`flex flex-col items-center justify-center w-14 h-full transition-colors cursor-pointer ${activeTab === 'subscriptions' ? 'text-slate-950 font-black' : 'text-slate-400'}`}
+          >
+            <CreditCard size={20} className={activeTab === 'subscriptions' ? 'stroke-[2.5]' : ''} />
+            <span className="text-[9px] font-bold mt-1 uppercase tracking-tight">Renewals</span>
+          </button>
 
           <button
             type="button"

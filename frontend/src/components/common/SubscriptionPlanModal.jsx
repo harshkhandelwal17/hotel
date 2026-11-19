@@ -214,7 +214,7 @@ export default function SubscriptionPlanModal({
       planPrice: Number(editForm.planPrice) || 0,
       maxRooms: Number(editForm.maxRooms) || 20,
       actionType: 'adjustment',
-      finalAmount: Number(editForm.planPrice) || 0
+      finalAmount: 0
     };
 
     onSavePlan(payload);

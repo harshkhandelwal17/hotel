@@ -17,7 +17,8 @@ const {
   createSalesLead,
   updateSalesLead,
   deleteSalesLead,
-  addLeadFollowUp
+  addLeadFollowUp,
+  getSalesSubscriptionTransactions
 } = require('../controllers/salesController');
 const { protect, authorize } = require('../middlewares/auth');
 
@@ -29,6 +30,7 @@ router.use(authorize('sales', 'superadmin'));
 
 router.get('/stats', getSalesStats);
 router.get('/ecosystem', getSalesEcosystem);
+router.get('/subscription-transactions', getSalesSubscriptionTransactions);
 
 // Ecosystem Management: Owner, Property, Staff creation & edit
 router.post('/owners', createSalesOwner);

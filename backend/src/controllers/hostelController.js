@@ -32,6 +32,17 @@ exports.createHostel = async (req, res, next) => {
       delete payload.assignedSalesAgent;
     }
 
+    if (payload.planStartDate) {
+      const s = new Date(payload.planStartDate);
+      s.setHours(0, 0, 0, 0);
+      payload.planStartDate = s;
+    }
+    if (payload.planEndDate) {
+      const e = new Date(payload.planEndDate);
+      e.setHours(23, 59, 59, 999);
+      payload.planEndDate = e;
+    }
+
     // 🧾 Initialize subscription history record for initial paid plan
     if (payload.plan && payload.plan !== 'demo' && Number(payload.planPrice) > 0) {
       if (!Array.isArray(payload.subscriptionHistory) || payload.subscriptionHistory.length === 0) {

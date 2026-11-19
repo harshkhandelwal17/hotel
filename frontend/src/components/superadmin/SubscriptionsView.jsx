@@ -120,9 +120,9 @@ const SubscriptionsView = ({
       .reduce((sum, t) => sum + (t.finalAmount || 0), 0);
 
     return {
-      totalRevenue: stats?.totalSaasRevenue !== undefined ? stats.totalSaasRevenue : totalRevenue,
-      thisMonthRevenue: stats?.thisMonthSaasRevenue !== undefined ? stats.thisMonthSaasRevenue : thisMonthRevenue,
-      todayRevenue: stats?.todaySaasRevenue !== undefined ? stats.todaySaasRevenue : todayRevenue,
+      totalRevenue: stats?.totalSaasRevenue !== undefined ? stats.totalSaasRevenue : (stats?.totalPortfolioRevenue !== undefined ? stats.totalPortfolioRevenue : totalRevenue),
+      thisMonthRevenue: stats?.thisMonthSaasRevenue !== undefined ? stats.thisMonthSaasRevenue : (stats?.thisMonthPortfolioRevenue !== undefined ? stats.thisMonthPortfolioRevenue : thisMonthRevenue),
+      todayRevenue: stats?.todaySaasRevenue !== undefined ? stats.todaySaasRevenue : (stats?.todayPortfolioRevenue !== undefined ? stats.todayPortfolioRevenue : todayRevenue),
       totalCount: allTransactions.length
     };
   }, [allTransactions, stats]);

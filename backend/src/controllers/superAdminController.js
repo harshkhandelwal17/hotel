@@ -46,7 +46,9 @@ exports.getSystemStats = async (req, res, next) => {
 
       if (history.length > 0) {
         for (const s of history) {
-          const amt = Number(s.finalAmount !== undefined ? s.finalAmount : s.planPrice) || 0;
+          if (s.actionType === 'adjustment' && (!s.finalAmount || Number(s.finalAmount) === 0)) continue;
+          const amt = Number(s.finalAmount !== undefined ? s.finalAmount : (s.actionType === 'adjustment' ? 0 : s.planPrice)) || 0;
+          if (amt <= 0 && s.actionType === 'adjustment') continue;
           totalSaasRevenue += amt;
           totalSubscriptionTransactions++;
           const tDate = s.createdAt ? new Date(s.createdAt) : (s.startDate ? new Date(s.startDate) : null);
@@ -512,9 +514,10 @@ exports.updateHostelPlan = async (req, res, next) => {
     const endObj = new Date(hostel.planEndDate || Date.now());
     const durationDays = Math.max(1, Math.ceil((endObj - startObj) / (1000 * 60 * 60 * 24)));
 
+    const isAdjustment = actionType === 'adjustment' || actionType === 'edit';
     const resolvedFinalAmount = finalAmount !== undefined 
       ? Number(finalAmount) 
-      : Math.max(0, (Number(hostel.planPrice) || 0));
+      : (isAdjustment ? 0 : Math.max(0, (Number(hostel.planPrice) || 0)));
 
     // 🧾 Record this new plan / renewal payment in the immutable subscription ledger
     hostel.subscriptionHistory.push({

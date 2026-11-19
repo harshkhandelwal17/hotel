@@ -93,15 +93,32 @@ exports.getSalesStats = async (req, res, next) => {
     let expiringSoonCount = 0;
     let expiredCount = 0;
     let totalPortfolioRevenue = 0;
+    let thisMonthPortfolioRevenue = 0;
+    let todayPortfolioRevenue = 0;
 
     myHotels.forEach(h => {
       const history = Array.isArray(h.subscriptionHistory) ? h.subscriptionHistory : [];
       if (history.length > 0) {
         history.forEach(s => {
-          totalPortfolioRevenue += Number(s.finalAmount !== undefined ? s.finalAmount : s.planPrice) || 0;
+          if (s.actionType === 'adjustment' && (!s.finalAmount || Number(s.finalAmount) === 0)) return;
+          const amt = Number(s.finalAmount !== undefined ? s.finalAmount : (s.actionType === 'adjustment' ? 0 : s.planPrice)) || 0;
+          if (amt <= 0 && s.actionType === 'adjustment') return;
+          totalPortfolioRevenue += amt;
+
+          const tDate = s.createdAt ? new Date(s.createdAt) : (s.startDate ? new Date(s.startDate) : null);
+          if (tDate) {
+            if (tDate >= startOfMonth) thisMonthPortfolioRevenue += amt;
+            if (tDate >= todayStart) todayPortfolioRevenue += amt;
+          }
         });
       } else if (h.planPrice > 0 && h.plan !== 'demo') {
-        totalPortfolioRevenue += Number(h.planPrice) || 0;
+        const amt = Number(h.planPrice) || 0;
+        totalPortfolioRevenue += amt;
+        const cDate = h.planStartDate ? new Date(h.planStartDate) : (h.createdAt ? new Date(h.createdAt) : null);
+        if (cDate) {
+          if (cDate >= startOfMonth) thisMonthPortfolioRevenue += amt;
+          if (cDate >= todayStart) todayPortfolioRevenue += amt;
+        }
       }
 
       const end = h.planEndDate ? new Date(h.planEndDate) : null;
@@ -140,6 +157,8 @@ exports.getSalesStats = async (req, res, next) => {
         expiringSoonCount,
         expiredCount,
         totalPortfolioRevenue,
+        thisMonthPortfolioRevenue,
+        todayPortfolioRevenue,
         onboardedByMeCount,
         assignedByAdminCount,
         pipeline: {
@@ -356,7 +375,9 @@ exports.createSalesProperty = async (req, res, next) => {
     const isYearly = plan === 'yearly' || plan === 'annual';
     const durationDays = isDemo ? 7 : (isYearly ? 365 : 30);
     const startDate = planStartDate ? new Date(planStartDate) : new Date();
+    startDate.setHours(0, 0, 0, 0);
     const endDate = planEndDate ? new Date(planEndDate) : new Date(startDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
+    endDate.setHours(23, 59, 59, 999);
 
     // Default pricing: Demo = ₹0, Monthly = ₹1000, Yearly = ₹9600 (₹800/mo)
     const defaultBasePrice = isDemo ? 0 : (isYearly ? 9600 : 1000);
@@ -1009,9 +1030,10 @@ exports.updateSalesPropertyPlan = async (req, res, next) => {
       });
     }
 
+    const isAdjustment = actionType === 'adjustment' || actionType === 'edit';
     const resolvedFinalAmount = req.body.finalAmount !== undefined 
       ? Number(req.body.finalAmount) 
-      : Math.max(0, (Number(hostel.planPrice) || 0));
+      : (isAdjustment ? 0 : Math.max(0, (Number(hostel.planPrice) || 0)));
 
     hostel.subscriptionHistory.push({
       plan: hostel.plan,
@@ -1122,5 +1144,96 @@ exports.addLeadFollowUp = async (req, res, next) => {
     });
   } catch (err) {
     next(err);
+  }
+};
+
+/**
+ * 🧾 Sales Portfolio Subscription & Renewal Transactions Ledger
+ * (Returns all transactions from subscriptionHistory for the sales rep's properties)
+ */
+exports.getSalesSubscriptionTransactions = async (req, res, next) => {
+  try {
+    const salesUserId = req.user.id;
+    const isSuperAdmin = req.user.role === 'superadmin';
+
+    const hostelQuery = isSuperAdmin 
+      ? {} 
+      : { $or: [{ onboardedBy: salesUserId }, { assignedSalesAgent: salesUserId }] };
+
+    const hostels = await Hostel.find(hostelQuery)
+      .populate('owner', 'name email phone')
+      .populate('assignedSalesAgent', 'name email phone role')
+      .populate('onboardedBy', 'name email phone role')
+      .select('name city address contactNumber owner assignedSalesAgent onboardedBy plan planStatus planPrice planStartDate planEndDate billingCycle subscriptionHistory planNotes createdAt')
+      .lean();
+
+    const transactions = [];
+
+    hostels.forEach(h => {
+      const history = Array.isArray(h.subscriptionHistory) ? h.subscriptionHistory : [];
+
+      if (history.length > 0) {
+        history.forEach((tx, idx) => {
+          transactions.push({
+            _id: tx._id || `${h._id}-tx-${idx}`,
+            hotelId: h._id,
+            hotelName: h.name,
+            hotelCity: h.city || '',
+            ownerName: h.owner?.name || 'N/A',
+            ownerPhone: h.owner?.phone || h.contactNumber || '',
+            plan: tx.plan || h.plan || 'monthly',
+            billingCycle: tx.billingCycle || h.billingCycle || 'monthly',
+            planPrice: Number(tx.planPrice || 0),
+            discountAmount: Number(tx.discountAmount || 0),
+            extraCharges: Number(tx.extraCharges || 0),
+            finalAmount: Number(tx.finalAmount !== undefined ? tx.finalAmount : tx.planPrice || 0),
+            paymentMethod: tx.paymentMethod || 'UPI',
+            paymentReference: tx.paymentReference || '',
+            startDate: tx.startDate || h.planStartDate,
+            endDate: tx.endDate || h.planEndDate,
+            durationDays: tx.durationDays || 30,
+            actionType: tx.actionType || 'renewal',
+            notes: tx.notes || '',
+            recordedByName: tx.recordedByName || h.assignedSalesAgent?.name || h.onboardedBy?.name || 'Sales Representative',
+            createdAt: tx.createdAt || h.createdAt || new Date()
+          });
+        });
+      } else if (h.planPrice > 0 && h.plan !== 'demo') {
+        transactions.push({
+          _id: `legacy-${h._id}`,
+          hotelId: h._id,
+          hotelName: h.name,
+          hotelCity: h.city || '',
+          ownerName: h.owner?.name || 'N/A',
+          ownerPhone: h.owner?.phone || h.contactNumber || '',
+          plan: h.plan || 'monthly',
+          billingCycle: h.billingCycle || 'monthly',
+          planPrice: Number(h.planPrice || 0),
+          discountAmount: 0,
+          extraCharges: 0,
+          finalAmount: Number(h.planPrice || 0),
+          paymentMethod: 'UPI',
+          paymentReference: 'Onboarding Initial Plan',
+          startDate: h.planStartDate || h.createdAt,
+          endDate: h.planEndDate,
+          durationDays: 30,
+          actionType: 'initial',
+          notes: h.planNotes || 'Legacy Initial Plan Record',
+          recordedByName: h.assignedSalesAgent?.name || h.onboardedBy?.name || 'Sales Representative',
+          createdAt: h.planStartDate || h.createdAt || new Date()
+        });
+      }
+    });
+
+    // Newest transactions first
+    transactions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    res.status(200).json({
+      success: true,
+      count: transactions.length,
+      data: transactions
+    });
+  } catch (error) {
+    next(error);
   }
 };
