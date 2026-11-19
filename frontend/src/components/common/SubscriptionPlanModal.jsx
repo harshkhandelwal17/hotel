@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   Sparkles, 
@@ -20,7 +20,10 @@ import {
   User, 
   ArrowRight,
   TrendingUp,
-  Receipt
+  Receipt,
+  Settings2,
+  Edit3,
+  CalendarPlus
 } from 'lucide-react';
 
 export default function SubscriptionPlanModal({
@@ -33,13 +36,17 @@ export default function SubscriptionPlanModal({
 }) {
   if (!isOpen || !hotel) return null;
 
-  const [activeTab, setActiveTab] = useState('renew'); // 'renew' | 'history'
+  // 4 Crystal-Clear Modes:
+  // 1. 'renew' -> 🔄 1-Click Renew / Extend (+1 Month, +3 Months, +1 Year)
+  // 2. 'assign' -> ⚙️ Assign New Plan Tier (Switch to Monthly / Annual / Custom)
+  // 3. 'edit' -> ✏️ Edit Current Plan Details (Manually fix dates, room limit, price)
+  // 4. 'history' -> 📜 Subscription Invoices & History
+  const [activeTab, setActiveTab] = useState('renew');
   const [copiedKey, setCopiedKey] = useState(null);
 
-  // Expiry & duration calculation
   const now = new Date();
   const currentStart = hotel.planStartDate ? new Date(hotel.planStartDate) : now;
-  const currentEnd = hotel.planEndDate ? new Date(hotel.planEndDate) : new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const currentEnd = hotel.planEndDate ? new Date(hotel.planEndDate) : now;
   const isExpired = hotel.isExpired !== undefined 
     ? hotel.isExpired 
     : (hotel.planStatus === 'expired' || currentEnd < now);
@@ -47,48 +54,90 @@ export default function SubscriptionPlanModal({
     ? hotel.daysRemaining 
     : Math.ceil((currentEnd - now) / (1000 * 60 * 60 * 24));
 
-  // Form State
-  const [planForm, setPlanForm] = useState({
+  // --- MODE 1: RENEW / EXTEND STATE ---
+  const [extendOption, setExtendOption] = useState(30); // 30, 60, 90, 180, 365, or custom number
+  const [customDays, setCustomDays] = useState('');
+  // Start from: 'previousExpiry' or 'today'
+  const [startFrom, setStartFrom] = useState(() => {
+    // If expired more than 15 days ago, start from today; otherwise extend continuous from current expiry
+    if (isExpired && Math.abs(daysRemaining) > 15) return 'today';
+    return 'previousExpiry';
+  });
+  const [renewalAmount, setRenewalAmount] = useState(() => {
+    return hotel.planPrice !== undefined ? hotel.planPrice : 1000;
+  });
+  const [renewalPaymentMethod, setRenewalPaymentMethod] = useState('UPI');
+  const [renewalPaymentRef, setRenewalPaymentRef] = useState('');
+  const [renewalNotes, setRenewalNotes] = useState('');
+
+  // Auto-calculated renewal dates preview
+  const renewalDates = useMemo(() => {
+    const daysToAdd = extendOption === 'custom' ? (Number(customDays) || 30) : extendOption;
+    let baseStartDate;
+
+    if (startFrom === 'previousExpiry' && hotel.planEndDate) {
+      baseStartDate = new Date(hotel.planEndDate);
+    } else {
+      baseStartDate = new Date();
+      baseStartDate.setHours(0, 0, 0, 0);
+    }
+
+    const calculatedEndDate = new Date(baseStartDate.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
+    calculatedEndDate.setHours(23, 59, 59, 999);
+
+    return {
+      startDate: baseStartDate,
+      endDate: calculatedEndDate,
+      startDateStr: baseStartDate.toISOString().split('T')[0],
+      endDateStr: calculatedEndDate.toISOString().split('T')[0],
+      days: daysToAdd
+    };
+  }, [extendOption, customDays, startFrom, hotel.planEndDate]);
+
+  // --- MODE 2: ASSIGN NEW PLAN STATE ---
+  const [newPlanTier, setNewPlanTier] = useState(hotel.plan === 'demo' ? 'monthly' : (hotel.plan || 'monthly'));
+  const [assignDurationDays, setAssignDurationDays] = useState(30);
+  const [assignStartDate, setAssignStartDate] = useState(now.toISOString().split('T')[0]);
+  const [assignPrice, setAssignPrice] = useState(1000);
+  const [assignDiscount, setAssignDiscount] = useState(0);
+  const [assignPaymentMethod, setAssignPaymentMethod] = useState('UPI');
+  const [assignPaymentRef, setAssignPaymentRef] = useState('');
+  const [assignNotes, setAssignNotes] = useState('');
+
+  // Auto-calculated assign end date
+  const assignEndDate = useMemo(() => {
+    const s = new Date(assignStartDate + 'T00:00:00');
+    const e = new Date(s.getTime() + assignDurationDays * 24 * 60 * 60 * 1000);
+    return e.toISOString().split('T')[0];
+  }, [assignStartDate, assignDurationDays]);
+
+  // --- MODE 3: DIRECT EDIT STATE ---
+  const [editForm, setEditForm] = useState({
     plan: hotel.plan || 'monthly',
-    planStatus: isExpired ? 'active' : (hotel.planStatus || 'active'),
+    planStatus: hotel.planStatus || 'active',
     planStartDate: hotel.planStartDate ? new Date(hotel.planStartDate).toISOString().split('T')[0] : now.toISOString().split('T')[0],
-    planEndDate: hotel.planEndDate ? new Date(hotel.planEndDate).toISOString().split('T')[0] : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    basePrice: hotel.plan === 'yearly' || hotel.plan === 'annual' ? 9600 : (hotel.plan === 'demo' ? 0 : 1000),
-    planPrice: hotel.planPrice !== undefined ? hotel.planPrice : 1000,
-    discountAmount: hotel.discountAmount || 0,
-    extraCharges: hotel.extraCharges || 0,
-    billingCycle: hotel.billingCycle || 'monthly',
+    planEndDate: hotel.planEndDate ? new Date(hotel.planEndDate).toISOString().split('T')[0] : now.toISOString().split('T')[0],
+    planPrice: hotel.planPrice || 0,
     maxRooms: hotel.maxRooms || 20,
-    planNotes: '',
-    paymentMethod: 'UPI',
-    paymentReference: '',
-    actionType: 'renewal',
-    extendFromCurrentExpiry: !isExpired // if active, default to extending continuous from current expiry!
+    billingCycle: hotel.billingCycle || 'monthly',
+    planNotes: hotel.planNotes || ''
   });
 
-  // Re-sync form whenever hotel changes
+  // Re-sync whenever hotel prop changes
   useEffect(() => {
     if (hotel) {
-      const startIso = hotel.planStartDate ? new Date(hotel.planStartDate).toISOString().split('T')[0] : now.toISOString().split('T')[0];
-      const endIso = hotel.planEndDate ? new Date(hotel.planEndDate).toISOString().split('T')[0] : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      const base = hotel.plan === 'yearly' || hotel.plan === 'annual' ? 9600 : (hotel.plan === 'demo' ? 0 : 1000);
-      
-      setPlanForm({
+      setRenewalAmount(hotel.planPrice !== undefined ? hotel.planPrice : 1000);
+      setNewPlanTier(hotel.plan === 'demo' ? 'monthly' : (hotel.plan || 'monthly'));
+      setAssignPrice(hotel.plan === 'yearly' || hotel.plan === 'annual' ? 9600 : (hotel.plan === 'demo' ? 1000 : (hotel.planPrice || 1000)));
+      setEditForm({
         plan: hotel.plan || 'monthly',
-        planStatus: isExpired ? 'active' : (hotel.planStatus || 'active'),
-        planStartDate: startIso,
-        planEndDate: endIso,
-        basePrice: base,
-        planPrice: hotel.planPrice !== undefined ? hotel.planPrice : base,
-        discountAmount: hotel.discountAmount || 0,
-        extraCharges: hotel.extraCharges || 0,
-        billingCycle: hotel.billingCycle || 'monthly',
+        planStatus: hotel.planStatus || 'active',
+        planStartDate: hotel.planStartDate ? new Date(hotel.planStartDate).toISOString().split('T')[0] : now.toISOString().split('T')[0],
+        planEndDate: hotel.planEndDate ? new Date(hotel.planEndDate).toISOString().split('T')[0] : now.toISOString().split('T')[0],
+        planPrice: hotel.planPrice || 0,
         maxRooms: hotel.maxRooms || 20,
-        planNotes: '',
-        paymentMethod: 'UPI',
-        paymentReference: '',
-        actionType: 'renewal',
-        extendFromCurrentExpiry: !isExpired
+        billingCycle: hotel.billingCycle || 'monthly',
+        planNotes: hotel.planNotes || ''
       });
       setActiveTab('renew');
     }
@@ -102,126 +151,121 @@ export default function SubscriptionPlanModal({
     };
   }, []);
 
-  // Preset Selection Helper
-  const applyPreset = (targetPlan, durationDays, baseRate, cycle, actionName = 'renewal') => {
-    // Determine start date: if extendFromCurrentExpiry AND current plan is active and in future, extend from currentEnd
-    let startD = new Date();
-    if (planForm.extendFromCurrentExpiry && !isExpired && currentEnd > now) {
-      startD = new Date(currentEnd);
-    }
-    const endD = new Date(startD.getTime() + durationDays * 24 * 60 * 60 * 1000);
-    const disc = Number(planForm.discountAmount) || 0;
-    const extra = Number(planForm.extraCharges) || 0;
-    const finalPrice = targetPlan === 'demo' ? 0 : Math.max(0, baseRate - disc + extra);
-
-    setPlanForm(prev => ({
-      ...prev,
-      plan: targetPlan,
-      planStatus: targetPlan === 'demo' ? 'trial' : 'active',
-      planStartDate: startD.toISOString().split('T')[0],
-      planEndDate: endD.toISOString().split('T')[0],
-      basePrice: baseRate,
-      planPrice: finalPrice,
-      billingCycle: cycle,
-      actionType: actionName,
-      planNotes: prev.planNotes || `${targetPlan === 'demo' ? 'Demo Extension' : 'Plan Renewal'}: +${durationDays} Days`
-    }));
-  };
-
-  // ⚡ Micro Grace Extension Helper (e.g. +1 Day, +2 Days, +3 Days)
-  const extendGraceDays = (daysToAdd) => {
-    // If currentEnd is in future, extend from currentEnd; otherwise from now
-    const baseDate = currentEnd > now ? new Date(currentEnd) : new Date(now);
-    baseDate.setDate(baseDate.getDate() + daysToAdd);
-    const newEndIso = baseDate.toISOString().split('T')[0];
-
-    setPlanForm(prev => ({
-      ...prev,
-      planEndDate: newEndIso,
-      planStatus: 'active',
-      planPrice: 0, // Grace extensions are free by default
-      discountAmount: 0,
-      extraCharges: 0,
-      actionType: 'extension',
-      paymentMethod: 'Free Trial',
-      paymentReference: `Grace Extension (+${daysToAdd} Day${daysToAdd > 1 ? 's' : ''})`,
-      planNotes: `Grace extension: +${daysToAdd} Day${daysToAdd > 1 ? 's' : ''} until ${baseDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`
-    }));
-  };
-
-  // Price adjustment handlers
-  const handlePriceChange = (field, val) => {
-    const num = Number(val) || 0;
-    setPlanForm(prev => {
-      const updated = { ...prev, [field]: num };
-      if (prev.plan === 'demo') return updated;
-      const base = Number(updated.basePrice) || (prev.plan === 'yearly' ? 9600 : 1000);
-      const disc = field === 'discountAmount' ? num : (Number(updated.discountAmount) || 0);
-      const extra = field === 'extraCharges' ? num : (Number(updated.extraCharges) || 0);
-      return {
-        ...updated,
-        planPrice: Math.max(0, base - disc + extra)
-      };
-    });
-  };
-
-  // WhatsApp Renewal Receipt Generator
-  const getWhatsAppRenewalUrl = () => {
-    const phone = hotel.owner?.phone ? hotel.owner.phone.replace(/\D/g, '').slice(-10) : '';
-    if (!phone) return null;
-    const endDate = planForm.planEndDate ? new Date(planForm.planEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
-    const planName = planForm.plan === 'demo' ? '7-Day Free Trial' : (planForm.plan === 'yearly' ? 'Annual Plan (₹800/mo)' : 'Monthly Plan (₹1,000/mo)');
-
-    const msg = [
-      `🏨 *${hotel.name} - Subscription Renewal Update*`,
-      `──────────────────────`,
-      `Namaste *${hotel.owner?.name || 'Partner'}* ji,`,
-      `Your hotel software subscription has been updated successfully:`,
-      `📦 *Plan:* ${planName}`,
-      `💰 *Billed Amount:* ₹${(planForm.planPrice || 0).toLocaleString()} (${planForm.paymentMethod || 'UPI'})`,
-      planForm.paymentReference ? `🧾 *Ref / UTR:* ${planForm.paymentReference}` : '',
-      `📅 *New Expiry Date:* ${endDate}`,
-      `🏢 *Active Rooms:* Up to ${planForm.maxRooms} Rooms`,
-      `──────────────────────`,
-      `Front desk and guest check-ins are active with continuous cloud sync. Thank you for choosing NXHotel! ✨`
-    ].filter(Boolean).join('\n');
-
-    return `https://wa.me/91${phone}?text=${encodeURIComponent(msg)}`;
-  };
-
-  const handleFormSubmit = (e) => {
-    e.preventDefault();
-    if (onSavePlan) {
-      onSavePlan(planForm);
-    }
-  };
-
-  const copyToClipboard = (text, key) => {
+  const handleCopy = (text, key) => {
     navigator.clipboard.writeText(text);
     setCopiedKey(key);
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
+  // SUBMIT HANDLER FOR MODE 1: RENEW / EXTEND
+  const handleRenewSubmit = (e) => {
+    e.preventDefault();
+    if (!onSavePlan) return;
+
+    const payload = {
+      plan: hotel.plan === 'demo' ? 'monthly' : (hotel.plan || 'monthly'),
+      planStatus: 'active', // 🚀 Always set to active upon renewal!
+      planStartDate: renewalDates.startDateStr,
+      planEndDate: renewalDates.endDateStr,
+      planPrice: Number(renewalAmount) || 0,
+      finalAmount: Number(renewalAmount) || 0,
+      billingCycle: renewalDates.days >= 365 ? 'yearly' : 'monthly',
+      paymentMethod: renewalPaymentMethod,
+      paymentReference: renewalPaymentRef || '',
+      actionType: 'renewal',
+      planNotes: renewalNotes || `Plan Renewal (+${renewalDates.days} Days)`
+    };
+
+    onSavePlan(payload);
+  };
+
+  // SUBMIT HANDLER FOR MODE 2: ASSIGN NEW PLAN TIER
+  const handleAssignSubmit = (e) => {
+    e.preventDefault();
+    if (!onSavePlan) return;
+
+    const finalAmt = Math.max(0, (Number(assignPrice) || 0) - (Number(assignDiscount) || 0));
+
+    const payload = {
+      plan: newPlanTier,
+      planStatus: newPlanTier === 'demo' ? 'trial' : 'active',
+      planStartDate: assignStartDate,
+      planEndDate: assignEndDate,
+      planPrice: Number(assignPrice) || 0,
+      discountAmount: Number(assignDiscount) || 0,
+      finalAmount: finalAmt,
+      billingCycle: assignDurationDays >= 365 ? 'yearly' : 'monthly',
+      paymentMethod: newPlanTier === 'demo' ? 'Free Trial' : assignPaymentMethod,
+      paymentReference: assignPaymentRef || '',
+      actionType: newPlanTier === 'demo' ? 'initial' : (hotel.plan === 'demo' ? 'upgrade' : 'renewal'),
+      planNotes: assignNotes || `New ${newPlanTier.toUpperCase()} Plan assigned`
+    };
+
+    onSavePlan(payload);
+  };
+
+  // SUBMIT HANDLER FOR MODE 3: DIRECT EDIT
+  const handleEditSubmit = (e) => {
+    e.preventDefault();
+    if (!onSavePlan) return;
+
+    const payload = {
+      ...editForm,
+      planPrice: Number(editForm.planPrice) || 0,
+      maxRooms: Number(editForm.maxRooms) || 20,
+      actionType: 'adjustment',
+      finalAmount: Number(editForm.planPrice) || 0
+    };
+
+    onSavePlan(payload);
+  };
+
   // Collect history records (newest first)
-  const historyList = (hotel.subscriptionHistory && hotel.subscriptionHistory.length > 0)
-    ? [...hotel.subscriptionHistory].reverse()
-    : [
-        {
-          _id: 'init-1',
-          plan: hotel.plan || 'demo',
-          billingCycle: hotel.billingCycle || 'trial',
-          finalAmount: hotel.planPrice || 0,
-          paymentMethod: hotel.plan === 'demo' ? 'Free Trial' : 'Initial Provision',
-          paymentReference: 'Onboarding System',
-          startDate: hotel.planStartDate || hotel.createdAt,
-          endDate: hotel.planEndDate,
-          durationDays: Math.ceil(((hotel.planEndDate ? new Date(hotel.planEndDate) : now) - new Date(hotel.planStartDate || hotel.createdAt || now)) / (1000 * 60 * 60 * 24)),
-          actionType: 'initial',
-          notes: hotel.planNotes || 'Initial hotel creation',
-          recordedByName: hotel.onboardedBy?.name || 'System Onboarding',
-          createdAt: hotel.createdAt || now
-        }
-      ];
+  const historyList = useMemo(() => {
+    if (hotel.subscriptionHistory && hotel.subscriptionHistory.length > 0) {
+      return [...hotel.subscriptionHistory].reverse();
+    }
+    return [
+      {
+        _id: 'init-1',
+        plan: hotel.plan || 'demo',
+        billingCycle: hotel.billingCycle || 'trial',
+        finalAmount: hotel.planPrice || 0,
+        paymentMethod: hotel.plan === 'demo' ? 'Free Trial' : 'Initial Provision',
+        paymentReference: 'Onboarding System',
+        startDate: hotel.planStartDate || hotel.createdAt,
+        endDate: hotel.planEndDate,
+        durationDays: 30,
+        actionType: 'initial',
+        notes: hotel.planNotes || 'Initial hotel creation',
+        recordedByName: hotel.onboardedBy?.name || 'Super Admin',
+        createdAt: hotel.createdAt || now
+      }
+    ];
+  }, [hotel]);
+
+  // WhatsApp notification link
+  const getWhatsAppRenewalUrl = () => {
+    const phone = hotel.owner?.phone ? hotel.owner.phone.replace(/\D/g, '').slice(-10) : '';
+    if (!phone) return null;
+    const endDate = renewalDates.endDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+
+    const msg = [
+      `🏨 *${hotel.name} - Subscription Renewal Update*`,
+      `──────────────────────`,
+      `Namaste *${hotel.owner?.name || 'Partner'}* ji,`,
+      `Your hotel management software subscription has been renewed successfully:`,
+      `📦 *Plan:* ${hotel.plan === 'yearly' ? 'Annual Plan' : 'Monthly Plan'}`,
+      `💰 *Billed Amount:* ₹${(Number(renewalAmount) || 0).toLocaleString('en-IN')} (${renewalPaymentMethod})`,
+      renewalPaymentRef ? `🧾 *Ref / UTR:* ${renewalPaymentRef}` : '',
+      `📅 *New Expiry Date:* ${endDate}`,
+      `🏢 *Status:* Active ✓`,
+      `──────────────────────`,
+      `Thank you for your partnership with NXHotel! ✨`
+    ].filter(Boolean).join('\n');
+
+    return `https://wa.me/91${phone}?text=${encodeURIComponent(msg)}`;
+  };
 
   const modalContent = (
     <div 
@@ -236,7 +280,7 @@ export default function SubscriptionPlanModal({
         <div className="p-5 sm:p-6 bg-slate-900 text-white flex justify-between items-start shrink-0">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700 flex items-center gap-1">
+              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700 flex items-center gap-1">
                 <ShieldAlert size={12} className="text-amber-400" />
                 <span>Subscription & Billing Center</span>
               </span>
@@ -244,7 +288,7 @@ export default function SubscriptionPlanModal({
                 ID: {hotel._id?.slice(-6).toUpperCase()}
               </span>
             </div>
-            <h3 className="text-lg sm:text-xl font-bold tracking-tight text-white mt-2 flex items-center gap-2">
+            <h3 className="text-lg sm:text-xl font-black tracking-tight text-white mt-1.5 flex items-center gap-2">
               <span>🏨 {hotel.name}</span>
             </h3>
             <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-2 flex-wrap">
@@ -262,8 +306,8 @@ export default function SubscriptionPlanModal({
           </button>
         </div>
 
-        {/* ─── LIVE EXPIRY STATUS BANNER ─── */}
-        <div className={`p-4 border-b shrink-0 flex items-center justify-between gap-3 flex-wrap ${
+        {/* ─── LIVE CURRENT STATUS STRIP ─── */}
+        <div className={`p-3.5 px-5 border-b shrink-0 flex items-center justify-between gap-3 flex-wrap ${
           isExpired 
             ? 'bg-rose-50 border-rose-200/80 text-rose-900' 
             : daysRemaining <= 7 
@@ -271,21 +315,17 @@ export default function SubscriptionPlanModal({
             : 'bg-emerald-50 border-emerald-200/80 text-emerald-900'
         }`}>
           <div className="flex items-center gap-2.5">
-            <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold shrink-0 ${
-              isExpired ? 'bg-rose-600 text-white' : daysRemaining <= 7 ? 'bg-amber-500 text-white' : 'bg-emerald-600 text-white'
-            }`}>
-              {isExpired ? '🚨' : daysRemaining <= 7 ? '⚠️' : '✅'}
-            </div>
+            <span className={`w-2.5 h-2.5 rounded-full ${isExpired ? 'bg-rose-600 animate-pulse' : daysRemaining <= 7 ? 'bg-amber-500' : 'bg-emerald-500'}`} />
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs font-black uppercase tracking-wider">
                   {isExpired ? 'Subscription Expired' : daysRemaining <= 7 ? 'Expiring Soon' : 'Active Subscription'}
                 </span>
-                <span className="text-[11px] font-bold px-2 py-0.2 rounded-md bg-white/80 border border-current">
-                  {hotel.plan === 'demo' ? '7-Day Demo' : hotel.plan === 'yearly' ? 'Annual Plan' : 'Monthly Plan'}
+                <span className="text-[10px] font-bold px-2 py-0.2 rounded-md bg-white border border-current">
+                  {hotel.plan === 'demo' ? '7-Day Free Trial' : hotel.plan === 'yearly' || hotel.plan === 'annual' ? 'Annual Plan' : 'Monthly Plan'}
                 </span>
               </div>
-              <p className="text-xs mt-0.5 font-medium">
+              <p className="text-xs font-medium mt-0.5">
                 {isExpired 
                   ? `Expired on ${currentEnd.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} (${Math.abs(daysRemaining)} days ago)` 
                   : `Valid until ${currentEnd.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} (${daysRemaining} days remaining)`}
@@ -293,225 +333,328 @@ export default function SubscriptionPlanModal({
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            {hotel.owner?.phone && (
-              <a
-                href={getWhatsAppRenewalUrl()}
-                target="_blank"
-                rel="noreferrer"
-                className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-2xs transition-colors"
-                title="Send current subscription status to Hotel Owner"
-              >
-                <MessageSquare size={13} />
-                <span>WhatsApp</span>
-              </a>
-            )}
-          </div>
+          {hotel.owner?.phone && (
+            <a
+              href={getWhatsAppRenewalUrl()}
+              target="_blank"
+              rel="noreferrer"
+              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-2xs transition-colors shrink-0"
+              title="Send status message to Hotel Owner on WhatsApp"
+            >
+              <MessageSquare size={12} />
+              <span>WhatsApp</span>
+            </a>
+          )}
         </div>
 
-        {/* ─── 2 TABS: RENEW vs HISTORY ─── */}
-        <div className="flex border-b border-slate-200 bg-slate-50/75 px-4 pt-2 shrink-0 gap-2">
+        {/* ─── 4 SIMPLE TABS: RENEW | ASSIGN NEW | EDIT | HISTORY ─── */}
+        <div className="flex border-b border-slate-200 bg-slate-50/80 px-4 pt-2 shrink-0 gap-1 overflow-x-auto no-scrollbar">
           <button
             type="button"
             onClick={() => setActiveTab('renew')}
-            className={`px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-t-xl transition-all border-b-2 cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 text-xs font-black uppercase tracking-wider rounded-t-xl transition-all border-b-2 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === 'renew'
                 ? 'bg-white text-slate-900 border-slate-900 shadow-2xs'
                 : 'text-slate-500 hover:text-slate-800 border-transparent'
             }`}
           >
-            <Repeat size={13} />
-            <span>Renew / Update Plan</span>
+            <Repeat size={13} className="text-emerald-600" />
+            <span>1. Renew / Extend (+30d)</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('assign')}
+            className={`px-3.5 py-2 text-xs font-black uppercase tracking-wider rounded-t-xl transition-all border-b-2 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === 'assign'
+                ? 'bg-white text-slate-900 border-slate-900 shadow-2xs'
+                : 'text-slate-500 hover:text-slate-800 border-transparent'
+            }`}
+          >
+            <Settings2 size={13} className="text-indigo-600" />
+            <span>2. Change Plan Tier</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('edit')}
+            className={`px-3.5 py-2 text-xs font-black uppercase tracking-wider rounded-t-xl transition-all border-b-2 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === 'edit'
+                ? 'bg-white text-slate-900 border-slate-900 shadow-2xs'
+                : 'text-slate-500 hover:text-slate-800 border-transparent'
+            }`}
+          >
+            <Edit3 size={13} className="text-amber-600" />
+            <span>3. Edit Details</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setActiveTab('history')}
-            className={`px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-t-xl transition-all border-b-2 cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 text-xs font-black uppercase tracking-wider rounded-t-xl transition-all border-b-2 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === 'history'
                 ? 'bg-white text-slate-900 border-slate-900 shadow-2xs'
                 : 'text-slate-500 hover:text-slate-800 border-transparent'
             }`}
           >
-            <History size={13} />
-            <span>Subscription History ({historyList.length})</span>
+            <History size={13} className="text-purple-600" />
+            <span>4. Invoices ({historyList.length})</span>
           </button>
         </div>
 
-        {/* ─── TAB 1: RENEW & UPDATE PLAN ─── */}
+        {/* ══════════════════════════════════════════════════════════════════ */}
+        {/* MODE 1: 🔄 RENEW / EXTEND PLAN (+1 Month, +3 Months, +1 Year)      */}
+        {/* ══════════════════════════════════════════════════════════════════ */}
         {activeTab === 'renew' && (
-          <form onSubmit={handleFormSubmit} className="flex flex-col flex-1 min-h-0">
+          <form onSubmit={handleRenewSubmit} className="flex flex-col flex-1 min-h-0">
             <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
               
-              {/* ⚡ 1-Click Fast Renewal & Repetition Presets */}
-              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/90 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                    <Sparkles size={13} className="text-amber-500" />
-                    <span>1-Click Plan Actions & Renewal</span>
-                  </span>
-                  <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-slate-600">
-                    <input
-                      type="checkbox"
-                      checked={planForm.extendFromCurrentExpiry}
-                      onChange={e => setPlanForm({ ...planForm, extendFromCurrentExpiry: e.target.checked })}
-                      className="rounded border-slate-300 text-slate-900 focus:ring-0"
-                    />
-                    <span>Extend from current expiry</span>
-                  </label>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {/* Repeat / Renew Current Plan */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const isYear = hotel.plan === 'yearly' || hotel.plan === 'annual';
-                      const days = isYear ? 365 : 30;
-                      const base = isYear ? 9600 : 1000;
-                      applyPreset(hotel.plan === 'demo' ? 'monthly' : hotel.plan, days, base, isYear ? 'yearly' : 'monthly', 'renewal');
-                    }}
-                    className="p-2.5 bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs rounded-xl border border-slate-300 shadow-2xs transition-all active:scale-95 flex items-center justify-between gap-1 text-left cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Repeat size={14} className="text-slate-700" />
-                      <div>
-                        <div className="text-slate-900 leading-tight">Repeat Current Plan</div>
-                        <div className="text-[10px] text-slate-500 font-normal">
-                          {hotel.plan === 'yearly' ? '+365 Days (₹9,600)' : '+30 Days (₹1,000)'}
-                        </div>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-bold bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">1-Click</span>
-                  </button>
-
-                  {/* Switch / Renew Annual Plan */}
-                  <button
-                    type="button"
-                    onClick={() => applyPreset('yearly', 365, 9600, 'yearly', 'upgrade')}
-                    className="p-2.5 bg-white hover:bg-emerald-50 text-emerald-900 font-bold text-xs rounded-xl border border-emerald-300 shadow-2xs transition-all active:scale-95 flex items-center justify-between gap-1 text-left cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2">
-                      <TrendingUp size={14} className="text-emerald-600" />
-                      <div>
-                        <div className="text-emerald-950 leading-tight">Annual Plan (Best Value)</div>
-                        <div className="text-[10px] text-emerald-700 font-normal">₹800/mo · Billed ₹9,600 / 1 Year</div>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-bold bg-emerald-100 px-1.5 py-0.5 rounded text-emerald-800">20% Off</span>
-                  </button>
-
-                  {/* Switch / Renew Monthly Plan */}
-                  <button
-                    type="button"
-                    onClick={() => applyPreset('monthly', 30, 1000, 'monthly', 'renewal')}
-                    className="p-2.5 bg-white hover:bg-slate-100 text-slate-800 font-bold text-xs rounded-xl border border-slate-200 shadow-2xs transition-all active:scale-95 flex items-center justify-between gap-1 text-left cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Calendar size={14} className="text-slate-600" />
-                      <div>
-                        <div className="text-slate-900 leading-tight">Monthly Plan</div>
-                        <div className="text-[10px] text-slate-500 font-normal">₹1,000 / 30 Days</div>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-bold bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">+30d</span>
-                  </button>
-
-                  {/* Free Trial Demo Extension */}
-                  <button
-                    type="button"
-                    onClick={() => applyPreset('demo', 7, 0, 'trial', 'extension')}
-                    className="p-2.5 bg-white hover:bg-amber-50 text-amber-900 font-bold text-xs rounded-xl border border-amber-300 shadow-2xs transition-all active:scale-95 flex items-center justify-between gap-1 text-left cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Clock size={14} className="text-amber-600" />
-                      <div>
-                        <div className="text-amber-950 leading-tight">Extend 7-Day Demo</div>
-                        <div className="text-[10px] text-amber-700 font-normal">₹0 / Free 7 More Days</div>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-bold bg-amber-100 px-1.5 py-0.5 rounded text-amber-800">+7d Demo</span>
-                  </button>
-                </div>
-
-                {/* ⏳ Quick Grace Extensions (+1 Day, +2 Days, +3 Days) */}
-                <div className="pt-2.5 border-t border-slate-200/80 flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex items-center gap-1.5">
-                    <Clock size={12} className="text-amber-600" />
-                    <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">
-                      Quick Grace Extensions:
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-normal hidden sm:inline">(Auto-sets ₹0 & extends from current expiry)</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-wrap">
+              {/* Quick Duration Chips */}
+              <div>
+                <label className="block text-[11px] font-black uppercase tracking-wider text-slate-700 mb-2">
+                  1. Choose Extension Duration (अवधि चुनें)
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    { days: 30, label: '+1 Month', sub: '30 Days', price: 1000 },
+                    { days: 60, label: '+2 Months', sub: '60 Days', price: 2000 },
+                    { days: 90, label: '+3 Months', sub: 'Quarterly', price: 2700 },
+                    { days: 365, label: '+1 Year', sub: '365 Days', price: 9600 }
+                  ].map(item => (
                     <button
+                      key={item.days}
                       type="button"
-                      onClick={() => extendGraceDays(1)}
-                      className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 font-black text-[11px] rounded-lg transition-all active:scale-95 cursor-pointer shadow-2xs flex items-center gap-1"
-                      title="Extend expiry by exactly 1 day (e.g. from 12th to 13th) for free"
+                      onClick={() => {
+                        setExtendOption(item.days);
+                        setRenewalAmount(item.price);
+                      }}
+                      className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
+                        extendOption === item.days
+                          ? 'border-slate-900 bg-slate-900 text-white shadow-xs font-black'
+                          : 'border-slate-200 hover:border-slate-300 bg-white text-slate-800'
+                      }`}
                     >
-                      <span>+1 Day Grace</span>
+                      <div className="text-xs font-black">{item.label}</div>
+                      <div className={`text-[10px] mt-0.5 ${extendOption === item.days ? 'text-slate-300' : 'text-slate-500'}`}>
+                        ₹{item.price.toLocaleString('en-IN')}
+                      </div>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => extendGraceDays(2)}
-                      className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[11px] rounded-lg transition-all active:scale-95 cursor-pointer shadow-2xs"
-                      title="Extend expiry by 2 days"
-                    >
-                      +2 Days
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => extendGraceDays(3)}
-                      className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[11px] rounded-lg transition-all active:scale-95 cursor-pointer shadow-2xs"
-                      title="Extend expiry by 3 days"
-                    >
-                      +3 Days
-                    </button>
-                  </div>
+                  ))}
                 </div>
               </div>
 
-              {/* Form Controls: Plan Selection & Date Range */}
+              {/* Start Extension From: Previous Expiry vs Today */}
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/90 space-y-2">
+                <span className="text-[11px] font-black uppercase tracking-wider text-slate-700 block">
+                  2. Start Extension From (कहाँ से शुरू करें)
+                </span>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-bold">
+                  {/* Option A: Continuous from Previous Expiry */}
+                  <label 
+                    onClick={() => setStartFrom('previousExpiry')}
+                    className={`p-2.5 rounded-xl border flex items-start gap-2.5 cursor-pointer transition-all ${
+                      startFrom === 'previousExpiry'
+                        ? 'border-emerald-500 bg-emerald-50/60 text-emerald-950 shadow-2xs'
+                        : 'border-slate-200 bg-white text-slate-700'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="startFrom"
+                      checked={startFrom === 'previousExpiry'}
+                      onChange={() => setStartFrom('previousExpiry')}
+                      className="mt-0.5 text-emerald-600 focus:ring-0"
+                    />
+                    <div>
+                      <div className="font-black">From Previous Expiry Date</div>
+                      <p className="text-[10.5px] font-normal text-slate-500 mt-0.5 leading-snug">
+                        {currentEnd.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} (No gap in monthly cycle)
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* Option B: From Today */}
+                  <label 
+                    onClick={() => setStartFrom('today')}
+                    className={`p-2.5 rounded-xl border flex items-start gap-2.5 cursor-pointer transition-all ${
+                      startFrom === 'today'
+                        ? 'border-emerald-500 bg-emerald-50/60 text-emerald-950 shadow-2xs'
+                        : 'border-slate-200 bg-white text-slate-700'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="startFrom"
+                      checked={startFrom === 'today'}
+                      onChange={() => setStartFrom('today')}
+                      className="mt-0.5 text-emerald-600 focus:ring-0"
+                    />
+                    <div>
+                      <div className="font-black">From Today (आज से)</div>
+                      <p className="text-[10.5px] font-normal text-slate-500 mt-0.5 leading-snug">
+                        {now.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} (Fresh restart from today)
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* 🌟 New Calculated Validity Live Preview Box */}
+              <div className="p-4 bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-300 rounded-2xl">
+                <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 flex items-center gap-1">
+                    <CheckCircle2 size={13} className="text-emerald-600" />
+                    <span>New Subscription Validity:</span>
+                  </span>
+                  <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-600 text-white px-2 py-0.5 rounded-full">
+                    Active Status ✓
+                  </span>
+                </div>
+                <div className="text-sm sm:text-base font-black text-slate-900 mt-1 flex items-center gap-2 flex-wrap">
+                  <span className="font-mono text-emerald-900">{renewalDates.startDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                  <span className="text-emerald-500">➔</span>
+                  <span className="font-mono text-emerald-900 font-extrabold">{renewalDates.endDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                  <span className="text-xs font-bold text-emerald-700 bg-white px-2 py-0.5 rounded-md border border-emerald-200">
+                    +{renewalDates.days} Days
+                  </span>
+                </div>
+              </div>
+
+              {/* Payment & Amount Collected */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-slate-700 mb-1.5">
+                    Amount Collected (₹)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-slate-400">₹</span>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      value={renewalAmount}
+                      onChange={e => setRenewalAmount(e.target.value)}
+                      className="w-full pl-8 pr-3.5 py-2.5 bg-white border border-slate-200 rounded-xl font-mono font-black text-sm text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-slate-700 mb-1.5">
+                    Payment Mode
+                  </label>
+                  <select
+                    value={renewalPaymentMethod}
+                    onChange={e => setRenewalPaymentMethod(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-xs text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
+                  >
+                    <option value="UPI">UPI (Google Pay, PhonePe, Paytm)</option>
+                    <option value="Bank Transfer">Bank Transfer / NEFT / IMPS</option>
+                    <option value="Cash">Cash (कैश)</option>
+                    <option value="Card">Debit / Credit Card</option>
+                    <option value="Cheque">Cheque</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Reference Number / UTR */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Select Plan Package
+                    Payment Reference / UTR Number (Optional)
                   </label>
-                  <select
-                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-xs text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
-                    value={planForm.plan}
-                    onChange={e => {
-                      const p = e.target.value;
-                      if (p === 'demo') applyPreset('demo', 7, 0, 'trial', 'extension');
-                      else if (p === 'yearly') applyPreset('yearly', 365, 9600, 'yearly', 'upgrade');
-                      else applyPreset('monthly', 30, 1000, 'monthly', 'renewal');
-                    }}
-                  >
-                    <option value="demo">7-Day Free Trial (₹0)</option>
-                    <option value="monthly">Monthly Plan (₹1,000 / month)</option>
-                    <option value="yearly">Annual Plan (₹800/mo · ₹9,600 / yr)</option>
-                    <option value="custom">Custom Commercial Plan</option>
-                  </select>
+                  <input
+                    type="text"
+                    placeholder="e.g. UPI Ref / UTR / Cheque No."
+                    value={renewalPaymentRef}
+                    onChange={e => setRenewalPaymentRef(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl font-mono text-xs text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
+                  />
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Subscription Status
+                    Renewal Notes / Remarks (Optional)
                   </label>
-                  <select
-                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-xs text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
-                    value={planForm.planStatus}
-                    onChange={e => setPlanForm({ ...planForm, planStatus: e.target.value })}
-                  >
-                    <option value="active">Active (Full Access)</option>
-                    <option value="trial">Trial Mode</option>
-                    <option value="expired">Expired (Restricted Access)</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
+                  <input
+                    type="text"
+                    placeholder="e.g. Month 2 renewal received via UPI"
+                    value={renewalNotes}
+                    onChange={e => setRenewalNotes(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl font-medium text-xs text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Bottom Action */}
+            <div className="p-4 px-6 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2.5 border border-slate-200 text-slate-700 font-bold rounded-xl text-xs hover:bg-slate-100 transition-colors"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+              >
+                {isSaving ? (
+                  <span>Saving Renewal...</span>
+                ) : (
+                  <>
+                    <Check size={14} className="stroke-[3]" />
+                    <span>Confirm Renewal (+{renewalDates.days} Days) ✓</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════════ */}
+        {/* MODE 2: ⚙️ CHANGE PLAN TIER (Monthly, Annual, Custom, Demo)         */}
+        {/* ══════════════════════════════════════════════════════════════════ */}
+        {activeTab === 'assign' && (
+          <form onSubmit={handleAssignSubmit} className="flex flex-col flex-1 min-h-0">
+            <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
+              
+              <div>
+                <label className="block text-[11px] font-black uppercase tracking-wider text-slate-700 mb-1.5">
+                  Select New Plan Package Tier
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  {[
+                    { id: 'monthly', title: 'Monthly Plan', sub: '₹1,000 / month', price: 1000, days: 30 },
+                    { id: 'yearly', title: 'Annual Plan', sub: '₹800/mo (₹9,600/yr)', price: 9600, days: 365 },
+                    { id: 'demo', title: '7-Day Free Trial', sub: 'Demo Access (₹0)', price: 0, days: 7 }
+                  ].map(tier => (
+                    <button
+                      key={tier.id}
+                      type="button"
+                      onClick={() => {
+                        setNewPlanTier(tier.id);
+                        setAssignPrice(tier.price);
+                        setAssignDurationDays(tier.days);
+                      }}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        newPlanTier === tier.id
+                          ? 'border-indigo-600 bg-indigo-50/70 text-indigo-950 shadow-2xs font-bold'
+                          : 'border-slate-200 bg-white text-slate-800 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="text-xs font-black">{tier.title}</div>
+                      <div className="text-[11px] text-slate-500 font-medium mt-0.5">{tier.sub}</div>
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              {/* Date Controls */}
+              {/* Start Date & Duration */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
@@ -520,241 +663,258 @@ export default function SubscriptionPlanModal({
                   <input
                     type="date"
                     required
+                    value={assignStartDate}
+                    onChange={e => setAssignStartDate(e.target.value)}
                     className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-xs text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
-                    value={planForm.planStartDate}
-                    onChange={e => setPlanForm({ ...planForm, planStartDate: e.target.value })}
                   />
                 </div>
 
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                      New Expiry Date
-                    </label>
-                    {hotel.planEndDate && planForm.planEndDate && (() => {
-                      const prevEnd = new Date(hotel.planEndDate);
-                      const newEnd = new Date(planForm.planEndDate + 'T00:00:00');
-                      const prevEndMidnight = new Date(prevEnd.toISOString().split('T')[0] + 'T00:00:00');
-                      const diffDays = Math.round((newEnd - prevEndMidnight) / (1000 * 60 * 60 * 24));
-                      if (diffDays > 0) {
-                        return (
-                          <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                            +{diffDays} day{diffDays > 1 ? 's' : ''} extension
-                          </span>
-                        );
-                      } else if (diffDays === 0) {
-                        return (
-                          <span className="text-[10px] font-semibold text-slate-500">
-                            Same as current expiry
-                          </span>
-                        );
-                      } else {
-                        return (
-                          <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                            {Math.abs(diffDays)} days earlier
-                          </span>
-                        );
-                      }
-                    })()}
-                  </div>
-                  <input
-                    type="date"
-                    required
-                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-xs text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
-                    value={planForm.planEndDate}
-                    onChange={e => {
-                      const newEndDate = e.target.value;
-                      setPlanForm(prev => {
-                        const updated = { ...prev, planEndDate: newEndDate };
-                        if (hotel.planEndDate && newEndDate) {
-                          const prevEnd = new Date(hotel.planEndDate);
-                          const newEnd = new Date(newEndDate + 'T00:00:00');
-                          const prevEndMidnight = new Date(prevEnd.toISOString().split('T')[0] + 'T00:00:00');
-                          const diff = Math.round((newEnd - prevEndMidnight) / (1000 * 60 * 60 * 24));
-                          if (diff > 0 && diff <= 5) {
-                            updated.actionType = 'extension';
-                            if (!updated.planNotes || updated.planNotes.startsWith('Grace extension')) {
-                              updated.planNotes = `Grace extension: +${diff} Day${diff > 1 ? 's' : ''} until ${new Date(newEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
-                            }
-                          }
-                        }
-                        return updated;
-                      });
-                    }}
-                  />
-                  {hotel.planEndDate && planForm.planEndDate && (() => {
-                    const prevEnd = new Date(hotel.planEndDate);
-                    const newEnd = new Date(planForm.planEndDate + 'T00:00:00');
-                    const prevEndMidnight = new Date(prevEnd.toISOString().split('T')[0] + 'T00:00:00');
-                    const diffDays = Math.round((newEnd - prevEndMidnight) / (1000 * 60 * 60 * 24));
-                    if (diffDays > 0) {
-                      return (
-                        <p className="text-[10.5px] text-emerald-700 font-medium mt-1 flex items-center gap-1">
-                          <span>✓ Extending by +{diffDays} day{diffDays > 1 ? 's' : ''}:</span>
-                          <span className="font-bold text-slate-700">{prevEnd.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>
-                          <span>➔</span>
-                          <span className="font-bold text-emerald-800">{new Date(planForm.planEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                        </p>
-                      );
-                    }
-                    return null;
-                  })()}
-                </div>
-              </div>
-
-              {/* Price Calculation Card */}
-              <div className="p-3.5 bg-slate-50 border border-slate-200/90 rounded-2xl space-y-3">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 block">
-                  Commercial Pricing & Ledger Breakup
-                </span>
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-[10px] font-bold text-emerald-700 uppercase mb-1">- Discount (₹)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl font-bold text-xs text-emerald-700 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
-                      value={planForm.discountAmount || ''}
-                      onChange={e => handlePriceChange('discountAmount', e.target.value)}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-blue-700 uppercase mb-1">+ Extra Add-ons (₹)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl font-bold text-xs text-blue-700 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
-                      value={planForm.extraCharges || ''}
-                      onChange={e => handlePriceChange('extraCharges', e.target.value)}
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-[10px] font-bold text-slate-900 uppercase">= Total Billed (₹) *</label>
-                      <button
-                        type="button"
-                        onClick={() => setPlanForm(prev => ({ ...prev, planPrice: 0, paymentMethod: 'Free Trial' }))}
-                        className="text-[9px] font-black text-amber-800 hover:text-amber-950 bg-amber-100 hover:bg-amber-200 px-1.5 py-0.5 rounded cursor-pointer transition-colors"
-                        title="Set billed amount to ₹0 for complimentary or grace extension"
-                      >
-                        Set ₹0 (Free)
-                      </button>
-                    </div>
-                    <input
-                      type="number"
-                      min="0"
-                      required
-                      className="w-full px-3 py-2 bg-white border-2 border-slate-900 rounded-xl font-black text-xs text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
-                      value={planForm.planPrice}
-                      onChange={e => setPlanForm({ ...planForm, planPrice: Number(e.target.value) || 0 })}
-                    />
-                  </div>
-                </div>
-
-                {/* Payment Mode & Reference Number */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-slate-200">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Payment Method</label>
-                    <select
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl font-bold text-xs text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
-                      value={planForm.paymentMethod}
-                      onChange={e => setPlanForm({ ...planForm, paymentMethod: e.target.value })}
-                    >
-                      <option value="UPI">UPI / QR Code</option>
-                      <option value="Cash">Cash Collection</option>
-                      <option value="Bank Transfer">Bank Transfer (NEFT/IMPS)</option>
-                      <option value="Cheque">Cheque</option>
-                      <option value="Free Trial">Free Trial / Complimentary</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Transaction Ref / UTR</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. UPI/493829482934 or Cash"
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl font-medium text-xs text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
-                      value={planForm.paymentReference}
-                      onChange={e => setPlanForm({ ...planForm, paymentReference: e.target.value })}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Max Rooms & Notes */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Room Capacity Limit
+                    Duration (Days)
                   </label>
                   <input
                     type="number"
                     min="1"
+                    required
+                    value={assignDurationDays}
+                    onChange={e => setAssignDurationDays(Number(e.target.value) || 30)}
                     className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-xs text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
-                    value={planForm.maxRooms}
-                    onChange={e => setPlanForm({ ...planForm, maxRooms: Number(e.target.value) })}
+                  />
+                </div>
+              </div>
+
+              {/* Calculated Expiry Preview */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs flex justify-between items-center">
+                <span className="font-bold text-slate-600">Calculated Expiry Date:</span>
+                <span className="font-mono font-black text-slate-900">
+                  {new Date(assignEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </span>
+              </div>
+
+              {/* Pricing & Discount */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Tariff Price (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={assignPrice}
+                    onChange={e => setAssignPrice(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl font-mono font-bold text-xs text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
                   />
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Billing Cycle
+                    Discount Amount (₹)
                   </label>
-                  <select
-                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-xs text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
-                    value={planForm.billingCycle}
-                    onChange={e => setPlanForm({ ...planForm, billingCycle: e.target.value })}
-                  >
-                    <option value="trial">Trial Cycle</option>
-                    <option value="monthly">Monthly Cycle</option>
-                    <option value="yearly">Yearly Cycle</option>
-                    <option value="annual">Annual Cycle</option>
-                  </select>
+                  <input
+                    type="number"
+                    min="0"
+                    value={assignDiscount}
+                    onChange={e => setAssignDiscount(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl font-mono font-bold text-xs text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
+                  />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Internal Notes & Remarks
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Client renewed for 1 year with ₹9,600 advance via PhonePe"
-                  className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl font-medium text-xs text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
-                  value={planForm.planNotes}
-                  onChange={e => setPlanForm({ ...planForm, planNotes: e.target.value })}
-                />
-              </div>
+              {/* Payment Details */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Payment Mode
+                  </label>
+                  <select
+                    value={assignPaymentMethod}
+                    onChange={e => setAssignPaymentMethod(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-xs text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
+                  >
+                    <option value="UPI">UPI</option>
+                    <option value="Bank Transfer">Bank Transfer / NEFT</option>
+                    <option value="Cash">Cash</option>
+                    <option value="Card">Card</option>
+                  </select>
+                </div>
 
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    UTR / Payment Reference
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Reference number"
+                    value={assignPaymentRef}
+                    onChange={e => setAssignPaymentRef(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl font-mono text-xs text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
+                  />
+                </div>
+              </div>
             </div>
 
-            {/* Modal Footer Actions */}
-            <div className="p-4 px-6 pb-[max(1rem,env(safe-area-inset-bottom))] bg-slate-50 border-t border-slate-200/90 flex gap-2.5 justify-end shrink-0">
+            <div className="p-4 px-6 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 border border-slate-200 bg-white text-slate-700 font-bold rounded-xl text-xs uppercase tracking-wider hover:bg-slate-100 transition-colors cursor-pointer"
+                className="px-4 py-2.5 border border-slate-200 text-slate-700 font-bold rounded-xl text-xs hover:bg-slate-100 transition-colors"
               >
                 Cancel
               </button>
+
               <button
                 type="submit"
                 disabled={isSaving}
-                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-xs active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer"
               >
-                {isSaving ? 'Updating Plan...' : <><CheckCircle2 size={14} /> Save & Apply Plan</>}
+                {isSaving ? 'Applying Plan...' : 'Apply New Plan Tier'}
               </button>
             </div>
           </form>
         )}
 
-        {/* ─── TAB 2: SUBSCRIPTION & PAYMENT HISTORY ─── */}
+        {/* ══════════════════════════════════════════════════════════════════ */}
+        {/* MODE 3: ✏️ EDIT CURRENT PLAN DETAILS                               */}
+        {/* ══════════════════════════════════════════════════════════════════ */}
+        {activeTab === 'edit' && (
+          <form onSubmit={handleEditSubmit} className="flex flex-col flex-1 min-h-0">
+            <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
+              <p className="text-xs text-slate-500 font-medium">
+                Manually adjust dates, status, or capacity without creating a duplicate renewal payment.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Plan Status
+                  </label>
+                  <select
+                    value={editForm.planStatus}
+                    onChange={e => setEditForm({ ...editForm, planStatus: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-xs text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
+                  >
+                    <option value="active">Active (चालू)</option>
+                    <option value="trial">Trial / Demo</option>
+                    <option value="expired">Expired (समाप्त)</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Plan Package
+                  </label>
+                  <select
+                    value={editForm.plan}
+                    onChange={e => setEditForm({ ...editForm, plan: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-xs text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
+                  >
+                    <option value="monthly">Monthly Plan</option>
+                    <option value="yearly">Annual Plan</option>
+                    <option value="demo">7-Day Free Trial</option>
+                    <option value="custom">Custom Commercial</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editForm.planStartDate}
+                    onChange={e => setEditForm({ ...editForm, planStartDate: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-xs text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Expiry Date
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editForm.planEndDate}
+                    onChange={e => setEditForm({ ...editForm, planEndDate: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-xs text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Plan Price (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editForm.planPrice}
+                    onChange={e => setEditForm({ ...editForm, planPrice: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl font-mono font-bold text-xs text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Max Rooms Limit
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={editForm.maxRooms}
+                    onChange={e => setEditForm({ ...editForm, maxRooms: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-xs text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Plan Notes
+                </label>
+                <textarea
+                  rows={2}
+                  value={editForm.planNotes}
+                  onChange={e => setEditForm({ ...editForm, planNotes: e.target.value })}
+                  placeholder="Additional remarks or notes..."
+                  className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-medium text-xs text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
+                />
+              </div>
+            </div>
+
+            <div className="p-4 px-6 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2.5 border border-slate-200 text-slate-700 font-bold rounded-xl text-xs hover:bg-slate-100 transition-colors"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer"
+              >
+                {isSaving ? 'Saving Changes...' : 'Save Plan Edits'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════════ */}
+        {/* MODE 4: 📜 SUBSCRIPTION INVOICES & RENEWAL HISTORY                 */}
+        {/* ══════════════════════════════════════════════════════════════════ */}
         {activeTab === 'history' && (
           <div className="p-4 sm:p-6 overflow-y-auto flex-1 min-h-0 space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+              <span className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                 <Receipt size={14} className="text-slate-900" />
                 <span>Historical Subscription Invoices & Renewals</span>
               </span>
@@ -763,7 +923,7 @@ export default function SubscriptionPlanModal({
               </span>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {historyList.map((entry, idx) => {
                 const sDate = entry.startDate ? new Date(entry.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A';
                 const eDate = entry.endDate ? new Date(entry.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A';
@@ -781,7 +941,7 @@ export default function SubscriptionPlanModal({
                               ? 'bg-emerald-100 text-emerald-800'
                               : 'bg-indigo-100 text-indigo-800'
                           }`}>
-                            {entry.plan === 'demo' ? '7-Day Free Trial' : entry.plan === 'yearly' ? 'Annual Plan' : 'Monthly Plan'}
+                            {entry.plan === 'demo' ? '7-Day Free Trial' : entry.plan === 'yearly' || entry.plan === 'annual' ? 'Annual Plan' : 'Monthly Plan'}
                           </span>
                           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-white border border-slate-200 px-1.5 py-0.2 rounded">
                             {entry.actionType || 'Renewal'}
@@ -793,8 +953,8 @@ export default function SubscriptionPlanModal({
                       </div>
 
                       <div className="text-right">
-                        <div className="text-sm font-black text-slate-900">
-                          ₹{(entry.finalAmount !== undefined ? entry.finalAmount : (entry.planPrice || 0)).toLocaleString()}
+                        <div className="text-sm font-black text-emerald-700 font-mono">
+                          ₹{(entry.finalAmount !== undefined ? entry.finalAmount : (entry.planPrice || 0)).toLocaleString('en-IN')}
                         </div>
                         <div className="text-[10px] font-bold text-slate-500 flex items-center justify-end gap-1">
                           <CreditCard size={11} />
@@ -803,13 +963,12 @@ export default function SubscriptionPlanModal({
                       </div>
                     </div>
 
-                    {/* Metadata details */}
                     <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-slate-500 gap-2 flex-wrap">
                       <div>
                         {entry.paymentReference && (
                           <span className="font-mono text-slate-700 font-medium">Ref: {entry.paymentReference} • </span>
                         )}
-                        <span>Processed by <strong className="text-slate-800">{entry.recordedByName || 'Admin'}</strong> on {cDate}</span>
+                        <span>Processed by <strong className="text-slate-800">{entry.recordedByName || 'Super Admin'}</strong> on {cDate}</span>
                       </div>
                       {entry.notes && (
                         <div className="text-[10px] text-slate-600 italic bg-white px-2 py-0.5 rounded border border-slate-200/80">
@@ -820,10 +979,6 @@ export default function SubscriptionPlanModal({
                   </div>
                 );
               })}
-            </div>
-
-            <div className="p-3 bg-slate-100 text-slate-600 rounded-xl text-xs text-center font-medium">
-              Every renewal automatically extends validity and maintains an immutable audit trail.
             </div>
           </div>
         )}

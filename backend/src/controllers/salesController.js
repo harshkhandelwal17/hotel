@@ -956,9 +956,23 @@ exports.updateSalesPropertyPlan = async (req, res, next) => {
     }
 
     if (plan !== undefined) hostel.plan = plan;
-    if (planStatus !== undefined) hostel.planStatus = planStatus;
-    if (planStartDate !== undefined) hostel.planStartDate = planStartDate;
-    if (planEndDate !== undefined) hostel.planEndDate = planEndDate;
+    if (planStatus !== undefined) {
+      hostel.planStatus = planStatus;
+    } else if (actionType === 'renewal' || actionType === 'upgrade') {
+      hostel.planStatus = 'active';
+    }
+
+    if (planStartDate !== undefined) {
+      const s = new Date(planStartDate);
+      s.setHours(0, 0, 0, 0);
+      hostel.planStartDate = s;
+    }
+    if (planEndDate !== undefined) {
+      const e = new Date(planEndDate);
+      e.setHours(23, 59, 59, 999);
+      hostel.planEndDate = e;
+    }
+
     if (planPrice !== undefined) hostel.planPrice = Number(planPrice) || 0;
     if (discountAmount !== undefined) hostel.discountAmount = Number(discountAmount) || 0;
     if (extraCharges !== undefined) hostel.extraCharges = Number(extraCharges) || 0;
