@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
+import axios from 'axios';
 import { 
   IndianRupee, CheckCircle2, Clock, AlertTriangle, 
   MessageSquare, Calendar, Building, Crown, ExternalLink, Download,
   Receipt, Search, Filter, Phone, CreditCard, ArrowRight, UserCheck,
-  Check, Copy, Sparkles, RefreshCw
+  Check, Copy, Sparkles, RefreshCw, Trash2, Edit3
 } from 'lucide-react';
 
 const SubscriptionsView = ({ 
@@ -12,10 +13,12 @@ const SubscriptionsView = ({
   allHostels = [],
   transactions = [],
   onOpenPlanModal,
-  onRefresh
+  onRefresh,
+  currentUserRole = 'superadmin'
 }) => {
   const [activeSubTab, setActiveSubTab] = useState('hotels'); // 'hotels' | 'ledger'
   const [copiedKey, setCopiedKey] = useState(null);
+  const [deletingTxId, setDeletingTxId] = useState(null);
 
   // Search & Filter State for Hotels Tab
   const [hotelSearch, setHotelSearch] = useState('');
@@ -34,6 +37,30 @@ const SubscriptionsView = ({
     navigator.clipboard.writeText(text);
     setCopiedKey(key);
     setTimeout(() => setCopiedKey(null), 2000);
+  };
+
+  // Void / Delete mistaken transaction directly from the ledger
+  const handleDeleteLedgerTransaction = async (tx) => {
+    if (!tx || !tx.hostelId || !tx._id) return;
+    if (!window.confirm(`⚠️ Are you sure you want to void / delete this subscription entry for "${tx.hostelName}"?\nAmount: ₹${(tx.finalAmount || tx.planPrice || 0).toLocaleString('en-IN')}\n\nThis will remove the transaction from the revenue ledger and recalculate total collections.`)) {
+      return;
+    }
+
+    try {
+      setDeletingTxId(tx._id);
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      const endpoint = currentUserRole === 'sales'
+        ? `${API}/api/sales/properties/${tx.hostelId}/subscription-history/${tx._id}`
+        : `${API}/api/superadmin/hostels/${tx.hostelId}/subscription-history/${tx._id}`;
+
+      await axios.delete(endpoint);
+      alert('✅ Transaction record voided / deleted successfully. Ledger has been updated.');
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to delete transaction record');
+    } finally {
+      setDeletingTxId(null);
+    }
   };
 
   // 1. Comprehensive Transactions Ledger Extractor (Resilient fallback from populated hostels)
@@ -723,6 +750,7 @@ const SubscriptionsView = ({
                 <option value="initial">Initial Plans (शुरुआती प्लान)</option>
                 <option value="upgrade">Upgrades (अपग्रेड)</option>
                 <option value="extension">Extensions (अवधि विस्तार)</option>
+                <option value="adjustment">Settings / Fixes (गलती सुधार)</option>
               </select>
 
               {/* Payment Mode Filter */}
@@ -779,6 +807,7 @@ const SubscriptionsView = ({
                     <th className="px-5 py-3 text-[10px] font-black uppercase tracking-wider">Amount Paid</th>
                     <th className="px-5 py-3 text-[10px] font-black uppercase tracking-wider">Handled By</th>
                     <th className="px-5 py-3 text-[10px] font-black uppercase tracking-wider">Notes</th>
+                    <th className="px-5 py-3 text-[10px] font-black uppercase tracking-wider text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
@@ -786,6 +815,8 @@ const SubscriptionsView = ({
                     const txDate = tx.createdAt ? new Date(tx.createdAt) : null;
                     const sDate = tx.startDate ? new Date(tx.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A';
                     const eDate = tx.endDate ? new Date(tx.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A';
+                    const targetHotel = (allHostels?.length > 0 ? allHostels : hostels).find(h => h._id?.toString() === tx.hostelId?.toString());
+                    const isRealMongoId = tx._id && !tx._id.toString().startsWith('legacy-') && !tx._id.toString().includes('-initial');
 
                     return (
                       <tr key={tx._id || idx} className="hover:bg-slate-50/70 transition-colors">
@@ -838,9 +869,11 @@ const SubscriptionsView = ({
                               ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                               : tx.actionType === 'extension'
                               ? 'bg-amber-50 text-amber-800 border-amber-200'
+                              : tx.actionType === 'adjustment'
+                              ? 'bg-slate-100 text-slate-700 border-slate-300'
                               : 'bg-purple-50 text-purple-800 border-purple-200'
                           }`}>
-                            {tx.actionType === 'initial' ? 'Initial Setup' : tx.actionType === 'upgrade' ? 'Plan Upgrade' : tx.actionType === 'extension' ? 'Extension' : 'Renewal'}
+                            {tx.actionType === 'initial' ? 'Initial Setup' : tx.actionType === 'upgrade' ? 'Plan Upgrade' : tx.actionType === 'extension' ? 'Extension' : tx.actionType === 'adjustment' ? 'Configuration Fix' : 'Renewal'}
                           </span>
                         </td>
 
@@ -917,13 +950,42 @@ const SubscriptionsView = ({
                             <span className="text-slate-300 text-xs">—</span>
                           )}
                         </td>
+
+                        {/* 9. Actions (Manage Hotel / Void Mistaken Entry) */}
+                        <td className="px-5 py-3.5 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {targetHotel && onOpenPlanModal && (
+                              <button
+                                type="button"
+                                onClick={() => onOpenPlanModal(targetHotel)}
+                                className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center gap-1 transition-colors cursor-pointer border border-slate-200"
+                                title="Open Plan Modal for this Hotel"
+                              >
+                                <Edit3 size={11} />
+                                <span>Manage</span>
+                              </button>
+                            )}
+
+                            {isRealMongoId && (
+                              <button
+                                type="button"
+                                disabled={deletingTxId === tx._id}
+                                onClick={() => handleDeleteLedgerTransaction(tx)}
+                                className="p-1.5 text-rose-500 hover:text-white hover:bg-rose-600 rounded-lg transition-colors cursor-pointer border border-rose-200"
+                                title="Void / Delete mistaken transaction from ledger"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
                       </tr>
                     );
                   })}
 
                   {filteredTransactions.length === 0 && (
                     <tr>
-                      <td colSpan="8" className="text-center py-12 text-slate-400">
+                      <td colSpan="9" className="text-center py-12 text-slate-400">
                         <Receipt size={32} className="mx-auto mb-2 opacity-30" />
                         <p className="font-bold text-slate-600">No revenue transactions matching filters</p>
                       </td>

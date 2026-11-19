@@ -2082,6 +2082,7 @@ Please let us know your available time today! 🙏`;
           transactions={subscriptionTransactions}
           onOpenPlanModal={openPlanModal}
           onRefresh={fetchData}
+          currentUserRole="sales"
         />
       )}
 

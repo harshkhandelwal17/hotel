@@ -872,6 +872,7 @@ const SuperAdminDashboard = () => {
           transactions={subscriptionTransactions}
           onOpenPlanModal={openPlanModal}
           onRefresh={fetchData}
+          currentUserRole="superadmin"
         />
       )}
 
