@@ -51,7 +51,7 @@ exports.getSalesStats = async (req, res, next) => {
       todayFollowUps,
       overdueFollowUps
     ] = await Promise.all([
-      Hostel.find({ $or: [{ onboardedBy: salesUserId }, { assignedSalesAgent: salesUserId }] }).select('plan planStatus planPrice planEndDate createdAt name'),
+      Hostel.find({ $or: [{ onboardedBy: salesUserId }, { assignedSalesAgent: salesUserId }] }).select('plan planStatus planPrice planEndDate createdAt name subscriptionHistory'),
       Hostel.countDocuments({ $or: [{ onboardedBy: salesUserId }, { assignedSalesAgent: salesUserId }], planStatus: 'active' }),
       Hostel.countDocuments({
         $and: [
@@ -95,9 +95,15 @@ exports.getSalesStats = async (req, res, next) => {
     let totalPortfolioRevenue = 0;
 
     myHotels.forEach(h => {
-      if (h.planStatus === 'active') {
-        totalPortfolioRevenue += (h.planPrice || 0);
+      const history = Array.isArray(h.subscriptionHistory) ? h.subscriptionHistory : [];
+      if (history.length > 0) {
+        history.forEach(s => {
+          totalPortfolioRevenue += Number(s.finalAmount !== undefined ? s.finalAmount : s.planPrice) || 0;
+        });
+      } else if (h.planPrice > 0 && h.plan !== 'demo') {
+        totalPortfolioRevenue += Number(h.planPrice) || 0;
       }
+
       const end = h.planEndDate ? new Date(h.planEndDate) : null;
       if (end) {
         if (end < now || h.planStatus === 'expired') {
@@ -968,13 +974,38 @@ exports.updateSalesPropertyPlan = async (req, res, next) => {
       hostel.subscriptionHistory = [];
     }
 
+    // 🛡️ Preserve existing prior plan in history before overwriting if no history was logged yet
+    if (hostel.subscriptionHistory.length === 0 && hostel.planPrice > 0 && hostel.plan !== 'demo') {
+      hostel.subscriptionHistory.push({
+        plan: hostel.plan || 'monthly',
+        billingCycle: hostel.billingCycle || 'monthly',
+        planPrice: hostel.planPrice,
+        discountAmount: hostel.discountAmount || 0,
+        extraCharges: hostel.extraCharges || 0,
+        finalAmount: Math.max(0, Number(hostel.planPrice) || 0),
+        paymentMethod: 'UPI',
+        paymentReference: 'Initial Onboarding Plan',
+        startDate: hostel.planStartDate || hostel.createdAt,
+        endDate: hostel.planEndDate || hostel.planStartDate,
+        durationDays: 30,
+        actionType: 'initial',
+        notes: hostel.planNotes || 'Initial plan on property onboarding',
+        recordedByName: req.user?.name || 'Sales Representative',
+        createdAt: hostel.planStartDate || hostel.createdAt
+      });
+    }
+
+    const resolvedFinalAmount = req.body.finalAmount !== undefined 
+      ? Number(req.body.finalAmount) 
+      : Math.max(0, (Number(hostel.planPrice) || 0));
+
     hostel.subscriptionHistory.push({
       plan: hostel.plan,
       billingCycle: hostel.billingCycle,
       planPrice: hostel.planPrice,
       discountAmount: hostel.discountAmount || 0,
       extraCharges: hostel.extraCharges || 0,
-      finalAmount: Math.max(0, (Number(hostel.planPrice) || 0)),
+      finalAmount: resolvedFinalAmount,
       paymentMethod: paymentMethod || 'UPI',
       paymentReference: paymentReference || '',
       startDate: hostel.planStartDate,

@@ -26,19 +26,47 @@ exports.getSystemStats = async (req, res, next) => {
       createdAt: { $gte: today }
     });
 
-    // 🎟️ Calculate Real SaaS Platform Subscription Revenue & Plan Breakdown
-    const allHostelsForSaas = await Hostel.find().select('plan planStatus planPrice billingCycle planEndDate').lean();
+    // 🎟️ Calculate Real SaaS Platform Subscription Revenue & Plan Breakdown from Historical Ledger
+    const allHostelsForSaas = await Hostel.find().select('name plan planStatus planPrice billingCycle planStartDate planEndDate subscriptionHistory createdAt').lean();
     let totalSaasRevenue = 0;
+    let thisMonthSaasRevenue = 0;
+    let todaySaasRevenue = 0;
+    let totalSubscriptionTransactions = 0;
     let activeSubscriptions = 0;
     let trialSubscriptions = 0;
     let expiredSubscriptions = 0;
     let expiringSoonSubscriptions = 0;
     const now = new Date();
+    const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
     for (const h of allHostelsForSaas) {
-      const price = Number(h.planPrice) || 0;
-      totalSaasRevenue += price;
+      const history = Array.isArray(h.subscriptionHistory) ? h.subscriptionHistory : [];
+
+      if (history.length > 0) {
+        for (const s of history) {
+          const amt = Number(s.finalAmount !== undefined ? s.finalAmount : s.planPrice) || 0;
+          totalSaasRevenue += amt;
+          totalSubscriptionTransactions++;
+          const tDate = s.createdAt ? new Date(s.createdAt) : (s.startDate ? new Date(s.startDate) : null);
+          if (tDate) {
+            if (tDate >= startOfThisMonth) thisMonthSaasRevenue += amt;
+            if (tDate >= startOfToday) todaySaasRevenue += amt;
+          }
+        }
+      } else if (h.planPrice > 0 && h.plan !== 'demo') {
+        // Fallback for legacy records created prior to subscription history array
+        const amt = Number(h.planPrice) || 0;
+        totalSaasRevenue += amt;
+        totalSubscriptionTransactions++;
+        const cDate = h.planStartDate ? new Date(h.planStartDate) : (h.createdAt ? new Date(h.createdAt) : null);
+        if (cDate) {
+          if (cDate >= startOfThisMonth) thisMonthSaasRevenue += amt;
+          if (cDate >= startOfToday) todaySaasRevenue += amt;
+        }
+      }
+
       const endDate = h.planEndDate ? new Date(h.planEndDate) : null;
       const isExpired = h.planStatus === 'expired' || (endDate && endDate < now);
 
@@ -76,6 +104,9 @@ exports.getSystemStats = async (req, res, next) => {
         todayStays,
         totalRooms,
         totalSaasRevenue,
+        thisMonthSaasRevenue,
+        todaySaasRevenue,
+        totalSubscriptionTransactions,
         activeSubscriptions,
         trialSubscriptions,
         expiredSubscriptions,
@@ -418,12 +449,38 @@ exports.updateHostelPlan = async (req, res, next) => {
       planNotes, 
       discountAmount, 
       extraCharges,
+      finalAmount,
       paymentMethod = 'UPI',
       paymentReference = '',
       actionType = 'renewal'
     } = req.body;
     const hostel = await Hostel.findById(req.params.id);
     if (!hostel) return res.status(404).json({ success: false, message: 'Property not found' });
+
+    if (!Array.isArray(hostel.subscriptionHistory)) {
+      hostel.subscriptionHistory = [];
+    }
+
+    // 🛡️ Preserve existing prior plan in history before overwriting if no history was logged yet
+    if (hostel.subscriptionHistory.length === 0 && hostel.planPrice > 0 && hostel.plan !== 'demo') {
+      hostel.subscriptionHistory.push({
+        plan: hostel.plan || 'monthly',
+        billingCycle: hostel.billingCycle || 'monthly',
+        planPrice: hostel.planPrice,
+        discountAmount: hostel.discountAmount || 0,
+        extraCharges: hostel.extraCharges || 0,
+        finalAmount: Math.max(0, Number(hostel.planPrice) || 0),
+        paymentMethod: 'UPI',
+        paymentReference: 'Initial Onboarding Plan',
+        startDate: hostel.planStartDate || hostel.createdAt,
+        endDate: hostel.planEndDate || hostel.planStartDate,
+        durationDays: 30,
+        actionType: 'initial',
+        notes: hostel.planNotes || 'Initial plan on property onboarding',
+        recordedByName: 'Super Admin',
+        createdAt: hostel.planStartDate || hostel.createdAt
+      });
+    }
 
     if (plan !== undefined) hostel.plan = plan;
     if (planStatus !== undefined) hostel.planStatus = planStatus;
@@ -440,17 +497,18 @@ exports.updateHostelPlan = async (req, res, next) => {
     const endObj = new Date(hostel.planEndDate || Date.now());
     const durationDays = Math.max(1, Math.ceil((endObj - startObj) / (1000 * 60 * 60 * 24)));
 
-    if (!Array.isArray(hostel.subscriptionHistory)) {
-      hostel.subscriptionHistory = [];
-    }
+    const resolvedFinalAmount = finalAmount !== undefined 
+      ? Number(finalAmount) 
+      : Math.max(0, (Number(hostel.planPrice) || 0));
 
+    // 🧾 Record this new plan / renewal payment in the immutable subscription ledger
     hostel.subscriptionHistory.push({
       plan: hostel.plan,
       billingCycle: hostel.billingCycle,
       planPrice: hostel.planPrice,
       discountAmount: hostel.discountAmount || 0,
       extraCharges: hostel.extraCharges || 0,
-      finalAmount: Math.max(0, (Number(hostel.planPrice) || 0)),
+      finalAmount: resolvedFinalAmount,
       paymentMethod: paymentMethod || 'UPI',
       paymentReference: paymentReference || '',
       startDate: hostel.planStartDate,
@@ -476,6 +534,112 @@ exports.updateHostelPlan = async (req, res, next) => {
 };
 
 /**
+ * 🧾 Super Admin Full Platform Subscription & Renewal Transactions Ledger
+ */
+exports.getSubscriptionTransactions = async (req, res, next) => {
+  try {
+    const hostels = await Hostel.find()
+      .populate('owner', 'name email phone')
+      .populate('assignedSalesAgent', 'name email phone role')
+      .populate('onboardedBy', 'name email phone role')
+      .select('name city address contactNumber owner assignedSalesAgent onboardedBy plan planStatus planPrice planStartDate planEndDate billingCycle subscriptionHistory planNotes createdAt')
+      .lean();
+
+    const transactions = [];
+
+    hostels.forEach(h => {
+      const history = Array.isArray(h.subscriptionHistory) ? h.subscriptionHistory : [];
+
+      if (history.length > 0) {
+        history.forEach((sub, idx) => {
+          transactions.push({
+            _id: sub._id ? sub._id.toString() : `${h._id}-${idx}`,
+            hostelId: h._id,
+            hostelName: h.name,
+            city: h.city || '',
+            ownerName: h.owner?.name || 'Owner',
+            ownerPhone: h.owner?.phone || h.contactNumber || '',
+            ownerEmail: h.owner?.email || '',
+            assignedAgentName: h.assignedSalesAgent?.name || h.onboardedBy?.name || '',
+            plan: sub.plan || h.plan || 'monthly',
+            billingCycle: sub.billingCycle || h.billingCycle || 'monthly',
+            actionType: sub.actionType || (idx === 0 ? 'initial' : 'renewal'),
+            planPrice: Number(sub.planPrice) || 0,
+            discountAmount: Number(sub.discountAmount) || 0,
+            extraCharges: Number(sub.extraCharges) || 0,
+            finalAmount: Number(sub.finalAmount !== undefined ? sub.finalAmount : sub.planPrice) || 0,
+            paymentMethod: sub.paymentMethod || 'UPI',
+            paymentReference: sub.paymentReference || '',
+            startDate: sub.startDate || h.planStartDate,
+            endDate: sub.endDate || h.planEndDate,
+            durationDays: sub.durationDays || 30,
+            notes: sub.notes || '',
+            recordedByName: sub.recordedByName || 'Super Admin',
+            createdAt: sub.createdAt || h.createdAt
+          });
+        });
+      } else if (h.planPrice > 0 && h.plan !== 'demo') {
+        // Synthesize the initial subscription record for legacy properties
+        transactions.push({
+          _id: `${h._id}-initial`,
+          hostelId: h._id,
+          hostelName: h.name,
+          city: h.city || '',
+          ownerName: h.owner?.name || 'Owner',
+          ownerPhone: h.owner?.phone || h.contactNumber || '',
+          ownerEmail: h.owner?.email || '',
+          assignedAgentName: h.assignedSalesAgent?.name || h.onboardedBy?.name || '',
+          plan: h.plan || 'monthly',
+          billingCycle: h.billingCycle || 'monthly',
+          actionType: 'initial',
+          planPrice: Number(h.planPrice) || 0,
+          discountAmount: Number(h.discountAmount) || 0,
+          extraCharges: Number(h.extraCharges) || 0,
+          finalAmount: Number(h.planPrice) || 0,
+          paymentMethod: 'UPI',
+          paymentReference: 'Initial Onboarding Plan',
+          startDate: h.planStartDate,
+          endDate: h.planEndDate,
+          durationDays: 30,
+          notes: h.planNotes || 'Initial subscription assigned on property onboarding',
+          recordedByName: 'Super Admin',
+          createdAt: h.planStartDate || h.createdAt
+        });
+      }
+    });
+
+    // Sort newest transactions first
+    transactions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    // Summary aggregates
+    const now = new Date();
+    const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const totalRevenue = transactions.reduce((sum, t) => sum + (t.finalAmount || 0), 0);
+    const thisMonthRevenue = transactions
+      .filter(t => new Date(t.createdAt) >= startOfThisMonth)
+      .reduce((sum, t) => sum + (t.finalAmount || 0), 0);
+    const todayRevenue = transactions
+      .filter(t => new Date(t.createdAt) >= startOfToday)
+      .reduce((sum, t) => sum + (t.finalAmount || 0), 0);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        transactions,
+        totalRevenue,
+        thisMonthRevenue,
+        todayRevenue,
+        totalTransactionsCount: transactions.length
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * 💼 Super Admin Sales Team Leaderboard & Performance Overview
  */
 exports.getSalesTeamPerformance = async (req, res, next) => {
@@ -489,7 +653,7 @@ exports.getSalesTeamPerformance = async (req, res, next) => {
       salesAgents.map(async (agent) => {
         const [hotels, totalLeads, wonLeads] = await Promise.all([
           Hostel.find({ $or: [{ onboardedBy: agent._id }, { assignedSalesAgent: agent._id }] })
-            .select('name address plan planStatus planPrice createdAt contactNumber onboardedBy assignedSalesAgent')
+            .select('name address plan planStatus planPrice createdAt contactNumber onboardedBy assignedSalesAgent subscriptionHistory')
             .lean(),
           SalesLead.countDocuments({ salesAgent: agent._id }),
           SalesLead.countDocuments({ salesAgent: agent._id, status: 'won' })
@@ -502,9 +666,16 @@ exports.getSalesTeamPerformance = async (req, res, next) => {
                              (h.onboardedBy?._id || h.onboardedBy)?.toString() !== agent._id.toString()
         }));
 
-        const totalRevenue = enrichedHotels
-          .filter(h => h.planStatus === 'active')
-          .reduce((sum, h) => sum + (Number(h.planPrice) || 0), 0);
+        // Calculate total revenue from actual historical subscription payments
+        const totalRevenue = enrichedHotels.reduce((sum, h) => {
+          const history = Array.isArray(h.subscriptionHistory) ? h.subscriptionHistory : [];
+          if (history.length > 0) {
+            return sum + history.reduce((subSum, s) => subSum + (Number(s.finalAmount !== undefined ? s.finalAmount : s.planPrice) || 0), 0);
+          } else if (h.planPrice > 0 && h.plan !== 'demo') {
+            return sum + (Number(h.planPrice) || 0);
+          }
+          return sum;
+        }, 0);
 
         const activeHotels = enrichedHotels.filter(h => h.planStatus === 'active').length;
         const trialHotels = enrichedHotels.filter(h => h.planStatus === 'trial' || h.plan === 'demo').length;

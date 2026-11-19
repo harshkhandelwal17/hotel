@@ -31,6 +31,31 @@ exports.createHostel = async (req, res, next) => {
     if (payload.assignedSalesAgent === '' || payload.assignedSalesAgent === 'unassigned') {
       delete payload.assignedSalesAgent;
     }
+
+    // 🧾 Initialize subscription history record for initial paid plan
+    if (payload.plan && payload.plan !== 'demo' && Number(payload.planPrice) > 0) {
+      if (!Array.isArray(payload.subscriptionHistory) || payload.subscriptionHistory.length === 0) {
+        payload.subscriptionHistory = [{
+          plan: payload.plan,
+          billingCycle: payload.billingCycle || 'monthly',
+          planPrice: Number(payload.planPrice) || 0,
+          discountAmount: Number(payload.discountAmount) || 0,
+          extraCharges: Number(payload.extraCharges) || 0,
+          finalAmount: Number(payload.planPrice) || 0,
+          paymentMethod: payload.paymentMethod || 'UPI',
+          paymentReference: payload.paymentReference || 'Initial Plan',
+          startDate: payload.planStartDate || new Date(),
+          endDate: payload.planEndDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          durationDays: 30,
+          actionType: 'initial',
+          notes: payload.planNotes || 'Initial subscription assigned on property onboarding',
+          recordedBy: req.user?._id,
+          recordedByName: req.user?.name || (req.user?.role === 'sales' ? 'Sales Representative' : 'Super Admin'),
+          createdAt: new Date()
+        }];
+      }
+    }
+
     const hostel = await Hostel.create(payload);
 
     // If owner has no phone, sync property contactNumber to owner

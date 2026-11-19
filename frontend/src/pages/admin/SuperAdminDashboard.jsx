@@ -60,6 +60,7 @@ const SuperAdminDashboard = () => {
   const [users, setUsers] = useState([]);
   const [hostels, setHostels] = useState([]);
   const [salesTeamData, setSalesTeamData] = useState(null);
+  const [subscriptionTransactions, setSubscriptionTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [impersonating, setImpersonating] = useState(false);
@@ -156,16 +157,18 @@ const SuperAdminDashboard = () => {
     try {
       setLoading(true);
       const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
-      const [statsRes, usersRes, hostelsRes, salesRes] = await Promise.all([
+      const [statsRes, usersRes, hostelsRes, salesRes, subTxRes] = await Promise.all([
         axios.get(`${API}/api/superadmin/stats`),
         axios.get(`${API}/api/superadmin/users`),
         axios.get(`${API}/api/superadmin/hostels`),
-        axios.get(`${API}/api/superadmin/sales-team`).catch(() => ({ data: { data: null } }))
+        axios.get(`${API}/api/superadmin/sales-team`).catch(() => ({ data: { data: null } })),
+        axios.get(`${API}/api/superadmin/subscription-transactions`).catch(() => ({ data: { data: { transactions: [] } } }))
       ]);
       setStats(statsRes.data.data);
       setUsers(usersRes.data.data || []);
       setHostels(hostelsRes.data.data || []);
       setSalesTeamData(salesRes.data?.data || null);
+      setSubscriptionTransactions(subTxRes.data?.data?.transactions || []);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load superadmin data');
     } finally {
@@ -453,6 +456,7 @@ const SuperAdminDashboard = () => {
       setHostels(hostels.map(h => h._id === selectedPlanHostel._id ? { ...h, ...res.data.data } : h));
       alert(`✅ Subscription plan updated successfully for ${selectedPlanHostel.name}`);
       setSelectedPlanHostel(null);
+      fetchData(); // 🔄 Re-fetch stats, hostels & transaction ledger so revenue updates in real-time
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to update plan');
     } finally {
@@ -860,7 +864,10 @@ const SuperAdminDashboard = () => {
         <SubscriptionsView
           stats={stats}
           hostels={filteredHostels}
+          allHostels={hostels}
+          transactions={subscriptionTransactions}
           onOpenPlanModal={openPlanModal}
+          onRefresh={fetchData}
         />
       )}
 
