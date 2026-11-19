@@ -8,6 +8,7 @@ import { getStayWhatsAppUrl } from '../../utils/whatsapp';
 import InvoiceModal from '../../components/InvoiceModal';
 import MergedCorporateInvoiceModal from '../../components/MergedCorporateInvoiceModal';
 import GuestRegistrationCardModal from '../../components/reception/GuestRegistrationCardModal';
+import DigitalAadhaarCard from '../../components/common/DigitalAadhaarCard';
 import GroupCheckoutModal from '../../components/reception/GroupCheckoutModal';
 import DynamicUpiQr from '../../components/DynamicUpiQr';
 import PaymentMethodSelector, { validateSplitPayment, buildSplitPayments } from '../../components/common/PaymentMethodSelector';
@@ -1685,6 +1686,17 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
           </div>
 
           <div className="space-y-4 flex-1">
+            {stay.hostel?.digitalAadhaarEnabled && (!stay.guest?.idProofType || stay.guest?.idProofType === 'Aadhaar') && (
+              <div className="p-3 bg-amber-50/70 rounded-2xl border border-amber-200/80 space-y-2">
+                <div className="flex items-center justify-between text-xs font-black text-amber-950 uppercase tracking-wider">
+                  <span>⚡ Smart UIDAI Digital E-Aadhaar</span>
+                  <span className="text-[10px] text-amber-800 bg-amber-100 px-2 py-0.5 rounded font-bold">Auto-Reconstructed</span>
+                </div>
+                <div className="flex justify-center py-1">
+                  <DigitalAadhaarCard guest={stay.guest} side="both" showWatermark={true} />
+                </div>
+              </div>
+            )}
             {stay.guest?.idProofImage ? (
               <div>
                 <p className="text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1">Front Side</p>

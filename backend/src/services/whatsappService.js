@@ -553,6 +553,7 @@ const getHostelWhatsAppStatus = async (hostelId) => {
     return {
       whatsappSyncEnabled: !!hostel.whatsappSyncEnabled,
       aiOcrEnabled: !!hostel.aiOcrEnabled,
+      digitalAadhaarEnabled: !!hostel.digitalAadhaarEnabled,
       hostelName: hostel.name,
       hostelAddress: hostel.address,
       hostelContact: hostel.contactNumber,
@@ -600,6 +601,7 @@ const getHostelWhatsAppStatus = async (hostelId) => {
   return {
     whatsappSyncEnabled: !!hostel.whatsappSyncEnabled,
     aiOcrEnabled: !!hostel.aiOcrEnabled,
+    digitalAadhaarEnabled: !!hostel.digitalAadhaarEnabled,
     hostelName: hostel.name,
     hostelAddress: hostel.address,
     hostelContact: hostel.contactNumber,

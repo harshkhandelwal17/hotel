@@ -652,6 +652,8 @@ exports.toggleSalesPropertyFeature = async (req, res, next) => {
       hostel.whatsappSyncEnabled = !hostel.whatsappSyncEnabled;
     } else if (feature === 'laundry') {
       hostel.laundryEnabled = !hostel.laundryEnabled;
+    } else if (feature === 'digitalAadhaar') {
+      hostel.digitalAadhaarEnabled = !hostel.digitalAadhaarEnabled;
     }
 
     await hostel.save();

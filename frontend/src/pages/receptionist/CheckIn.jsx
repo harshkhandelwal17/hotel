@@ -42,6 +42,7 @@ import { compressImage } from '../../utils/imageCompression';
 import { scanAadhaarQrFromImage, validateAadhaarNumber } from '../../utils/aadhaarQrHelper';
 import { apiCache } from '../../utils/apiCache';
 import GuestRegistrationCardModal from '../../components/reception/GuestRegistrationCardModal';
+import DigitalAadhaarCard from '../../components/common/DigitalAadhaarCard';
 import BrokersDirectoryModal from '../../components/common/BrokersDirectoryModal';
 import { getFullImageUrl } from '../../utils/imageUrl';
 import { GST_STATE_CODES } from '../../utils/invoice';
@@ -91,6 +92,8 @@ const CheckIn = () => {
   const [scanningOcr, setScanningOcr] = useState({ index: null, side: null });
   const [scanningQr, setScanningQr] = useState({ index: null, side: null });
   const [aiOcrEnabled, setAiOcrEnabled] = useState(false);
+  const [digitalAadhaarEnabled, setDigitalAadhaarEnabled] = useState(false);
+  const [previewDigitalGuest, setPreviewDigitalGuest] = useState(null);
   const guestsRef = useRef([]);
   // Keep ORIGINAL full-resolution ID photos so QR re-scan never works on a compressed copy
   const originalIdFilesRef = useRef({});
@@ -520,6 +523,9 @@ const CheckIn = () => {
           if (res.data.data.aiOcrEnabled !== undefined) {
             setAiOcrEnabled(!!res.data.data.aiOcrEnabled);
           }
+          if (res.data.data.digitalAadhaarEnabled !== undefined) {
+            setDigitalAadhaarEnabled(!!res.data.data.digitalAadhaarEnabled);
+          }
           if (res.data.data.hostelName) {
             setPropertyData({
               name: res.data.data.hostelName,
@@ -560,6 +566,9 @@ const CheckIn = () => {
       if (selectedRoomDetails.hostel.whatsappSyncEnabled !== undefined) {
         setWaSyncEnabled(!!selectedRoomDetails.hostel.whatsappSyncEnabled);
       }
+      if (selectedRoomDetails.hostel.digitalAadhaarEnabled !== undefined) {
+        setDigitalAadhaarEnabled(!!selectedRoomDetails.hostel.digitalAadhaarEnabled);
+      }
     }
   }, [selectedRoomDetails]);
 
@@ -598,6 +607,12 @@ const CheckIn = () => {
       });
     }
   }, [activeHostel, selectedRoomDetails]);
+
+  useEffect(() => {
+    if (activeHostel?.digitalAadhaarEnabled !== undefined) {
+      setDigitalAadhaarEnabled(!!activeHostel.digitalAadhaarEnabled);
+    }
+  }, [activeHostel]);
 
   // Poll incoming WhatsApp photos when on Step 2 and WhatsApp is actively connected
   useEffect(() => {
@@ -840,6 +855,10 @@ const CheckIn = () => {
         g.idProofType = 'Aadhaar';
         g.isAadhaarVerified = true;
         g.aadhaarQrType = qrData.qrType || 'UIDAI Secure QR';
+        g.aadhaarData = qrData;
+        if (qrData.photoBase64) {
+          g.photoBase64 = qrData.photoBase64;
+        }
         updated[index] = g;
         return updated;
       });
@@ -1055,6 +1074,10 @@ const CheckIn = () => {
           g.idProofType = 'Aadhaar';
           g.isAadhaarVerified = true;
           g.aadhaarQrType = qrData.qrType || 'UIDAI Secure QR';
+          g.aadhaarData = qrData;
+          if (qrData.photoBase64) {
+            g.photoBase64 = qrData.photoBase64;
+          }
           updated[guestIdx] = g;
           return updated;
         });
@@ -1234,6 +1257,10 @@ const CheckIn = () => {
             g.idProofType = 'Aadhaar';
             g.isAadhaarVerified = true;
             g.aadhaarQrType = qrData.qrType || 'UIDAI Secure QR';
+            g.aadhaarData = qrData;
+            if (qrData.photoBase64) {
+              g.photoBase64 = qrData.photoBase64;
+            }
             updated[index] = g;
             return updated;
           });
@@ -4463,6 +4490,33 @@ const CheckIn = () => {
                       rows="2"
                       className="w-full px-4 py-3 bg-gray-50/70 border border-gray-200 rounded-2xl focus:border-black focus:bg-white focus:ring-0 outline-none font-medium text-xs text-gray-900 transition-colors resize-none placeholder:text-gray-400"
                     ></textarea>
+
+                    {digitalAadhaarEnabled && (guest.isAadhaarVerified || guest.aadhaarData) && (
+                      <div className="mt-2.5 p-2.5 rounded-xl bg-amber-50 border border-amber-200 flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-6 h-6 rounded-lg bg-amber-500 text-white flex items-center justify-center shrink-0">
+                            <ShieldCheck size={14} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-black text-amber-950 flex items-center gap-1.5 leading-tight">
+                              <span>Smart Digital E-Aadhaar Ready</span>
+                              <span className="text-[8.5px] bg-amber-200 text-amber-900 px-1.5 py-0.2 rounded font-black uppercase">UIDAI Verified</span>
+                            </p>
+                            <p className="text-[9.5px] text-amber-800 font-medium leading-tight">
+                              Official PVC card reconstructed crisp & neat for registration print.
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setPreviewDigitalGuest(guest)}
+                          className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white font-black text-[10px] uppercase tracking-wider rounded-lg transition-all shadow-2xs active:scale-95 cursor-pointer flex items-center gap-1 shrink-0"
+                        >
+                          <Sparkles size={11} />
+                          <span>Preview Card</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* CORPORATE / BUSINESS BILLING DETAILS (Optional) */}
@@ -5238,9 +5292,69 @@ const CheckIn = () => {
         }}
         roomData={selectedRoomDetails}
         guests={guests}
-        hotelData={propertyData || selectedRoomDetails?.hostel}
+        hotelData={{
+          ...(propertyData || {}),
+          digitalAadhaarEnabled: Boolean(digitalAadhaarEnabled || activeHostel?.digitalAadhaarEnabled || selectedRoomDetails?.hostel?.digitalAadhaarEnabled),
+          name: propertyData?.name || selectedRoomDetails?.hostel?.name || activeHostel?.name,
+          address: propertyData?.address || selectedRoomDetails?.hostel?.address || activeHostel?.address,
+          contactNumber: propertyData?.contactNumber || selectedRoomDetails?.hostel?.contactNumber || activeHostel?.contactNumber,
+          email: propertyData?.email || selectedRoomDetails?.hostel?.email || activeHostel?.email
+        }}
         onProceedToDashboard={createdStayData ? () => navigate('/dashboard') : null}
       />
+
+      {/* SMART DIGITAL E-AADHAAR MODAL PREVIEW */}
+      {previewDigitalGuest && (
+        <div 
+          className="fixed inset-0 bg-black/80 backdrop-blur-xs z-[9999] flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150"
+          onClick={() => setPreviewDigitalGuest(null)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl border border-gray-200 flex flex-col space-y-4 animate-in zoom-in-95 duration-200 max-h-[92vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-black">
+                  <ShieldCheck size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-gray-900">
+                    Smart Digital E-Aadhaar Preview
+                  </h3>
+                  <p className="text-[11px] text-gray-500 font-medium">
+                    Crisp UIDAI official PVC reconstructor for {previewDigitalGuest.fullName || 'Guest'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewDigitalGuest(null)}
+                className="p-1.5 text-gray-400 hover:text-black hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="py-2 flex items-center justify-center">
+              <DigitalAadhaarCard guest={previewDigitalGuest} side="both" showWatermark={true} />
+            </div>
+
+            <div className="pt-3 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-[10.5px] text-gray-500 font-bold">
+                ⚡ This reconstructed card automatically prints sharp & clean in the Guest Registration Card (GRC).
+              </span>
+              <button
+                type="button"
+                onClick={() => setPreviewDigitalGuest(null)}
+                className="px-5 py-2 bg-black hover:bg-gray-800 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer active:scale-95"
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* BROKERS & AUTO DRIVERS DIRECTORY MODAL */}
       <BrokersDirectoryModal

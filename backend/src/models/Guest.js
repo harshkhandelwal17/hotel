@@ -44,6 +44,10 @@ const guestSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  aadhaarData: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null
+  },
   emergencyContactName: String,
   emergencyContactNumber: String,
   companyName: {

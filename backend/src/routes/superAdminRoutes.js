@@ -12,6 +12,7 @@ const {
   toggleHostelAiOcr, 
   toggleHostelWhatsAppSync, 
   toggleHostelLaundry,
+  toggleHostelDigitalAadhaar,
   toggleHostelStatus, 
   updateHostelPlan,
   deleteHostelSubscriptionHistory,
@@ -40,6 +41,7 @@ router.put('/hostels/:id/toggle-status', toggleHostelStatus);
 router.put('/hostels/:id/toggle-ai-ocr', toggleHostelAiOcr);
 router.put('/hostels/:id/toggle-whatsapp-sync', toggleHostelWhatsAppSync);
 router.put('/hostels/:id/toggle-laundry', toggleHostelLaundry);
+router.put('/hostels/:id/toggle-digital-aadhaar', toggleHostelDigitalAadhaar);
 router.put('/hostels/:id/plan', updateHostelPlan);
 router.delete('/hostels/:id/subscription-history/:historyId', deleteHostelSubscriptionHistory);
 router.get('/subscription-transactions', getSubscriptionTransactions);

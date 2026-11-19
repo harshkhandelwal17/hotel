@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   Crown, Building, Users, Mail, Phone, LogIn, KeyRound, 
   Pencil, Plus, Lock, Unlock, Sparkles, MessageSquare, 
-  Shirt, ArrowRight, ExternalLink, Calendar, CheckCircle2, AlertTriangle, Clock,
+  Shirt, ShieldCheck, ArrowRight, ExternalLink, Calendar, CheckCircle2, AlertTriangle, Clock,
   Network, Briefcase
 } from 'lucide-react';
 
@@ -22,6 +22,7 @@ const EcosystemView = ({
   onToggleAiOcr, 
   onToggleWhatsAppSync, 
   onToggleLaundry,
+  onToggleDigitalAadhaar,
   onOpenCreateStaffForHotel,
   onOpenCreateOwner,
   onOpenRegisterProperty,
@@ -454,6 +455,19 @@ const EcosystemView = ({
                                 <Shirt size={11} />
                                 <span>Laundry: {h.laundryEnabled ? 'ON' : 'OFF'}</span>
                               </button>
+
+                              {onToggleDigitalAadhaar && (
+                                <button
+                                  onClick={() => onToggleDigitalAadhaar(h._id)}
+                                  className={`px-2 py-1 rounded-lg font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                                    h.digitalAadhaarEnabled ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                  }`}
+                                  title="Smart Digital E-Aadhaar Reconstructor"
+                                >
+                                  <ShieldCheck size={11} />
+                                  <span>E-Aadhaar: {h.digitalAadhaarEnabled ? 'ON' : 'OFF'}</span>
+                                </button>
+                              )}
                             </div>
                           </div>
 

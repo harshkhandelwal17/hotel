@@ -1,8 +1,9 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { format } from 'date-fns';
-import { Printer, X, ShieldCheck, Loader2, MessageSquare } from 'lucide-react';
+import { Printer, X, ShieldCheck, Loader2, MessageSquare, Sparkles } from 'lucide-react';
 import { getFullImageUrl } from '../../utils/imageUrl';
+import DigitalAadhaarCard from '../common/DigitalAadhaarCard';
 
 export default function GuestRegistrationCardModal({
   isOpen,
@@ -16,6 +17,18 @@ export default function GuestRegistrationCardModal({
   const printAreaRef = useRef(null);
   const scrollContainerRef = useRef(null);
   const [isPrinting, setIsPrinting] = useState(false);
+
+  // Super Admin Gated Feature: Smart Digital E-Aadhaar Reconstructor
+  const isDigitalAadhaarEnabled = Boolean(
+    hotelData?.digitalAadhaarEnabled ||
+    roomData?.hostel?.digitalAadhaarEnabled ||
+    stayData?.hostel?.digitalAadhaarEnabled
+  );
+  const [useDigitalAadhaar, setUseDigitalAadhaar] = useState(isDigitalAadhaarEnabled);
+
+  useEffect(() => {
+    setUseDigitalAadhaar(isDigitalAadhaarEnabled);
+  }, [isDigitalAadhaarEnabled]);
 
   // Auto-scroll to top when modal opens
   useEffect(() => {
@@ -500,6 +513,20 @@ export default function GuestRegistrationCardModal({
                 padding: 8px !important;
                 background: #f8fafc !important;
               }
+              .digital-aadhaar-wrapper {
+                display: flex !important;
+                flex-direction: row !important;
+                justify-content: center !important;
+                align-items: center !important;
+                gap: 12px !important;
+                width: 100% !important;
+                page-break-inside: avoid !important;
+              }
+              .digital-aadhaar-card-side {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                page-break-inside: avoid !important;
+              }
               .grc-decl-box {
                 border: 2px solid #0f172a !important;
                 border-radius: 8px !important;
@@ -762,6 +789,18 @@ export default function GuestRegistrationCardModal({
           padding: 8px;
           background: #f8fafc;
         }
+        .digital-aadhaar-wrapper {
+          display: flex;
+          flex-direction: row;
+          justify-content: center;
+          align-items: center;
+          gap: 12px;
+          width: 100%;
+        }
+        .digital-aadhaar-card-side {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
         .grc-decl-box {
           border: 2px solid #0f172a;
           border-radius: 8px;
@@ -829,6 +868,30 @@ export default function GuestRegistrationCardModal({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            {isDigitalAadhaarEnabled ? (
+              <button
+                type="button"
+                onClick={() => setUseDigitalAadhaar(!useDigitalAadhaar)}
+                className={`px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer shadow-sm ${
+                  useDigitalAadhaar
+                    ? 'bg-amber-400 hover:bg-amber-300 text-gray-950 border border-amber-300'
+                    : 'bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700'
+                }`}
+                title="Toggle between Smart Digital E-Aadhaar and Scanned Photo"
+              >
+                <Sparkles size={13} className={useDigitalAadhaar ? 'text-amber-950 fill-amber-950' : 'text-gray-400'} />
+                <span className="hidden xs:inline">{useDigitalAadhaar ? 'Smart E-Aadhaar' : 'Photo Mode'}</span>
+                <span className="xs:hidden">{useDigitalAadhaar ? 'E-Aadhaar' : 'Photo'}</span>
+              </button>
+            ) : (
+              <div 
+                className="hidden md:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-bold text-gray-500 bg-gray-900 border border-gray-800"
+                title="Smart Digital E-Aadhaar requires Super Admin authorization for this property"
+              >
+                <span>🔒 E-Aadhaar: Super Admin</span>
+              </div>
+            )}
+
             <button
               onClick={handlePrint}
               disabled={isPrinting}
@@ -1017,52 +1080,113 @@ export default function GuestRegistrationCardModal({
               </div>
             </div>
 
-            {/* 4. ATTACHED ID PROOF PHOTOS (LARGE, PROMINENT, CLEAR) */}
+            {/* 4. ATTACHED ID PROOF PHOTOS / SMART DIGITAL E-AADHAAR */}
             <div className="grc-box">
               <div className="grc-box-header">
                 <span>
-                  Attached Identity Proof Documents ({idCards.filter(c => c.url).length} Uploaded / Verified)
+                  Attached Identity Proof Documents {isDigitalAadhaarEnabled && useDigitalAadhaar ? '(Smart UIDAI E-Aadhaar Reconstructed)' : `(${idCards.filter(c => c.url).length} Uploaded / Verified)`}
                 </span>
                 <span style={{ fontSize: '8.5px', fontWeight: 600, color: '#cbd5e1' }}>
-                  Documentary Verification
+                  {isDigitalAadhaarEnabled && useDigitalAadhaar ? '⚡ UIDAI Digital Certified' : 'Documentary Verification'}
                 </span>
               </div>
 
-              <div
-                className="grc-id-grid"
-                style={{
-                  gridTemplateColumns: `repeat(${idCols}, 1fr)`
-                }}
-              >
-                {idCards.map((card, cIdx) => (
-                  <div key={cIdx} className="grc-id-card">
-                    <div className="grc-id-card-title" title={card.title}>
-                      {card.title}
-                    </div>
-                    <div className="grc-id-card-img-wrap">
-                      {card.url ? (
-                        <img
-                          src={card.url}
-                          alt={card.title}
-                          className="grc-id-img"
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                            if (e.target.nextElementSibling) {
-                              e.target.nextElementSibling.style.display = 'flex';
-                            }
-                          }}
-                        />
-                      ) : null}
-                      <div
-                        className={`grc-id-placeholder ${card.url ? 'grc-hidden' : 'grc-flex'}`}
-                      >
-                        <ShieldCheck size={24} className="text-gray-400 mb-1" />
-                        <span>[ {card.side} ID Verified at Desk ]</span>
+              {isDigitalAadhaarEnabled && useDigitalAadhaar ? (
+                <div style={{ padding: '8px', background: '#ffffff' }} className="space-y-3">
+                  {displayGuests.map((g, gIdx) => {
+                    const gName = g.fullName || `Guest ${gIdx + 1}`;
+                    const roleLabel = gIdx === 0 ? 'Primary Guest' : `Guest ${gIdx + 1}`;
+                    const isAadhaar = !g.idProofType || g.idProofType === 'Aadhaar';
+
+                    return (
+                      <div key={gIdx} className="space-y-1.5">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', color: '#334155', padding: '0 4px' }}>
+                          <span>
+                            <strong style={{ background: '#0f172a', color: '#ffffff', padding: '1px 5px', borderRadius: '4px', marginRight: '6px' }}>#{gIdx + 1}</strong>
+                            {roleLabel}: {gName}
+                          </span>
+                          <span style={{ color: isAadhaar ? '#15803d' : '#475569', background: isAadhaar ? '#f0fdf4' : '#f8fafc', padding: '1px 6px', borderRadius: '4px', border: `1px solid ${isAadhaar ? '#bbf7d0' : '#e2e8f0'}` }}>
+                            {isAadhaar ? '✓ UIDAI E-Aadhaar Reconstructed' : (g.idProofType || 'Identity Document')}
+                          </span>
+                        </div>
+
+                        {isAadhaar ? (
+                          <DigitalAadhaarCard 
+                            guest={g} 
+                            side="both" 
+                            compact={guestCount > 1} 
+                            showWatermark={true} 
+                          />
+                        ) : (
+                          <div
+                            className="grc-id-grid"
+                            style={{
+                              gridTemplateColumns: 'repeat(2, 1fr)'
+                            }}
+                          >
+                            <div className="grc-id-card">
+                              <div className="grc-id-card-title">{roleLabel}: Front ID</div>
+                              <div className="grc-id-card-img-wrap">
+                                {g.idProofImage ? (
+                                  <img src={getFullImageUrl(g.idProofImage)} alt="Front ID" className="grc-id-img" />
+                                ) : (
+                                  <div className="grc-id-placeholder"><ShieldCheck size={20} /> Verified at Desk</div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="grc-id-card">
+                              <div className="grc-id-card-title">{roleLabel}: Back ID</div>
+                              <div className="grc-id-card-img-wrap">
+                                {g.idProofImageBack ? (
+                                  <img src={getFullImageUrl(g.idProofImageBack)} alt="Back ID" className="grc-id-img" />
+                                ) : (
+                                  <div className="grc-id-placeholder"><ShieldCheck size={20} /> Verified at Desk</div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div
+                  className="grc-id-grid"
+                  style={{
+                    gridTemplateColumns: `repeat(${idCols}, 1fr)`
+                  }}
+                >
+                  {idCards.map((card, cIdx) => (
+                    <div key={cIdx} className="grc-id-card">
+                      <div className="grc-id-card-title" title={card.title}>
+                        {card.title}
+                      </div>
+                      <div className="grc-id-card-img-wrap">
+                        {card.url ? (
+                          <img
+                            src={card.url}
+                            alt={card.title}
+                            className="grc-id-img"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              if (e.target.nextElementSibling) {
+                                e.target.nextElementSibling.style.display = 'flex';
+                              }
+                            }}
+                          />
+                        ) : null}
+                        <div
+                          className={`grc-id-placeholder ${card.url ? 'grc-hidden' : 'grc-flex'}`}
+                        >
+                          <ShieldCheck size={24} className="text-gray-400 mb-1" />
+                          <span>[ {card.side} ID Verified at Desk ]</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* 5. LEGAL DECLARATION & DUAL SIGNATURE BOXES (CLEAN & BALANCED) */}

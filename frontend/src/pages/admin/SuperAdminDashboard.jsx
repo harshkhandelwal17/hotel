@@ -29,6 +29,7 @@ import {
   Pencil,
   QrCode,
   Shirt,
+  ShieldCheck,
   CreditCard,
   Network,
   Crown,
@@ -425,6 +426,16 @@ const SuperAdminDashboard = () => {
       setHostels(hostels.map(h => h._id === hostelId ? { ...h, laundryEnabled: res.data.data.laundryEnabled } : h));
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to toggle Laundry Management status');
+    }
+  };
+
+  const handleToggleDigitalAadhaar = async (hostelId) => {
+    try {
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      const res = await axios.put(`${API}/api/superadmin/hostels/${hostelId}/toggle-digital-aadhaar`);
+      setHostels(hostels.map(h => h._id === hostelId ? { ...h, digitalAadhaarEnabled: res.data.data.digitalAadhaarEnabled } : h));
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to toggle Digital Aadhaar status');
     }
   };
 
@@ -835,6 +846,7 @@ const SuperAdminDashboard = () => {
           onToggleAiOcr={handleToggleAiOcr}
           onToggleWhatsAppSync={handleToggleWhatsAppSync}
           onToggleLaundry={handleToggleLaundry}
+          onToggleDigitalAadhaar={handleToggleDigitalAadhaar}
           onOpenCreateStaffForHotel={openCreateStaffForHotel}
           onOpenCreateOwner={() => {
             setNewOwnerForm({
@@ -1359,6 +1371,18 @@ const SuperAdminDashboard = () => {
                           >
                             <Shirt size={11} className={h.laundryEnabled ? 'text-indigo-600' : 'text-gray-400'} />
                             {h.laundryEnabled ? 'Laundry On' : 'Laundry Off'}
+                          </button>
+                          <button
+                            onClick={() => handleToggleDigitalAadhaar(h._id)}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase transition-all shadow-sm active:scale-95 ${
+                              h.digitalAadhaarEnabled
+                                ? 'bg-amber-50 text-amber-800 border border-amber-300'
+                                : 'bg-gray-100 text-gray-400 border border-gray-200'
+                            }`}
+                            title="Toggle Smart Digital E-Aadhaar Reconstructor"
+                          >
+                            <ShieldCheck size={11} className={h.digitalAadhaarEnabled ? 'text-amber-600 fill-amber-500' : 'text-gray-400'} />
+                            {h.digitalAadhaarEnabled ? 'E-Aadhaar On' : 'E-Aadhaar Off'}
                           </button>
                         </div>
                       </td>

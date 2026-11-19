@@ -61,6 +61,10 @@ const hostelSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  digitalAadhaarEnabled: {
+    type: Boolean,
+    default: false
+  },
   laundryEnabled: {
     type: Boolean,
     default: false
