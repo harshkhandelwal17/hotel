@@ -1832,15 +1832,15 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                   <CheckCircle2 size={18} className="text-emerald-600" />
                   <div>
                     <p className="text-xs font-black text-emerald-950 uppercase tracking-wide">
-                      UIDAI Cryptographic QR Verified
+                      Aadhaar QR Verified
                     </p>
                     <p className="text-[10px] text-emerald-800 font-medium">
-                      Physical ID cryptographically matched with UIDAI secure digital signature.
+                      Identity details successfully scanned & matched with digital QR.
                     </p>
                   </div>
                 </div>
                 <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
-                  AUTHENTIC
+                  VERIFIED
                 </span>
               </div>
             )}

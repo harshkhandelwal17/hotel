@@ -1100,21 +1100,6 @@ export default function GuestRegistrationCardModal({
                   </div>
                 ))}
               </div>
-
-              {/* AUDIT SEAL: UIDAI DIGITAL QR VERIFICATION CERTIFICATE (IF VERIFIED) */}
-              {displayGuests.some(g => g.isAadhaarVerified || g.aadhaarData) && (
-                <div style={{ margin: '6px 8px 8px 8px', padding: '6px 10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <ShieldCheck size={14} style={{ color: '#16a34a', shrink: 0 }} />
-                    <span style={{ fontSize: '9px', fontWeight: 800, color: '#166534', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                      UIDAI Cryptographic QR Verification: Verified & Matched with Original Physical ID
-                    </span>
-                  </div>
-                  <span style={{ fontSize: '8.5px', fontFamily: 'monospace', fontWeight: 700, color: '#15803d' }}>
-                    IT Act 2000 & UIDAI Guidelines Compliant
-                  </span>
-                </div>
-              )}
             </div>
 
             {/* 5. LEGAL DECLARATION & DUAL SIGNATURE BOXES (CLEAN & BALANCED) */}

@@ -4725,11 +4725,11 @@ const CheckIn = () => {
                         <div className="flex items-center gap-2 min-w-0">
                           <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
                           <p className="text-[11px] font-bold text-emerald-900 leading-tight">
-                            UIDAI Cryptographic QR Verified · Details matched with original physical ID
+                            Aadhaar QR Verified
                           </p>
                         </div>
                         <span className="text-[9px] font-mono font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded uppercase shrink-0">
-                          Authentic
+                          Verified
                         </span>
                       </div>
                     )}
