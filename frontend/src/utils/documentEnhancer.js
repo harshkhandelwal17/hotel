@@ -466,7 +466,7 @@ function applyTextSharpen(ctx, w, h) {
 export async function autoEnhanceIdDocument(source, options = {}) {
   const {
     filterMode = 'magic',
-    autoCrop = true,
+    autoCrop = false, // NON-DESTRUCTIVE: Do not auto-crop on upload; let user crop visually!
     autoRotate = false, // Conservative: Never rotate blindly!
     quality = 0.92
   } = options;

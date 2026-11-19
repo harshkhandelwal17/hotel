@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { format, addDays, addHours } from 'date-fns';
-import { X, Receipt, Plus, Wallet, ArrowRightLeft, CalendarPlus, Printer, Trash2, LogOut, AlertCircle, CheckCircle2, Phone, Edit3, Image as ImageIcon, Eye, FileText, MessageSquare, Building2, RotateCw, Sparkles, Crop } from 'lucide-react';
+import { X, Receipt, Plus, Wallet, ArrowRightLeft, CalendarPlus, Printer, Trash2, LogOut, AlertCircle, CheckCircle2, Phone, Edit3, Image as ImageIcon, Eye, FileText, MessageSquare, Building2, RotateCw, RotateCcw, Sparkles, Crop } from 'lucide-react';
 import { printInvoice } from '../../utils/invoice';
 import { getStayWhatsAppUrl } from '../../utils/whatsapp';
 import InvoiceModal from '../../components/InvoiceModal';
@@ -315,7 +315,7 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
     }
   };
 
-  const handleQuickRotate = async (side) => {
+  const handleQuickRotate = async (side, deg = 90) => {
     const imageSrc = side === 'front' ? editForm.idProofImage : editForm.idProofImageBack;
     if (!imageSrc) return;
     try {
@@ -329,7 +329,7 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
       const bCtx = baseCanvas.getContext('2d');
       bCtx.drawImage(img, 0, 0);
 
-      const rotCanvas = rotateCanvas(baseCanvas, 90);
+      const rotCanvas = rotateCanvas(baseCanvas, deg);
       const res = await canvasToFile(rotCanvas, 'rotated_id.jpg', 0.92);
       const fd = new FormData();
       fd.append('image', res.file);
@@ -341,7 +341,7 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
         ...prev,
         [side === 'front' ? 'idProofImage' : 'idProofImageBack']: resolved
       }));
-      flash(`✅ Rotated ${side.toUpperCase()} ID 90°! Click Save to apply.`);
+      flash(`✅ Rotated ${side.toUpperCase()} ID! Click Save to apply.`);
     } catch (err) {
       setError('Failed to rotate: ' + err.message);
     } finally {
@@ -1180,19 +1180,27 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                         <div className="flex items-center gap-1">
                           <button
                             type="button"
-                            onClick={() => handleQuickRotate('front')}
-                            className="p-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl border border-gray-200 cursor-pointer"
-                            title="1-Click Rotate 90°"
+                            onClick={() => handleQuickRotate('front', 270)}
+                            className="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl border border-gray-200 cursor-pointer"
+                            title="Rotate 90° Left"
+                          >
+                            <RotateCcw size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleQuickRotate('front', 90)}
+                            className="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl border border-gray-200 cursor-pointer"
+                            title="Rotate 90° Right"
                           >
                             <RotateCw size={13} />
                           </button>
                           <button
                             type="button"
                             onClick={() => setCropModalData({ isOpen: true, side: 'front', imageSrc: getFullImageUrl(editForm.idProofImage) })}
-                            className="p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl border border-emerald-200 cursor-pointer"
-                            title="Crop & CamScanner Clean"
+                            className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl border border-emerald-200 cursor-pointer"
+                            title="Visual Crop & CamScanner Clean"
                           >
-                            <Sparkles size={13} />
+                            <Crop size={13} />
                           </button>
                         </div>
                       )}
@@ -1210,7 +1218,7 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                             <a href={getFullImageUrl(editForm.idProofImageBack)} target="_blank" rel="noreferrer" className="text-white hover:text-emerald-400 p-0.5" title="View Full Photo">
                               <Eye size={12} />
                             </a>
-                            <button type="button" onClick={() => handleQuickRotate('back')} className="text-white hover:text-emerald-400 p-0.5 cursor-pointer" title="Rotate 90°">
+                            <button type="button" onClick={() => handleQuickRotate('back', 90)} className="text-white hover:text-emerald-400 p-0.5 cursor-pointer" title="Rotate 90°">
                               <RotateCw size={12} />
                             </button>
                             <button type="button" onClick={() => setCropModalData({ isOpen: true, side: 'back', imageSrc: getFullImageUrl(editForm.idProofImageBack) })} className="text-white hover:text-emerald-400 p-0.5 cursor-pointer" title="Crop & CamScanner Clean">
@@ -1233,19 +1241,27 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                         <div className="flex items-center gap-1">
                           <button
                             type="button"
-                            onClick={() => handleQuickRotate('back')}
-                            className="p-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl border border-gray-200 cursor-pointer"
-                            title="1-Click Rotate 90°"
+                            onClick={() => handleQuickRotate('back', 270)}
+                            className="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl border border-gray-200 cursor-pointer"
+                            title="Rotate 90° Left"
+                          >
+                            <RotateCcw size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleQuickRotate('back', 90)}
+                            className="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl border border-gray-200 cursor-pointer"
+                            title="Rotate 90° Right"
                           >
                             <RotateCw size={13} />
                           </button>
                           <button
                             type="button"
                             onClick={() => setCropModalData({ isOpen: true, side: 'back', imageSrc: getFullImageUrl(editForm.idProofImageBack) })}
-                            className="p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl border border-emerald-200 cursor-pointer"
-                            title="Crop & CamScanner Clean"
+                            className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl border border-emerald-200 cursor-pointer"
+                            title="Visual Crop & CamScanner Clean"
                           >
-                            <Sparkles size={13} />
+                            <Crop size={13} />
                           </button>
                         </div>
                       )}

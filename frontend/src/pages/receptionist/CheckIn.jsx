@@ -4468,19 +4468,27 @@ const CheckIn = () => {
                           <div className="flex items-center gap-1 mt-1.5">
                             <button
                               type="button"
-                              onClick={() => handleQuickRotate(index, 'front', 90)}
-                              className="flex-1 py-1 px-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[11px] font-bold rounded-lg flex items-center justify-center gap-1 transition-colors border border-gray-200 cursor-pointer active:scale-95"
-                              title="Rotate 90 degrees clockwise"
+                              onClick={() => handleQuickRotate(index, 'front', 270)}
+                              className="py-1 px-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[11px] font-bold rounded-lg flex items-center justify-center gap-0.5 transition-colors border border-gray-200 cursor-pointer active:scale-95"
+                              title="Rotate 90° Left (Counter-Clockwise)"
                             >
-                              <RotateCw size={11} className="text-gray-500" /> Rotate
+                              <RotateCcw size={11} className="text-gray-500" /> ⟲ -90°
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleQuickRotate(index, 'front', 90)}
+                              className="py-1 px-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[11px] font-bold rounded-lg flex items-center justify-center gap-0.5 transition-colors border border-gray-200 cursor-pointer active:scale-95"
+                              title="Rotate 90° Right (Clockwise)"
+                            >
+                              <RotateCw size={11} className="text-gray-500" /> ⟳ +90°
                             </button>
                             <button
                               type="button"
                               onClick={() => handleOpenCropModal(index, 'front', guest.idProofImage)}
-                              className="flex-1 py-1 px-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[11px] font-bold rounded-lg flex items-center justify-center gap-1 transition-colors border border-emerald-200 cursor-pointer active:scale-95"
-                              title="Crop table edge & CamScanner paper whitening"
+                              className="flex-1 py-1 px-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[11px] font-bold rounded-lg flex items-center justify-center gap-1 transition-colors border border-emerald-200 cursor-pointer active:scale-95"
+                              title="Visual Drag Crop & CamScanner Clean"
                             >
-                              <Sparkles size={11} className="text-emerald-600" /> Clean/Crop
+                              <Crop size={11} className="text-emerald-600" /> Crop / Clean
                             </button>
                           </div>
                           {scanningQr.index === index && scanningQr.side === 'front' && (
@@ -4646,19 +4654,27 @@ const CheckIn = () => {
                           <div className="flex items-center gap-1 mt-1.5">
                             <button
                               type="button"
-                              onClick={() => handleQuickRotate(index, 'back', 90)}
-                              className="flex-1 py-1 px-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[11px] font-bold rounded-lg flex items-center justify-center gap-1 transition-colors border border-gray-200 cursor-pointer active:scale-95"
-                              title="Rotate 90 degrees clockwise"
+                              onClick={() => handleQuickRotate(index, 'back', 270)}
+                              className="py-1 px-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[11px] font-bold rounded-lg flex items-center justify-center gap-0.5 transition-colors border border-gray-200 cursor-pointer active:scale-95"
+                              title="Rotate 90° Left (Counter-Clockwise)"
                             >
-                              <RotateCw size={11} className="text-gray-500" /> Rotate
+                              <RotateCcw size={11} className="text-gray-500" /> ⟲ -90°
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleQuickRotate(index, 'back', 90)}
+                              className="py-1 px-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[11px] font-bold rounded-lg flex items-center justify-center gap-0.5 transition-colors border border-gray-200 cursor-pointer active:scale-95"
+                              title="Rotate 90° Right (Clockwise)"
+                            >
+                              <RotateCw size={11} className="text-gray-500" /> ⟳ +90°
                             </button>
                             <button
                               type="button"
                               onClick={() => handleOpenCropModal(index, 'back', guest.idProofImageBack)}
-                              className="flex-1 py-1 px-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[11px] font-bold rounded-lg flex items-center justify-center gap-1 transition-colors border border-emerald-200 cursor-pointer active:scale-95"
-                              title="Crop table edge & CamScanner paper whitening"
+                              className="flex-1 py-1 px-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[11px] font-bold rounded-lg flex items-center justify-center gap-1 transition-colors border border-emerald-200 cursor-pointer active:scale-95"
+                              title="Visual Drag Crop & CamScanner Clean"
                             >
-                              <Sparkles size={11} className="text-emerald-600" /> Clean/Crop
+                              <Crop size={11} className="text-emerald-600" /> Crop / Clean
                             </button>
                           </div>
                           {scanningQr.index === index && scanningQr.side === 'back' && (
