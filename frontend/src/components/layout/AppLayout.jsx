@@ -2,7 +2,7 @@ import React, { useContext, useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
-import { Home, Users, Bed, LogOut, Bell, PlusCircle, Building, CreditCard, BarChart3, Hexagon, ShieldCheck, Menu, X, ShieldAlert, LayoutGrid, Volume2, VolumeX, Phone, BellRing, ChevronDown, Shirt, Keyboard, Search, Globe, CheckCheck, CheckCircle2, Smartphone, Sparkles, MessageSquare, Trash2, KeyRound, BookOpen } from 'lucide-react';
+import { Home, Users, Bed, LogOut, Bell, PlusCircle, Building, CreditCard, BarChart3, Hexagon, ShieldCheck, Menu, X, ShieldAlert, LayoutGrid, Volume2, VolumeX, Phone, BellRing, ChevronDown, Shirt, Keyboard, Search, Globe, CheckCheck, CheckCircle2, Smartphone, Sparkles, MessageSquare, Trash2, KeyRound, BookOpen, UtensilsCrossed } from 'lucide-react';
 import GlobalSearch from '../common/GlobalSearch';
 import CommandPalette from '../common/CommandPalette';
 import ShortcutsModal from '../common/ShortcutsModal';
@@ -490,6 +490,13 @@ const AppLayout = ({ children }) => {
     if (isLaundryEnabledForUser) {
       navItems.push({ id: 'laundry', name: t('nav.laundry', 'Laundry'), path: '/laundry', icon: Shirt });
     }
+
+    navItems.push({
+      id: 'restaurant',
+      name: isHindi ? 'रेस्टोरेंट व पीओएस' : 'Restaurant & POS',
+      path: '/pos',
+      icon: UtensilsCrossed
+    });
     
     if (user?.role === 'admin') {
       navItems.push({ id: 'reports', name: t('nav.financialReports', 'Financials'), path: '/admin/reports', icon: BarChart3 });
@@ -499,7 +506,7 @@ const AppLayout = ({ children }) => {
     }
   }
 
-  const primaryNavItems = user?.role === 'superadmin' ? navItems : navItems.filter(item => ['dashboard', 'stays', 'rooms', 'history', 'register', 'payments', 'laundry'].includes(item.id));
+  const primaryNavItems = user?.role === 'superadmin' ? navItems : navItems.filter(item => ['dashboard', 'stays', 'rooms', 'history', 'register', 'payments', 'laundry', 'restaurant'].includes(item.id));
 
   const handleReturnToAdminPortal = () => {
     const returnUrl = localStorage.getItem('impersonateReturnUrl') || '/superadmin';

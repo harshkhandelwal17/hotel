@@ -24,6 +24,7 @@ const PaymentsList = lazy(() => import('./pages/receptionist/PaymentsList'));
 const GuestDirectory = lazy(() => import('./pages/receptionist/GuestDirectory'));
 const Laundry = lazy(() => import('./pages/receptionist/Laundry'));
 const DailyRegister = lazy(() => import('./pages/receptionist/DailyRegister'));
+const RestaurantPos = lazy(() => import('./pages/receptionist/RestaurantPos'));
 const SuperAdminDashboard = lazy(() => import('./pages/admin/SuperAdminDashboard'));
 const SalesDashboard = lazy(() => import('./pages/sales/SalesDashboard'));
 
@@ -69,6 +70,8 @@ function App() {
               <Route path="/guests" element={<GuestDirectory />} />
               <Route path="/register" element={<DailyRegister />} />
               <Route path="/daybook" element={<DailyRegister />} />
+              <Route path="/pos" element={<RestaurantPos />} />
+              <Route path="/restaurant" element={<RestaurantPos />} />
             </Route>
           </Route>
 
