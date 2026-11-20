@@ -87,6 +87,42 @@ const restaurantOrderSchema = new mongoose.Schema({
     default: 0,
     min: 0
   },
+  cgst: {
+    type: Number,
+    default: 0
+  },
+  sgst: {
+    type: Number,
+    default: 0
+  },
+  igst: {
+    type: Number,
+    default: 0
+  },
+  isB2B: {
+    type: Boolean,
+    default: false
+  },
+  companyName: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  gstin: {
+    type: String,
+    trim: true,
+    uppercase: true,
+    default: ''
+  },
+  billingAddress: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  hsnSacCode: {
+    type: String,
+    default: '996331'
+  },
   totalAmount: {
     type: Number,
     required: true,

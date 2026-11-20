@@ -12,6 +12,12 @@ const menuItemSchema = new mongoose.Schema({
     required: [true, 'Please enter item name'],
     trim: true
   },
+  itemCode: {
+    type: String,
+    trim: true,
+    uppercase: true,
+    default: ''
+  },
   category: {
     type: String,
     required: [true, 'Please enter category'],
@@ -47,6 +53,7 @@ const menuItemSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 menuItemSchema.index({ hostel: 1, category: 1 });
+menuItemSchema.index({ hostel: 1, itemCode: 1 });
 menuItemSchema.index({ hostel: 1, isAvailable: 1 });
 
 module.exports = mongoose.model('MenuItem', menuItemSchema);

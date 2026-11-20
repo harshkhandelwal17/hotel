@@ -14,26 +14,26 @@ function getTodayIST() {
   return istDate.toISOString().split('T')[0];
 }
 
-// Initial standard menu items for quick start
+// Initial standard menu items with numeric fast-search item codes
 const DEFAULT_MENU_SEEDS = [
-  { name: 'Special Masala Chai', category: 'Tea & Beverages', price: 20, isVeg: true },
-  { name: 'Hot Filter Coffee', category: 'Tea & Beverages', price: 30, isVeg: true },
-  { name: 'Cold Drink / Soft Drink (Can)', category: 'Tea & Beverages', price: 40, isVeg: true },
-  { name: 'Mineral Water Bottle (1L)', category: 'Tea & Beverages', price: 20, isVeg: true },
-  { name: 'Aloo Pyaz Paratha with Curd & Pickle', category: 'Breakfast', price: 70, isVeg: true },
-  { name: 'Paneer Paratha with Butter', category: 'Breakfast', price: 90, isVeg: true },
-  { name: 'Indori Poha with Sev', category: 'Breakfast', price: 40, isVeg: true },
-  { name: 'Veg Grilled Cheese Sandwich', category: 'Breakfast', price: 80, isVeg: true },
-  { name: 'Maggi Noodles (Double Masala)', category: 'Snacks & Starters', price: 50, isVeg: true },
-  { name: 'Crispy Veg Pakoda Platter', category: 'Snacks & Starters', price: 80, isVeg: true },
-  { name: 'French Fries (Salted)', category: 'Snacks & Starters', price: 70, isVeg: true },
-  { name: 'Special Deluxe Veg Thali', category: 'Main Course', price: 160, isVeg: true },
-  { name: 'Paneer Butter Masala', category: 'Main Course', price: 180, isVeg: true },
-  { name: 'Dal Tadka / Dal Fry', category: 'Main Course', price: 120, isVeg: true },
-  { name: 'Jeera Rice', category: 'Breads & Rice', price: 90, isVeg: true },
-  { name: 'Butter Tawa Roti (2 Pcs)', category: 'Breads & Rice', price: 30, isVeg: true },
-  { name: 'Veg Hakka Noodles', category: 'Chinese', price: 110, isVeg: true },
-  { name: 'Gulab Jamun (2 Pcs)', category: 'Desserts', price: 40, isVeg: true }
+  { itemCode: '101', name: 'Special Masala Chai', category: 'Tea & Beverages', price: 20, isVeg: true },
+  { itemCode: '102', name: 'Hot Filter Coffee', category: 'Tea & Beverages', price: 30, isVeg: true },
+  { itemCode: '103', name: 'Cold Drink / Soft Drink (Can)', category: 'Tea & Beverages', price: 40, isVeg: true },
+  { itemCode: '104', name: 'Mineral Water Bottle (1L)', category: 'Tea & Beverages', price: 20, isVeg: true },
+  { itemCode: '201', name: 'Aloo Pyaz Paratha with Curd & Pickle', category: 'Breakfast', price: 70, isVeg: true },
+  { itemCode: '202', name: 'Paneer Paratha with Butter', category: 'Breakfast', price: 90, isVeg: true },
+  { itemCode: '203', name: 'Indori Poha with Sev', category: 'Breakfast', price: 40, isVeg: true },
+  { itemCode: '204', name: 'Veg Grilled Cheese Sandwich', category: 'Breakfast', price: 80, isVeg: true },
+  { itemCode: '301', name: 'Maggi Noodles (Double Masala)', category: 'Snacks & Starters', price: 50, isVeg: true },
+  { itemCode: '302', name: 'Crispy Veg Pakoda Platter', category: 'Snacks & Starters', price: 80, isVeg: true },
+  { itemCode: '303', name: 'French Fries (Salted)', category: 'Snacks & Starters', price: 70, isVeg: true },
+  { itemCode: '401', name: 'Special Deluxe Veg Thali', category: 'Main Course', price: 160, isVeg: true },
+  { itemCode: '402', name: 'Paneer Butter Masala', category: 'Main Course', price: 180, isVeg: true },
+  { itemCode: '403', name: 'Dal Tadka / Dal Fry', category: 'Main Course', price: 120, isVeg: true },
+  { itemCode: '501', name: 'Jeera Rice', category: 'Breads & Rice', price: 90, isVeg: true },
+  { itemCode: '502', name: 'Butter Tawa Roti (2 Pcs)', category: 'Breads & Rice', price: 30, isVeg: true },
+  { itemCode: '601', name: 'Veg Hakka Noodles', category: 'Chinese', price: 110, isVeg: true },
+  { itemCode: '701', name: 'Gulab Jamun (2 Pcs)', category: 'Desserts', price: 40, isVeg: true }
 ];
 
 // Helper to resolve clean hostel ID
@@ -103,9 +103,16 @@ exports.createMenuItem = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Item name is required' });
     }
 
+    let code = (req.body.itemCode || '').trim().toUpperCase();
+    if (!code) {
+      const count = await MenuItem.countDocuments({ hostel: hostelId });
+      code = String(100 + count + 1);
+    }
+
     const item = await MenuItem.create({
       hostel: hostelId,
       name: name.trim(),
+      itemCode: code,
       category: (category || 'Main Course').trim(),
       price: Math.max(0, Number(price) || 0),
       isVeg: isVeg !== undefined ? Boolean(isVeg) : true,
@@ -132,12 +139,17 @@ exports.updateMenuItem = async (req, res, next) => {
 
     await assertHostelAccess(req.user, item.hostel, true);
 
-    const { name, category, price, isVeg, isAvailable, description, sortOrder } = req.body;
+    const { name, itemCode, category, price, isVeg, isAvailable, description, sortOrder } = req.body;
     if (name !== undefined) item.name = name.trim();
+    if (itemCode !== undefined) item.itemCode = itemCode.trim().toUpperCase();
     if (category !== undefined) item.category = category.trim();
     if (price !== undefined) item.price = Math.max(0, Number(price) || 0);
     if (isVeg !== undefined) item.isVeg = Boolean(isVeg);
     if (isAvailable !== undefined) item.isAvailable = Boolean(isAvailable);
+    if (description !== undefined) item.description = description.trim();
+    if (sortOrder !== undefined) item.sortOrder = Number(sortOrder) || 0;
+
+    await item.save();
     if (description !== undefined) item.description = description.trim();
     if (sortOrder !== undefined) item.sortOrder = Number(sortOrder) || 0;
 
@@ -244,13 +256,37 @@ exports.createOrder = async (req, res, next) => {
     const pStatus = paymentStatus || (paymentMethod === 'Room Folio' ? 'Charged to Room' : 'Paid');
     const pMethod = paymentMethod || 'Cash';
 
+    // Corporate B2B & Tax Calculations
+    const isB2B = Boolean(req.body.isB2B);
+    const companyName = (req.body.companyName || '').trim();
+    const gstin = (req.body.gstin || '').trim().toUpperCase();
+    const billingAddress = (req.body.billingAddress || '').trim();
+    const hsnSacCode = (req.body.hsnSacCode || '996331').trim();
+
+    const rawTax = Math.max(0, Number(taxAmount) || 0);
+    let cgst = Math.max(0, Number(req.body.cgst) || 0);
+    let sgst = Math.max(0, Number(req.body.sgst) || 0);
+    let igst = Math.max(0, Number(req.body.igst) || 0);
+
+    if (rawTax > 0 && cgst === 0 && sgst === 0 && igst === 0) {
+      const hotelDoc = await Hostel.findById(hostelId).select('gstin');
+      const hotelState = (hotelDoc?.gstin || '').trim().slice(0, 2);
+      const guestState = gstin.slice(0, 2);
+      if (hotelState && guestState && hotelState !== guestState) {
+        igst = rawTax;
+      } else {
+        cgst = Math.round((rawTax / 2) * 100) / 100;
+        sgst = Math.round((rawTax - cgst) * 100) / 100;
+      }
+    }
+
     // 1. Create the Restaurant Order
     const order = await RestaurantOrder.create({
       hostel: hostelId,
       orderType: orderType || 'Room Service',
       tableOrRoom: (tableOrRoom || '').trim(),
       stay: stayId && mongoose.Types.ObjectId.isValid(stayId) ? stayId : null,
-      guestName: (guestName || 'Walk-in Guest').trim(),
+      guestName: (guestName || (companyName ? companyName : 'Walk-in Guest')).trim(),
       guestPhone: (guestPhone || '').trim(),
       items: items.map(i => ({
         menuItem: i.menuItem || null,
@@ -262,7 +298,15 @@ exports.createOrder = async (req, res, next) => {
       subtotal: Number(subtotal) || finalTotal,
       discount: Math.max(0, Number(discount) || 0),
       taxPercent: Math.max(0, Number(taxPercent) || 0),
-      taxAmount: Math.max(0, Number(taxAmount) || 0),
+      taxAmount: rawTax,
+      cgst,
+      sgst,
+      igst,
+      isB2B,
+      companyName,
+      gstin,
+      billingAddress,
+      hsnSacCode,
       totalAmount: finalTotal,
       paymentStatus: pStatus,
       paymentMethod: pMethod,

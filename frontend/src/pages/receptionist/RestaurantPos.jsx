@@ -3,12 +3,13 @@ import axios from 'axios';
 import { 
   UtensilsCrossed, Plus, Search, ShoppingBag, Trash2, Printer, 
   CreditCard, Wallet, Smartphone, Building, RefreshCw, CheckCircle2, 
-  X, Edit3, ArrowRight, Clock, Coffee, ShieldCheck, Flame, Leaf, Receipt
+  X, Edit3, ArrowRight, Clock, Coffee, ShieldCheck, Flame, Leaf, Receipt,
+  FileText, Building2, Hash, Tag, Check, ChevronDown, ChevronUp, Sparkles
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useToast } from '../../components/ui/Toast';
-import { printRestaurantReceipt } from '../../utils/restaurantReceiptPrint';
+import { printRestaurantReceipt, printRestaurantGstInvoice } from '../../utils/restaurantReceiptPrint';
 import DynamicUpiQr from '../../components/DynamicUpiQr';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
@@ -39,6 +40,7 @@ export default function RestaurantPos() {
   const [loadingMenu, setLoadingMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const searchInputRef = useRef(null);
 
   // Active In-House Stays for Room Service
   const [activeStays, setActiveStays] = useState([]);
@@ -51,15 +53,22 @@ export default function RestaurantPos() {
   const [guestName, setGuestName] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
   const [discountAmount, setDiscountAmount] = useState('');
-  const [taxPercent, setTaxPercent] = useState(0); // 0% or 5%
+  const [taxPercent, setTaxPercent] = useState(5); // 5% default restaurant GST in India
   const [orderNotes, setOrderNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+
+  // Corporate & B2B GST Billing
+  const [isB2B, setIsB2B] = useState(false);
+  const [companyName, setCompanyName] = useState('');
+  const [gstin, setGstin] = useState('');
+  const [billingAddress, setBillingAddress] = useState('');
 
   // Modals & Popups
   const [showItemModal, setShowItemModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [itemForm, setItemForm] = useState({
+    itemCode: '',
     name: '',
     category: 'Main Course',
     price: '',
@@ -69,6 +78,7 @@ export default function RestaurantPos() {
   });
   const [showUpiModal, setShowUpiModal] = useState(false);
   const [pendingOrderPayload, setPendingOrderPayload] = useState(null);
+  const [completedOrder, setCompletedOrder] = useState(null);
 
   // Orders History
   const [orders, setOrders] = useState([]);
@@ -210,6 +220,29 @@ export default function RestaurantPos() {
     setCart([]);
     setDiscountAmount('');
     setOrderNotes('');
+    setIsB2B(false);
+    setCompanyName('');
+    setGstin('');
+    setBillingAddress('');
+  };
+
+  // ⌨️ FAST DISH CODE / SHORTCUT KEYBOARD SEARCH
+  const handleSearchKeyDown = (e) => {
+    if (e.key === 'Enter' && searchQuery.trim()) {
+      const q = searchQuery.trim().toUpperCase();
+      // Match exact itemCode or single filtered item
+      const exactCode = menuItems.find(it => (it.itemCode || '').toUpperCase() === q && it.isAvailable);
+      if (exactCode) {
+        addToCart(exactCode);
+        setSearchQuery('');
+        return;
+      }
+      if (filteredMenuItems.length === 1 && filteredMenuItems[0].isAvailable) {
+        addToCart(filteredMenuItems[0]);
+        setSearchQuery('');
+        return;
+      }
+    }
   };
 
   // Submit Fast Order
@@ -226,12 +259,17 @@ export default function RestaurantPos() {
       return;
     }
 
+    if (isB2B && !companyName.trim()) {
+      toast({ message: isHindi ? 'कृपया कंपनी का नाम दर्ज करें' : 'Please enter Company / Business Name for B2B billing', type: 'warning' });
+      return;
+    }
+
     const payload = {
       hostel: activeHostelId,
       orderType,
       tableOrRoom: customTableOrRoom || (orderType === 'Quick Counter' ? 'Counter' : 'Dine-In'),
       stayId: selectedStayId || null,
-      guestName: guestName.trim() || (selectedStayId ? 'In-House Guest' : 'Walk-in Guest'),
+      guestName: (isB2B && companyName ? companyName : guestName.trim()) || (selectedStayId ? 'In-House Guest' : 'Walk-in Guest'),
       guestPhone: guestPhone.trim(),
       items: cart.map(i => ({
         menuItem: i._id,
@@ -245,6 +283,11 @@ export default function RestaurantPos() {
       taxPercent,
       taxAmount,
       totalAmount: grandTotal,
+      isB2B,
+      companyName: companyName.trim(),
+      gstin: gstin.trim().toUpperCase(),
+      billingAddress: billingAddress.trim(),
+      hsnSacCode: '996331',
       paymentStatus: effectiveMethod === 'Room Folio' ? 'Charged to Room' : 'Paid',
       paymentMethod: effectiveMethod,
       notes: orderNotes.trim()
@@ -261,13 +304,10 @@ export default function RestaurantPos() {
     try {
       const res = await axios.post(`${API}/api/restaurant/orders`, payload);
       if (res.data?.success) {
-        toast({ message: isHindi ? 'बिल सफलतापूर्वक जनरेट हुआ!' : 'Bill created successfully!', type: 'success' });
-        
         const createdOrder = res.data.data;
-        // Auto print receipt
-        try {
-          printRestaurantReceipt(createdOrder, currentHostelDoc);
-        } catch (_) {}
+        // Open the on-screen bill success & print modal!
+        setCompletedOrder(createdOrder);
+        toast({ message: isHindi ? 'बिल सफलतापूर्वक जनरेट हुआ!' : 'Bill created successfully!', type: 'success' });
 
         // Reset cart
         clearCart();
@@ -292,8 +332,8 @@ export default function RestaurantPos() {
     try {
       const res = await axios.post(`${API}/api/restaurant/orders`, pendingOrderPayload);
       if (res.data?.success) {
+        setCompletedOrder(res.data.data);
         toast({ message: isHindi ? 'यूपीआई भुगतान एवं बिल सफल!' : 'UPI payment & bill created!', type: 'success' });
-        printRestaurantReceipt(res.data.data, currentHostelDoc);
         clearCart();
       }
     } catch (err) {
@@ -350,7 +390,10 @@ export default function RestaurantPos() {
   const filteredMenuItems = useMemo(() => {
     return menuItems.filter(item => {
       const matchCat = selectedCategory === 'All' || item.category === selectedCategory;
-      const matchSearch = !searchQuery || item.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const q = searchQuery.toLowerCase();
+      const matchSearch = !searchQuery || 
+        item.name.toLowerCase().includes(q) || 
+        (item.itemCode && item.itemCode.toLowerCase().includes(q));
       return matchCat && matchSearch;
     });
   }, [menuItems, selectedCategory, searchQuery]);
@@ -368,7 +411,7 @@ export default function RestaurantPos() {
               {isHindi ? 'रेस्टोरेंट एवं फ़ूड पीओएस' : 'Restaurant & Food POS'}
             </h1>
             <p className="text-xs text-slate-500 font-semibold mt-0.5">
-              {isHindi ? 'फास्ट रूम सर्विस बिलिंग, डाइन-इन एवं काउंटर ऑर्डर' : 'Fast Room Service Billing, Dine-In & Counter POS'}
+              {isHindi ? 'फास्ट रूम सर्विस बिलिंग, डाइन-इन, कोड सर्च एवं जीएसटी बिल' : 'Fast Room Service Billing, Dine-In, Code Search & GST Billing'}
             </p>
           </div>
         </div>
@@ -413,7 +456,7 @@ export default function RestaurantPos() {
                 activeTab === 'menu' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              🍽️ {isHindi ? 'मेनू सूची व रेट्स' : 'Menu & Rates'}
+              🍽️ {isHindi ? 'मेनू सूची व कोड' : 'Menu & Item Codes'}
             </button>
           </div>
         </div>
@@ -424,26 +467,26 @@ export default function RestaurantPos() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
           {/* LEFT 7-COLS: MENU BROWSER & DISHES */}
           <div className="lg:col-span-7 bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
-            {/* Search and Category Filter */}
+            {/* Search and Dish Code Bar */}
             <div className="flex flex-col sm:flex-row items-center gap-2">
               <div className="relative flex-1 w-full">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
+                  ref={searchInputRef}
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={isHindi ? "आइटम खोजें (चाय, पराठा, थाली...)" : "Search dishes (Chai, Paratha, Thali...)"}
-                  className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-slate-900 outline-hidden"
+                  onKeyDown={handleSearchKeyDown}
+                  placeholder={isHindi ? "कोड (#101) या नाम से खोजें + Enter दबाएं..." : "Search by Code (#101) or Name + press Enter..."}
+                  className="w-full pl-9 pr-14 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-slate-900 outline-hidden"
                 />
-                {searchQuery && (
-                  <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">
-                    <X size={14} />
-                  </button>
-                )}
+                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-mono font-bold text-slate-400 bg-slate-200 px-1.5 py-0.5 rounded">
+                  Enter ↵
+                </span>
               </div>
               <button
                 onClick={() => fetchMenu(activeHostelId)}
-                className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-colors cursor-pointer"
+                className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-colors cursor-pointer"
                 title="Refresh Menu"
               >
                 <RefreshCw size={15} />
@@ -478,7 +521,7 @@ export default function RestaurantPos() {
                 <button
                   onClick={() => {
                     setEditingItem(null);
-                    setItemForm({ name: '', category: 'Main Course', price: '', isVeg: true, isAvailable: true, description: '' });
+                    setItemForm({ itemCode: '', name: '', category: 'Main Course', price: '', isVeg: true, isAvailable: true, description: '' });
                     setShowItemModal(true);
                   }}
                   className="px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-xl"
@@ -509,9 +552,11 @@ export default function RestaurantPos() {
                           }`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${item.isVeg ? 'bg-emerald-600' : 'bg-rose-600'}`} />
                           </span>
-                          <span className="text-[10px] font-bold text-slate-400 truncate uppercase">
-                            {item.category}
-                          </span>
+                          {item.itemCode && (
+                            <span className="text-[10px] font-black font-mono px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded-md border border-slate-200">
+                              #{item.itemCode}
+                            </span>
+                          )}
                         </div>
                         <h4 className="text-xs font-black text-slate-900 line-clamp-2 leading-snug">
                           {item.name}
@@ -626,16 +671,19 @@ export default function RestaurantPos() {
             </div>
 
             {/* Cart Items List */}
-            <div className="border border-slate-100 rounded-2xl p-2.5 bg-slate-50/50 min-h-[160px] max-h-[220px] overflow-y-auto space-y-1.5">
+            <div className="border border-slate-100 rounded-2xl p-2.5 bg-slate-50/50 min-h-[140px] max-h-[190px] overflow-y-auto space-y-1.5">
               {cart.length === 0 ? (
-                <div className="py-10 text-center text-xs text-slate-400 font-bold">
-                  {isHindi ? 'कार्ट खाली है — बायीं ओर से आइटम चुनें' : 'Cart is empty — tap items on the left'}
+                <div className="py-8 text-center text-xs text-slate-400 font-bold">
+                  {isHindi ? 'कार्ट खाली है — बायीं ओर से आइटम चुनें या कोड टाइप करें' : 'Cart is empty — tap items or type item code + Enter'}
                 </div>
               ) : (
                 cart.map(item => (
                   <div key={item._id} className="flex items-center justify-between gap-2 p-2 bg-white rounded-xl border border-slate-200 text-xs">
                     <div className="flex-1 min-w-0">
-                      <span className="font-bold text-slate-900 block truncate">{item.name}</span>
+                      <div className="flex items-center gap-1">
+                        {item.itemCode && <span className="text-[10px] font-mono text-slate-400">#{item.itemCode}</span>}
+                        <span className="font-bold text-slate-900 truncate">{item.name}</span>
+                      </div>
                       <span className="text-[11px] text-slate-400 font-mono">₹{item.price} each</span>
                     </div>
 
@@ -673,6 +721,77 @@ export default function RestaurantPos() {
               )}
             </div>
 
+            {/* 🏢 CORPORATE & B2B GST BILLING TOGGLE */}
+            <div className="border border-slate-200 rounded-xl p-2.5 bg-slate-50 space-y-2">
+              <label className="flex items-center justify-between cursor-pointer">
+                <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <Building2 size={14} className="text-indigo-600" />
+                  <span>{isHindi ? 'कंपनी / कॉर्पोरेट जीएसटी बिल (B2B)' : 'Corporate / Company GST Bill (B2B)'}</span>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={isB2B}
+                  onChange={(e) => setIsB2B(e.target.checked)}
+                  className="h-4 w-4 text-indigo-600 rounded cursor-pointer"
+                />
+              </label>
+
+              {isB2B && (
+                <div className="space-y-2 pt-1 border-t border-slate-200 text-xs animate-in fade-in">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">
+                      {isHindi ? 'कंपनी का नाम (Company Name) *' : 'Company Name *'}
+                    </label>
+                    <input
+                      type="text"
+                      value={companyName}
+                      onChange={(e) => setCompanyName(e.target.value)}
+                      placeholder="e.g. Tata Consultancy Services Ltd"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-900 outline-hidden"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">
+                        GSTIN
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={15}
+                        value={gstin}
+                        onChange={(e) => setGstin(e.target.value.toUpperCase())}
+                        placeholder="08AAAAA0000A1Z5"
+                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-900 uppercase outline-hidden"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">
+                        SAC Code
+                      </label>
+                      <input
+                        type="text"
+                        disabled
+                        value="996331 (Restaurant)"
+                        className="w-full px-2.5 py-1.5 bg-slate-100 border border-slate-200 rounded-lg text-[11px] font-mono font-bold text-slate-600 outline-hidden"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">
+                      {isHindi ? 'कंपनी का पता' : 'Billing Address'}
+                    </label>
+                    <input
+                      type="text"
+                      value={billingAddress}
+                      onChange={(e) => setBillingAddress(e.target.value)}
+                      placeholder="Street, City, State"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-900 outline-hidden"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Price Breakdown */}
             <div className="space-y-1.5 text-xs pt-1 border-t border-slate-100">
               <div className="flex justify-between text-slate-600">
@@ -694,18 +813,25 @@ export default function RestaurantPos() {
               </div>
 
               <div className="flex items-center justify-between gap-2">
-                <span className="text-slate-600">GST / Tax:</span>
+                <span className="text-slate-600">{isHindi ? 'जीएसटी दर (GST Rate):' : 'GST Rate:'}</span>
                 <select
                   value={taxPercent}
                   onChange={(e) => setTaxPercent(Number(e.target.value) || 0)}
                   className="px-2 py-0.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-hidden cursor-pointer"
                 >
-                  <option value={0}>0% (No Tax)</option>
-                  <option value={5}>5% GST</option>
+                  <option value={5}>5% GST (2.5% CGST + 2.5% SGST)</option>
                   <option value={12}>12% GST</option>
                   <option value={18}>18% GST</option>
+                  <option value={0}>0% (Tax Exempt)</option>
                 </select>
               </div>
+
+              {taxAmount > 0 && (
+                <div className="flex justify-between text-[11px] text-slate-500 pl-2">
+                  <span>CGST ({(taxPercent/2).toFixed(1)}%) + SGST ({(taxPercent/2).toFixed(1)}%):</span>
+                  <span className="font-mono">+₹{taxAmount}</span>
+                </div>
+              )}
 
               <div className="flex justify-between items-center text-sm font-black text-slate-900 border-t border-slate-200 pt-2">
                 <span>{isHindi ? 'कुल बिल राशि (Grand Total):' : 'Grand Total:'}</span>
@@ -785,11 +911,11 @@ export default function RestaurantPos() {
                   <tr className="border-b border-slate-200 text-slate-400 uppercase font-bold text-[10px]">
                     <th className="py-2.5 px-3">Order #</th>
                     <th className="py-2.5 px-3">Type / Target</th>
-                    <th className="py-2.5 px-3">Guest</th>
+                    <th className="py-2.5 px-3">Guest / Company</th>
                     <th className="py-2.5 px-3">Items Summary</th>
                     <th className="py-2.5 px-3 text-right">Amount</th>
                     <th className="py-2.5 px-3">Status</th>
-                    <th className="py-2.5 px-3 text-right">Print</th>
+                    <th className="py-2.5 px-3 text-right">Print Options</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
@@ -800,7 +926,10 @@ export default function RestaurantPos() {
                         <span className="font-bold text-slate-800">{o.tableOrRoom || o.orderType}</span>
                         <span className="text-[10px] text-slate-400 block">{o.orderType}</span>
                       </td>
-                      <td className="py-2.5 px-3">{o.guestName}</td>
+                      <td className="py-2.5 px-3">
+                        <span className="font-bold block">{o.companyName || o.guestName}</span>
+                        {o.gstin && <span className="text-[10px] font-mono text-indigo-600 font-bold block">{o.gstin}</span>}
+                      </td>
                       <td className="py-2.5 px-3 text-slate-600 max-w-xs truncate">
                         {(o.items || []).map(i => `${i.name} x${i.quantity}`).join(', ')}
                       </td>
@@ -816,13 +945,22 @@ export default function RestaurantPos() {
                           {o.paymentStatus} ({o.paymentMethod})
                         </span>
                       </td>
-                      <td className="py-2.5 px-3 text-right">
+                      <td className="py-2.5 px-3 text-right space-x-1">
                         <button
                           onClick={() => printRestaurantReceipt(o, currentHostelDoc)}
-                          className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg cursor-pointer"
-                          title="Reprint Bill"
+                          className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md font-bold text-[11px] cursor-pointer inline-flex items-center gap-1"
+                          title="Print 80mm POS Slip"
                         >
-                          <Printer size={13} />
+                          <Receipt size={12} />
+                          <span>80mm</span>
+                        </button>
+                        <button
+                          onClick={() => printRestaurantGstInvoice(o, currentHostelDoc)}
+                          className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-md font-bold text-[11px] cursor-pointer inline-flex items-center gap-1"
+                          title="Print GST Tax Invoice"
+                        >
+                          <FileText size={12} />
+                          <span>GST</span>
                         </button>
                       </td>
                     </tr>
@@ -840,16 +978,16 @@ export default function RestaurantPos() {
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div>
               <h3 className="text-sm font-black text-slate-900">
-                {isHindi ? 'रेस्टोरेंट मेनू सूची एवं मूल्य (Menu & Pricing)' : 'Restaurant Menu & Pricing Management'}
+                {isHindi ? 'रेस्टोरेंट मेनू सूची, कोड एवं मूल्य (Menu & Dish Codes)' : 'Restaurant Menu, Dish Codes & Pricing'}
               </h3>
               <p className="text-xs text-slate-500 font-semibold mt-0.5">
-                {isHindi ? 'आइटम का नाम, मूल्य, वेज/नॉन-वेज व उपलब्धता सेट करें' : 'Manage dish names, rates, category, and availability'}
+                {isHindi ? 'हर डिश का शार्ट कोड (#101), मूल्य, वेज/नॉन-वेज व उपलब्धता सेट करें' : 'Set item search codes (#101), prices, category and availability'}
               </p>
             </div>
             <button
               onClick={() => {
                 setEditingItem(null);
-                setItemForm({ name: '', category: 'Main Course', price: '', isVeg: true, isAvailable: true, description: '' });
+                setItemForm({ itemCode: '', name: '', category: 'Main Course', price: '', isVeg: true, isAvailable: true, description: '' });
                 setShowItemModal(true);
               }}
               className="px-3.5 py-2 bg-slate-900 hover:bg-black text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
@@ -863,6 +1001,7 @@ export default function RestaurantPos() {
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-400 uppercase font-bold text-[10px]">
+                  <th className="py-2.5 px-3">Code</th>
                   <th className="py-2.5 px-3">Type</th>
                   <th className="py-2.5 px-3">Dish / Item Name</th>
                   <th className="py-2.5 px-3">Category</th>
@@ -874,6 +1013,9 @@ export default function RestaurantPos() {
               <tbody className="divide-y divide-slate-100 font-medium">
                 {menuItems.map(it => (
                   <tr key={it._id} className="hover:bg-slate-50/70">
+                    <td className="py-2.5 px-3 font-mono font-black text-slate-700">
+                      #{it.itemCode || '—'}
+                    </td>
                     <td className="py-2.5 px-3">
                       <span className={`w-3.5 h-3.5 border rounded-xs flex items-center justify-center ${
                         it.isVeg ? 'border-emerald-600' : 'border-rose-600'
@@ -896,6 +1038,7 @@ export default function RestaurantPos() {
                         onClick={() => {
                           setEditingItem(it);
                           setItemForm({
+                            itemCode: it.itemCode || '',
                             name: it.name,
                             category: it.category,
                             price: it.price,
@@ -926,6 +1069,77 @@ export default function RestaurantPos() {
         </div>
       )}
 
+      {/* 🎉 ON-SCREEN BILL SUCCESS & PRINT OPTIONS MODAL */}
+      {completedOrder && (
+        <div className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4 text-center animate-in zoom-in-95">
+            <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-xs">
+              <CheckCircle2 size={32} />
+            </div>
+
+            <div>
+              <h3 className="text-lg font-black text-slate-900">
+                {isHindi ? 'बिल सफलतापूर्वक जनरेट हुआ!' : 'Bill Generated Successfully!'}
+              </h3>
+              <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                Bill No: <span className="font-mono font-bold text-slate-800">{completedOrder.orderNumber}</span> • {completedOrder.tableOrRoom || 'Counter'}
+              </p>
+            </div>
+
+            {/* Bill Summary Box */}
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-left text-xs space-y-2">
+              <div className="flex justify-between">
+                <span className="text-slate-500 font-bold">{isHindi ? 'ग्राहक / कंपनी:' : 'Client / Guest:'}</span>
+                <span className="font-bold text-slate-900">{completedOrder.companyName || completedOrder.guestName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 font-bold">{isHindi ? 'ऑर्डर प्रकार:' : 'Order Type:'}</span>
+                <span className="font-semibold text-slate-800">{completedOrder.orderType}</span>
+              </div>
+              <div className="flex justify-between border-t border-slate-200 pt-1.5">
+                <span className="text-slate-500 font-bold">{isHindi ? 'कुल राशि:' : 'Grand Total:'}</span>
+                <span className="font-mono font-black text-emerald-700 text-sm">₹{completedOrder.totalAmount}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 font-bold">{isHindi ? 'भुगतान स्थिति:' : 'Payment:'}</span>
+                <span className="font-bold text-indigo-700">{completedOrder.paymentStatus} ({completedOrder.paymentMethod})</span>
+              </div>
+            </div>
+
+            {/* Print Buttons */}
+            <div className="grid grid-cols-2 gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => printRestaurantReceipt(completedOrder, currentHostelDoc)}
+                className="py-3 px-3 bg-slate-900 hover:bg-black text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Receipt size={15} />
+                <span>80mm POS Slip</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => printRestaurantGstInvoice(completedOrder, currentHostelDoc)}
+                className="py-3 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <FileText size={15} />
+                <span>GST Tax Invoice (A4)</span>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setCompletedOrder(null);
+                if (searchInputRef.current) searchInputRef.current.focus();
+              }}
+              className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all cursor-pointer"
+            >
+              {isHindi ? 'पूर्ण / अगला ऑर्डर लें (Next Order)' : 'Done / Take Next Order'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* MODAL: ADD / EDIT MENU ITEM */}
       {showItemModal && (
         <div className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
@@ -940,18 +1154,32 @@ export default function RestaurantPos() {
             </div>
 
             <form onSubmit={handleSaveMenuItem} className="space-y-3">
-              <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">
-                  {isHindi ? 'डिश / आइटम का नाम' : 'Dish / Item Name'} *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={itemForm.name}
-                  onChange={(e) => setItemForm(f => ({ ...f, name: e.target.value }))}
-                  placeholder="e.g. Masala Chai, Paneer Butter Masala"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-hidden"
-                />
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">
+                    {isHindi ? 'कोड (#)' : 'Code (#)'}
+                  </label>
+                  <input
+                    type="text"
+                    value={itemForm.itemCode}
+                    onChange={(e) => setItemForm(f => ({ ...f, itemCode: e.target.value.toUpperCase() }))}
+                    placeholder="e.g. 101"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 outline-hidden"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">
+                    {isHindi ? 'डिश / आइटम का नाम' : 'Dish / Item Name'} *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={itemForm.name}
+                    onChange={(e) => setItemForm(f => ({ ...f, name: e.target.value }))}
+                    placeholder="e.g. Masala Chai, Paneer Butter Masala"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-hidden"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -993,7 +1221,7 @@ export default function RestaurantPos() {
                     onChange={(e) => setItemForm(f => ({ ...f, isVeg: e.target.checked }))}
                     className="h-4 w-4 text-emerald-600 rounded-sm cursor-pointer"
                   />
-                  <span>Pure Vegetarian (शाकाहारी)</span>
+                  <span>Pure Veg (शाकाहारी)</span>
                 </label>
                 <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 cursor-pointer">
                   <input
@@ -1042,7 +1270,7 @@ export default function RestaurantPos() {
             <DynamicUpiQr
               amount={grandTotal}
               hostel={currentHostelDoc}
-              guestName={guestName || 'Restaurant Guest'}
+              guestName={guestName || companyName || 'Restaurant Guest'}
               roomNumber={customTableOrRoom || 'Counter'}
               transactionNote={`POS Bill - ${customTableOrRoom || 'Counter'}`}
             />
