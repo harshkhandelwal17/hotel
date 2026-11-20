@@ -22,6 +22,7 @@ const expenseSchema = new mongoose.Schema({
       'Water Supply',
       'Internet & Software',
       'Laundry Expense',
+      'Guest Refund',
       'Miscellaneous',
       'Other'
     ],

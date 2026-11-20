@@ -164,6 +164,30 @@ const staySchema = new mongoose.Schema({
     enum: ['individual', 'group_master'],
     default: 'group_master'
   },
+  // Cancellation and Refund Details
+  cancellationReason: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  cancellationCharge: {
+    type: Number,
+    default: 0
+  },
+  refundAmount: {
+    type: Number,
+    default: 0
+  },
+  refundPaymentMethod: {
+    type: String,
+    enum: ['Cash', 'UPI', 'Bank Transfer', 'Card', 'Wallet', 'Other', ''],
+    default: ''
+  },
+  cancelledAt: Date,
+  cancelledBy: {
+    type: mongoose.Schema.ObjectId,
+    ref: 'User'
+  },
   notes: String,
   createdBy: {
     type: mongoose.Schema.ObjectId,

@@ -4,6 +4,7 @@ import axios from 'axios';
 import { format, addDays, addHours } from 'date-fns';
 import { X, Receipt, Plus, Wallet, ArrowRightLeft, CalendarPlus, Printer, Trash2, LogOut, AlertCircle, CheckCircle2, Phone, Edit3, Image as ImageIcon, Eye, FileText, MessageSquare, Building2, RotateCw, RotateCcw, Sparkles, Crop } from 'lucide-react';
 import { printInvoice } from '../../utils/invoice';
+import { printCancellationVoucher } from '../../utils/cancellationVoucherPrint';
 import { getStayWhatsAppUrl } from '../../utils/whatsapp';
 import InvoiceModal from '../../components/InvoiceModal';
 import MergedCorporateInvoiceModal from '../../components/MergedCorporateInvoiceModal';
@@ -51,6 +52,79 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteMode, setDeleteMode] = useState('full');
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // 🚫 CANCELLATION & REFUND STATE
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [isRefunding, setIsRefunding] = useState(false);
+  const [refundForm, setRefundForm] = useState({
+    refundAmount: 0,
+    cancellationCharge: 0,
+    refundPaymentMethod: 'Cash',
+    cancellationReason: 'Guest emergency / cancelled room',
+    markRoomDirty: true
+  });
+
+  const openRefundModal = () => {
+    const paid = Math.max(0, Number(stay.paidAmount) || 0);
+    setRefundForm({
+      refundAmount: paid,
+      cancellationCharge: 0,
+      refundPaymentMethod: 'Cash',
+      cancellationReason: 'Guest emergency / cancelled stay within 1 hour',
+      markRoomDirty: true
+    });
+    setShowRefundModal(true);
+  };
+
+  const handleProcessRefund = async () => {
+    const refundAmt = Math.max(0, Number(refundForm.refundAmount) || 0);
+    const cancelCharge = Math.max(0, Number(refundForm.cancellationCharge) || 0);
+    const totalPaid = Math.max(0, Number(stay.paidAmount) || 0);
+
+    if (refundAmt > totalPaid + 0.01) {
+      alert(`Refund amount (₹${refundAmt}) cannot exceed total paid amount (₹${totalPaid})`);
+      return;
+    }
+
+    setIsRefunding(true);
+    try {
+      const res = await axios.post(`${API}/api/stays/${stay._id}/cancel-refund`, {
+        cancellationReason: refundForm.cancellationReason,
+        refundAmount: refundAmt,
+        cancellationCharge: cancelCharge,
+        refundPaymentMethod: refundForm.refundPaymentMethod,
+        markRoomDirty: refundForm.markRoomDirty
+      });
+
+      if (res.data?.success) {
+        setShowRefundModal(false);
+        const wantPrint = window.confirm(
+          (res.data.message || 'Booking cancelled and refund processed successfully!') +
+          '\n\nKya aap is cancellation ka Official Voucher/Slip print karna chahte hain?'
+        );
+        if (wantPrint) {
+          try {
+            printCancellationVoucher({
+              stay,
+              guest: stay.guest,
+              hostel: stay.hostel,
+              refundAmount: refundAmt,
+              cancellationCharge: cancelCharge,
+              refundPaymentMethod: refundForm.refundPaymentMethod,
+              cancellationReason: refundForm.cancellationReason,
+              receptionistName: stay.createdBy?.name || 'Receptionist'
+            });
+          } catch (_) {}
+        }
+        if (onChanged) onChanged();
+        onClose();
+      }
+    } catch (err) {
+      alert('Cancellation failed: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsRefunding(false);
+    }
+  };
 
   const handleDeleteStay = async () => {
     setIsDeleting(true);
@@ -583,6 +657,17 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
             >
               <FileText size={14} /> GRC Card
             </button>
+            {isOpen && (
+              <button
+                type="button"
+                onClick={openRefundModal}
+                className="flex items-center gap-1.5 text-xs font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-300 px-2.5 py-1.5 rounded-xl transition-all active:scale-95 shadow-2xs cursor-pointer"
+                title="Cancel Booking & Refund to Guest (रोकड़ बही में रिफंड एंट्री)"
+              >
+                <RotateCcw size={13} className="text-amber-700" />
+                <span className="hidden sm:inline">Cancel & Refund</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setShowDeleteModal(true)}
@@ -2025,6 +2110,298 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
                 <>
                   <Trash2 size={13} />
                   <span>Confirm Delete</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    )}
+
+    {/* 🚫 DEDICATED OFFICIAL CANCELLATION & REFUND MODAL */}
+    {showRefundModal && createPortal(
+      <div 
+        className="fixed inset-0 z-[100000] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+        onClick={(e) => {
+          e.stopPropagation();
+          setShowRefundModal(false);
+        }}
+      >
+        <div 
+          className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in zoom-in-95 text-left max-h-[92vh] overflow-y-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 shadow-xs">
+                <RotateCcw size={22} />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900 leading-tight">
+                  Cancel Booking & Process Refund (रिफंड)
+                </h3>
+                <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                  Room {stay.room?.roomNumber || 'Room'} • {stay.guest?.fullName || 'Guest'}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowRefundModal(false);
+              }}
+              className="p-1.5 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Guest Payment Snapshot */}
+          <div className="grid grid-cols-2 gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs">
+            <div>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Total Stay Tariff</span>
+              <span className="text-sm font-black text-slate-900 font-mono">₹{stay.totalAmount || 0}</span>
+            </div>
+            <div>
+              <span className="text-[10px] font-black text-emerald-600 uppercase tracking-wider block">Total Paid by Guest</span>
+              <span className="text-sm font-black text-emerald-700 font-mono">₹{stay.paidAmount || 0}</span>
+            </div>
+          </div>
+
+          {/* Quick Presets */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-600 mb-1.5">
+              Quick Refund Option (शॉर्टकट चुनें):
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const paid = Math.max(0, Number(stay.paidAmount) || 0);
+                  setRefundForm(f => ({ ...f, refundAmount: paid, cancellationCharge: 0 }));
+                }}
+                className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+                  Number(refundForm.cancellationCharge) === 0 && Number(refundForm.refundAmount) === Number(stay.paidAmount || 0)
+                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                100% Full Refund (₹{stay.paidAmount || 0})
+              </button>
+              {Number(stay.paidAmount || 0) >= 200 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const paid = Math.max(0, Number(stay.paidAmount) || 0);
+                    setRefundForm(f => ({ ...f, refundAmount: Math.max(0, paid - 200), cancellationCharge: 200 }));
+                  }}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+                    Number(refundForm.cancellationCharge) === 200
+                      ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                      : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  Keep ₹200 Charge (Refund ₹{Math.max(0, (stay.paidAmount || 0) - 200)})
+                </button>
+              )}
+              {Number(stay.paidAmount || 0) >= 500 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const paid = Math.max(0, Number(stay.paidAmount) || 0);
+                    setRefundForm(f => ({ ...f, refundAmount: Math.max(0, paid - 500), cancellationCharge: 500 }));
+                  }}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+                    Number(refundForm.cancellationCharge) === 500
+                      ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                      : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  Keep ₹500 Charge (Refund ₹{Math.max(0, (stay.paidAmount || 0) - 500)})
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  const paid = Math.max(0, Number(stay.paidAmount) || 0);
+                  setRefundForm(f => ({ ...f, refundAmount: 0, cancellationCharge: paid }));
+                }}
+                className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+                  Number(refundForm.refundAmount) === 0 && Number(refundForm.cancellationCharge) === Number(stay.paidAmount || 0)
+                    ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                No Refund (0% Wapas)
+              </button>
+            </div>
+          </div>
+
+          {/* Refund & Cancellation Amounts */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-black text-emerald-800 uppercase tracking-wider mb-1">
+                Guest Ko Refund Diya (₹)
+              </label>
+              <input
+                type="number"
+                min="0"
+                max={stay.paidAmount || 0}
+                value={refundForm.refundAmount}
+                onChange={(e) => {
+                  const val = Math.max(0, Number(e.target.value) || 0);
+                  const total = Math.max(0, Number(stay.paidAmount) || 0);
+                  setRefundForm(f => ({
+                    ...f,
+                    refundAmount: val,
+                    cancellationCharge: Math.max(0, Math.round((total - val) * 100) / 100)
+                  }));
+                }}
+                className="w-full px-3.5 py-2 text-sm font-black font-mono text-emerald-900 bg-emerald-50/60 border border-emerald-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-black text-amber-800 uppercase tracking-wider mb-1">
+                Hotel Ka Cancellation Charge (₹)
+              </label>
+              <input
+                type="number"
+                min="0"
+                max={stay.paidAmount || 0}
+                value={refundForm.cancellationCharge}
+                onChange={(e) => {
+                  const val = Math.max(0, Number(e.target.value) || 0);
+                  const total = Math.max(0, Number(stay.paidAmount) || 0);
+                  setRefundForm(f => ({
+                    ...f,
+                    cancellationCharge: val,
+                    refundAmount: Math.max(0, Math.round((total - val) * 100) / 100)
+                  }));
+                }}
+                className="w-full px-3.5 py-2 text-sm font-black font-mono text-amber-900 bg-amber-50/60 border border-amber-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+              />
+            </div>
+          </div>
+
+          {/* Refund Payment Mode */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
+              Refund Payment Mode (रिफंड किस माध्यम से दिया?):
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {['Cash', 'UPI', 'Bank Transfer'].map(m => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setRefundForm(f => ({ ...f, refundPaymentMethod: m }))}
+                  className={`py-2 px-3 text-xs font-bold rounded-xl border text-center transition-all cursor-pointer ${
+                    refundForm.refundPaymentMethod === m
+                      ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  {m === 'Cash' ? '💵 Cash (गल्ला)' : m === 'UPI' ? '📱 UPI / QR' : '🏦 Bank Transfer'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Cancellation Reason */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
+              Cancellation Reason (कैंसिलेशन का कारण):
+            </label>
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {[
+                'Guest emergency / personal issue',
+                'Train / travel plan cancelled',
+                'Did not take room / left early',
+                'Accidental check-in / mistake'
+              ].map(r => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setRefundForm(f => ({ ...f, cancellationReason: r }))}
+                  className="text-[10px] font-semibold px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors cursor-pointer"
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+            <input
+              type="text"
+              value={refundForm.cancellationReason}
+              onChange={(e) => setRefundForm(f => ({ ...f, cancellationReason: e.target.value }))}
+              placeholder="Enter cancellation reason..."
+              className="w-full px-3 py-2 text-xs text-slate-800 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-slate-900 focus:outline-hidden"
+            />
+          </div>
+
+          {/* Housekeeping Checkbox */}
+          <div className="flex items-center gap-2 pt-1">
+            <input
+              type="checkbox"
+              id="markRoomDirty"
+              checked={refundForm.markRoomDirty}
+              onChange={(e) => setRefundForm(f => ({ ...f, markRoomDirty: e.target.checked }))}
+              className="h-4 w-4 text-slate-900 border-slate-300 rounded-sm focus:ring-slate-900 cursor-pointer"
+            />
+            <label htmlFor="markRoomDirty" className="text-xs font-semibold text-slate-700 cursor-pointer">
+              Room ko safai ke liye mark karein (Housekeeping Dirty)
+            </label>
+          </div>
+
+          {/* Summary / Accounting Impact Note */}
+          <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-2xl text-[11px] text-amber-900 space-y-1">
+            <div className="flex items-center gap-1.5 font-bold">
+              <Sparkles size={13} className="text-amber-600" />
+              <span>Accounting & Galla Impact (रोकड़ बही में असर):</span>
+            </div>
+            <p>
+              • Room <strong>{stay.room?.roomNumber}</strong> turant <strong>Available (Free)</strong> ho jayega.
+            </p>
+            {Number(refundForm.refundAmount) > 0 ? (
+              <p>
+                • <strong>₹{refundForm.refundAmount}</strong> ka Expense outflow Daily Register (रोकड़ बही) me <strong>{refundForm.refundPaymentMethod}</strong> mode me record ho jayega taaki aapka physical galla 100% exact match rahe.
+              </p>
+            ) : (
+              <p>
+                • Koi refund nahi diya gaya — poora ₹{stay.paidAmount} hotel ki retention income rahega.
+              </p>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowRefundModal(false);
+              }}
+              disabled={isRefunding}
+              className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleProcessRefund();
+              }}
+              disabled={isRefunding || Number(refundForm.refundAmount) > Number(stay.paidAmount || 0)}
+              className="px-5 py-2 text-xs font-black uppercase tracking-wider text-white bg-amber-600 hover:bg-amber-700 rounded-xl transition-all shadow-md active:scale-95 cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+            >
+              {isRefunding ? (
+                <span>Processing Refund...</span>
+              ) : (
+                <>
+                  <RotateCcw size={13} />
+                  <span>Confirm Cancellation & Refund</span>
                 </>
               )}
             </button>

@@ -2,7 +2,7 @@ const express = require('express');
 const {
   getStays, getStay, createStay, checkout, extendStay, shiftRoom,
   addCharge, removeCharge, addPayment, deleteStay, updateStay, getBrokersSummary,
-  createGroupStay, getGroupStays, groupCheckout
+  createGroupStay, getGroupStays, groupCheckout, cancelAndRefundStay
 } = require('../controllers/stayController');
 const { protect, authorize } = require('../middlewares/auth');
 
@@ -28,6 +28,7 @@ router.post('/:id/shift', shiftRoom);
 router.post('/:id/charges', addCharge);
 router.delete('/:id/charges/:chargeId', removeCharge);
 router.post('/:id/payments', addPayment);
+router.post('/:id/cancel-refund', authorize('admin', 'superadmin', 'receptionist'), cancelAndRefundStay);
 
 router.delete('/:id', authorize('admin', 'superadmin', 'receptionist'), deleteStay);
 

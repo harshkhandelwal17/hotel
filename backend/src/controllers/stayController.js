@@ -1016,6 +1016,212 @@ exports.shiftRoom = async (req, res, next) => {
   }
 };
 
+// @desc    Official Cancellation with Full/Partial Refund & Accounting Ledger Update
+// @route   POST /api/stays/:id/cancel-refund
+// @access  Private (Admin, Superadmin, Receptionist)
+exports.cancelAndRefundStay = async (req, res, next) => {
+  try {
+    const stay = await loadAuthorizedStay(req);
+    await assertHostelAccess(req.user, stay.hostel, true);
+
+    if (stay.status === 'Cancelled') {
+      return res.status(400).json({ success: false, message: 'This stay is already cancelled' });
+    }
+    if (stay.status === 'Checked Out') {
+      return res.status(400).json({ success: false, message: 'Checked out stay cannot be cancelled. Use an expense entry for refund.' });
+    }
+
+    const {
+      cancellationReason,
+      refundAmount: rawRefund,
+      cancellationCharge: rawCharge,
+      refundPaymentMethod,
+      markRoomDirty
+    } = req.body;
+
+    const totalPaid = Math.max(0, Number(stay.paidAmount) || 0);
+    let refundAmount = Math.max(0, Number(rawRefund) || 0);
+    let cancellationCharge = Math.max(0, Number(rawCharge) || 0);
+
+    // If neither was explicitly specified, default to 100% full refund
+    if (rawRefund === undefined && rawCharge === undefined) {
+      refundAmount = totalPaid;
+      cancellationCharge = 0;
+    } else if (rawRefund !== undefined && rawCharge === undefined) {
+      cancellationCharge = Math.max(0, Math.round((totalPaid - refundAmount) * 100) / 100);
+    } else if (rawCharge !== undefined && rawRefund === undefined) {
+      refundAmount = Math.max(0, Math.round((totalPaid - cancellationCharge) * 100) / 100);
+    }
+
+    // Safety check: refund cannot exceed paid amount
+    if (refundAmount > totalPaid + 0.01) {
+      return res.status(400).json({
+        success: false,
+        message: `Refund amount (₹${refundAmount}) cannot exceed total paid amount (₹${totalPaid})`
+      });
+    }
+
+    const pMethod = refundPaymentMethod || 'Cash';
+    const now = new Date();
+
+    // 1. Update Stay record
+    stay.status = 'Cancelled';
+    stay.actualCheckOutDate = now;
+    stay.cancelledAt = now;
+    stay.cancelledBy = req.user._id;
+    stay.cancellationReason = (cancellationReason || 'Guest requested cancellation').trim();
+    stay.cancellationCharge = cancellationCharge;
+    stay.refundAmount = refundAmount;
+    stay.refundPaymentMethod = pMethod;
+    stay.notes = (stay.notes ? stay.notes + ' | ' : '') +
+      `[Cancelled on ${now.toLocaleString('en-IN')}: Refunded ₹${refundAmount} via ${pMethod}, Cancellation Fee: ₹${cancellationCharge}. Reason: ${stay.cancellationReason}]`;
+
+    await stay.save();
+
+    // 2. Mark Room status & Housekeeping
+    if (stay.room) {
+      const roomUpdate = {};
+      if (markRoomDirty !== false) {
+        roomUpdate.housekeepingStatus = 'dirty';
+      }
+      await Room.findByIdAndUpdate(stay.room, { $set: roomUpdate }).catch(() => {});
+    }
+
+    // 3. Create Official Refund Expense if refundAmount > 0
+    let refundExpense = null;
+    if (refundAmount > 0) {
+      try {
+        const Expense = require('../models/Expense');
+        const roomDoc = await Room.findById(stay.room).select('roomNumber');
+        const guestDoc = await Guest.findById(stay.guest).select('fullName');
+        const rNum = roomDoc?.roomNumber || 'Room';
+        const gName = guestDoc?.fullName || 'Guest';
+
+        refundExpense = await Expense.create({
+          hostel: stay.hostel,
+          title: `Refund: Room ${rNum} (${gName})`,
+          category: 'Guest Refund',
+          amount: refundAmount,
+          paymentMethod: pMethod,
+          expenseDate: now,
+          notes: `Booking cancellation refund for Stay #${stay._id.toString().slice(-6).toUpperCase()}. Reason: ${stay.cancellationReason}`,
+          createdBy: req.user._id
+        });
+
+        // 4. Record to today's Daily Register (रोकड़ बही) immediately
+        try {
+          const DailyRegister = require('../models/DailyRegister');
+          const d = new Date();
+          const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+          const istToday = new Date(utc + (3600000 * 5.5)).toISOString().split('T')[0];
+
+          let reg = await DailyRegister.findOne({ hostel: stay.hostel, date: istToday });
+          if (reg) {
+            const nextSrNo = reg.entries.length > 0
+              ? Math.max(...reg.entries.map(e => e.srNo || 0)) + 1
+              : 1;
+
+            reg.entries.push({
+              srNo: nextSrNo,
+              roomNo: String(rNum),
+              bid: `REF-${stay._id.toString().slice(-6).toUpperCase()}`,
+              guestName: `${gName} (CANCELLATION REFUND)`,
+              cashAmount: 0,
+              cardAmount: 0,
+              onlineAmount: 0,
+              foodCashAmount: 0,
+              expenseTitle: `Refund: Rm ${rNum} (${stay.cancellationReason})`,
+              expenseAmount: refundAmount,
+              expenseCategory: 'Guest Refund',
+              paymentMode: pMethod,
+              notes: `Refund of ₹${refundAmount} via ${pMethod}. Cancellation charge: ₹${cancellationCharge}`,
+              source: 'cancellation_refund',
+              relatedExpense: refundExpense._id,
+              relatedStay: stay._id
+            });
+            reg.lastUpdatedBy = req.user._id;
+            await reg.save();
+          }
+        } catch (regErr) {
+          console.warn('[cancelAndRefundStay] DailyRegister direct sync warning:', regErr.message);
+        }
+      } catch (expErr) {
+        console.error('[cancelAndRefundStay] Expense creation error:', expErr);
+      }
+    }
+
+    // 5. Update multi-room group count if applicable
+    if (stay.groupId) {
+      const remainingCount = await Stay.countDocuments({
+        groupId: stay.groupId,
+        _id: { $ne: stay._id },
+        status: { $ne: 'Cancelled' }
+      });
+      await Stay.updateMany(
+        { groupId: stay.groupId },
+        { $set: { groupTotalRooms: remainingCount } }
+      ).catch(() => {});
+    }
+
+    // 6. Push notification to Hotel Property Staff & Owner
+    try {
+      const { recipientIds, hostelDoc } = await getHotelPropertyNotificationRecipients(stay.hostel, req.user);
+      const roomDoc = await Room.findById(stay.room).select('roomNumber');
+      const guestDoc = await Guest.findById(stay.guest).select('fullName');
+      const rNum = roomDoc?.roomNumber || 'Room';
+      const gName = (guestDoc?.fullName || 'Guest').trim();
+      const hName = hostelDoc?.name || 'Hotel';
+
+      sendWebPushToUsers(Array.from(recipientIds), {
+        title: `🚫 Cancelled & Refunded: Room ${rNum}`,
+        body: `${hName} • Room ${rNum} cancelled for ${gName} • Refunded: ₹${refundAmount.toLocaleString('en-IN')} (${pMethod})`,
+        icon: '/logo-192.png',
+        badge: '/logo-192.png',
+        tag: `cancel-${stay._id}`,
+        vibrate: [250, 100, 250],
+        data: { url: '/receptionist/rooms' }
+      }).catch(() => {});
+
+      for (const recId of recipientIds) {
+        try {
+          await Notification.create({
+            recipient: recId,
+            hostel: stay.hostel,
+            stay: stay._id,
+            type: 'checkout',
+            title: `🚫 Cancelled & Refunded: Room ${rNum}`,
+            message: `${hName} • Room ${rNum} cancelled for ${gName} • Refunded: ₹${refundAmount.toLocaleString('en-IN')} (${pMethod})`,
+            metadata: {
+              hotelName: hName,
+              roomNumber: rNum,
+              guestName: gName,
+              refundAmount,
+              cancellationCharge,
+              stayId: stay._id.toString()
+            }
+          });
+        } catch (_) {}
+      }
+    } catch (_) {}
+
+    res.status(200).json({
+      success: true,
+      message: `Booking cancelled successfully! Refund of ₹${refundAmount.toLocaleString('en-IN')} recorded via ${pMethod}.`,
+      data: {
+        stayId: stay._id,
+        status: stay.status,
+        totalPaid,
+        refundAmount,
+        cancellationCharge,
+        refundPaymentMethod: pMethod,
+        expenseId: refundExpense?._id || null
+      }
+    });
+  } catch (error) {
+    sendError(res, next, error);
+  }
+};
+
 // @desc    Delete or cancel a stay entry (Mistake correction)
 // @route   DELETE /api/stays/:id?mode=history_only|full
 // @access  Private (Admin, Superadmin, Receptionist)
