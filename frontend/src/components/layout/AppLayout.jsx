@@ -2,7 +2,7 @@ import React, { useContext, useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
-import { Home, Users, Bed, LogOut, Bell, PlusCircle, Building, CreditCard, BarChart3, Hexagon, ShieldCheck, Menu, X, ShieldAlert, LayoutGrid, Volume2, VolumeX, Phone, BellRing, ChevronDown, Shirt, Keyboard, Search, Globe, CheckCheck, CheckCircle2, Smartphone, Sparkles, MessageSquare, Trash2, KeyRound, BookOpen, UtensilsCrossed } from 'lucide-react';
+import { Home, Users, Bed, LogOut, Bell, PlusCircle, Building, CreditCard, BarChart3, Hexagon, ShieldCheck, Menu, X, ShieldAlert, LayoutGrid, Volume2, VolumeX, Phone, BellRing, ChevronDown, Shirt, Keyboard, Search, Globe, CheckCheck, CheckCircle2, Smartphone, Sparkles, MessageSquare, Trash2, KeyRound, BookOpen, UtensilsCrossed, Layers } from 'lucide-react';
 import GlobalSearch from '../common/GlobalSearch';
 import CommandPalette from '../common/CommandPalette';
 import ShortcutsModal from '../common/ShortcutsModal';
@@ -432,11 +432,16 @@ const AppLayout = ({ children }) => {
 
   const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
   const adminMenuRef = useRef(null);
+  const [isServicesMenuOpen, setIsServicesMenuOpen] = useState(false);
+  const servicesMenuRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (adminMenuRef.current && !adminMenuRef.current.contains(e.target)) {
         setIsAdminMenuOpen(false);
+      }
+      if (servicesMenuRef.current && !servicesMenuRef.current.contains(e.target)) {
+        setIsServicesMenuOpen(false);
       }
       if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
         setIsUserMenuOpen(false);
@@ -448,6 +453,7 @@ const AppLayout = ({ children }) => {
 
   useEffect(() => {
     setIsAdminMenuOpen(false);
+    setIsServicesMenuOpen(false);
     setIsUserMenuOpen(false);
   }, [location.pathname]);
 
@@ -460,50 +466,95 @@ const AppLayout = ({ children }) => {
 
   const isAdminRouteActive = adminMenuItems.some(item => location.pathname.startsWith(item.path));
 
+  let coreNavItems = [];
+  let serviceNavItems = [];
   let navItems = [];
   
   if (user?.role === 'superadmin') {
-    navItems = [
+    coreNavItems = [
       { id: 'superadmin', name: t('nav.superadmin', 'Super Admin'), path: '/superadmin', icon: ShieldAlert }
     ];
+    navItems = [...coreNavItems];
   } else {
-    navItems = [
+    coreNavItems = [
       { id: 'dashboard', name: t('nav.dashboard', 'Dashboard'), path: '/dashboard', icon: Home },
       { id: 'stays', name: t('nav.stays', 'Stays'), path: '/checkouts', icon: Bed },
       { id: 'rooms', name: t('nav.rooms', 'Rooms'), path: '/rooms', icon: LayoutGrid },
       { id: 'history', name: t('nav.history', 'History'), path: '/guests', icon: Users },
-      { id: 'payments', name: t('nav.payments', 'Payments'), path: '/payments', icon: CreditCard },
     ];
 
     const isDailyRegisterEnabledForUser = user?.role === 'superadmin' ||
       (user?.role === 'receptionist' ? Boolean(activeHostel?.dailyRegisterEnabled) :
         (globalProperty !== 'all' ? Boolean(activeHostel?.dailyRegisterEnabled) : hostels.some(h => h.dailyRegisterEnabled)));
 
-    if (isDailyRegisterEnabledForUser) {
-      navItems.push({ id: 'register', name: t('nav.register', 'Daily Register'), path: '/register', icon: BookOpen });
-    }
-
     const isLaundryEnabledForUser = user?.role === 'superadmin' ||
       (user?.role === 'receptionist' ? Boolean(activeHostel?.laundryEnabled) :
         (globalProperty !== 'all' ? Boolean(activeHostel?.laundryEnabled) : hostels.some(h => h.laundryEnabled)));
-
-    if (isLaundryEnabledForUser) {
-      navItems.push({ id: 'laundry', name: t('nav.laundry', 'Laundry'), path: '/laundry', icon: Shirt });
-    }
 
     const isRestaurantPosEnabledForUser = user?.role === 'superadmin' ||
       (user?.role === 'receptionist' ? Boolean(activeHostel?.restaurantPosEnabled) :
         (globalProperty !== 'all' ? Boolean(activeHostel?.restaurantPosEnabled) : hostels.some(h => h.restaurantPosEnabled)));
 
     if (isRestaurantPosEnabledForUser) {
-      navItems.push({
+      serviceNavItems.push({
         id: 'restaurant',
         name: isHindi ? 'रेस्टोरेंट व पीओएस' : 'Restaurant & POS',
+        desc: isHindi ? 'डाइन-इन, रूम सर्विस, KOT व क्विक बिलिंग' : 'Dine-in, Room Service, KOT & Fast Bill',
         path: '/pos',
-        icon: UtensilsCrossed
+        icon: UtensilsCrossed,
+        bg: 'bg-amber-50',
+        border: 'border-amber-100',
+        color: 'text-amber-600',
+        badge: 'POS',
+        badgeClass: 'bg-amber-100 text-amber-800 border border-amber-200'
       });
     }
-    
+
+    if (isDailyRegisterEnabledForUser) {
+      serviceNavItems.push({
+        id: 'register',
+        name: t('nav.register', 'Daily Register'),
+        desc: isHindi ? 'सरकारी रजिस्टर, अराइवल व डिपार्चर बही' : 'Official Guest & Police Verification Ledger',
+        path: '/register',
+        icon: BookOpen,
+        bg: 'bg-blue-50',
+        border: 'border-blue-100',
+        color: 'text-blue-600',
+        badge: 'Official',
+        badgeClass: 'bg-blue-100 text-blue-800 border border-blue-200'
+      });
+    }
+
+    if (isLaundryEnabledForUser) {
+      serviceNavItems.push({
+        id: 'laundry',
+        name: t('nav.laundry', 'Laundry'),
+        desc: isHindi ? 'कपड़े धुलाई, प्रेस व बिलिंग ट्रैकर' : 'Guest wash, dry clean & charge tracker',
+        path: '/laundry',
+        icon: Shirt,
+        bg: 'bg-cyan-50',
+        border: 'border-cyan-100',
+        color: 'text-cyan-600',
+        badge: 'Service',
+        badgeClass: 'bg-cyan-100 text-cyan-800 border border-cyan-200'
+      });
+    }
+
+    serviceNavItems.push({
+      id: 'payments',
+      name: t('nav.payments', 'Payments & Billing'),
+      desc: isHindi ? 'लेन-देन, इनवॉइस व पेमेंट रिकॉर्ड्स' : 'Folio invoices, payouts & transactions',
+      path: '/payments',
+      icon: CreditCard,
+      bg: 'bg-emerald-50',
+      border: 'border-emerald-100',
+      color: 'text-emerald-600',
+      badge: 'Billing',
+      badgeClass: 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+    });
+
+    navItems = [...coreNavItems, ...serviceNavItems];
+
     if (user?.role === 'admin') {
       navItems.push({ id: 'reports', name: t('nav.financialReports', 'Financials'), path: '/admin/reports', icon: BarChart3 });
       navItems.push({ id: 'hostels', name: t('nav.propertySettings', 'Properties'), path: '/admin/hostels', icon: Building });
@@ -512,7 +563,10 @@ const AppLayout = ({ children }) => {
     }
   }
 
-  const primaryNavItems = user?.role === 'superadmin' ? navItems : navItems.filter(item => ['dashboard', 'stays', 'rooms', 'history', 'register', 'payments', 'laundry', 'restaurant'].includes(item.id));
+  const isServicesRouteActive = serviceNavItems.some(item => location.pathname.startsWith(item.path));
+  // If no extra services enabled (only payments exists), render directly; otherwise group into Services dropdown
+  const shouldGroupServices = serviceNavItems.length > 1;
+  const primaryNavItems = user?.role === 'superadmin' ? coreNavItems : (shouldGroupServices ? coreNavItems : [...coreNavItems, ...serviceNavItems]);
 
   const handleReturnToAdminPortal = () => {
     const returnUrl = localStorage.getItem('impersonateReturnUrl') || '/superadmin';
@@ -647,15 +701,15 @@ const AppLayout = ({ children }) => {
               </Link>
               
               <nav className="hidden lg:flex items-center space-x-1 xl:space-x-1.5 min-w-0">
-                {primaryNavItems.map((item) => {
+                {coreNavItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = location.pathname.startsWith(item.path);
                   return (
                     <Link
-                      key={item.name}
+                      key={item.id}
                       to={item.path}
                       onMouseEnter={() => prefetchRoute(item.path, globalProperty)}
-                      className={`px-3 py-1.5 xl:px-3.5 xl:py-2 rounded-xl text-xs xl:text-sm font-bold transition-all flex items-center shrink-0 ${
+                      className={`px-2.5 py-1.5 xl:px-3.5 xl:py-2 rounded-xl text-xs xl:text-sm font-bold transition-all flex items-center shrink-0 ${
                         isActive
                           ? 'bg-slate-900 text-white shadow-xs'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
@@ -667,13 +721,111 @@ const AppLayout = ({ children }) => {
                   );
                 })}
 
+                {/* Direct Payment Link when NO optional services are turned on */}
+                {!shouldGroupServices && user?.role !== 'superadmin' && serviceNavItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname.startsWith(item.path);
+                  return (
+                    <Link
+                      key={item.id}
+                      to={item.path}
+                      onMouseEnter={() => prefetchRoute(item.path, globalProperty)}
+                      className={`px-2.5 py-1.5 xl:px-3.5 xl:py-2 rounded-xl text-xs xl:text-sm font-bold transition-all flex items-center shrink-0 ${
+                        isActive
+                          ? 'bg-slate-900 text-white shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                      }`}
+                    >
+                      <Icon className={`mr-1.5 h-3.5 w-3.5 xl:h-4 xl:w-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                      <span>{item.name}</span>
+                    </Link>
+                  );
+                })}
+
+                {/* Consolidated Services & Modules Dropdown when multiple features are active */}
+                {shouldGroupServices && user?.role !== 'superadmin' && (
+                  <div className="relative shrink-0" ref={servicesMenuRef}>
+                    <button
+                      type="button"
+                      onClick={() => setIsServicesMenuOpen(!isServicesMenuOpen)}
+                      className={`px-2.5 py-1.5 xl:px-3.5 xl:py-2 rounded-xl text-xs xl:text-sm font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                        isServicesRouteActive
+                          ? 'bg-slate-900 text-white shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                      }`}
+                      title={isHindi ? 'होटल सेवाएं व ऑपरेशन्स' : 'Hotel Services & Operations'}
+                    >
+                      <Layers className={`h-3.5 w-3.5 xl:h-4 xl:w-4 ${isServicesRouteActive ? 'text-white' : 'text-slate-400'}`} />
+                      <span>{isHindi ? 'सेवाएं' : 'Services'}</span>
+                      <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
+                        isServicesRouteActive ? 'bg-white/20 text-white' : 'bg-slate-200/90 text-slate-700'
+                      }`}>
+                        {serviceNavItems.length}
+                      </span>
+                      <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${isServicesMenuOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {isServicesMenuOpen && (
+                      <div className="absolute left-0 mt-2 w-72 sm:w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 z-50 animate-in fade-in slide-in-from-top-2">
+                        <div className="px-3.5 py-2 border-b border-gray-100 mb-1 flex items-center justify-between">
+                          <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">
+                            {isHindi ? 'होटल सेवाएं व मॉड्यूल' : 'Operations & Services'}
+                          </p>
+                          <span className="text-[9px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                            {serviceNavItems.length} {isHindi ? 'उपलब्ध' : 'Active'}
+                          </span>
+                        </div>
+                        {serviceNavItems.map((item) => {
+                          const Icon = item.icon;
+                          const isActive = location.pathname.startsWith(item.path);
+                          return (
+                            <Link
+                              key={item.id}
+                              to={item.path}
+                              onClick={() => setIsServicesMenuOpen(false)}
+                              onMouseEnter={() => prefetchRoute(item.path, globalProperty)}
+                              className={`flex items-center gap-3 px-3.5 py-2.5 transition-colors mx-1 rounded-xl ${
+                                isActive ? 'bg-slate-900 text-white font-black shadow-xs' : 'text-gray-700 hover:bg-gray-50 font-bold'
+                              }`}
+                            >
+                              <div className={`p-2 rounded-xl border shrink-0 ${
+                                isActive ? 'bg-white/10 border-white/20 text-white' : `${item.bg} ${item.border} ${item.color}`
+                              }`}>
+                                <Icon className="h-4 w-4" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center justify-between gap-1">
+                                  <p className="text-xs leading-tight font-bold truncate">{item.name}</p>
+                                  {item.badge && !isActive && (
+                                    <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded shrink-0 ${item.badgeClass}`}>
+                                      {item.badge}
+                                    </span>
+                                  )}
+                                  {isActive && (
+                                    <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
+                                      Active
+                                    </span>
+                                  )}
+                                </div>
+                                <p className={`text-[10px] truncate mt-0.5 ${isActive ? 'text-gray-300' : 'text-gray-400 font-normal'}`}>
+                                  {item.desc}
+                                </p>
+                              </div>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Admin Management Dropdown */}
                 {user?.role === 'admin' && (
                   <div className="relative shrink-0" ref={adminMenuRef}>
                     <button
                       type="button"
                       onClick={() => setIsAdminMenuOpen(!isAdminMenuOpen)}
-                      className={`px-3 py-1.5 xl:px-3.5 xl:py-2 rounded-xl text-xs xl:text-sm font-bold transition-all flex items-center gap-1.5 shrink-0 ${
+                      className={`px-2.5 py-1.5 xl:px-3.5 xl:py-2 rounded-xl text-xs xl:text-sm font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
                         isAdminRouteActive
                           ? 'bg-slate-900 text-white shadow-xs'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
@@ -760,7 +912,7 @@ const AppLayout = ({ children }) => {
                   title={isHindi ? "दैनिक पुलिस सत्यापन रिपोर्ट तैयार करें" : "Generate Daily Police Verification Report"}
                 >
                   <ShieldCheck size={14} className="stroke-[2.5]" />
-                  <span className="hidden sm:inline">{t('nav.policeReport', 'Police Report')}</span>
+                  <span className="hidden xl:inline">{t('nav.policeReport', 'Police Report')}</span>
                 </button>
               )}
 
@@ -1376,26 +1528,128 @@ const AppLayout = ({ children }) => {
                 </select>
               )}
             </div>
-            <nav className="flex-1 px-4 pb-6 space-y-2 overflow-y-auto">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = location.pathname.startsWith(item.path);
-                return (
-                  <Link
-                    key={item.name}
-                    to={item.path}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className={`px-4 py-3.5 rounded-xl text-base font-bold transition-all flex items-center ${
-                      isActive
-                        ? 'bg-black text-white shadow-md'
-                        : 'text-gray-600 hover:text-black hover:bg-gray-50'
-                    }`}
-                  >
-                    <Icon className={`mr-3 h-5 w-5 ${isActive ? 'text-white' : 'text-gray-400'}`} />
-                    {item.name}
-                  </Link>
-                );
-              })}
+            <nav className="flex-1 px-4 pb-6 space-y-3 overflow-y-auto">
+              {user?.role === 'superadmin' ? (
+                navItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname.startsWith(item.path);
+                  return (
+                    <Link
+                      key={item.id || item.name}
+                      to={item.path}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className={`px-4 py-3.5 rounded-xl text-base font-bold transition-all flex items-center ${
+                        isActive
+                          ? 'bg-black text-white shadow-md'
+                          : 'text-gray-600 hover:text-black hover:bg-gray-50'
+                      }`}
+                    >
+                      <Icon className={`mr-3 h-5 w-5 ${isActive ? 'text-white' : 'text-gray-400'}`} />
+                      {item.name}
+                    </Link>
+                  );
+                })
+              ) : (
+                <>
+                  {/* Front Desk Section */}
+                  <div>
+                    <p className="px-3 text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5">
+                      {isHindi ? 'फ्रंट डेस्क' : 'Front Desk'}
+                    </p>
+                    <div className="space-y-1">
+                      {coreNavItems.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = location.pathname.startsWith(item.path);
+                        return (
+                          <Link
+                            key={item.id}
+                            to={item.path}
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className={`px-3.5 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center ${
+                              isActive
+                                ? 'bg-black text-white shadow-xs'
+                                : 'text-gray-700 hover:text-black hover:bg-gray-50'
+                            }`}
+                          >
+                            <Icon className={`mr-3 h-4 w-4 ${isActive ? 'text-white' : 'text-gray-400'}`} />
+                            {item.name}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Services & POS Section */}
+                  {serviceNavItems.length > 0 && (
+                    <div className="pt-2 border-t border-gray-100">
+                      <p className="px-3 text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5 flex items-center justify-between">
+                        <span>{isHindi ? 'सेवाएं व बिलिंग' : 'Services & Billing'}</span>
+                        <span className="text-[9px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.2 rounded-full">
+                          {serviceNavItems.length}
+                        </span>
+                      </p>
+                      <div className="space-y-1">
+                        {serviceNavItems.map((item) => {
+                          const Icon = item.icon;
+                          const isActive = location.pathname.startsWith(item.path);
+                          return (
+                            <Link
+                              key={item.id}
+                              to={item.path}
+                              onClick={() => setIsMobileMenuOpen(false)}
+                              className={`px-3.5 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-between ${
+                                isActive
+                                  ? 'bg-black text-white shadow-xs'
+                                  : 'text-gray-700 hover:text-black hover:bg-gray-50'
+                              }`}
+                            >
+                              <div className="flex items-center min-w-0">
+                                <Icon className={`mr-3 h-4 w-4 shrink-0 ${isActive ? 'text-white' : item.color || 'text-gray-400'}`} />
+                                <span className="truncate">{item.name}</span>
+                              </div>
+                              {item.badge && !isActive && (
+                                <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded shrink-0 ${item.badgeClass}`}>
+                                  {item.badge}
+                                </span>
+                              )}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Admin Management Section */}
+                  {user?.role === 'admin' && (
+                    <div className="pt-2 border-t border-gray-100">
+                      <p className="px-3 text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5">
+                        {isHindi ? 'होटल मैनेजमेंट' : 'Hotel Administration'}
+                      </p>
+                      <div className="space-y-1">
+                        {adminMenuItems.map((item) => {
+                          const Icon = item.icon;
+                          const isActive = location.pathname.startsWith(item.path);
+                          return (
+                            <Link
+                              key={item.name}
+                              to={item.path}
+                              onClick={() => setIsMobileMenuOpen(false)}
+                              className={`px-3.5 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center ${
+                                isActive
+                                  ? 'bg-black text-white shadow-xs'
+                                  : 'text-gray-700 hover:text-black hover:bg-gray-50'
+                              }`}
+                            >
+                              <Icon className={`mr-3 h-4 w-4 shrink-0 ${isActive ? 'text-white' : item.color || 'text-gray-400'}`} />
+                              <span className="truncate">{item.name}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
 
               {/* Mobile Language Switcher */}
               <div className="pt-2">
