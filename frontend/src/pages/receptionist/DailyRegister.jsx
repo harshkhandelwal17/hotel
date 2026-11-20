@@ -4,7 +4,7 @@ import { format, addDays, subDays } from 'date-fns';
 import { 
   BookOpen, Calendar, Plus, RefreshCw, Printer, Download, 
   Edit3, Trash2, ChevronLeft, ChevronRight, Check, X, 
-  Wallet, Building, CornerDownLeft, Sparkles, Eye, FileText
+  Wallet, Building, CornerDownLeft, Sparkles, Eye, FileText, Lock
 } from 'lucide-react';
 import { useToast } from '../../components/ui/Toast';
 import { useAuth } from '../../context/AuthContext';
@@ -29,6 +29,8 @@ export default function DailyRegister() {
   const [selectedHostel, setSelectedHostel] = useState('');
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [isAccessDenied, setIsAccessDenied] = useState(false);
+  const [accessDeniedMessage, setAccessDeniedMessage] = useState('');
   const [registerData, setRegisterData] = useState(null);
   const [summary, setSummary] = useState(null);
 
@@ -84,6 +86,7 @@ export default function DailyRegister() {
     const cleanId = typeof hostelId === 'object' ? hostelId?._id : hostelId;
     if (!cleanId || cleanId === '[object Object]') return;
     setLoading(true);
+    setIsAccessDenied(false);
     try {
       const res = await axios.get(`${API}/api/daily-register?hostel=${cleanId}&date=${date}`);
       if (res.data?.success) {
@@ -96,7 +99,12 @@ export default function DailyRegister() {
         });
       }
     } catch (err) {
-      toast({ message: 'Failed to load daily register: ' + (err.response?.data?.message || err.message), type: 'error' });
+      if (err.response?.status === 403) {
+        setIsAccessDenied(true);
+        setAccessDeniedMessage(err.response?.data?.message || 'Daily Register (रोकड़ बही) module is disabled for this property. Only Super Admin can activate it.');
+      } else {
+        toast({ message: 'Failed to load daily register: ' + (err.response?.data?.message || err.message), type: 'error' });
+      }
     } finally {
       setLoading(false);
     }
@@ -324,6 +332,30 @@ export default function DailyRegister() {
   }, [hostels, selectedHostel]);
 
   const entriesList = registerData?.entries || [];
+
+  if (isAccessDenied && user?.role !== 'superadmin') {
+    return (
+      <div className="min-h-[75vh] flex items-center justify-center p-4">
+        <div className="bg-white border border-gray-200 rounded-3xl p-8 max-w-md w-full text-center shadow-xl space-y-4">
+          <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto border border-amber-200">
+            <Lock size={30} />
+          </div>
+          <h2 className="text-xl font-black text-gray-900">Module Access Restricted</h2>
+          <p className="text-xs text-gray-600 font-medium leading-relaxed">
+            {accessDeniedMessage || 'Daily Register (रोकड़ बही) module is disabled for this property. Only Super Admin can activate it.'}
+          </p>
+          <div className="pt-2">
+            <a
+              href="/dashboard"
+              className="inline-flex items-center justify-center px-5 py-2.5 bg-gray-900 hover:bg-black text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-md"
+            >
+              Back to Dashboard
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-2 sm:p-5 space-y-3.5 max-w-[1450px] mx-auto min-h-screen">

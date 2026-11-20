@@ -53,6 +53,13 @@ async function resolveTargetHostel(inputHostel, reqUser) {
   return null;
 }
 
+// Helper to verify if Super Admin has enabled Daily Register for this hostel
+async function checkHostelDailyRegisterPermission(targetHostelId, reqUser) {
+  if (reqUser?.role === 'superadmin') return true;
+  const h = await Hostel.findById(targetHostelId).select('dailyRegisterEnabled');
+  return !!(h && h.dailyRegisterEnabled);
+}
+
 // Helper to calculate previous day closing cash
 async function calculatePreviousClosingCash(hostelId, currentDateStr) {
   const prevDoc = await DailyRegister.findOne({
@@ -139,6 +146,14 @@ exports.getRegister = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Property/Hostel ID is required' });
     }
 
+    const isAllowed = await checkHostelDailyRegisterPermission(targetHostel, req.user);
+    if (!isAllowed) {
+      return res.status(403).json({
+        success: false,
+        message: 'Daily Register (रोकड़ बही) module is disabled for this property. Only Super Admin can activate it.'
+      });
+    }
+
     const queryDate = date || getTodayIST();
 
     let register = await DailyRegister.findOne({
@@ -189,6 +204,14 @@ exports.updateOpeningBalance = async (req, res, next) => {
     if (!targetHostel) {
       return res.status(400).json({ success: false, message: 'Property/Hostel ID is required' });
     }
+
+    const isAllowed = await checkHostelDailyRegisterPermission(targetHostel, req.user);
+    if (!isAllowed) {
+      return res.status(403).json({
+        success: false,
+        message: 'Daily Register (रोकड़ बही) module is disabled for this property. Only Super Admin can activate it.'
+      });
+    }
     const queryDate = date || getTodayIST();
 
     let register = await DailyRegister.findOne({
@@ -230,6 +253,14 @@ exports.updateHeaderMantras = async (req, res, next) => {
     const targetHostel = await resolveTargetHostel(hostel, req.user);
     if (!targetHostel) {
       return res.status(400).json({ success: false, message: 'Property/Hostel ID is required' });
+    }
+
+    const isAllowed = await checkHostelDailyRegisterPermission(targetHostel, req.user);
+    if (!isAllowed) {
+      return res.status(403).json({
+        success: false,
+        message: 'Daily Register (रोकड़ बही) module is disabled for this property. Only Super Admin can activate it.'
+      });
     }
     const queryDate = date || getTodayIST();
 
@@ -287,6 +318,14 @@ exports.addEntry = async (req, res, next) => {
     const targetHostel = await resolveTargetHostel(hostel, req.user);
     if (!targetHostel) {
       return res.status(400).json({ success: false, message: 'Property/Hostel ID is required' });
+    }
+
+    const isAllowed = await checkHostelDailyRegisterPermission(targetHostel, req.user);
+    if (!isAllowed) {
+      return res.status(403).json({
+        success: false,
+        message: 'Daily Register (रोकड़ बही) module is disabled for this property. Only Super Admin can activate it.'
+      });
     }
     const queryDate = date || getTodayIST();
 
@@ -362,6 +401,14 @@ exports.updateEntry = async (req, res, next) => {
     if (!targetHostel) {
       return res.status(400).json({ success: false, message: 'Property/Hostel ID is required' });
     }
+
+    const isAllowed = await checkHostelDailyRegisterPermission(targetHostel, req.user);
+    if (!isAllowed) {
+      return res.status(403).json({
+        success: false,
+        message: 'Daily Register (रोकड़ बही) module is disabled for this property. Only Super Admin can activate it.'
+      });
+    }
     const queryDate = date || getTodayIST();
 
     const register = await DailyRegister.findOne({ hostel: targetHostel, date: queryDate });
@@ -411,6 +458,14 @@ exports.deleteEntry = async (req, res, next) => {
     if (!targetHostel) {
       return res.status(400).json({ success: false, message: 'Property/Hostel ID is required' });
     }
+
+    const isAllowed = await checkHostelDailyRegisterPermission(targetHostel, req.user);
+    if (!isAllowed) {
+      return res.status(403).json({
+        success: false,
+        message: 'Daily Register (रोकड़ बही) module is disabled for this property. Only Super Admin can activate it.'
+      });
+    }
     const queryDate = date || getTodayIST();
 
     const register = await DailyRegister.findOne({ hostel: targetHostel, date: queryDate });
@@ -441,6 +496,14 @@ exports.syncFromSystem = async (req, res, next) => {
     const targetHostel = await resolveTargetHostel(hostel, req.user);
     if (!targetHostel) {
       return res.status(400).json({ success: false, message: 'Property/Hostel ID is required' });
+    }
+
+    const isAllowed = await checkHostelDailyRegisterPermission(targetHostel, req.user);
+    if (!isAllowed) {
+      return res.status(403).json({
+        success: false,
+        message: 'Daily Register (रोकड़ बही) module is disabled for this property. Only Super Admin can activate it.'
+      });
     }
     const queryDate = date || getTodayIST();
 
@@ -583,6 +646,14 @@ exports.getMonthlySummary = async (req, res, next) => {
 
     if (!targetHostel) {
       return res.status(400).json({ success: false, message: 'Hostel is required' });
+    }
+
+    const isAllowed = await checkHostelDailyRegisterPermission(targetHostel, req.user);
+    if (!isAllowed) {
+      return res.status(403).json({
+        success: false,
+        message: 'Daily Register (रोकड़ बही) module is disabled for this property. Only Super Admin can activate it.'
+      });
     }
 
     const ym = yearMonth || getTodayIST().slice(0, 7);

@@ -41,7 +41,8 @@ import {
   LogOut,
   RefreshCw,
   Hexagon,
-  Download
+  Download,
+  BookOpen
 } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -426,6 +427,16 @@ const SuperAdminDashboard = () => {
       setHostels(hostels.map(h => h._id === hostelId ? { ...h, laundryEnabled: res.data.data.laundryEnabled } : h));
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to toggle Laundry Management status');
+    }
+  };
+
+  const handleToggleDailyRegister = async (hostelId) => {
+    try {
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      const res = await axios.put(`${API}/api/superadmin/hostels/${hostelId}/toggle-daily-register`);
+      setHostels(hostels.map(h => h._id === hostelId ? { ...h, dailyRegisterEnabled: res.data.data.dailyRegisterEnabled } : h));
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to toggle Daily Register status');
     }
   };
 
@@ -846,6 +857,7 @@ const SuperAdminDashboard = () => {
           onToggleAiOcr={handleToggleAiOcr}
           onToggleWhatsAppSync={handleToggleWhatsAppSync}
           onToggleLaundry={handleToggleLaundry}
+          onToggleDailyRegister={handleToggleDailyRegister}
           onToggleDigitalAadhaar={handleToggleDigitalAadhaar}
           onOpenCreateStaffForHotel={openCreateStaffForHotel}
           onOpenCreateOwner={() => {
@@ -1371,6 +1383,18 @@ const SuperAdminDashboard = () => {
                           >
                             <Shirt size={11} className={h.laundryEnabled ? 'text-indigo-600' : 'text-gray-400'} />
                             {h.laundryEnabled ? 'Laundry On' : 'Laundry Off'}
+                          </button>
+                          <button
+                            onClick={() => handleToggleDailyRegister(h._id)}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase transition-all shadow-sm active:scale-95 ${
+                              h.dailyRegisterEnabled
+                                ? 'bg-amber-50 text-amber-800 border border-amber-300'
+                                : 'bg-gray-100 text-gray-400 border border-gray-200'
+                            }`}
+                            title="Toggle Daily Register (रोकड़ बही) module"
+                          >
+                            <BookOpen size={11} className={h.dailyRegisterEnabled ? 'text-amber-600' : 'text-gray-400'} />
+                            {h.dailyRegisterEnabled ? 'Register On' : 'Register Off'}
                           </button>
                           <button
                             onClick={() => handleToggleDigitalAadhaar(h._id)}

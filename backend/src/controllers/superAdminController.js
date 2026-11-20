@@ -421,6 +421,24 @@ exports.toggleHostelLaundry = async (req, res, next) => {
   }
 };
 
+exports.toggleHostelDailyRegister = async (req, res, next) => {
+  try {
+    const hostel = await Hostel.findById(req.params.id);
+    if (!hostel) return res.status(404).json({ success: false, message: 'Property not found' });
+
+    hostel.dailyRegisterEnabled = !hostel.dailyRegisterEnabled;
+    await hostel.save();
+
+    res.status(200).json({ 
+      success: true, 
+      message: `Daily Register (रोकड़ बही) ${hostel.dailyRegisterEnabled ? 'enabled' : 'disabled'} for ${hostel.name}`,
+      data: hostel 
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.toggleHostelDigitalAadhaar = async (req, res, next) => {
   try {
     const hostel = await Hostel.findById(req.params.id);

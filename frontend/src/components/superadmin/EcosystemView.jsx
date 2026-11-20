@@ -3,7 +3,7 @@ import {
   Crown, Building, Users, Mail, Phone, LogIn, KeyRound, 
   Pencil, Plus, Lock, Unlock, Sparkles, MessageSquare, 
   Shirt, ShieldCheck, ArrowRight, ExternalLink, Calendar, CheckCircle2, AlertTriangle, Clock,
-  Network, Briefcase
+  Network, Briefcase, BookOpen
 } from 'lucide-react';
 
 const EcosystemView = ({ 
@@ -22,6 +22,7 @@ const EcosystemView = ({
   onToggleAiOcr, 
   onToggleWhatsAppSync, 
   onToggleLaundry,
+  onToggleDailyRegister,
   onToggleDigitalAadhaar,
   onOpenCreateStaffForHotel,
   onOpenCreateOwner,
@@ -455,6 +456,19 @@ const EcosystemView = ({
                                 <Shirt size={11} />
                                 <span>Laundry: {h.laundryEnabled ? 'ON' : 'OFF'}</span>
                               </button>
+
+                              {onToggleDailyRegister && (
+                                <button
+                                  onClick={() => onToggleDailyRegister(h._id)}
+                                  className={`px-2 py-1 rounded-lg font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                                    h.dailyRegisterEnabled ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                  }`}
+                                  title="Toggle Daily Register (रोकड़ बही)"
+                                >
+                                  <BookOpen size={11} />
+                                  <span>Register: {h.dailyRegisterEnabled ? 'ON' : 'OFF'}</span>
+                                </button>
+                              )}
 
                               {onToggleDigitalAadhaar && (
                                 <button

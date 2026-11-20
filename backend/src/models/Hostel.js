@@ -69,6 +69,10 @@ const hostelSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  dailyRegisterEnabled: {
+    type: Boolean,
+    default: false
+  },
   laundrySettings: {
     defaultVendorName: { type: String, default: '' },
     defaultVendorPhone: { type: String, default: '' },

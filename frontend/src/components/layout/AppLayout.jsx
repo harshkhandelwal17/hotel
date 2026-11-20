@@ -472,9 +472,16 @@ const AppLayout = ({ children }) => {
       { id: 'stays', name: t('nav.stays', 'Stays'), path: '/checkouts', icon: Bed },
       { id: 'rooms', name: t('nav.rooms', 'Rooms'), path: '/rooms', icon: LayoutGrid },
       { id: 'history', name: t('nav.history', 'History'), path: '/guests', icon: Users },
-      { id: 'register', name: t('nav.register', 'Daily Register'), path: '/register', icon: BookOpen },
       { id: 'payments', name: t('nav.payments', 'Payments'), path: '/payments', icon: CreditCard },
     ];
+
+    const isDailyRegisterEnabledForUser = user?.role === 'superadmin' ||
+      (user?.role === 'receptionist' ? Boolean(activeHostel?.dailyRegisterEnabled) :
+        (globalProperty !== 'all' ? Boolean(activeHostel?.dailyRegisterEnabled) : hostels.some(h => h.dailyRegisterEnabled)));
+
+    if (isDailyRegisterEnabledForUser) {
+      navItems.push({ id: 'register', name: t('nav.register', 'Daily Register'), path: '/register', icon: BookOpen });
+    }
 
     const isLaundryEnabledForUser = user?.role === 'superadmin' ||
       (user?.role === 'receptionist' ? Boolean(activeHostel?.laundryEnabled) :
