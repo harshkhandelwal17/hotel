@@ -104,8 +104,9 @@ function computeSummary(registerDoc) {
     }
   });
 
-  const totalIncome = totalCash + totalCard + totalOnline + totalFoodCash;
-  const closingCash = opening + totalCash + totalFoodCash - cashExpense;
+  const totalCashIn = totalCash + totalFoodCash;
+  const totalIncome = totalCashIn + totalCard + totalOnline;
+  const closingCash = opening + totalCashIn - cashExpense;
   const netDayProfit = totalIncome - totalExpense;
 
   return {
@@ -114,12 +115,14 @@ function computeSummary(registerDoc) {
     totalCard,
     totalOnline,
     totalFoodCash,
+    totalCashIn,
     totalIncome,
     totalExpense,
     cashExpense,
     onlineExpense,
     closingCash,
     netDayProfit,
+    netDayBalance: netDayProfit,
     entryCount: (registerDoc.entries || []).length
   };
 }

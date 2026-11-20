@@ -860,19 +860,36 @@ export default function DailyRegister() {
         </div>
 
         {/* BOTTOM FORMULA & CASH SUMMARY BAR */}
-        <div className="p-3 bg-gray-50 border-t border-gray-300 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-gray-500 font-medium">Daily Cashbook Formula:</span>
-            <span className="font-mono text-gray-800 font-bold bg-white px-2.5 py-1 rounded-lg border border-gray-200">
-              ₹{summary?.openingBalance || 0} (Open) + ₹{(summary?.totalCash || 0) + (summary?.totalFoodCash || 0)} (Cash In) - ₹{summary?.cashExpense || 0} (EXP) = <strong className="text-emerald-700 font-black">₹{(summary?.closingCash || 0).toLocaleString('en-IN')}</strong>
+        <div className="p-3 bg-gray-50 border-t border-gray-300 flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-gray-700 font-bold">💵 रात का गल्ला (Closing Cash):</span>
+            <span className="font-mono font-black text-emerald-800 bg-emerald-100/80 border border-emerald-300 px-3 py-1 rounded-lg text-sm">
+              ₹{(summary?.closingCash || 0).toLocaleString('en-IN')}
+            </span>
+            <span className="text-[11px] text-gray-500 font-medium">
+              (Opening ₹{(summary?.openingBalance || 0).toLocaleString('en-IN')} + Cash In ₹{((summary?.totalCash || 0) + (summary?.totalFoodCash || 0)).toLocaleString('en-IN')} - Cash Expenses ₹{(summary?.cashExpense !== undefined ? summary.cashExpense : (summary?.totalExpense || 0)).toLocaleString('en-IN')})
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-gray-500 font-medium">Today's Net Profit:</span>
-            <span className="font-mono font-black text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-lg">
-              ₹{(summary?.netDayProfit || 0).toLocaleString('en-IN')}
-            </span>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span className="text-gray-600 font-semibold">कुल कलेक्शन:</span>
+              <span className="font-mono font-black text-gray-900 bg-white border border-gray-200 px-2.5 py-1 rounded-lg">
+                ₹{(summary?.totalIncome || 0).toLocaleString('en-IN')}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-gray-600 font-semibold">कुल खर्चे:</span>
+              <span className="font-mono font-black text-rose-700 bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-lg">
+                -₹{(summary?.totalExpense || 0).toLocaleString('en-IN')}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-indigo-950 font-bold">शुद्ध बैलेंस (Net):</span>
+              <span className="font-mono font-black text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-lg text-sm">
+                ₹{(summary?.netDayProfit || 0).toLocaleString('en-IN')}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -1042,24 +1059,61 @@ export default function DailyRegister() {
                 </tbody>
               </table>
 
-              {/* Bottom Summary & Signatures */}
-              <div className="flex items-center justify-between text-xs pt-2 border-t border-black font-sans">
-                <div className="space-y-1">
-                  <p className="font-bold text-gray-800">
-                    Day Revenue: <strong className="font-mono">₹{(summary?.totalIncome || 0).toLocaleString('en-IN')}</strong> | Day Profit: <strong className="font-mono">₹{(summary?.netDayProfit || 0).toLocaleString('en-IN')}</strong>
-                  </p>
-                  <p className="font-bold text-black text-sm">
-                    Closing Cash in Hand (रात का गल्ला): <span className="font-mono text-base font-black">₹{(summary?.closingCash || 0).toLocaleString('en-IN')}</span>
-                  </p>
+              {/* Bottom Clean Day Summary */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t-2 border-black font-sans text-xs">
+                {/* Box 1: Cash in Drawer / रात का गल्ला */}
+                <div className="p-2.5 bg-gray-50 border border-gray-400 rounded-lg space-y-1">
+                  <div className="font-black text-gray-900 border-b border-gray-300 pb-1 uppercase tracking-wider text-[11px]">
+                    💵 रोकड़ मिलान (Cash in Drawer / रात का गल्ला)
+                  </div>
+                  <div className="flex justify-between py-0.5">
+                    <span>पिछला रोकड़ (Opening Cash):</span>
+                    <strong className="font-mono">₹{(summary?.openingBalance || 0).toLocaleString('en-IN')}</strong>
+                  </div>
+                  <div className="flex justify-between py-0.5">
+                    <span>(+) कैश कलेक्शन (Room + Food):</span>
+                    <strong className="font-mono text-emerald-800">+₹{((summary?.totalCash || 0) + (summary?.totalFoodCash || 0)).toLocaleString('en-IN')}</strong>
+                  </div>
+                  <div className="flex justify-between py-0.5">
+                    <span>(-) कैश खर्चे (Cash Expenses):</span>
+                    <strong className="font-mono text-rose-700">-₹{(summary?.cashExpense !== undefined ? summary.cashExpense : (summary?.totalExpense || 0)).toLocaleString('en-IN')}</strong>
+                  </div>
+                  <div className="flex justify-between py-1 border-t border-gray-400 font-black text-emerald-950 text-sm">
+                    <span>(=) रात का गल्ला (Closing Cash):</span>
+                    <span className="font-mono text-base font-black">₹{(summary?.closingCash || 0).toLocaleString('en-IN')}</span>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-10 text-center text-xs pt-6">
-                  <div className="w-36 border-t border-black pt-1 font-bold">
-                    Receptionist
+                {/* Box 2: आज का कुल हिसाब / Day Collection */}
+                <div className="p-2.5 bg-gray-50 border border-gray-400 rounded-lg space-y-1">
+                  <div className="font-black text-gray-900 border-b border-gray-300 pb-1 uppercase tracking-wider text-[11px]">
+                    📊 आज का कुल हिसाब (Day Collection & Balance)
                   </div>
-                  <div className="w-36 border-t border-black pt-1 font-bold">
-                    Manager / Owner
+                  <div className="flex justify-between py-0.5">
+                    <span>आज की कुल आमदनी (Total Collection):</span>
+                    <strong className="font-mono">₹{(summary?.totalIncome || 0).toLocaleString('en-IN')}</strong>
                   </div>
+                  <div className="flex justify-between py-0.5">
+                    <span>(-) आज के कुल खर्चे (Total Expenses):</span>
+                    <strong className="font-mono text-rose-700">-₹{(summary?.totalExpense || 0).toLocaleString('en-IN')}</strong>
+                  </div>
+                  <div className="text-[10px] text-gray-500 py-0.5">
+                    (Cash: ₹{((summary?.totalCash || 0) + (summary?.totalFoodCash || 0)).toLocaleString('en-IN')} • Card: ₹{(summary?.totalCard || 0).toLocaleString('en-IN')} • Online: ₹{(summary?.totalOnline || 0).toLocaleString('en-IN')})
+                  </div>
+                  <div className="flex justify-between py-1 border-t border-gray-400 font-black text-indigo-950 text-sm">
+                    <span>(=) शुद्ध बैलेंस (Net Balance / आज की बचत):</span>
+                    <span className="font-mono text-base font-black text-indigo-700">₹{(summary?.netDayProfit || 0).toLocaleString('en-IN')}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Signatures */}
+              <div className="flex items-center justify-around text-center text-xs pt-6 pb-2 font-sans font-bold">
+                <div className="w-44 border-t border-black pt-1">
+                  Duty Receptionist Signature
+                </div>
+                <div className="w-44 border-t border-black pt-1">
+                  Verified by Manager / Owner
                 </div>
               </div>
             </div>

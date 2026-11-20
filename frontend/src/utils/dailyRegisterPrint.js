@@ -393,50 +393,46 @@ export function generateDailyRegisterHtml(registerData, summary, hostelName, dat
       </tbody>
     </table>
 
-    <!-- Bottom Financial Summary Cards -->
+    <!-- Bottom Clean Summary Cards -->
     <div class="bottom-section">
-      <!-- Card 1: Front Desk Cash Reconciliation -->
+      <!-- Box 1: रोकड़ मिलान (Cash in Drawer / रात का गल्ला) -->
       <div class="summary-card">
-        <div class="summary-card-title">💵 Front Desk Cash In Hand Reconciliation (रोकड़ मिलान)</div>
+        <div class="summary-card-title">💵 रोकड़ मिलान (Cash in Drawer / रात का गल्ला)</div>
         <div class="reconciliation-row">
-          <span>(+) Opening Cash Balance (पिछला रोकड़ शेष):</span>
+          <span>पिछला रोकड़ (Opening Cash Balance):</span>
           <span class="font-mono font-bold">${fmtCurrency(summary?.openingBalance)}</span>
         </div>
         <div class="reconciliation-row">
-          <span>(+) Today's Room Cash Collection:</span>
-          <span class="font-mono">${fmtCurrency(summary?.totalCash)}</span>
+          <span>(+) आज का कैश कलेक्शन (Room + Food):</span>
+          <span class="font-mono">+${fmtCurrency((summary?.totalCash || 0) + (summary?.totalFoodCash || 0))}</span>
         </div>
         <div class="reconciliation-row">
-          <span>(+) Today's Food / Restaurant Cash:</span>
-          <span class="font-mono">${fmtCurrency(summary?.totalFoodCash)}</span>
-        </div>
-        <div class="reconciliation-row">
-          <span>(-) Cash Paid for Daily Expenses (खर्चा):</span>
-          <span class="font-mono text-rose-700">-${fmtCurrency(summary?.cashExpense)}</span>
+          <span>(-) आज के कैश खर्चे (Cash Expenses):</span>
+          <span class="font-mono text-rose-700">-${fmtCurrency(summary?.cashExpense !== undefined ? summary?.cashExpense : summary?.totalExpense)}</span>
         </div>
         <div class="reconciliation-row highlight">
-          <span>(=) CLOSING CASH IN HAND (रात का गल्ला):</span>
+          <span>(=) रात का गल्ला / हाथ में रोकड़ (Closing Cash):</span>
           <span class="font-mono">${fmtCurrency(summary?.closingCash)}</span>
         </div>
       </div>
 
-      <!-- Card 2: Daily P&L and Digital Collection -->
+      <!-- Box 2: आज का कुल हिसाब (Day Collection & Net Balance) -->
       <div class="summary-card">
-        <div class="summary-card-title">📊 Daily P&L & Total Business Collection</div>
+        <div class="summary-card-title">📊 आज का कुल हिसाब (Day Collection & Balance)</div>
         <div class="reconciliation-row">
-          <span>Total Day Collection (Cash + Card + Online):</span>
+          <span>आज की कुल आमदनी (Total Collection):</span>
           <span class="font-mono font-bold">${fmtCurrency(summary?.totalIncome)}</span>
         </div>
         <div class="reconciliation-row">
-          <span>Digital Inflow (Card + UPI + Fab / Online):</span>
-          <span class="font-mono">${fmtCurrency((summary?.totalCard || 0) + (summary?.totalOnline || 0))}</span>
-        </div>
-        <div class="reconciliation-row">
-          <span>Total Day Expenses (खर्चा):</span>
+          <span>(-) आज के कुल खर्चे (Total Expenses):</span>
           <span class="font-mono text-rose-700">-${fmtCurrency(summary?.totalExpense)}</span>
         </div>
+        <div class="reconciliation-row" style="color: #64748b; font-size: 10px;">
+          <span>(Cash: ${fmtCurrency((summary?.totalCash || 0) + (summary?.totalFoodCash || 0))} &bull; Card: ${fmtCurrency(summary?.totalCard)} &bull; Online: ${fmtCurrency(summary?.totalOnline)})</span>
+          <span>&nbsp;</span>
+        </div>
         <div class="reconciliation-row highlight-blue">
-          <span>(=) NET DAY PROFIT / REVENUE (शुद्ध दैनिक लाभ):</span>
+          <span>(=) आज की शुद्ध बचत / बैलेंस (Net Balance):</span>
           <span class="font-mono">${fmtCurrency(summary?.netDayProfit)}</span>
         </div>
       </div>
