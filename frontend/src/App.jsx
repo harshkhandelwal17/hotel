@@ -23,6 +23,7 @@ const ManageStaff = lazy(() => import('./pages/admin/ManageStaff'));
 const PaymentsList = lazy(() => import('./pages/receptionist/PaymentsList'));
 const GuestDirectory = lazy(() => import('./pages/receptionist/GuestDirectory'));
 const Laundry = lazy(() => import('./pages/receptionist/Laundry'));
+const DailyRegister = lazy(() => import('./pages/receptionist/DailyRegister'));
 const SuperAdminDashboard = lazy(() => import('./pages/admin/SuperAdminDashboard'));
 const SalesDashboard = lazy(() => import('./pages/sales/SalesDashboard'));
 
@@ -66,6 +67,8 @@ function App() {
               <Route path="/laundry" element={<Laundry />} />
               <Route path="/guests/:id" element={<GuestProfile />} />
               <Route path="/guests" element={<GuestDirectory />} />
+              <Route path="/register" element={<DailyRegister />} />
+              <Route path="/daybook" element={<DailyRegister />} />
             </Route>
           </Route>
 
