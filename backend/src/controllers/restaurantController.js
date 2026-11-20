@@ -293,7 +293,8 @@ exports.createOrder = async (req, res, next) => {
         name: i.name,
         price: Number(i.price) || 0,
         quantity: Math.max(1, Number(i.quantity) || 1),
-        total: Math.max(0, Number(i.total) || (Number(i.price) * Number(i.quantity)))
+        total: Math.max(0, Number(i.total) || (Number(i.price) * Number(i.quantity))),
+        notes: (i.notes || '').trim()
       })),
       subtotal: Number(subtotal) || finalTotal,
       discount: Math.max(0, Number(discount) || 0),

@@ -25,6 +25,11 @@ const orderItemSchema = new mongoose.Schema({
     type: Number,
     required: true,
     min: 0
+  },
+  notes: {
+    type: String,
+    trim: true,
+    default: ''
   }
 }, { _id: false });
 

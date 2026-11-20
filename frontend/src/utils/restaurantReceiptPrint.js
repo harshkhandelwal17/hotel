@@ -237,7 +237,10 @@ export function printRestaurantReceipt(order, hostel = null) {
     <tbody>
       ${items.map(it => `
         <tr>
-          <td class="text-left">${esc(it.name)}</td>
+          <td class="text-left">
+            ${esc(it.name)}
+            ${it.notes ? `<div style="font-size: 9px; font-style: italic; color: #444;">(${esc(it.notes)})</div>` : ''}
+          </td>
           <td class="text-center">${it.quantity}</td>
           <td class="text-right">${fmtCurrency(it.price).replace('₹', '')}</td>
           <td class="text-right font-bold">${fmtCurrency(it.total).replace('₹', '')}</td>
@@ -586,7 +589,10 @@ export function printRestaurantGstInvoice(order, hostel = null) {
           ${items.map((it, idx) => `
             <tr>
               <td style="text-align: center; color: #64748b;">${idx + 1}</td>
-              <td><strong>${esc(it.name)}</strong></td>
+              <td>
+                <strong>${esc(it.name)}</strong>
+                ${it.notes ? `<div style="font-size: 10px; color: #64748b; font-style: italic;">(${esc(it.notes)})</div>` : ''}
+              </td>
               <td style="text-align: center; font-family: monospace;">${esc(order.hsnSacCode || '996331')}</td>
               <td style="text-align: center; font-weight: 700;">${it.quantity}</td>
               <td style="text-align: right; font-family: monospace;">${fmtCurrency(it.price).replace('₹', '')}</td>
@@ -675,4 +681,234 @@ export function printRestaurantGstInvoice(order, hostel = null) {
   w.document.open();
   w.document.write(html);
   w.document.close();
+}
+
+/**
+ * 🍳 3. KITCHEN ORDER TICKET (KOT) (80mm / 3-inch roll format)
+ */
+export function printKitchenKOT(order, hostel = null) {
+  const dateStr = order.createdAt ? format(new Date(order.createdAt), 'dd/MM/yyyy, hh:mm a') : format(new Date(), 'dd/MM/yyyy, hh:mm a');
+  const hotelName = hostel?.name || 'Hotel Kitchen';
+  const target = order.tableOrRoom || (order.orderType === 'Quick Counter' ? 'Counter / Takeaway' : order.orderType || 'Kitchen');
+  const items = order.items || [];
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>KOT - ${esc(order.orderNumber)}</title>
+  <style>
+    @page {
+      size: 80mm auto;
+      margin: 3mm 2mm;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    body {
+      margin: 0;
+      padding: 6px;
+      font-family: 'Courier New', Courier, monospace, -apple-system, sans-serif;
+      font-size: 13px;
+      color: #000000;
+      background: #ffffff;
+      width: 76mm;
+      margin: 0 auto;
+    }
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
+    .text-left { text-align: left; }
+    .font-bold { font-weight: bold; }
+    .header {
+      text-align: center;
+      margin-bottom: 6px;
+    }
+    .title {
+      font-size: 16px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      border: 2px solid #000;
+      padding: 3px 6px;
+      display: inline-block;
+      margin-bottom: 4px;
+    }
+    .divider {
+      border-top: 2px dashed #000;
+      margin: 6px 0;
+    }
+    .target-box {
+      font-size: 17px;
+      font-weight: 900;
+      text-align: center;
+      background: #f1f5f9;
+      padding: 6px;
+      border: 2px solid #000;
+      margin: 6px 0;
+      text-transform: uppercase;
+    }
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      margin-bottom: 2px;
+      font-weight: bold;
+    }
+    .items-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 8px 0;
+      font-size: 13px;
+    }
+    .items-table th {
+      border-top: 1px dashed #000;
+      border-bottom: 1px dashed #000;
+      padding: 4px 1px;
+      font-weight: 900;
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+    .items-table td {
+      padding: 5px 1px;
+      border-bottom: 1px dotted #ccc;
+    }
+    .item-name {
+      font-weight: 900;
+      font-size: 13px;
+    }
+    .item-qty {
+      font-weight: 900;
+      font-size: 16px;
+      text-align: center;
+    }
+    .item-note {
+      font-size: 10px;
+      font-style: italic;
+      color: #333;
+      margin-top: 2px;
+    }
+    .no-print {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .btn-print {
+      background: #000;
+      color: #fff;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    @media print {
+      .no-print { display: none; }
+      body { width: 100%; padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="no-print">
+    <button class="btn-print" onclick="window.print()">🍳 Print Kitchen KOT</button>
+  </div>
+
+  <div class="header">
+    <div class="title">KITCHEN KOT</div>
+    <div style="font-size: 10px; font-weight: bold;">${esc(hotelName)}</div>
+  </div>
+
+  <div class="target-box">
+    ${esc(target)}
+  </div>
+
+  <div class="meta-row">
+    <span>KOT #: ${esc(order.orderNumber)}</span>
+    <span>${esc(order.orderType || 'Room Service')}</span>
+  </div>
+  <div class="meta-row">
+    <span>Time: ${esc(dateStr)}</span>
+    ${order.guestName && order.guestName !== 'Walk-in Guest' ? `<span>${esc(order.guestName)}</span>` : ''}
+  </div>
+
+  <div class="divider"></div>
+
+  <table class="items-table">
+    <thead>
+      <tr>
+        <th class="text-center" style="width: 25%;">Qty</th>
+        <th class="text-left" style="width: 75%;">Item & Instructions</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${items.map(it => `
+        <tr>
+          <td class="item-qty">${it.quantity}</td>
+          <td>
+            <div class="item-name">${esc(it.name)}</div>
+            ${it.notes ? `<div class="item-note">👉 Note: ${esc(it.notes)}</div>` : ''}
+          </td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
+
+  ${order.notes ? `
+    <div style="margin-top: 8px; padding: 4px; border: 1px dashed #000; font-size: 11px;">
+      <strong>Order Note:</strong> ${esc(order.notes)}
+    </div>
+  ` : ''}
+
+  <div class="divider"></div>
+  <div class="text-center" style="font-size: 10px; font-weight: bold; margin-top: 4px;">
+    *** SEND TO KITCHEN / CHEF ***
+  </div>
+
+  <script>
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        try { window.print(); } catch(e) {}
+      }, 300);
+    });
+  </script>
+</body>
+</html>`;
+
+  const w = window.open('', '_blank');
+  if (!w) {
+    alert('Please allow popups to print Kitchen KOT.');
+    return;
+  }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+}
+
+/**
+ * 📱 4. WHATSAPP BILL SHARE LINK
+ */
+export function getRestaurantWhatsAppShareUrl(order, hostel = null) {
+  const phone = (order.guestPhone || '').replace(/\D/g, '');
+  const cleanPhone = phone.length === 10 ? `91${phone}` : phone;
+  const hotelName = hostel?.name || 'Hotel & Restaurant';
+  const itemsText = (order.items || []).map(i => `• ${i.name} x${i.quantity} = ₹${i.total || (i.price * i.quantity)}${i.notes ? ` (${i.notes})` : ''}`).join('\n');
+  
+  const text = `🍽️ *${hotelName.toUpperCase()} - FOOD BILL*\n` +
+    `--------------------------------\n` +
+    `📄 *Bill No:* ${order.orderNumber}\n` +
+    `📅 *Date:* ${order.createdAt ? format(new Date(order.createdAt), 'dd/MM/yyyy, hh:mm a') : format(new Date(), 'dd/MM/yyyy, hh:mm a')}\n` +
+    `📍 *Target:* ${order.tableOrRoom || order.orderType}\n` +
+    (order.isB2B && order.companyName ? `🏢 *Company:* ${order.companyName}\n` : `👤 *Guest:* ${order.guestName}\n`) +
+    (order.gstin ? `🔢 *GSTIN:* ${order.gstin}\n` : '') +
+    `--------------------------------\n` +
+    `*ITEMS ORDERED:*\n` +
+    `${itemsText}\n` +
+    `--------------------------------\n` +
+    (order.discount > 0 ? `Subtotal: ₹${order.subtotal}\nDiscount: -₹${order.discount}\n` : '') +
+    (order.taxAmount > 0 ? `GST (${order.taxPercent}%): +₹${order.taxAmount}\n` : '') +
+    `*GRAND TOTAL: ₹${order.totalAmount}*\n` +
+    `Payment Status: *${order.paymentStatus} (${order.paymentMethod})*\n` +
+    `--------------------------------\n` +
+    `Thank you! Visit again 🙏`;
+
+  return `https://wa.me/${cleanPhone || ''}?text=${encodeURIComponent(text)}`;
 }

@@ -4,12 +4,18 @@ import {
   UtensilsCrossed, Plus, Search, ShoppingBag, Trash2, Printer, 
   CreditCard, Wallet, Smartphone, Building, RefreshCw, CheckCircle2, 
   X, Edit3, ArrowRight, Clock, Coffee, ShieldCheck, Flame, Leaf, Receipt,
-  FileText, Building2, Hash, Tag, Check, ChevronDown, ChevronUp, Sparkles
+  FileText, Building2, Hash, Tag, Check, ChevronDown, ChevronUp, Sparkles,
+  ChefHat, Share2, MessageSquare
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useToast } from '../../components/ui/Toast';
-import { printRestaurantReceipt, printRestaurantGstInvoice } from '../../utils/restaurantReceiptPrint';
+import { 
+  printRestaurantReceipt, 
+  printRestaurantGstInvoice, 
+  printKitchenKOT, 
+  getRestaurantWhatsAppShareUrl 
+} from '../../utils/restaurantReceiptPrint';
 import DynamicUpiQr from '../../components/DynamicUpiQr';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
@@ -53,10 +59,14 @@ export default function RestaurantPos() {
   const [guestName, setGuestName] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
   const [discountAmount, setDiscountAmount] = useState('');
+  const [discountType, setDiscountType] = useState('flat'); // 'flat' (₹) | 'percent' (%)
   const [taxPercent, setTaxPercent] = useState(5); // 5% default restaurant GST in India
   const [orderNotes, setOrderNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+  const [vegOnlyFilter, setVegOnlyFilter] = useState(false);
+  const [editingNoteItemId, setEditingNoteItemId] = useState(null);
+  const [preferredPrintFormat, setPreferredPrintFormat] = useState('80mm'); // '80mm' | 'a4'
 
   // Corporate & B2B GST Billing
   const [isB2B, setIsB2B] = useState(false);
@@ -156,9 +166,31 @@ export default function RestaurantPos() {
     if (activeHostelId) {
       fetchMenu(activeHostelId);
       fetchActiveStays(activeHostelId);
-      if (activeTab === 'history') fetchOrders(activeHostelId);
+      fetchOrders(activeHostelId);
     }
   }, [activeHostelId, activeTab]);
+
+  // Today's Live Sales & POS Stats
+  const todayStats = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const todayOrders = orders.filter(o => {
+      const d = o.createdAt ? new Date(o.createdAt).toISOString().slice(0, 10) : '';
+      return d === today;
+    });
+
+    const totalSales = todayOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+    const cashSales = todayOrders.filter(o => o.paymentMethod === 'Cash').reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+    const upiSales = todayOrders.filter(o => o.paymentMethod === 'UPI').reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+    const roomSales = todayOrders.filter(o => o.paymentMethod === 'Room Folio' || o.paymentStatus === 'Charged to Room').reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+
+    return {
+      count: todayOrders.length,
+      totalSales,
+      cashSales,
+      upiSales,
+      roomSales
+    };
+  }, [orders]);
 
   // Handle Room Selection
   const handleSelectRoom = (stayId) => {
@@ -184,7 +216,16 @@ export default function RestaurantPos() {
     return cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   }, [cart]);
 
-  const discount = Math.min(cartSubtotal, Math.max(0, Number(discountAmount) || 0));
+  const discount = useMemo(() => {
+    const raw = Number(discountAmount) || 0;
+    if (raw <= 0) return 0;
+    if (discountType === 'percent') {
+      const pct = Math.min(100, Math.max(0, raw));
+      return Math.round((cartSubtotal * (pct / 100)) * 100) / 100;
+    }
+    return Math.min(cartSubtotal, Math.max(0, raw));
+  }, [cartSubtotal, discountAmount, discountType]);
+
   const taxableAmount = Math.max(0, cartSubtotal - discount);
   const taxAmount = taxPercent > 0 ? Math.round((taxableAmount * (taxPercent / 100)) * 100) / 100 : 0;
   const grandTotal = Math.round(taxableAmount + taxAmount);
@@ -196,7 +237,7 @@ export default function RestaurantPos() {
       if (existing) {
         return prev.map(i => i._id === item._id ? { ...i, quantity: i.quantity + 1 } : i);
       }
-      return [...prev, { ...item, quantity: 1 }];
+      return [...prev, { ...item, quantity: 1, notes: '' }];
     });
   };
 
@@ -210,6 +251,10 @@ export default function RestaurantPos() {
         return i;
       }).filter(Boolean);
     });
+  };
+
+  const updateItemNotes = (itemId, notes) => {
+    setCart(prev => prev.map(i => i._id === itemId ? { ...i, notes } : i));
   };
 
   const removeFromCart = (itemId) => {
@@ -276,7 +321,8 @@ export default function RestaurantPos() {
         name: i.name,
         price: i.price,
         quantity: i.quantity,
-        total: i.price * i.quantity
+        total: i.price * i.quantity,
+        notes: (i.notes || '').trim()
       })),
       subtotal: cartSubtotal,
       discount,
@@ -311,6 +357,7 @@ export default function RestaurantPos() {
 
         // Reset cart
         clearCart();
+        fetchOrders(activeHostelId);
         if (orderType !== 'Room Service') {
           setGuestName('');
           setGuestPhone('');
@@ -335,6 +382,7 @@ export default function RestaurantPos() {
         setCompletedOrder(res.data.data);
         toast({ message: isHindi ? 'यूपीआई भुगतान एवं बिल सफल!' : 'UPI payment & bill created!', type: 'success' });
         clearCart();
+        fetchOrders(activeHostelId);
       }
     } catch (err) {
       toast({ message: err.message, type: 'error' });
@@ -390,13 +438,61 @@ export default function RestaurantPos() {
   const filteredMenuItems = useMemo(() => {
     return menuItems.filter(item => {
       const matchCat = selectedCategory === 'All' || item.category === selectedCategory;
-      const q = searchQuery.toLowerCase();
-      const matchSearch = !searchQuery || 
+      const matchVeg = !vegOnlyFilter || item.isVeg;
+      const q = searchQuery.toLowerCase().trim();
+      const matchSearch = !q || 
         item.name.toLowerCase().includes(q) || 
         (item.itemCode && item.itemCode.toLowerCase().includes(q));
-      return matchCat && matchSearch;
+      return matchCat && matchVeg && matchSearch;
     });
-  }, [menuItems, selectedCategory, searchQuery]);
+  }, [menuItems, selectedCategory, searchQuery, vegOnlyFilter]);
+
+  // Category Items Count
+  const categoryCounts = useMemo(() => {
+    const counts = { All: menuItems.length };
+    menuItems.forEach(i => {
+      if (i.category) {
+        counts[i.category] = (counts[i.category] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [menuItems]);
+
+  // ⌨️ Global POS Shortcuts: F2 or '/' to search, Ctrl+Enter to quick bill, Esc to close
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName);
+
+      if (e.key === 'F2' || (!isInput && e.key === '/')) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        if (cart.length > 0 && !isSubmittingOrder) {
+          handleProcessOrder();
+        }
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        if (completedOrder) {
+          setCompletedOrder(null);
+          searchInputRef.current?.focus();
+        } else if (showItemModal) {
+          setShowItemModal(false);
+        } else if (showUpiModal) {
+          setShowUpiModal(false);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [cart, isSubmittingOrder, completedOrder, showItemModal, showUpiModal, paymentMethod, selectedStayId, orderType]);
 
   return (
     <div className="space-y-4">
@@ -462,7 +558,64 @@ export default function RestaurantPos() {
         </div>
       </div>
 
-      {/* TAB 1: POS BILLING SCREEN */}
+      {/* 📊 Today's POS Financial Summary Strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center shrink-0">
+            <UtensilsCrossed size={18} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">
+              {isHindi ? 'आज की कुल बिक्री' : "Today's Sales"}
+            </p>
+            <p className="text-base font-black font-mono text-slate-900 leading-tight">
+              ₹{todayStats.totalSales.toLocaleString('en-IN')}
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+            <Receipt size={18} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">
+              {isHindi ? 'कुल ऑर्डर्स' : 'Total Orders'}
+            </p>
+            <p className="text-base font-black font-mono text-slate-900 leading-tight">
+              {todayStats.count}
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+            <Wallet size={18} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">
+              {isHindi ? 'नकद / यूपीआई' : 'Cash / UPI'}
+            </p>
+            <p className="text-xs font-black font-mono text-slate-900 leading-tight">
+              ₹{todayStats.cashSales} / ₹{todayStats.upiSales}
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+            <Building size={18} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">
+              {isHindi ? 'रूम सर्विस खाता' : 'Room Folio'}
+            </p>
+            <p className="text-base font-black font-mono text-indigo-700 leading-tight">
+              ₹{todayStats.roomSales.toLocaleString('en-IN')}
+            </p>
+          </div>
+        </div>
+      </div>
       {activeTab === 'pos' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
           {/* LEFT 7-COLS: MENU BROWSER & DISHES */}
@@ -485,6 +638,19 @@ export default function RestaurantPos() {
                 </span>
               </div>
               <button
+                type="button"
+                onClick={() => setVegOnlyFilter(v => !v)}
+                className={`px-3 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shrink-0 border ${
+                  vegOnlyFilter 
+                    ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs' 
+                    : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                }`}
+                title="Filter Pure Veg Only"
+              >
+                <Leaf size={14} />
+                <span>{isHindi ? 'शुद्ध शाकाहारी' : 'Pure Veg'}</span>
+              </button>
+              <button
                 onClick={() => fetchMenu(activeHostelId)}
                 className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-colors cursor-pointer"
                 title="Refresh Menu"
@@ -495,19 +661,27 @@ export default function RestaurantPos() {
 
             {/* Category Pills */}
             <div className="flex overflow-x-auto gap-1.5 pb-1 no-scrollbar">
-              {CATEGORIES.map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-xl whitespace-nowrap transition-all cursor-pointer ${
-                    selectedCategory === cat
-                      ? 'bg-orange-600 text-white shadow-xs'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
+              {CATEGORIES.map(cat => {
+                const count = categoryCounts[cat] || 0;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-xl whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+                      selectedCategory === cat
+                        ? 'bg-orange-600 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    <span>{cat}</span>
+                    <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
+                      selectedCategory === cat ? 'bg-orange-700/60 text-white' : 'bg-slate-200/70 text-slate-500'
+                    }`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
 
             {/* Dishes Grid */}
@@ -568,9 +742,28 @@ export default function RestaurantPos() {
                           ₹{item.price}
                         </span>
                         {cartItem ? (
-                          <span className="px-2 py-0.5 bg-orange-600 text-white text-[11px] font-black rounded-lg shadow-2xs">
-                            x{cartItem.quantity}
-                          </span>
+                          <div 
+                            className="flex items-center gap-1 bg-orange-600 text-white rounded-lg px-1 py-0.5 shadow-2xs"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => updateQuantity(item._id, -1)}
+                              className="w-5 h-5 flex items-center justify-center font-black hover:bg-orange-700 rounded-md cursor-pointer text-xs"
+                            >
+                              -
+                            </button>
+                            <span className="font-mono font-black text-xs px-1">
+                              {cartItem.quantity}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => updateQuantity(item._id, 1)}
+                              className="w-5 h-5 flex items-center justify-center font-black hover:bg-orange-700 rounded-md cursor-pointer text-xs"
+                            >
+                              +
+                            </button>
+                          </div>
                         ) : (
                           <span className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center text-xs font-black">
                             +
@@ -678,44 +871,88 @@ export default function RestaurantPos() {
                 </div>
               ) : (
                 cart.map(item => (
-                  <div key={item._id} className="flex items-center justify-between gap-2 p-2 bg-white rounded-xl border border-slate-200 text-xs">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1">
-                        {item.itemCode && <span className="text-[10px] font-mono text-slate-400">#{item.itemCode}</span>}
-                        <span className="font-bold text-slate-900 truncate">{item.name}</span>
+                  <div key={item._id} className="p-2 bg-white rounded-xl border border-slate-200 text-xs space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1">
+                          {item.itemCode && <span className="text-[10px] font-mono text-slate-400">#{item.itemCode}</span>}
+                          <span className="font-bold text-slate-900 truncate">{item.name}</span>
+                        </div>
+                        <span className="text-[11px] text-slate-400 font-mono">₹{item.price} each</span>
                       </div>
-                      <span className="text-[11px] text-slate-400 font-mono">₹{item.price} each</span>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => updateQuantity(item._id, -1)}
+                          className="w-5 h-5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-black cursor-pointer"
+                        >
+                          -
+                        </button>
+                        <span className="w-5 text-center font-black font-mono">{item.quantity}</span>
+                        <button
+                          type="button"
+                          onClick={() => updateQuantity(item._id, 1)}
+                          className="w-5 h-5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-black cursor-pointer"
+                        >
+                          +
+                        </button>
+                      </div>
+
+                      <div className="w-14 text-right font-black font-mono shrink-0">
+                        ₹{item.price * item.quantity}
+                      </div>
+
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setEditingNoteItemId(editingNoteItemId === item._id ? null : item._id)}
+                          className={`p-1 rounded-md transition-colors cursor-pointer ${
+                            item.notes ? 'text-amber-600 bg-amber-50' : 'text-slate-300 hover:text-slate-600'
+                          }`}
+                          title="Add instruction / निर्देश"
+                        >
+                          <MessageSquare size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeFromCart(item._id)}
+                          className="text-slate-300 hover:text-rose-600 p-1 cursor-pointer"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => updateQuantity(item._id, -1)}
-                        className="w-5 h-5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-black cursor-pointer"
+                    {/* Item Cooking Note Input */}
+                    {editingNoteItemId === item._id && (
+                      <div className="pt-1.5 border-t border-slate-100 flex items-center gap-1.5 animate-in fade-in">
+                        <input
+                          type="text"
+                          value={item.notes || ''}
+                          onChange={(e) => updateItemNotes(item._id, e.target.value)}
+                          placeholder={isHindi ? "निर्देश: कम तीखा, बिना प्याज, आदि..." : "Instruction: e.g. Less spicy, no onion..."}
+                          className="flex-1 px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[11px] outline-hidden font-medium"
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setEditingNoteItemId(null)}
+                          className="text-[10px] font-bold text-slate-600 hover:text-slate-900 px-2 py-1 bg-slate-100 rounded-lg cursor-pointer"
+                        >
+                          ✓
+                        </button>
+                      </div>
+                    )}
+                    {editingNoteItemId !== item._id && item.notes && (
+                      <div 
+                        onClick={() => setEditingNoteItemId(item._id)}
+                        className="text-[10px] text-amber-700 font-medium italic cursor-pointer truncate hover:underline flex items-center gap-1 pt-0.5"
                       >
-                        -
-                      </button>
-                      <span className="w-5 text-center font-black font-mono">{item.quantity}</span>
-                      <button
-                        type="button"
-                        onClick={() => updateQuantity(item._id, 1)}
-                        className="w-5 h-5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-black cursor-pointer"
-                      >
-                        +
-                      </button>
-                    </div>
-
-                    <div className="w-16 text-right font-black font-mono shrink-0">
-                      ₹{item.price * item.quantity}
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => removeFromCart(item._id)}
-                      className="text-slate-300 hover:text-rose-600 p-1 cursor-pointer shrink-0"
-                    >
-                      <Trash2 size={13} />
-                    </button>
+                        <span>👉</span>
+                        <span>{item.notes}</span>
+                      </div>
+                    )}
                   </div>
                 ))
               )}
@@ -799,17 +1036,41 @@ export default function RestaurantPos() {
                 <span className="font-mono font-bold">₹{cartSubtotal}</span>
               </div>
 
+              {/* Discount Row with Flat ₹ / Percent % Selector */}
               <div className="flex items-center justify-between gap-2">
-                <span className="text-slate-600">{isHindi ? 'छूट / डिस्काउंट (₹):' : 'Discount (₹):'}</span>
-                <input
-                  type="number"
-                  min="0"
-                  max={cartSubtotal}
-                  value={discountAmount}
-                  onChange={(e) => setDiscountAmount(e.target.value)}
-                  placeholder="0"
-                  className="w-20 px-2 py-0.5 bg-slate-50 border border-slate-200 rounded-lg text-right font-mono text-xs font-bold outline-hidden"
-                />
+                <div className="flex items-center gap-1.5 text-slate-600">
+                  <span>{isHindi ? 'छूट / डिस्काउंट:' : 'Discount:'}</span>
+                  <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-0.5 text-[10px] font-black">
+                    <button
+                      type="button"
+                      onClick={() => setDiscountType('flat')}
+                      className={`px-1.5 py-0.5 rounded cursor-pointer ${discountType === 'flat' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500'}`}
+                    >
+                      ₹
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDiscountType('percent')}
+                      className={`px-1.5 py-0.5 rounded cursor-pointer ${discountType === 'percent' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500'}`}
+                    >
+                      %
+                    </button>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    min="0"
+                    max={discountType === 'percent' ? 100 : cartSubtotal}
+                    value={discountAmount}
+                    onChange={(e) => setDiscountAmount(e.target.value)}
+                    placeholder="0"
+                    className="w-20 px-2 py-0.5 bg-slate-50 border border-slate-200 rounded-lg text-right font-mono text-xs font-bold outline-hidden"
+                  />
+                  {discountType === 'percent' && discount > 0 && (
+                    <span className="text-[11px] font-mono text-slate-400">(-₹{discount})</span>
+                  )}
+                </div>
               </div>
 
               <div className="flex items-center justify-between gap-2">
@@ -839,41 +1100,109 @@ export default function RestaurantPos() {
               </div>
             </div>
 
-            {/* Payment Method / Folio Actions */}
+            {/* Payment Method Selector & SINGLE Billing Button */}
             <div className="space-y-2 pt-1">
-              <div className="grid grid-cols-2 gap-2">
-                {orderType === 'Room Service' ? (
-                  <button
-                    type="button"
-                    onClick={() => handleProcessOrder('Room Folio')}
-                    disabled={isSubmittingOrder || cart.length === 0 || !selectedStayId}
-                    className="col-span-2 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md active:scale-98 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40"
-                  >
-                    <Building size={15} />
-                    <span>{isHindi ? 'कमरा बिल में जोड़ें (Charge to Room)' : 'Charge to Room Folio'}</span>
-                  </button>
+              <div>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">
+                  {isHindi ? 'भुगतान का प्रकार (Payment Method):' : 'Payment Method:'}
+                </label>
+                <div className="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-xl text-xs font-bold">
+                  {orderType === 'Room Service' ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod('Room Folio')}
+                        className={`py-1.5 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                          paymentMethod === 'Room Folio' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <Building size={13} />
+                        <span>{isHindi ? 'कमरा खाता' : 'Room Folio'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod('Cash')}
+                        className={`py-1.5 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                          paymentMethod === 'Cash' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <Wallet size={13} />
+                        <span>{isHindi ? 'नकद' : 'Cash'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod('UPI')}
+                        className={`py-1.5 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                          paymentMethod === 'UPI' ? 'bg-purple-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <Smartphone size={13} />
+                        <span>{isHindi ? 'यूपीआई' : 'UPI'}</span>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod('Cash')}
+                        className={`py-1.5 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                          paymentMethod === 'Cash' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <Wallet size={13} />
+                        <span>{isHindi ? '💵 नकद' : '💵 Cash'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod('UPI')}
+                        className={`py-1.5 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                          paymentMethod === 'UPI' ? 'bg-purple-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <Smartphone size={13} />
+                        <span>{isHindi ? '📱 यूपीआई' : '📱 UPI'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod('Card')}
+                        className={`py-1.5 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                          paymentMethod === 'Card' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <CreditCard size={13} />
+                        <span>{isHindi ? '💳 कार्ड' : '💳 Card'}</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* 🌟 ONE SINGLE MASTER BILLING BUTTON */}
+              <button
+                type="button"
+                onClick={() => handleProcessOrder()}
+                disabled={isSubmittingOrder || cart.length === 0 || (orderType === 'Room Service' && paymentMethod === 'Room Folio' && !selectedStayId)}
+                className="w-full py-3.5 bg-slate-900 hover:bg-black text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-md active:scale-98 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed group"
+              >
+                {isSubmittingOrder ? (
+                  <>
+                    <RefreshCw size={15} className="animate-spin text-orange-400" />
+                    <span>{isHindi ? 'बिल बन रहा है...' : 'Generating Bill...'}</span>
+                  </>
                 ) : (
                   <>
-                    <button
-                      type="button"
-                      onClick={() => handleProcessOrder('Cash')}
-                      disabled={isSubmittingOrder || cart.length === 0}
-                      className="py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-sm active:scale-98 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40"
-                    >
-                      <Wallet size={14} />
-                      <span>{isHindi ? '💵 नकद बिल (Cash)' : '💵 Cash Bill'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleProcessOrder('UPI')}
-                      disabled={isSubmittingOrder || cart.length === 0}
-                      className="py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-sm active:scale-98 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40"
-                    >
-                      <Smartphone size={14} />
-                      <span>{isHindi ? '📱 यूपीआई / QR' : '📱 UPI / QR'}</span>
-                    </button>
+                    <Sparkles size={16} className="text-orange-400 group-hover:rotate-12 transition-transform" />
+                    <span>
+                      {paymentMethod === 'Room Folio'
+                        ? (isHindi ? `कमरा बिल में जोड़ें • ₹${grandTotal}` : `Charge to Room • ₹${grandTotal}`)
+                        : (isHindi ? `⚡ बिल बनाएं एवं प्रिंट करें • ₹${grandTotal}` : `⚡ Generate Bill & Print • ₹${grandTotal}`)}
+                    </span>
                   </>
                 )}
+              </button>
+              <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold px-1">
+                <span>⌨️ Tip: <kbd className="font-mono bg-slate-100 px-1 py-0.5 rounded border border-slate-200 text-slate-600">Ctrl+Enter</kbd> to quick bill</span>
+                <span>{cart.reduce((s, i) => s + i.quantity, 0)} {isHindi ? 'आइटम्स' : 'items'}</span>
               </div>
             </div>
           </div>
@@ -962,6 +1291,24 @@ export default function RestaurantPos() {
                           <FileText size={12} />
                           <span>GST</span>
                         </button>
+                        <button
+                          onClick={() => printKitchenKOT(o, currentHostelDoc)}
+                          className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-md font-bold text-[11px] cursor-pointer inline-flex items-center gap-1"
+                          title="Print Kitchen KOT"
+                        >
+                          <ChefHat size={12} />
+                          <span>KOT</span>
+                        </button>
+                        <a
+                          href={getRestaurantWhatsAppShareUrl(o, currentHostelDoc)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2 py-1 bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 rounded-md font-bold text-[11px] cursor-pointer inline-flex items-center gap-1"
+                          title="Share on WhatsApp"
+                        >
+                          <Share2 size={12} />
+                          <span>WA</span>
+                        </a>
                       </td>
                     </tr>
                   ))}
@@ -1106,24 +1453,69 @@ export default function RestaurantPos() {
               </div>
             </div>
 
-            {/* Print Buttons */}
-            <div className="grid grid-cols-2 gap-2.5 pt-1">
+            {/* Print Format Toggle */}
+            <div className="grid grid-cols-2 gap-1.5 bg-slate-100 p-1 rounded-xl text-xs font-bold">
               <button
                 type="button"
-                onClick={() => printRestaurantReceipt(completedOrder, currentHostelDoc)}
-                className="py-3 px-3 bg-slate-900 hover:bg-black text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+                onClick={() => setPreferredPrintFormat('80mm')}
+                className={`py-1.5 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  preferredPrintFormat === '80mm' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
               >
-                <Receipt size={15} />
+                <Receipt size={14} />
                 <span>80mm POS Slip</span>
               </button>
               <button
                 type="button"
-                onClick={() => printRestaurantGstInvoice(completedOrder, currentHostelDoc)}
-                className="py-3 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+                onClick={() => setPreferredPrintFormat('a4')}
+                className={`py-1.5 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  preferredPrintFormat === 'a4' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
               >
-                <FileText size={15} />
+                <FileText size={14} />
                 <span>GST Tax Invoice (A4)</span>
               </button>
+            </div>
+
+            {/* SINGLE PRIMARY PRINT BUTTON */}
+            <button
+              type="button"
+              onClick={() => {
+                if (preferredPrintFormat === '80mm') {
+                  printRestaurantReceipt(completedOrder, currentHostelDoc);
+                } else {
+                  printRestaurantGstInvoice(completedOrder, currentHostelDoc);
+                }
+              }}
+              className="w-full py-3 px-4 bg-slate-900 hover:bg-black text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Printer size={15} />
+              <span>
+                {preferredPrintFormat === '80mm'
+                  ? (isHindi ? '🖨️ रसीद प्रिंट करें (80mm POS Slip)' : '🖨️ Print 80mm POS Slip')
+                  : (isHindi ? '🖨️ टैक्स इनवॉइस प्रिंट करें (A4 GST)' : '🖨️ Print GST Tax Invoice (A4)')}
+              </span>
+            </button>
+
+            {/* Kitchen KOT & WhatsApp Quick Actions */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => printKitchenKOT(completedOrder, currentHostelDoc)}
+                className="py-2 px-3 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <ChefHat size={14} />
+                <span>{isHindi ? 'किचन पर्ची (KOT)' : 'Kitchen KOT'}</span>
+              </button>
+              <a
+                href={getRestaurantWhatsAppShareUrl(completedOrder, currentHostelDoc)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="py-2 px-3 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 text-center"
+              >
+                <Share2 size={14} />
+                <span>WhatsApp</span>
+              </a>
             </div>
 
             <button
@@ -1134,7 +1526,7 @@ export default function RestaurantPos() {
               }}
               className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all cursor-pointer"
             >
-              {isHindi ? 'पूर्ण / अगला ऑर्डर लें (Next Order)' : 'Done / Take Next Order'}
+              {isHindi ? 'अगला ऑर्डर लें (Enter / Esc)' : 'Take Next Order (Enter / Esc)'}
             </button>
           </div>
         </div>
