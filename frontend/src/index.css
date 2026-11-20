@@ -96,10 +96,23 @@ body {
 
 /* Print optimizations for browser Cmd+P on dashboard / modals */
 @media print {
+  @page {
+    size: A4 landscape;
+    margin: 8mm;
+  }
   body {
     background: #ffffff !important;
+    color: #000000 !important;
   }
-  aside, nav, header, .fixed.inset-0.bg-slate-900\/60, .fixed.inset-0.bg-gray-900\/60 {
+  aside, nav, header, button, .no-print, .fixed.inset-0.bg-slate-900\/60, .fixed.inset-0.bg-gray-900\/60 {
     display: none !important;
+  }
+  #printable-register-sheet {
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-shadow: none !important;
   }
 }
