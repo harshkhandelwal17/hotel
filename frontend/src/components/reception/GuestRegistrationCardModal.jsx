@@ -681,9 +681,9 @@ export default function GuestRegistrationCardModal({
     <div
       id="grc-modal-overlay"
       onClick={handleOverlayClick}
-      className="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-md p-2 sm:p-4 md:p-6 flex items-center justify-center overflow-hidden animate-in fade-in duration-200"
+      className="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-md p-1.5 sm:p-4 md:p-6 flex items-center justify-center overflow-hidden animate-in fade-in duration-200"
     >
-      {/* SCOPED EMBEDDED CSS FOR PERFECT PREVIEW */}
+      {/* SCOPED EMBEDDED CSS FOR PERFECT PREVIEW (DESKTOP + RESPONSIVE MOBILE) */}
       <style>{`
         .grc-sheet {
           box-sizing: border-box;
@@ -937,78 +937,248 @@ export default function GuestRegistrationCardModal({
         .grc-flex {
           display: flex !important;
         }
+
+        /* =========================================================
+           MOBILE & SMALL SCREEN BULLETPROOF RESPONSIVE FIXES
+           Prevents GRC from breaking, squishing, overlapping or bursting
+        ========================================================= */
+        @media (max-width: 640px) {
+          .grc-sheet {
+            padding: 8px 10px !important;
+            font-size: 10px !important;
+            border-width: 1.5px !important;
+            border-radius: 8px !important;
+          }
+          .grc-header-row {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 6px !important;
+            padding-bottom: 6px !important;
+            margin-bottom: 6px !important;
+          }
+          .grc-hotel-name {
+            font-size: 16px !important;
+            line-height: 1.2 !important;
+          }
+          .grc-header-badge {
+            width: 100% !important;
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            padding: 5px 8px !important;
+            text-align: left !important;
+          }
+          .grc-metric-row {
+            grid-template-columns: repeat(3, 1fr) !important;
+            gap: 1px !important;
+            margin-bottom: 6px !important;
+          }
+          .grc-metric-cell {
+            padding: 5px 3px !important;
+          }
+          .grc-metric-label {
+            font-size: 7.5px !important;
+            letter-spacing: 0.02em !important;
+            margin-bottom: 1px !important;
+          }
+          .grc-metric-val {
+            font-size: 10.5px !important;
+          }
+          .grc-box {
+            margin-bottom: 6px !important;
+          }
+          .grc-box-header {
+            padding: 4px 8px !important;
+            font-size: 9px !important;
+          }
+          .grc-guest-card {
+            padding: 6px 8px !important;
+          }
+          .grc-guest-tag {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 4px !important;
+            margin-bottom: 6px !important;
+          }
+          .grc-guest-grid {
+            grid-template-columns: 1fr 1fr !important;
+            gap: 6px 8px !important;
+            font-size: 9.5px !important;
+          }
+          .grc-field-lbl {
+            font-size: 7.5px !important;
+            margin-bottom: 1px !important;
+          }
+          .grc-field-val {
+            font-size: 10px !important;
+          }
+          .grc-address-row {
+            font-size: 9.5px !important;
+            margin-top: 4px !important;
+            padding-top: 4px !important;
+          }
+          .grc-id-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 6px !important;
+            padding: 6px !important;
+          }
+          .grc-id-card {
+            padding: 3px 4px !important;
+          }
+          .grc-id-card-title {
+            font-size: 8px !important;
+            margin-bottom: 2px !important;
+          }
+          .grc-id-card-img-wrap {
+            height: 90px !important;
+          }
+          .grc-id-img {
+            max-height: 84px !important;
+          }
+          .grc-id-placeholder {
+            height: 84px !important;
+            font-size: 8.5px !important;
+            padding: 4px !important;
+          }
+          .grc-decl-box {
+            margin-bottom: 6px !important;
+          }
+          .grc-decl-text {
+            padding: 5px 8px !important;
+            font-size: 8px !important;
+            line-height: 1.35 !important;
+          }
+          .grc-signatures {
+            grid-template-columns: 1fr !important;
+          }
+          .grc-sig-col:first-child {
+            border-right: none !important;
+            border-bottom: 1.5px dashed #cbd5e1 !important;
+          }
+          .grc-sig-col {
+            padding: 6px 8px !important;
+            min-height: 65px !important;
+          }
+          #grc-back-sheet {
+            padding: 8px 10px !important;
+            gap: 6px !important;
+          }
+          .grc-page2-guest-block {
+            padding: 4px 6px !important;
+          }
+          .grc-page2-id-wrap {
+            height: 170px !important;
+          }
+          .grc-page2-id-img {
+            max-height: 164px !important;
+          }
+          .grc-page2-placeholder {
+            height: 164px !important;
+            font-size: 9px !important;
+            padding: 6px !important;
+          }
+        }
       `}</style>
 
       {/* MODAL WRAPPER */}
       <div
         id="grc-modal-card"
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl sm:rounded-3xl max-w-4xl w-full h-[96vh] sm:h-[92vh] max-h-[920px] shadow-2xl border border-gray-200 flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200"
+        className="bg-white rounded-2xl sm:rounded-3xl max-w-4xl w-full h-[98vh] sm:h-[92vh] max-h-[920px] shadow-2xl border border-gray-200 flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200"
       >
-        {/* TOP CONTROL BAR */}
-        <div className="no-print px-4 sm:px-6 py-3 bg-gray-950 text-white flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 border-b border-gray-800 shrink-0 z-30">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30 shrink-0">
-              <ShieldCheck size={18} />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h3 className="text-xs sm:text-base font-black tracking-tight text-white truncate">
-                  {isHindi ? 'अतिथि पंजीकरण पत्र' : 'Guest Registration Card'}
-                </h3>
-                <span className="bg-emerald-500 text-black text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded-full uppercase shrink-0">
-                  {grNumber}
-                </span>
+        {/* TOP CONTROL BAR (RESPONSIVE: 1 ROW ON DESKTOP, COMPACT 2-ROW ON MOBILE) */}
+        <div className="no-print px-3 sm:px-6 py-2.5 sm:py-3 bg-gray-950 text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 border-b border-gray-800 shrink-0 z-30">
+          {/* Row 1 on mobile: Logo + Title + GR Badge + Quick Action Buttons */}
+          <div className="flex items-center justify-between gap-2 min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30 shrink-0">
+                <ShieldCheck size={16} />
               </div>
-              <p className="text-[10px] sm:text-[11px] text-gray-400 font-medium truncate hidden md:block">
-                {isHindi
-                  ? `सत्यापन एवं हस्ताक्षर हेतु A4 प्रिंट · ${guestCount} पंजीकृत अतिथि`
-                  : `A4 Print for physical verification & guest signature · ${guestCount} Registered Guest(s)`}
-              </p>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <h3 className="text-xs sm:text-base font-black tracking-tight text-white truncate">
+                    {isHindi ? 'अतिथि पंजीकरण (GRC)' : 'Guest Registration Card'}
+                  </h3>
+                  <span className="bg-emerald-500 text-black text-[9px] sm:text-[10px] font-black px-1.5 sm:px-2 py-0.5 rounded-full uppercase shrink-0">
+                    {grNumber}
+                  </span>
+                </div>
+                <p className="text-[10px] sm:text-[11px] text-gray-400 font-medium truncate hidden md:block">
+                  {isHindi
+                    ? `सत्यापन एवं हस्ताक्षर हेतु A4 प्रिंट · ${guestCount} पंजीकृत अतिथि`
+                    : `A4 Print for physical verification & guest signature · ${guestCount} Registered Guest(s)`}
+                </p>
+              </div>
+            </div>
+
+            {/* Quick action buttons on mobile right */}
+            <div className="flex items-center gap-1.5 sm:hidden">
+              <button
+                onClick={() => handlePrint(previewTab === 'both' ? 'both' : previewTab)}
+                disabled={isPrinting}
+                type="button"
+                className="px-2.5 py-1 bg-emerald-500 active:bg-emerald-400 text-gray-950 font-black text-[11px] uppercase rounded-lg transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50"
+              >
+                {isPrinting ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <Printer size={12} />
+                )}
+                <span>{isHindi ? 'प्रिंट' : 'Print'}</span>
+              </button>
+              <button
+                onClick={onClose}
+                type="button"
+                className="p-1 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
+                title="Close Preview (Esc)"
+              >
+                <X size={18} />
+              </button>
             </div>
           </div>
 
-          {/* VIEW TAB SWITCHER (Both | Front | Back) */}
-          <div className="bg-gray-900 border border-gray-800 p-0.5 rounded-xl flex items-center gap-1 text-[11px] font-bold">
+          {/* VIEW TAB SWITCHER (Both | Front | Back) — FULL WIDTH 3-COL ON MOBILE, COMPACT ROW ON DESKTOP */}
+          <div className="w-full sm:w-auto bg-gray-900 border border-gray-800 p-0.5 rounded-xl grid grid-cols-3 sm:flex items-center gap-1 text-[10.5px] sm:text-[11px] font-bold">
             <button
               type="button"
               onClick={() => setPreviewTab('both')}
-              className={`px-2.5 sm:px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`px-2 sm:px-3 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer text-center ${
                 previewTab === 'both'
                   ? 'bg-emerald-500 text-gray-950 font-black shadow-sm'
                   : 'text-gray-300 hover:text-white hover:bg-gray-800'
               }`}
             >
-              <Layers size={13} />
+              <Layers size={12} />
               <span>{isHindi ? 'दोनों पृष्ठ' : 'Both Pages'}</span>
             </button>
             <button
               type="button"
               onClick={() => setPreviewTab('front')}
-              className={`px-2.5 sm:px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`px-2 sm:px-3 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer text-center ${
                 previewTab === 'front'
                   ? 'bg-emerald-500 text-gray-950 font-black shadow-sm'
                   : 'text-gray-300 hover:text-white hover:bg-gray-800'
               }`}
             >
-              <FileText size={13} />
+              <FileText size={12} />
               <span>{isHindi ? 'केवल फ्रंट' : 'Front Page'}</span>
             </button>
             <button
               type="button"
               onClick={() => setPreviewTab('back')}
-              className={`px-2.5 sm:px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`px-2 sm:px-3 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer text-center ${
                 previewTab === 'back'
                   ? 'bg-emerald-500 text-gray-950 font-black shadow-sm'
                   : 'text-gray-300 hover:text-white hover:bg-gray-800'
               }`}
             >
-              <ShieldCheck size={13} />
-              <span>{isHindi ? 'बैक साइड (आधार)' : 'Back Side (IDs)'}</span>
+              <ShieldCheck size={12} />
+              <span>{isHindi ? 'बैक साइड' : 'Back IDs'}</span>
             </button>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Desktop Right Actions */}
+          <div className="hidden sm:flex items-center gap-2 shrink-0">
             {displayGuests.some(g => g.isAadhaarVerified) && (
               <div 
                 className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-black text-emerald-400 bg-emerald-950/80 border border-emerald-800"
@@ -1019,7 +1189,6 @@ export default function GuestRegistrationCardModal({
               </div>
             )}
 
-            {/* QUICK PRINT BUTTON MATCHING CURRENT VIEW */}
             <button
               onClick={() => handlePrint(previewTab === 'both' ? 'both' : previewTab)}
               disabled={isPrinting}
@@ -1056,11 +1225,11 @@ export default function GuestRegistrationCardModal({
           </div>
         </div>
 
-        {/* SCROLLABLE PREVIEW CONTAINER */}
+        {/* SCROLLABLE PREVIEW CONTAINER (SMOOTH, CLEAN & CENTERED) */}
         <div 
           id="grc-scroll-container"
           ref={scrollContainerRef}
-          className="flex-1 overflow-y-auto p-3 sm:p-6 pb-6 bg-gray-100 flex flex-col items-center custom-scrollbar"
+          className="flex-1 overflow-y-auto overflow-x-hidden p-2 sm:p-6 pb-6 bg-gray-100 flex flex-col items-center custom-scrollbar"
         >
           
           {/* ====================================================================
@@ -1078,36 +1247,38 @@ export default function GuestRegistrationCardModal({
             {/* 1. HOTEL HEADER & GRC BADGE */}
             <div className="grc-header-row">
               <div style={{ flex: 1, minWidth: 0 }}>
-                <h1 style={{ fontSize: '22px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '-0.02em', color: '#0f172a', margin: 0, lineHeight: 1.15 }}>
+                <h1 className="grc-hotel-name" style={{ fontSize: '20px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '-0.02em', color: '#0f172a', margin: 0, lineHeight: 1.15 }}>
                   {hotelName}
                 </h1>
-                <p style={{ fontSize: '11.5px', fontWeight: 700, color: '#334155', margin: '4px 0 0 0', lineHeight: 1.35 }}>
+                <p style={{ fontSize: '11px', fontWeight: 700, color: '#334155', margin: '3px 0 0 0', lineHeight: 1.35, wordBreak: 'break-word' }}>
                   {hotelAddress}
                 </p>
-                <p style={{ fontSize: '10.5px', fontWeight: 600, color: '#475569', margin: '3px 0 0 0' }}>
+                <p style={{ fontSize: '10px', fontWeight: 600, color: '#475569', margin: '2px 0 0 0' }}>
                   <strong>Contact:</strong> {hotelContact} {hotelEmail ? ` | Email: ${hotelEmail}` : ''}
                 </p>
               </div>
 
               {/* GRC DOCUMENT BADGE */}
-              <div style={{ flexShrink: 0, textAlign: 'right', border: '2px solid #0f172a', borderRadius: '8px', padding: '7px 14px', background: '#f8fafc' }}>
-                <span style={{ display: 'block', fontSize: '10.5px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#0f172a' }}>
-                  {isHindi ? 'अतिथि पंजीकरण पत्र' : 'Guest Registration Card'}
-                </span>
-                <span style={{ display: 'block', fontSize: '14px', fontFamily: 'monospace', fontWeight: 900, color: '#047857', marginTop: '2px' }}>
-                  {grNumber}
-                </span>
-                <span style={{ display: 'block', fontSize: '9px', fontWeight: 700, color: '#64748b', marginTop: '2px' }}>
+              <div className="grc-header-badge" style={{ flexShrink: 0, textAlign: 'right', border: '2px solid #0f172a', borderRadius: '8px', padding: '6px 12px', background: '#f8fafc' }}>
+                <div>
+                  <span style={{ display: 'block', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#0f172a' }}>
+                    {isHindi ? 'अतिथि पंजीकरण पत्र' : 'Guest Registration Card'}
+                  </span>
+                  <span style={{ display: 'block', fontSize: '13px', fontFamily: 'monospace', fontWeight: 900, color: '#047857', marginTop: '1px' }}>
+                    {grNumber}
+                  </span>
+                </div>
+                <span style={{ display: 'block', fontSize: '8.5px', fontWeight: 700, color: '#64748b', marginTop: '1px' }}>
                   {isHindi ? 'पृष्ठ १ · ' : 'Page 1 · '} {formattedGeneratedAt}
                 </span>
               </div>
             </div>
 
-            {/* 2. STAY & ROOM METRIC STRIP (FIXED 6 COLUMNS) */}
+            {/* 2. STAY & ROOM METRIC STRIP (RESPONSIVE: 6 COLS ON DESKTOP, 3x2 ON MOBILE) */}
             <div className="grc-metric-row">
               <div className="grc-metric-cell">
                 <span className="grc-metric-label">{isHindi ? 'कमरा नं.' : 'Room No.'}</span>
-                <span className="grc-metric-val" style={{ fontSize: '16px', color: '#0f172a' }}>{roomData?.roomNumber || '—'}</span>
+                <span className="grc-metric-val" style={{ fontSize: '15px', color: '#0f172a' }}>{roomData?.roomNumber || '—'}</span>
               </div>
               <div className="grc-metric-cell">
                 <span className="grc-metric-label">{isHindi ? 'कमरा प्रकार' : 'Room Type'}</span>
@@ -1116,20 +1287,20 @@ export default function GuestRegistrationCardModal({
                 </span>
               </div>
               <div className="grc-metric-cell">
+                <span className="grc-metric-label">{isHindi ? 'अतिथि' : 'Occupants'}</span>
+                <span className="grc-metric-val">{displayGuests.length || stayData?.occupants || 1} {isHindi ? 'अतिथि' : 'Guest(s)'}</span>
+              </div>
+              <div className="grc-metric-cell">
                 <span className="grc-metric-label">{isHindi ? 'चेक-इन' : 'Check-In'}</span>
-                <span className="grc-metric-val">{formattedCheckIn}</span>
+                <span className="grc-metric-val" style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{formattedCheckIn}</span>
               </div>
               <div className="grc-metric-cell">
                 <span className="grc-metric-label">{isHindi ? 'चेक-आउट' : 'Check-Out'}</span>
-                <span className="grc-metric-val">{formattedCheckOut}</span>
+                <span className="grc-metric-val" style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{formattedCheckOut}</span>
               </div>
               <div className="grc-metric-cell">
                 <span className="grc-metric-label">{isHindi ? 'अवधि' : 'Duration'}</span>
                 <span className="grc-metric-val">{stayData?.durationDays || 1}D {stayData?.durationHours || 0}H</span>
-              </div>
-              <div className="grc-metric-cell">
-                <span className="grc-metric-label">{isHindi ? 'अतिथि' : 'Occupants'}</span>
-                <span className="grc-metric-val">{displayGuests.length || stayData?.occupants || 1} {isHindi ? 'अतिथि' : 'Guest(s)'}</span>
               </div>
             </div>
 
@@ -1153,18 +1324,18 @@ export default function GuestRegistrationCardModal({
                   return (
                     <div key={idx} className="grc-guest-card">
                       <div className="grc-guest-tag">
-                        <span style={{ fontWeight: 800, color: '#0f172a' }}>
-                          <span style={{ background: isLead ? '#0f172a' : '#475569', color: '#fff', fontSize: '9.5px', fontWeight: 900, padding: '2px 7px', borderRadius: '4px', marginRight: '8px' }}>
+                        <span style={{ fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+                          <span style={{ background: isLead ? '#0f172a' : '#475569', color: '#fff', fontSize: '9px', fontWeight: 900, padding: '2px 6px', borderRadius: '4px' }}>
                             {isHindi ? 'अतिथि' : 'Guest'} #{idx + 1}
                           </span>
                           <strong style={{ fontSize: guestNameFontSize, textTransform: 'uppercase', letterSpacing: '0.02em', color: '#0f172a' }}>{guest.fullName || '—'}</strong>
-                          <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700, marginLeft: '6px' }}>
+                          <span style={{ fontSize: '9.5px', color: '#64748b', fontWeight: 700 }}>
                             {isLead
                               ? (isHindi ? '(मुख्य अतिथि)' : '(Primary / Lead Guest)')
                               : (isHindi ? '(सह-अतिथि)' : '(Accompanying Guest)')}
                           </span>
                         </span>
-                        <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '3px 10px', fontSize: '11px', fontWeight: 800, color: '#0f172a' }}>
+                        <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px 8px', fontSize: '10.5px', fontWeight: 800, color: '#0f172a' }}>
                           {guest.idProofType || 'Aadhaar'}: <strong style={{ fontFamily: 'monospace', letterSpacing: '0.05em' }}>{guest.idProofNumber || 'Verified'}</strong>
                         </span>
                       </div>
@@ -1188,7 +1359,7 @@ export default function GuestRegistrationCardModal({
 
                         <div>
                           <span className="grc-field-lbl">{isHindi ? 'पहचान पत्र प्रकार एवं संख्या' : 'ID Document & Number'}</span>
-                          <span className="grc-field-val">
+                          <span className="grc-field-val" style={{ wordBreak: 'break-all' }}>
                             {guest.idProofType || 'Aadhaar'} : <strong style={{ fontFamily: 'monospace', letterSpacing: '0.04em' }}>{guest.idProofNumber || '—'}</strong>
                           </span>
                         </div>
@@ -1203,7 +1374,7 @@ export default function GuestRegistrationCardModal({
                         <span className="grc-field-lbl" style={{ display: 'inline', marginRight: '6px' }}>
                           {isHindi ? 'स्थायी निवास का पता:' : 'Permanent Residential Address:'}
                         </span>
-                        <span style={{ fontWeight: 800, color: '#0f172a' }}>
+                        <span style={{ fontWeight: 800, color: '#0f172a', wordBreak: 'break-word' }}>
                           {guest.address || (isLead ? '—' : (primaryGuest.address || (isHindi ? 'रिसेप्शन पर सत्यापित' : 'Physical Address Verified at Desk')))}
                         </span>
                       </div>
@@ -1268,7 +1439,7 @@ export default function GuestRegistrationCardModal({
             <div className="grc-decl-box">
               {/* POLICY DECLARATION */}
               <div className="grc-decl-text">
-                <strong style={{ display: 'block', textTransform: 'uppercase', color: '#0f172a', fontSize: guestCount >= 3 ? '9px' : '10px', marginBottom: guestCount >= 3 ? '2px' : '4px', letterSpacing: '0.04em' }}>
+                <strong style={{ display: 'block', textTransform: 'uppercase', color: '#0f172a', fontSize: guestCount >= 3 ? '8.5px' : '9.5px', marginBottom: guestCount >= 3 ? '2px' : '3px', letterSpacing: '0.04em' }}>
                   {isHindi ? 'घोषणा एवं अतिथि अभिस्वीकृति:' : 'Declaration & Guest Acknowledgement:'}
                 </strong>
                 {isHindi
@@ -1280,60 +1451,60 @@ export default function GuestRegistrationCardModal({
               <div className="grc-signatures">
                 {/* GUEST SIGNATURE */}
                 <div className="grc-sig-col">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9.5px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#334155' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#334155' }}>
                     <span>{isHindi ? 'अतिथि हस्ताक्षर' : 'Guest Signature'}</span>
-                    <span style={{ fontSize: '9px', color: '#94a3b8', fontFamily: 'monospace' }}>({isHindi ? 'हस्ताक्षर करें' : 'Sign in Box'})</span>
+                    <span style={{ fontSize: '8.5px', color: '#94a3b8', fontFamily: 'monospace' }}>({isHindi ? 'हस्ताक्षर करें' : 'Sign in Box'})</span>
                   </div>
                   
                   {/* Signing zone */}
-                  <div style={{ height: sigHeight, borderBottom: '2px dashed #94a3b8', display: 'flex', alignItems: 'flex-end', paddingBottom: '4px' }}>
-                    <span style={{ fontSize: '10px', fontFamily: 'monospace', color: '#cbd5e1', paddingLeft: '4px' }}>x__________________________________</span>
+                  <div style={{ height: sigHeight, borderBottom: '1.5px dashed #94a3b8', display: 'flex', alignItems: 'flex-end', paddingBottom: '3px' }}>
+                    <span style={{ fontSize: '10px', fontFamily: 'monospace', color: '#94a3b8', paddingLeft: '4px' }}>x</span>
                   </div>
 
-                  <div style={{ marginTop: guestCount >= 2 ? '5px' : '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <span style={{ display: 'block', fontSize: '12px', fontWeight: 900, textTransform: 'uppercase', color: '#0f172a', maxWidth: '260px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ marginTop: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ minWidth: 0, flex: 1, paddingRight: '8px' }}>
+                      <span style={{ display: 'block', fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {displayGuests.map(g => g.fullName).filter(Boolean).join(', ') || 'Registered Guest'}
                       </span>
-                      <span style={{ display: 'block', fontSize: '9px', fontWeight: 700, color: '#64748b' }}>
+                      <span style={{ display: 'block', fontSize: '8.5px', fontWeight: 700, color: '#64748b' }}>
                         {displayGuests.length > 1
                           ? (isHindi ? `सभी पंजीकृत अतिथि (${displayGuests.length})` : `All Registered Guests (${displayGuests.length})`)
                           : (isHindi ? 'मुख्य अतिथि हस्ताक्षर' : 'Primary Guest Signature')}
                       </span>
                     </div>
-                    <span style={{ fontSize: '10px', fontFamily: 'monospace', color: '#64748b', fontWeight: 700 }}>{isHindi ? 'दिनांक:' : 'Date:'} ____________</span>
+                    <span style={{ fontSize: '9.5px', fontFamily: 'monospace', color: '#64748b', fontWeight: 700, flexShrink: 0 }}>{isHindi ? 'दिनांक:' : 'Date:'} ____________</span>
                   </div>
                 </div>
 
                 {/* FRONT DESK / DUTY MANAGER */}
                 <div className="grc-sig-col">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9.5px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#334155' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#334155' }}>
                     <span>{isHindi ? 'होटल रिसेप्शन / ड्यूटी मैनेजर' : 'Front Desk / Duty Manager'}</span>
-                    <span style={{ fontSize: '9px', color: '#94a3b8', fontFamily: 'monospace' }}>({isHindi ? 'सील एवं मोहर' : 'Seal & Stamp'})</span>
+                    <span style={{ fontSize: '8.5px', color: '#94a3b8', fontFamily: 'monospace' }}>({isHindi ? 'सील एवं मोहर' : 'Seal & Stamp'})</span>
                   </div>
                   
                   {/* Stamping zone */}
-                  <div style={{ height: sigHeight, borderBottom: '2px dashed #94a3b8', display: 'flex', alignItems: 'flex-end', paddingBottom: '4px' }}>
-                    <span style={{ fontSize: '10px', fontFamily: 'monospace', color: '#cbd5e1', paddingLeft: '4px' }}>[ {isHindi ? 'आधिकारिक होटल सील / हस्ताक्षर' : 'Official Hotel Seal / Signature'} ]</span>
+                  <div style={{ height: sigHeight, borderBottom: '1.5px dashed #94a3b8', display: 'flex', alignItems: 'flex-end', paddingBottom: '3px' }}>
+                    <span style={{ fontSize: '9.5px', fontFamily: 'monospace', color: '#cbd5e1', paddingLeft: '4px' }}>[ {isHindi ? 'आधिकारिक होटल सील / हस्ताक्षर' : 'Official Hotel Seal / Signature'} ]</span>
                   </div>
 
-                  <div style={{ marginTop: guestCount >= 2 ? '5px' : '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ marginTop: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                      <span style={{ display: 'block', fontSize: '12px', fontWeight: 900, textTransform: 'uppercase', color: '#0f172a' }}>
+                      <span style={{ display: 'block', fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', color: '#0f172a' }}>
                         {isHindi ? 'रिसेप्शन डेस्क' : 'Reception Desk'}
                       </span>
-                      <span style={{ display: 'block', fontSize: '9px', fontWeight: 800, color: '#047857' }}>
+                      <span style={{ display: 'block', fontSize: '8.5px', fontWeight: 800, color: '#047857' }}>
                         {isHindi ? 'सत्यापित एवं चेक-इन पूर्ण' : 'Verified & Checked In'}
                       </span>
                     </div>
-                    <span style={{ fontSize: '10px', fontFamily: 'monospace', color: '#64748b', fontWeight: 700 }}>{isHindi ? 'समय:' : 'Time:'} ____________</span>
+                    <span style={{ fontSize: '9.5px', fontFamily: 'monospace', color: '#64748b', fontWeight: 700, flexShrink: 0 }}>{isHindi ? 'समय:' : 'Time:'} ____________</span>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* CARD SYSTEM FOOTNOTE */}
-            <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px solid #cbd5e1', textAlign: 'center', fontSize: '9px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'monospace' }}>
+            <div style={{ marginTop: '6px', paddingTop: '4px', borderTop: '1px solid #cbd5e1', textAlign: 'center', fontSize: '8.5px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'monospace' }}>
               {isHindi
                 ? 'आधिकारिक अतिथि पंजीकरण पत्र (पृष्ठ १) · NXHotel PMS द्वारा जनरेट'
                 : 'Official Guest Registration Card (Page 1) · Generated digitally via NXHotel PMS'}
@@ -1343,11 +1514,11 @@ export default function GuestRegistrationCardModal({
 
           {/* VISUAL DIVIDER BETWEEN PAGE 1 AND PAGE 2 IN PREVIEW */}
           {previewTab === 'both' && (
-            <div className="no-print my-6 flex items-center justify-center gap-3 w-full max-w-[780px]">
+            <div className="no-print my-4 sm:my-6 flex items-center justify-center gap-3 w-full max-w-[780px]">
               <div className="h-0.5 bg-slate-300 flex-1 border-t border-dashed border-slate-400" />
-              <span className="px-4 py-1.5 bg-slate-900 text-white rounded-full text-[11px] font-black uppercase tracking-wider flex items-center gap-2 shadow-md">
+              <span className="px-3 sm:px-4 py-1 sm:py-1.5 bg-slate-900 text-white rounded-full text-[10px] sm:text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 sm:gap-2 shadow-md">
                 <Layers size={13} className="text-emerald-400" />
-                <span>{isHindi ? 'पृष्ठ २ : पहचान पत्र दस्तावेज़ (बैक साइड प्रिंट)' : 'Page 2 : Identity Proofs (Back Side Print)'}</span>
+                <span>{isHindi ? 'पृष्ठ २ : पहचान पत्र (बैक साइड)' : 'Page 2 : Identity Proofs (Back Side)'}</span>
               </span>
               <div className="h-0.5 bg-slate-300 flex-1 border-t border-dashed border-slate-400" />
             </div>
@@ -1365,19 +1536,19 @@ export default function GuestRegistrationCardModal({
             className="grc-sheet grc-page w-full max-w-[780px] bg-white border-2 border-gray-900 rounded-xl shadow-sm text-left leading-normal flex-col justify-start gap-2.5"
           >
             {/* MINIMAL TRACKING STRIP (ZERO CLUTTER) */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1.5px solid #0f172a', paddingBottom: '6px', marginBottom: '4px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#0f172a' }}>
-                  {isHindi ? 'अतिथि पहचान पत्र दस्तावेज़ (बैक साइड)' : 'Guest Identity Proof Documents (Back Side)'}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1.5px solid #0f172a', paddingBottom: '6px', marginBottom: '4px', flexWrap: 'wrap', gap: '4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '10.5px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#0f172a' }}>
+                  {isHindi ? 'पहचान पत्र दस्तावेज़ (बैक साइड)' : 'Guest Identity Proofs (Back Side)'}
                 </span>
-                <span style={{ background: '#0f172a', color: '#fff', fontSize: '9px', fontWeight: 900, padding: '2px 7px', borderRadius: '4px' }}>
+                <span style={{ background: '#0f172a', color: '#fff', fontSize: '9px', fontWeight: 900, padding: '2px 6px', borderRadius: '4px' }}>
                   {grNumber}
                 </span>
               </div>
-              <div style={{ fontSize: '10px', fontWeight: 800, color: '#334155', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ fontSize: '9.5px', fontWeight: 800, color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span>{isHindi ? 'कमरा:' : 'Room:'} <strong>{roomData?.roomNumber || '—'}</strong></span>
                 <span style={{ color: '#cbd5e1' }}>•</span>
-                <span>{displayGuests.length} {isHindi ? 'पंजीकृत अतिथि' : 'Registered Guest(s)'}</span>
+                <span>{displayGuests.length} {isHindi ? 'पंजीकृत अतिथि' : 'Guest(s)'}</span>
               </div>
             </div>
 
@@ -1400,20 +1571,20 @@ export default function GuestRegistrationCardModal({
                     }}
                   >
                     {/* Guest Identifier Row */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ background: isLead ? '#0f172a' : '#475569', color: '#fff', fontSize: '9.5px', fontWeight: 900, padding: '2px 8px', borderRadius: '4px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '4px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ background: isLead ? '#0f172a' : '#475569', color: '#fff', fontSize: '9px', fontWeight: 900, padding: '2px 6px', borderRadius: '4px' }}>
                           {isHindi ? 'अतिथि' : 'Guest'} #{gIdx + 1}
                         </span>
-                        <span style={{ fontSize: guestCount === 1 ? '14px' : (guestCount >= 3 ? '12px' : '13px'), fontWeight: 900, textTransform: 'uppercase', color: '#0f172a', letterSpacing: '0.02em' }}>
+                        <span style={{ fontSize: guestCount === 1 ? '13px' : '12px', fontWeight: 900, textTransform: 'uppercase', color: '#0f172a', letterSpacing: '0.02em' }}>
                           {guest.fullName || '—'}
                         </span>
-                        <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>
-                          {isLead ? (isHindi ? '(मुख्य अतिथि)' : '(Primary Guest)') : (isHindi ? '(सह-अतिथि)' : '(Accompanying)')}
+                        <span style={{ fontSize: '9px', color: '#64748b', fontWeight: 700 }}>
+                          {isLead ? (isHindi ? '(मुख्य अतिथि)' : '(Primary)') : (isHindi ? '(सह-अतिथि)' : '(Accompanying)')}
                         </span>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10.5px', fontWeight: 800 }}>
-                        <span style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px 8px', color: '#0f172a' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '9.5px', fontWeight: 800 }}>
+                        <span style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px 6px', color: '#0f172a' }}>
                           {guest.idProofType || 'Aadhaar'}: <strong style={{ fontFamily: 'monospace', letterSpacing: '0.04em' }}>{guest.idProofNumber || 'Verified'}</strong>
                         </span>
                         {guest.mobileNumber && (
@@ -1429,14 +1600,14 @@ export default function GuestRegistrationCardModal({
                       style={{ 
                         display: 'grid', 
                         gridTemplateColumns: guestCount === 1 ? '1fr' : '1fr 1fr', 
-                        gap: guestCount === 1 ? '12px' : '10px' 
+                        gap: guestCount === 1 ? '12px' : '8px' 
                       }}
                     >
                       {/* Front Side Card */}
-                      <div style={{ border: '1.5px solid #cbd5e1', borderRadius: '8px', padding: '6px', background: '#ffffff', textAlign: 'center' }}>
-                        <div style={{ fontSize: '9.5px', fontWeight: 900, textTransform: 'uppercase', color: '#0f172a', marginBottom: '4px', letterSpacing: '0.03em', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px' }}>
-                          <span>{guest.fullName || 'Guest'} — {isHindi ? 'सामने का भाग (Front ID)' : 'Front Side ID'}</span>
-                          <span style={{ fontSize: '8.5px', color: '#047857', fontWeight: 800 }}>{guest.idProofType || 'Aadhaar'}</span>
+                      <div style={{ border: '1.5px solid #cbd5e1', borderRadius: '8px', padding: '5px', background: '#ffffff', textAlign: 'center' }}>
+                        <div style={{ fontSize: '9px', fontWeight: 900, textTransform: 'uppercase', color: '#0f172a', marginBottom: '3px', letterSpacing: '0.03em', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 2px' }}>
+                          <span>{guest.fullName || 'Guest'} — {isHindi ? 'सामने का भाग' : 'Front ID'}</span>
+                          <span style={{ fontSize: '8px', color: '#047857', fontWeight: 800 }}>{guest.idProofType || 'Aadhaar'}</span>
                         </div>
                         <div className="grc-page2-id-wrap">
                           {frontUrl ? (
@@ -1453,8 +1624,8 @@ export default function GuestRegistrationCardModal({
                             />
                           ) : null}
                           <div className={`grc-page2-placeholder ${frontUrl ? 'grc-hidden' : 'grc-flex'}`}>
-                            <ShieldCheck size={28} className="text-gray-400 mb-1" />
-                            <span style={{ fontSize: '11px', fontWeight: 800 }}>
+                            <ShieldCheck size={24} className="text-gray-400 mb-1" />
+                            <span style={{ fontSize: '10px', fontWeight: 800 }}>
                               [ {isHindi ? 'सामने का पहचान पत्र रिसेप्शन पर भौतिक रूप से सत्यापित' : 'Front ID Physically Verified at Reception'} ]
                             </span>
                           </div>
@@ -1462,10 +1633,10 @@ export default function GuestRegistrationCardModal({
                       </div>
 
                       {/* Back Side Card */}
-                      <div style={{ border: '1.5px solid #cbd5e1', borderRadius: '8px', padding: '6px', background: '#ffffff', textAlign: 'center' }}>
-                        <div style={{ fontSize: '9.5px', fontWeight: 900, textTransform: 'uppercase', color: '#0f172a', marginBottom: '4px', letterSpacing: '0.03em', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px' }}>
-                          <span>{guest.fullName || 'Guest'} — {isHindi ? 'पीछे का भाग (Back ID)' : 'Back Side ID'}</span>
-                          <span style={{ fontSize: '8.5px', color: '#047857', fontWeight: 800 }}>{guest.idProofType || 'Aadhaar'}</span>
+                      <div style={{ border: '1.5px solid #cbd5e1', borderRadius: '8px', padding: '5px', background: '#ffffff', textAlign: 'center' }}>
+                        <div style={{ fontSize: '9px', fontWeight: 900, textTransform: 'uppercase', color: '#0f172a', marginBottom: '3px', letterSpacing: '0.03em', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 2px' }}>
+                          <span>{guest.fullName || 'Guest'} — {isHindi ? 'पीछे का भाग' : 'Back ID'}</span>
+                          <span style={{ fontSize: '8px', color: '#047857', fontWeight: 800 }}>{guest.idProofType || 'Aadhaar'}</span>
                         </div>
                         <div className="grc-page2-id-wrap">
                           {backUrl ? (
@@ -1482,8 +1653,8 @@ export default function GuestRegistrationCardModal({
                             />
                           ) : null}
                           <div className={`grc-page2-placeholder ${backUrl ? 'grc-hidden' : 'grc-flex'}`}>
-                            <ShieldCheck size={28} className="text-gray-400 mb-1" />
-                            <span style={{ fontSize: '11px', fontWeight: 800 }}>
+                            <ShieldCheck size={24} className="text-gray-400 mb-1" />
+                            <span style={{ fontSize: '10px', fontWeight: 800 }}>
                               [ {isHindi ? 'पीछे का पहचान पत्र रिसेप्शन पर भौतिक रूप से सत्यापित' : 'Back ID Physically Verified at Reception'} ]
                             </span>
                           </div>
@@ -1498,9 +1669,10 @@ export default function GuestRegistrationCardModal({
 
         </div>
 
-        {/* BOTTOM ACTION BAR (PINNED, ALWAYS VISIBLE) */}
-        <div className="no-print px-4 sm:px-6 py-3.5 bg-white border-t border-slate-200/90 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 shrink-0 z-30">
-          <div className="flex items-center gap-2">
+        {/* BOTTOM ACTION BAR (RESPONSIVE: COMPACT MOBILE STACK, SPACED DESKTOP BAR) */}
+        <div className="no-print px-3 sm:px-6 py-2.5 sm:py-3.5 bg-white border-t border-slate-200/90 flex flex-col sm:flex-row items-center justify-between gap-2 shrink-0 z-30">
+          {/* Desktop Left: Close & Tip */}
+          <div className="hidden sm:flex items-center gap-2">
             <button
               onClick={onClose}
               type="button"
@@ -1515,74 +1687,92 @@ export default function GuestRegistrationCardModal({
             </p>
           </div>
 
-          <div className="flex items-center gap-2 ml-auto w-full sm:w-auto justify-end flex-wrap sm:flex-nowrap">
-            {getWhatsAppWelcomeUrl() && (
-              <a
-                href={getWhatsAppWelcomeUrl()}
-                target="_blank"
-                rel="noreferrer"
-                className="flex-1 sm:flex-initial px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer text-center"
-                title="Send check-in confirmation and front desk contact on guest's WhatsApp"
-              >
-                <MessageSquare size={14} />
-                <span>{isHindi ? 'व्हाट्सएप स्वागत' : 'WhatsApp'}</span>
-              </a>
-            )}
-
-            {onProceedToDashboard && (
+          {/* Action Buttons: 2-Row Stack on Mobile, Flex on Desktop */}
+          <div className="w-full sm:w-auto flex flex-col sm:flex-row items-center gap-1.5 sm:gap-2">
+            {/* Row 1 on mobile: The 2 Core Print Actions */}
+            <div className="w-full sm:w-auto flex items-center gap-1.5 sm:gap-2">
+              {/* MASTER BOTH PAGES (DUPLEX) PRINT BUTTON */}
               <button
-                onClick={onProceedToDashboard}
+                onClick={() => handlePrint('both')}
+                disabled={isPrinting}
                 type="button"
-                className="flex-1 sm:flex-initial px-3.5 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer text-center shadow-2xs"
+                className="flex-1 sm:flex-initial px-3 sm:px-6 py-2 sm:py-2.5 bg-slate-900 active:bg-slate-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 text-center"
+                title="Print Page 1 + Page 2 (Auto 2-sided duplex or 2-page print)"
               >
-                {isHindi ? 'डैशबोर्ड' : 'Dashboard'}
+                {isPrinting ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    <span>{isHindi ? 'प्रिंट तैयारी...' : 'Preparing...'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Printer size={14} className="text-emerald-400" />
+                    <span>{isHindi ? '📑 दोनों पृष्ठ प्रिंट' : 'Print Both'}</span>
+                  </>
+                )}
               </button>
-            )}
 
-            {/* SEPARATE FRONT ONLY PRINT BUTTON */}
-            <button
-              onClick={() => handlePrint('front')}
-              disabled={isPrinting}
-              type="button"
-              className="flex-1 sm:flex-initial px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs uppercase tracking-wider rounded-xl transition-all border border-slate-300 flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer disabled:opacity-50"
-              title="Print only Page 1 (Front GRC Form)"
-            >
-              <FileText size={14} />
-              <span>{isHindi ? 'केवल फ्रंट' : 'Front Only'}</span>
-            </button>
+              {/* SEPARATE BACK ONLY PRINT BUTTON (FOR PHYSICAL BACK-OF-PAGE PRINTING) */}
+              <button
+                onClick={() => handlePrint('back')}
+                disabled={isPrinting}
+                type="button"
+                className="flex-1 sm:flex-initial px-3 sm:px-3.5 py-2 sm:py-2.5 bg-sky-50 active:bg-sky-100 text-sky-800 font-black text-xs uppercase tracking-wider rounded-xl transition-all border border-sky-300 shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 text-center"
+                title="Print all Aadhaar / ID cards on the back side of the already-printed GRC paper"
+              >
+                <ShieldCheck size={14} className="text-sky-600" />
+                <span>{isHindi ? '🪪 बैक साइड' : '🪪 Back (IDs)'}</span>
+              </button>
+            </div>
 
-            {/* SEPARATE BACK ONLY PRINT BUTTON (FOR PHYSICAL BACK-OF-PAGE PRINTING) */}
-            <button
-              onClick={() => handlePrint('back')}
-              disabled={isPrinting}
-              type="button"
-              className="flex-1 sm:flex-initial px-3.5 py-2.5 bg-sky-50 hover:bg-sky-100 text-sky-800 font-black text-xs uppercase tracking-wider rounded-xl transition-all border border-sky-300 shadow-xs flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer disabled:opacity-50"
-              title="Print all Aadhaar / ID cards on the back side of the already-printed GRC paper"
-            >
-              <ShieldCheck size={14} className="text-sky-600" />
-              <span>{isHindi ? '🪪 बैक साइड प्रिंट' : '🪪 Back Side (IDs)'}</span>
-            </button>
+            {/* Row 2 on mobile: Utility Actions (Front Only, WhatsApp, Dashboard, Mobile Close) */}
+            <div className="w-full sm:w-auto flex items-center gap-1 sm:gap-2 justify-between">
+              {/* Front Only */}
+              <button
+                onClick={() => handlePrint('front')}
+                disabled={isPrinting}
+                type="button"
+                className="flex-1 sm:flex-initial px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-[11px] sm:text-xs uppercase tracking-wider rounded-lg sm:rounded-xl transition-all border border-slate-300 flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 text-center"
+                title="Print only Page 1 (Front GRC Form)"
+              >
+                <FileText size={12} />
+                <span>{isHindi ? 'केवल फ्रंट' : 'Front Only'}</span>
+              </button>
 
-            {/* MASTER BOTH PAGES (DUPLEX) PRINT BUTTON */}
-            <button
-              onClick={() => handlePrint('both')}
-              disabled={isPrinting}
-              type="button"
-              className="flex-1 sm:flex-initial px-5 sm:px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer disabled:opacity-50"
-              title="Print Page 1 + Page 2 (Auto 2-sided duplex or 2-page print)"
-            >
-              {isPrinting ? (
-                <>
-                  <Loader2 size={15} className="animate-spin" />
-                  <span>{isHindi ? 'प्रिंट तैयारी...' : 'Preparing...'}</span>
-                </>
-              ) : (
-                <>
-                  <Printer size={15} className="text-emerald-400" />
-                  <span>{isHindi ? '📑 दोनों पृष्ठ प्रिंट' : 'Print Both (Duplex)'}</span>
-                </>
+              {/* WhatsApp Welcome */}
+              {getWhatsAppWelcomeUrl() && (
+                <a
+                  href={getWhatsAppWelcomeUrl()}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex-1 sm:flex-initial px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] sm:text-xs uppercase tracking-wider rounded-lg sm:rounded-xl transition-all shadow-xs flex items-center justify-center gap-1 cursor-pointer text-center"
+                  title="Send check-in confirmation on guest's WhatsApp"
+                >
+                  <MessageSquare size={12} />
+                  <span>{isHindi ? 'व्हाट्सएप' : 'WhatsApp'}</span>
+                </a>
               )}
-            </button>
+
+              {/* Dashboard */}
+              {onProceedToDashboard && (
+                <button
+                  onClick={onProceedToDashboard}
+                  type="button"
+                  className="flex-1 sm:flex-initial px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-[11px] sm:text-xs uppercase tracking-wider rounded-lg sm:rounded-xl transition-all cursor-pointer text-center shadow-2xs"
+                >
+                  {isHindi ? 'डैशबोर्ड' : 'Dashboard'}
+                </button>
+              )}
+
+              {/* Mobile Close Button */}
+              <button
+                onClick={onClose}
+                type="button"
+                className="sm:hidden px-2.5 py-1.5 bg-slate-100 text-slate-600 font-bold text-[11px] uppercase rounded-lg border border-slate-200"
+              >
+                {isHindi ? 'बंद' : 'Close'}
+              </button>
+            </div>
           </div>
         </div>
 
