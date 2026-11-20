@@ -1078,13 +1078,9 @@ exports.cancelAndRefundStay = async (req, res, next) => {
 
     await stay.save();
 
-    // 2. Mark Room status & Housekeeping
-    if (stay.room) {
-      const roomUpdate = {};
-      if (markRoomDirty !== false) {
-        roomUpdate.housekeepingStatus = 'dirty';
-      }
-      await Room.findByIdAndUpdate(stay.room, { $set: roomUpdate }).catch(() => {});
+    // 2. Mark Room status & Housekeeping (only if explicitly requested by user)
+    if (stay.room && markRoomDirty === true) {
+      await Room.findByIdAndUpdate(stay.room, { $set: { housekeepingStatus: 'dirty' } }).catch(() => {});
     }
 
     // 3. Create Official Refund Expense if refundAmount > 0
@@ -1145,12 +1141,36 @@ exports.cancelAndRefundStay = async (req, res, next) => {
         } catch (regErr) {
           console.warn('[cancelAndRefundStay] DailyRegister direct sync warning:', regErr.message);
         }
+        // 5. If refund is to Wallet or Khata, credit guest ledger balance
+        if (stay.guest && refundAmount > 0 && (pMethod === 'Wallet' || pMethod === 'Khata')) {
+          try {
+            const GuestLedger = require('../models/GuestLedger');
+            const guestDoc = await Guest.findById(stay.guest);
+            if (guestDoc) {
+              guestDoc.ledgerBalance = Math.round(((Number(guestDoc.ledgerBalance) || 0) + refundAmount) * 100) / 100;
+              await guestDoc.save();
+              await GuestLedger.create({
+                guest: guestDoc._id,
+                hostel: stay.hostel,
+                stay: stay._id,
+                entryType: 'REFUND',
+                amount: refundAmount,
+                balanceAfter: guestDoc.ledgerBalance,
+                paymentMethod: pMethod,
+                description: `Cancellation refund: ₹${refundAmount} (${pMethod}) for Room ${rNum}`,
+                createdBy: req.user._id
+              });
+            }
+          } catch (lErr) {
+            console.warn('[cancelAndRefundStay] Ledger credit error:', lErr.message);
+          }
+        }
       } catch (expErr) {
         console.error('[cancelAndRefundStay] Expense creation error:', expErr);
       }
     }
 
-    // 5. Update multi-room group count if applicable
+    // 6. Update multi-room group count if applicable
     if (stay.groupId) {
       const remainingCount = await Stay.countDocuments({
         groupId: stay.groupId,
