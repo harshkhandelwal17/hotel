@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '../../components/ui/Toast';
 import { useAuth } from '../../context/AuthContext';
+import { printDailyRegister, exportDailyRegisterToCSV } from '../../utils/dailyRegisterPrint';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
 
@@ -56,6 +57,12 @@ export default function DailyRegister() {
 
   const roomInputRef = useRef(null);
 
+  const activeHostelId = useMemo(() => {
+    if (!selectedHostel) return '';
+    if (typeof selectedHostel === 'object') return selectedHostel._id || '';
+    return String(selectedHostel);
+  }, [selectedHostel]);
+
   // Fetch Hostels for property selector
   useEffect(() => {
     axios.get(`${API}/api/hostels`)
@@ -63,7 +70,9 @@ export default function DailyRegister() {
         const list = res.data?.data || [];
         setHostels(list);
         if (list.length > 0) {
-          const defaultH = user?.assignedHostel || list[0]._id;
+          const userH = user?.assignedHostel;
+          const userHostelId = typeof userH === 'object' ? userH?._id : userH;
+          const defaultH = (userHostelId && list.some(h => h._id === userHostelId)) ? userHostelId : list[0]._id;
           setSelectedHostel(defaultH);
         }
       })
@@ -71,11 +80,12 @@ export default function DailyRegister() {
   }, [user]);
 
   // Fetch Daily Register
-  const fetchRegister = async (date = currentDate, hostelId = selectedHostel) => {
-    if (!hostelId) return;
+  const fetchRegister = async (date = currentDate, hostelId = activeHostelId) => {
+    const cleanId = typeof hostelId === 'object' ? hostelId?._id : hostelId;
+    if (!cleanId || cleanId === '[object Object]') return;
     setLoading(true);
     try {
-      const res = await axios.get(`${API}/api/daily-register?hostel=${hostelId}&date=${date}`);
+      const res = await axios.get(`${API}/api/daily-register?hostel=${cleanId}&date=${date}`);
       if (res.data?.success) {
         setRegisterData(res.data.data);
         setSummary(res.data.summary);
@@ -93,10 +103,10 @@ export default function DailyRegister() {
   };
 
   useEffect(() => {
-    if (selectedHostel) {
-      fetchRegister(currentDate, selectedHostel);
+    if (activeHostelId && activeHostelId !== '[object Object]') {
+      fetchRegister(currentDate, activeHostelId);
     }
-  }, [currentDate, selectedHostel]);
+  }, [currentDate, activeHostelId]);
 
   // Date Navigation
   const handlePrevDay = () => {
@@ -115,11 +125,11 @@ export default function DailyRegister() {
 
   // Sync System Stays & Expenses into Register
   const handleSyncSystem = async () => {
-    if (!selectedHostel) return;
+    if (!activeHostelId) return;
     setSyncing(true);
     try {
       const res = await axios.post(`${API}/api/daily-register/sync`, {
-        hostel: selectedHostel,
+        hostel: activeHostelId,
         date: currentDate
       });
       if (res.data?.success) {
@@ -136,9 +146,10 @@ export default function DailyRegister() {
 
   // Save Opening Balance
   const handleSaveOpeningBal = async () => {
+    if (!activeHostelId) return;
     try {
       const res = await axios.put(`${API}/api/daily-register/opening-balance`, {
-        hostel: selectedHostel,
+        hostel: activeHostelId,
         date: currentDate,
         openingBalance: Number(tempOpeningBal) || 0
       });
@@ -155,9 +166,10 @@ export default function DailyRegister() {
 
   // Save Header Mantras
   const handleSaveMantras = async () => {
+    if (!activeHostelId) return;
     try {
       const res = await axios.put(`${API}/api/daily-register/mantras`, {
-        hostel: selectedHostel,
+        hostel: activeHostelId,
         date: currentDate,
         headerMantraLeft: tempMantras.left,
         headerMantraCenter: tempMantras.center,
@@ -193,7 +205,7 @@ export default function DailyRegister() {
 
     try {
       const payload = {
-        hostel: selectedHostel,
+        hostel: activeHostelId,
         date: currentDate,
         roomNo: quickRow.roomNo,
         bid: quickRow.bid,
@@ -286,7 +298,7 @@ export default function DailyRegister() {
   const handleDeleteEntry = async (entryId) => {
     if (!window.confirm('Delete this register entry?')) return;
     try {
-      const res = await axios.delete(`${API}/api/daily-register/entry/${entryId}?hostel=${selectedHostel}&date=${currentDate}`);
+      const res = await axios.delete(`${API}/api/daily-register/entry/${entryId}?hostel=${activeHostelId}&date=${currentDate}`);
       if (res.data?.success) {
         setRegisterData(res.data.data);
         setSummary(res.data.summary);
@@ -297,35 +309,14 @@ export default function DailyRegister() {
     }
   };
 
-  // Export CSV
+  // Print & PDF Handler
+  const handlePrint = () => {
+    printDailyRegister(registerData, summary, activeHostelName, currentDate);
+  };
+
+  // Export CSV / Excel Handler
   const handleExportCSV = () => {
-    if (!registerData) return;
-    const entries = registerData.entries || [];
-    let csv = `Date,Room N.,B.I.D,Guest Name / Particulars,CASH,CARD,Fab / Online / UPI,Food CASH,E X P,Amt\n`;
-
-    // Row 1: Opening Bal
-    csv += `${currentDate},—,—,Opening Bal.,${summary?.openingBalance || 0},0,0,0,—,0\n`;
-
-    entries.forEach(e => {
-      const r = (e.roomNo || '').replace(/,/g, ' ');
-      const b = (e.bid || '').replace(/,/g, ' ');
-      const g = (e.guestName || '').replace(/,/g, ' ');
-      const expT = (e.expenseTitle || '').replace(/,/g, ' ');
-      csv += `${currentDate},${r},${b},"${g}",${e.cashAmount || 0},${e.cardAmount || 0},${e.onlineAmount || 0},${e.foodCashAmount || 0},"${expT}",${e.expenseAmount || 0}\n`;
-    });
-
-    // Totals
-    csv += `TOTALS,—,—,—,${summary?.totalCash || 0},${summary?.totalCard || 0},${summary?.totalOnline || 0},${summary?.totalFoodCash || 0},—,${summary?.totalExpense || 0}\n`;
-    csv += `CLOSING CASH IN HAND,—,—,—,${summary?.closingCash || 0},—,—,—,—,—\n`;
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `Daily_Register_${currentDate}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    exportDailyRegisterToCSV(registerData, summary, activeHostelName, currentDate);
   };
 
   const activeHostelName = useMemo(() => {
@@ -432,25 +423,37 @@ export default function DailyRegister() {
             <span>{syncing ? 'Syncing...' : 'Auto-Sync Stays'}</span>
           </button>
 
-          {/* 🖨️ Clean A4 Print Preview */}
+          {/* 🖨️ Direct Print / Save PDF */}
+          <button
+            type="button"
+            onClick={handlePrint}
+            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+            title="Open Clean A4 Printable Sheet & Save as PDF"
+          >
+            <Printer size={13} />
+            <span>Print / PDF (A4)</span>
+          </button>
+
+          {/* 👁️ Preview On-Screen */}
           <button
             type="button"
             onClick={() => setPrintPreviewOpen(true)}
             className="px-3 py-1.5 bg-gray-900 hover:bg-black text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
-            title="Open Clean A4 Printable Register View"
+            title="Preview Ledger Sheet On-Screen"
           >
-            <Printer size={13} />
-            <span>Print Register (A4)</span>
+            <Eye size={13} />
+            <span>Preview</span>
           </button>
 
           {/* 📥 Excel / CSV */}
           <button
             type="button"
             onClick={handleExportCSV}
-            className="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors cursor-pointer"
+            className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold uppercase rounded-xl transition-colors cursor-pointer flex items-center gap-1"
             title="Download Excel / CSV Sheet"
           >
-            <Download size={15} />
+            <Download size={14} />
+            <span>Excel / CSV</span>
           </button>
         </div>
       </div>
@@ -900,11 +903,19 @@ export default function DailyRegister() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => window.print()}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md cursor-pointer flex items-center gap-1.5"
+                  onClick={handlePrint}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md cursor-pointer flex items-center gap-1.5 active:scale-95 transition-transform"
                 >
                   <Printer size={14} />
                   <span>Print / Save PDF</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportCSV}
+                  className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs uppercase tracking-wider rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <Download size={14} />
+                  <span>Excel / CSV</span>
                 </button>
                 <button 
                   type="button" 

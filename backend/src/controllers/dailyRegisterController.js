@@ -13,6 +13,46 @@ function getTodayIST() {
   return istDate.toISOString().split('T')[0];
 }
 
+// Helper to safely extract a valid ObjectId string for Hostel
+async function resolveTargetHostel(inputHostel, reqUser) {
+  const extract = (val) => {
+    if (!val) return null;
+    if (typeof val === 'object') {
+      if (val._id) return val._id.toString();
+      if (val.id) return val.id.toString();
+      return null;
+    }
+    if (typeof val === 'string') {
+      const s = val.trim();
+      if (!s || s === '[object Object]' || s === 'all' || s === 'undefined' || s === 'null') {
+        return null;
+      }
+      return s;
+    }
+    return null;
+  };
+
+  let id = extract(inputHostel) || extract(reqUser?.assignedHostel);
+  if (id && mongoose.Types.ObjectId.isValid(id)) {
+    return id;
+  }
+
+  // If user is owner/admin, find first hostel owned by them
+  if (reqUser) {
+    const uid = reqUser.id || reqUser._id;
+    if (uid && mongoose.Types.ObjectId.isValid(uid)) {
+      const owned = await Hostel.findOne({ owner: uid }).select('_id');
+      if (owned) return owned._id.toString();
+    }
+  }
+
+  // Fallback to first available hostel in database
+  const anyHostel = await Hostel.findOne().select('_id');
+  if (anyHostel) return anyHostel._id.toString();
+
+  return null;
+}
+
 // Helper to calculate previous day closing cash
 async function calculatePreviousClosingCash(hostelId, currentDateStr) {
   const prevDoc = await DailyRegister.findOne({
@@ -90,17 +130,7 @@ function computeSummary(registerDoc) {
 exports.getRegister = async (req, res, next) => {
   try {
     const { hostel, date } = req.query;
-    let targetHostel = hostel || req.user.assignedHostel;
-
-    if (!targetHostel || targetHostel === 'all') {
-      // Pick first hostel user has access to
-      if (req.user.role === 'admin') {
-        const h = await Hostel.findOne({ owner: req.user.id });
-        if (h) targetHostel = h._id;
-      } else {
-        targetHostel = req.user.assignedHostel;
-      }
-    }
+    const targetHostel = await resolveTargetHostel(hostel, req.user);
 
     if (!targetHostel) {
       return res.status(400).json({ success: false, message: 'Property/Hostel ID is required' });
@@ -152,7 +182,10 @@ exports.getRegister = async (req, res, next) => {
 exports.updateOpeningBalance = async (req, res, next) => {
   try {
     const { hostel, date, openingBalance } = req.body;
-    let targetHostel = hostel || req.user.assignedHostel;
+    const targetHostel = await resolveTargetHostel(hostel, req.user);
+    if (!targetHostel) {
+      return res.status(400).json({ success: false, message: 'Property/Hostel ID is required' });
+    }
     const queryDate = date || getTodayIST();
 
     let register = await DailyRegister.findOne({
@@ -191,7 +224,10 @@ exports.updateOpeningBalance = async (req, res, next) => {
 exports.updateHeaderMantras = async (req, res, next) => {
   try {
     const { hostel, date, headerMantraLeft, headerMantraCenter, headerMantraRight } = req.body;
-    let targetHostel = hostel || req.user.assignedHostel;
+    const targetHostel = await resolveTargetHostel(hostel, req.user);
+    if (!targetHostel) {
+      return res.status(400).json({ success: false, message: 'Property/Hostel ID is required' });
+    }
     const queryDate = date || getTodayIST();
 
     let register = await DailyRegister.findOne({ hostel: targetHostel, date: queryDate });
@@ -245,7 +281,10 @@ exports.addEntry = async (req, res, next) => {
       source
     } = req.body;
 
-    let targetHostel = hostel || req.user.assignedHostel;
+    const targetHostel = await resolveTargetHostel(hostel, req.user);
+    if (!targetHostel) {
+      return res.status(400).json({ success: false, message: 'Property/Hostel ID is required' });
+    }
     const queryDate = date || getTodayIST();
 
     let register = await DailyRegister.findOne({ hostel: targetHostel, date: queryDate });
@@ -316,7 +355,10 @@ exports.updateEntry = async (req, res, next) => {
       notes
     } = req.body;
 
-    let targetHostel = hostel || req.user.assignedHostel;
+    const targetHostel = await resolveTargetHostel(hostel, req.user);
+    if (!targetHostel) {
+      return res.status(400).json({ success: false, message: 'Property/Hostel ID is required' });
+    }
     const queryDate = date || getTodayIST();
 
     const register = await DailyRegister.findOne({ hostel: targetHostel, date: queryDate });
@@ -362,7 +404,10 @@ exports.deleteEntry = async (req, res, next) => {
   try {
     const { entryId } = req.params;
     const { hostel, date } = req.query;
-    let targetHostel = hostel || req.user.assignedHostel;
+    const targetHostel = await resolveTargetHostel(hostel, req.user);
+    if (!targetHostel) {
+      return res.status(400).json({ success: false, message: 'Property/Hostel ID is required' });
+    }
     const queryDate = date || getTodayIST();
 
     const register = await DailyRegister.findOne({ hostel: targetHostel, date: queryDate });
@@ -390,7 +435,10 @@ exports.deleteEntry = async (req, res, next) => {
 exports.syncFromSystem = async (req, res, next) => {
   try {
     const { hostel, date } = req.body;
-    let targetHostel = hostel || req.user.assignedHostel;
+    const targetHostel = await resolveTargetHostel(hostel, req.user);
+    if (!targetHostel) {
+      return res.status(400).json({ success: false, message: 'Property/Hostel ID is required' });
+    }
     const queryDate = date || getTodayIST();
 
     let register = await DailyRegister.findOne({ hostel: targetHostel, date: queryDate });
@@ -528,7 +576,7 @@ exports.syncFromSystem = async (req, res, next) => {
 exports.getMonthlySummary = async (req, res, next) => {
   try {
     const { hostel, yearMonth } = req.query; // format: "YYYY-MM", e.g. "2026-11"
-    let targetHostel = hostel || req.user.assignedHostel;
+    const targetHostel = await resolveTargetHostel(hostel, req.user);
 
     if (!targetHostel) {
       return res.status(400).json({ success: false, message: 'Hostel is required' });
