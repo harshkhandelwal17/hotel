@@ -1,10 +1,34 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { useOutletContext, Link } from 'react-router-dom';
+import { useOutletContext, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Users, Clock, CheckCircle2, Wrench, BedDouble, RefreshCw, Search, Sparkles, Building2 } from 'lucide-react';
+import {
+  Users,
+  Clock,
+  CheckCircle2,
+  Wrench,
+  BedDouble,
+  RefreshCw,
+  Search,
+  Sparkles,
+  Building2,
+  Phone,
+  MessageSquare,
+  ArrowRight,
+  Layers,
+  Filter,
+  Check,
+  AlertTriangle,
+  Zap,
+  DollarSign,
+  TrendingUp,
+  UserCheck
+} from 'lucide-react';
 import { format, isPast } from 'date-fns';
 import { apiCache } from '../../utils/apiCache';
+import { useLanguage } from '../../context/LanguageContext';
+import { getStayWhatsAppUrl } from '../../utils/whatsapp';
+import StayManageModal from './StayManageModal';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
 
@@ -13,8 +37,12 @@ const RoomsView = () => {
   const [activeStays, setActiveStays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState('all'); // 'all' | 'available' | 'occupied' | 'dirty' | 'maintenance'
+  const [selectedFloor, setSelectedFloor] = useState('all');
+  const [selectedStayForManage, setSelectedStayForManage] = useState(null);
   const { globalProperty } = useOutletContext() || { globalProperty: 'all' };
+  const { isHindi, t } = useLanguage();
+  const navigate = useNavigate();
 
   const [housekeepingStatus, setHousekeepingStatus] = useState({});
   const [seedingRooms, setSeedingRooms] = useState(false);
@@ -65,7 +93,14 @@ const RoomsView = () => {
   const [mText, setMText] = useState('');
   const [mBusy, setMBusy] = useState(false);
   const [mError, setMError] = useState('');
-  const REASONS = ['AC not working', 'Water leakage', 'Electrical / TV', 'Plumbing', 'Pest / Cleaning', 'Furniture repair'];
+  const REASONS = [
+    'AC not working',
+    'Water leakage / Plumbing',
+    'Electrical / TV issue',
+    'Deep cleaning required',
+    'Furniture repair',
+    'Door lock / Key issue'
+  ];
 
   useEffect(() => {
     if (mDialog) {
@@ -104,7 +139,7 @@ const RoomsView = () => {
     if (cached && !forceSpinner) {
       setRooms(cached.rooms);
       setActiveStays(cached.stays);
-      setLoading(false); // Instant render in 0ms!
+      setLoading(false);
     } else {
       setLoading(true);
     }
@@ -122,6 +157,7 @@ const RoomsView = () => {
       apiCache.set(`stays_active_${globalProperty}`, newStays);
       setRooms(newRooms);
       setActiveStays(newStays);
+
       // Auto-mark rooms as dirty when they become vacant after checkout
       setHousekeepingStatus(prev => {
         const updated = { ...prev };
@@ -160,77 +196,160 @@ const RoomsView = () => {
     return { label: 'Available', stay: null };
   };
 
+  // Distinct floors for floor tabs
+  const uniqueFloors = Array.from(new Set(rooms.map(r => String(r.floor || '1')))).sort((a,b) => a.localeCompare(b, undefined, { numeric: true }));
+
   const filtered = rooms.filter(room => {
     const status = getRoomStatus(room);
-    const matchSearch = !search || room.roomNumber.toLowerCase().includes(search.toLowerCase()) ||
-      status.stay?.guest?.fullName?.toLowerCase().includes(search.toLowerCase());
+    const roomNo = room.roomNumber || '';
+    const guestName = status.stay?.guest?.fullName || '';
+    const guestPhone = status.stay?.guest?.mobileNumber || '';
+
+    const matchSearch = !search ||
+      roomNo.toLowerCase().includes(search.toLowerCase()) ||
+      guestName.toLowerCase().includes(search.toLowerCase()) ||
+      guestPhone.includes(search);
+
     let matchFilter;
     if (filter === 'dirty') {
       matchFilter = status.label === 'Available' && getHKStatus(room._id) === 'dirty';
     } else {
       matchFilter = filter === 'all' || status.label.toLowerCase() === filter;
     }
-    return matchSearch && matchFilter;
+
+    const matchFloor = selectedFloor === 'all' || String(room.floor || '1') === selectedFloor;
+
+    return matchSearch && matchFilter && matchFloor;
   });
 
   const availCount = rooms.filter(r => getRoomStatus(r).label === 'Available').length;
   const occupCount = rooms.filter(r => getRoomStatus(r).label === 'Occupied').length;
   const maintCount = rooms.filter(r => getRoomStatus(r).label === 'Maintenance').length;
   const dirtyCount = rooms.filter(r => getRoomStatus(r).label === 'Available' && getHKStatus(r._id) === 'dirty').length;
+  const totalCount = rooms.length;
+  const occupancyPercent = totalCount > 0 ? Math.round((occupCount / totalCount) * 100) : 0;
 
-  const statusConfig = {
-    Available: { dot: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', card: 'border-slate-200 hover:border-slate-300', header: 'bg-emerald-50/60' },
-    Occupied:  { dot: 'bg-rose-500 animate-pulse', badge: 'bg-rose-50 text-rose-700 border-rose-200', card: 'border-slate-200 hover:border-slate-300', header: 'bg-rose-50/60' },
-    Maintenance:{ dot: 'bg-amber-500', badge: 'bg-amber-50 text-amber-800 border-amber-200', card: 'border-slate-200 hover:border-slate-300', header: 'bg-amber-50/60' },
+  const handleCardClick = (room, status) => {
+    if (status.label === 'Available') {
+      // Direct 1-Click Check-In route with preselected roomId and roomNumber
+      navigate(`/checkin?roomId=${room._id}&roomNumber=${room.roomNumber}`);
+    } else if (status.label === 'Occupied' && status.stay) {
+      // Instant Stay Management modal right on screen
+      setSelectedStayForManage(status.stay);
+    } else if (status.label === 'Maintenance') {
+      openMaintenance(room, 'end');
+    }
   };
 
   if (loading) return (
-    <div className="grid grid-cols-1 min-[400px]:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-4 animate-pulse">
-      {[...Array(10)].map((_, i) => <div key={i} className="h-44 bg-gray-200 rounded-2xl" />)}
+    <div className="space-y-4 animate-pulse">
+      <div className="h-14 bg-gray-200 rounded-2xl w-full" />
+      <div className="grid grid-cols-1 min-[440px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+        {[...Array(10)].map((_, i) => <div key={i} className="h-56 bg-gray-200 rounded-2xl" />)}
+      </div>
     </div>
   );
 
   return (
-    <div className="space-y-5 animate-in fade-in duration-300">
+    <div className="space-y-4 sm:space-y-5 animate-in fade-in duration-300">
       
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
+      {/* ====================================================================
+          TOP OCCUPANCY MATRIX & LIVE METRICS BAR
+      ==================================================================== */}
+      <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs p-3.5 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Room Status & Live Occupancy</h1>
-          <div className="flex items-center gap-2 mt-1.5 flex-wrap text-xs font-bold">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              {availCount} Available
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+              <BedDouble className="text-emerald-600" size={24} />
+              <span>{isHindi ? 'कमरा स्थिति एवं लाइव ऑक्यूपेंसी' : 'Room Status & Live Occupancy'}</span>
+            </h1>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider bg-slate-900 text-white shadow-xs">
+              {totalCount} {isHindi ? 'कुल कमरे' : 'Rooms'}
             </span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
-              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-              {occupCount} Occupied
-            </span>
-            {maintCount > 0 && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                {maintCount} Maintenance
-              </span>
-            )}
+          </div>
+
+          {/* Occupancy Progress & Metric Strip */}
+          <div className="flex items-center gap-2 sm:gap-4 mt-2.5 flex-wrap text-xs font-black">
+            {/* Live Occupancy Percentage Gauge */}
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-100 text-slate-900 border border-slate-200 shadow-2xs">
+              <TrendingUp size={14} className="text-emerald-600" />
+              <span>{occupancyPercent}% {isHindi ? 'ऑक्यूपेंसी' : 'Occupancy'}</span>
+            </div>
+
+            {/* Available */}
+            <button
+              type="button"
+              onClick={() => setFilter('available')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl transition-all border cursor-pointer ${
+                filter === 'available'
+                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                  : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+              <span>{availCount} {isHindi ? 'उपलब्ध' : 'Available'}</span>
+            </button>
+
+            {/* Occupied */}
+            <button
+              type="button"
+              onClick={() => setFilter('occupied')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl transition-all border cursor-pointer ${
+                filter === 'occupied'
+                  ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+                  : 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
+              <span>{occupCount} {isHindi ? 'अधिग्रहित' : 'Occupied'}</span>
+            </button>
+
+            {/* Needs Cleaning */}
             {dirtyCount > 0 && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200">
-                <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
-                {dirtyCount} Cleaning Needed
-              </span>
+              <button
+                type="button"
+                onClick={() => setFilter('dirty')}
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl transition-all border cursor-pointer ${
+                  filter === 'dirty'
+                    ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                    : 'bg-amber-50 text-amber-900 border-amber-200 hover:bg-amber-100'
+                }`}
+              >
+                <span>🧹</span>
+                <span>{dirtyCount} {isHindi ? 'सफाई बाकी' : 'Needs Cleaning'}</span>
+              </button>
+            )}
+
+            {/* Maintenance */}
+            {maintCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setFilter('maintenance')}
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl transition-all border cursor-pointer ${
+                  filter === 'maintenance'
+                    ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                    : 'bg-gray-100 text-gray-800 border-gray-300 hover:bg-gray-200'
+                }`}
+              >
+                <Wrench size={12} className="text-amber-500" />
+                <span>{maintCount} {isHindi ? 'मेंटेनेंस' : 'Maintenance'}</span>
+              </button>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+
+        {/* Action Controls: Group Check-in + Refresh */}
+        <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
           <Link
             to="/checkin?mode=group"
-            className="px-3 sm:px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-xs active:scale-95 transition-all cursor-pointer"
+            className="px-3.5 sm:px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
           >
             <Users size={14} />
-            <span>Group Check-In</span>
+            <span>{isHindi ? 'ग्रुप चेक-इन' : 'Group Check-In'}</span>
           </Link>
           <button
-            onClick={fetchData}
-            className="p-2 text-slate-500 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl shadow-2xs transition-all cursor-pointer"
+            onClick={() => fetchData(true)}
+            className="p-2 text-slate-500 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl shadow-2xs transition-all cursor-pointer"
             title="Refresh Rooms"
           >
             <RefreshCw size={15} />
@@ -238,36 +357,84 @@ const RoomsView = () => {
         </div>
       </div>
 
-      {/* Search + Filter */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      {/* ====================================================================
+          SEARCH & FILTER STRIP (FLOOR + STATUS TABS)
+      ==================================================================== */}
+      <div className="flex flex-col lg:flex-row gap-2.5 sm:gap-3">
+        {/* Search Input */}
         <div className="relative flex-1">
-          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Search room number or guest..."
+            placeholder={isHindi ? "कमरा नंबर, अतिथि का नाम या फोन सर्च करें..." : "Search room number, guest name or phone..."}
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 shadow-2xs transition-all"
+            className="w-full pl-9 pr-4 py-2 sm:py-2.5 bg-white border border-slate-200/90 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 shadow-2xs transition-all"
           />
         </div>
-        <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 sm:pb-0 no-scrollbar">
-          {['all', 'available', 'dirty', 'occupied', 'maintenance'].map(f => (
+
+        {/* Floor Filter Chips */}
+        {uniqueFloors.length > 1 && (
+          <div className="flex items-center gap-1 overflow-x-auto pb-1 lg:pb-0 custom-scrollbar shrink-0">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1 hidden sm:inline">
+              {isHindi ? 'मंजिल:' : 'Floor:'}
+            </span>
             <button
-              key={f}
-              onClick={() => setFilter(f)}
+              onClick={() => setSelectedFloor('all')}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
-                filter === f
+                selectedFloor === 'all'
                   ? 'bg-slate-900 text-white shadow-xs'
-                  : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-slate-200'
+                  : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200'
               }`}
             >
-              {f === 'dirty' ? '🧹 Dirty' : f === 'all' ? 'All Rooms' : f.charAt(0).toUpperCase() + f.slice(1)}
+              {isHindi ? 'सभी मंजिलें' : 'All Floors'}
+            </button>
+            {uniqueFloors.map(floor => (
+              <button
+                key={floor}
+                onClick={() => setSelectedFloor(floor)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                  selectedFloor === floor
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200'
+                }`}
+              >
+                {isHindi ? `मंजिल ${floor}` : `Floor ${floor}`}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Status Filter Tabs */}
+        <div className="flex gap-1.5 overflow-x-auto pb-1 lg:pb-0 custom-scrollbar shrink-0">
+          {[
+            { id: 'all', label: isHindi ? 'सभी कमरे' : 'All Rooms', count: totalCount },
+            { id: 'available', label: isHindi ? '✨ उपलब्ध' : '✨ Available', count: availCount },
+            { id: 'dirty', label: isHindi ? '🧹 सफाई बाकी' : '🧹 Dirty', count: dirtyCount },
+            { id: 'occupied', label: isHindi ? '🔴 अधिग्रहित' : '🔴 Occupied', count: occupCount },
+            { id: 'maintenance', label: isHindi ? '⚠️ मेंटेनेंस' : '⚠️ Maintenance', count: maintCount },
+          ].map(f => (
+            <button
+              key={f.id}
+              onClick={() => setFilter(f.id)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                filter === f.id
+                  ? 'bg-slate-900 text-white shadow-xs'
+                  : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-slate-200/90'
+              }`}
+            >
+              <span>{f.label}</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${filter === f.id ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'}`}>
+                {f.count}
+              </span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Room Grid */}
+      {/* ====================================================================
+          ROOMS GRID (LUXURY, HIGH-VISIBILITY COLOR MATRIX)
+      ==================================================================== */}
       {filtered.length === 0 ? (
         rooms.length === 0 ? (
           <div className="bg-white rounded-3xl border-2 border-dashed border-slate-300 p-8 sm:p-12 text-center max-w-lg mx-auto shadow-2xs space-y-4 my-8">
@@ -275,9 +442,13 @@ const RoomsView = () => {
               🏨
             </div>
             <div>
-              <h3 className="text-lg font-black text-slate-900">No Rooms Configured Yet</h3>
+              <h3 className="text-lg font-black text-slate-900">
+                {isHindi ? 'कोई कमरा सेटअप नहीं है' : 'No Rooms Configured Yet'}
+              </h3>
               <p className="text-xs text-slate-500 font-medium mt-1">
-                Your property has 0 rooms. Generate starter rooms with realistic categories (Deluxe, Standard, Suite & Family) to instantly test check-in, AI scanner, and occupancy.
+                {isHindi
+                  ? 'आपकी प्रॉपर्टी में अभी कमरे नहीं हैं। 1-क्लिक में 6 डेमो कमरे बनाएं और चेक-इन, रेट्स एवं ऑक्यूपेंसी टेस्ट करें।'
+                  : 'Your property has 0 rooms. Generate starter rooms with realistic categories (Deluxe, Standard, Suite & Family) to instantly test check-in, AI scanner, and occupancy.'}
               </p>
             </div>
             <button
@@ -286,108 +457,298 @@ const RoomsView = () => {
               className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 mx-auto cursor-pointer disabled:opacity-50"
             >
               <Sparkles size={14} className="text-amber-400" />
-              <span>{seedingRooms ? 'Generating Rooms...' : '⚡ Setup 6 Starter Demo Rooms (1-Click)'}</span>
+              <span>{seedingRooms ? (isHindi ? 'कमरे बन रहे हैं...' : 'Generating Rooms...') : (isHindi ? '⚡ 6 डेमो कमरे बनाएं (1-Click)' : '⚡ Setup 6 Starter Demo Rooms (1-Click)')}</span>
             </button>
           </div>
         ) : (
-          <div className="text-center py-20 text-gray-400 font-bold">No rooms matching the selected filter.</div>
+          <div className="text-center py-16 bg-white rounded-3xl border border-dashed border-slate-200 text-slate-400 font-bold">
+            {isHindi ? 'चयनित फिल्टर से मेल खाने वाला कोई कमरा नहीं मिला।' : 'No rooms matching the selected filter.'}
+          </div>
         )
       ) : (
-        <div className="grid grid-cols-1 min-[400px]:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-4">
+        <div className="grid grid-cols-1 min-[440px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
           {filtered.map((room) => {
             const { label, stay } = getRoomStatus(room);
-            const cfg = statusConfig[label];
-            const balance = stay ? stay.totalAmount - stay.paidAmount : 0;
+            const isAvailable = label === 'Available';
+            const isOccupied = label === 'Occupied';
+            const isMaint = label === 'Maintenance';
+            const hk = getHKStatus(room._id);
+            const isDirty = isAvailable && hk === 'dirty';
+            const balance = stay ? (Number(stay.totalAmount) || 0) - (Number(stay.paidAmount) || 0) : 0;
             const isOverdue = stay && isPast(new Date(stay.expectedCheckOutDate));
+
             return (
-              <div key={room._id} className={`bg-white rounded-2xl border-2 shadow-2xs overflow-hidden transition-all hover:shadow-sm ${cfg.card}`}>
-                {/* Top Color Bar */}
-                <div className={`h-1.5 w-full ${
-                  label === 'Available'
-                    ? (getHKStatus(room._id) === 'clean' ? 'bg-green-400' : 'bg-orange-400')
-                    : label === 'Occupied' ? 'bg-red-500' : 'bg-yellow-400'
-                }`} />
-                
-                <div className={`px-3 sm:px-4 py-2.5 sm:py-3 ${cfg.header} border-b border-gray-100`}>
-                  <div className="flex justify-between items-start">
+              <div
+                key={room._id}
+                onClick={() => handleCardClick(room, { label, stay })}
+                className={`group bg-white rounded-2xl border-2 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between overflow-hidden cursor-pointer relative ${
+                  isAvailable
+                    ? (isDirty
+                        ? 'border-amber-200 hover:border-amber-400 bg-amber-50/10'
+                        : 'border-slate-200 hover:border-emerald-500 hover:shadow-emerald-500/10')
+                    : isOccupied
+                    ? 'border-slate-200 hover:border-rose-400 hover:shadow-rose-500/10'
+                    : 'border-amber-300 bg-amber-50/20'
+                }`}
+              >
+                {/* Top Glowing Color Accent Bar */}
+                <div
+                  className={`h-2 w-full transition-all ${
+                    isAvailable
+                      ? (isDirty ? 'bg-gradient-to-r from-amber-400 to-orange-500' : 'bg-gradient-to-r from-emerald-400 to-teal-500')
+                      : isOccupied
+                      ? 'bg-gradient-to-r from-rose-500 to-red-600'
+                      : 'bg-gradient-to-r from-amber-400 to-yellow-500'
+                  }`}
+                />
+
+                {/* Card Header: Room Number + Status Badge */}
+                <div className={`p-3.5 pb-2.5 border-b ${
+                  isAvailable
+                    ? (isDirty ? 'bg-amber-50/40 border-amber-100' : 'bg-emerald-50/30 border-emerald-100/60')
+                    : isOccupied
+                    ? 'bg-rose-50/30 border-rose-100/60'
+                    : 'bg-amber-50/40 border-amber-100'
+                }`}>
+                  <div className="flex items-start justify-between gap-2">
                     <div>
-                      <div className="flex items-center gap-1.5 sm:gap-2">
-                        <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot} flex-shrink-0`} />
-                        <h3 className="font-black text-gray-900 text-base sm:text-lg leading-none">Room {room.roomNumber}</h3>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${
+                          isAvailable
+                            ? (isDirty ? 'bg-amber-500' : 'bg-emerald-500')
+                            : isOccupied
+                            ? 'bg-rose-500 animate-pulse'
+                            : 'bg-amber-500'
+                        }`} />
+                        <h3 className="font-black text-slate-900 text-lg tracking-tight group-hover:text-emerald-700 transition-colors">
+                          Room {room.roomNumber}
+                        </h3>
                       </div>
-                      <p className="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">F{room.floor || '1'} • {room.capacity}P</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                        F{room.floor || '1'} • {room.roomType || 'Standard'} • {room.capacity}P
+                      </p>
                     </div>
-                    {label === 'Available' ? <CheckCircle2 size={16} className="text-green-500 shrink-0" /> :
-                     label === 'Occupied' ? <Users size={16} className="text-red-500 shrink-0" /> :
-                     <Wrench size={16} className="text-yellow-500 shrink-0" />}
+
+                    {/* Status Pill Badge */}
+                    <div className="shrink-0 text-right">
+                      {isAvailable ? (
+                        isDirty ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-black bg-amber-100 text-amber-800 border border-amber-300">
+                            <span>🧹</span>
+                            <span>{isHindi ? 'सफाई बाकी' : 'Dirty'}</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                            <CheckCircle2 size={10} className="text-emerald-600" />
+                            <span>{isHindi ? 'उपलब्ध' : 'Available'}</span>
+                          </span>
+                        )
+                      ) : isOccupied ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-black bg-rose-100 text-rose-800 border border-rose-300">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-ping" />
+                          <span>{isHindi ? 'अधिग्रहित' : 'Occupied'}</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-black bg-amber-100 text-amber-900 border border-amber-300">
+                          <Wrench size={10} className="text-amber-700" />
+                          <span>{isHindi ? 'मेंटेनेंस' : 'Blocked'}</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                <div className="p-2.5 sm:p-3 space-y-1.5 sm:space-y-2">
-                  {stay ? (
+                {/* Card Body: Dynamic Content per Status */}
+                <div className="p-3.5 space-y-2.5 flex-1 flex flex-col justify-between">
+                  {/* CASE 1: AVAILABLE ROOM */}
+                  {isAvailable && (
                     <>
-                      {stay.groupId && (
-                        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-purple-100 text-purple-900 border border-purple-200 truncate max-w-full">
-                          <Building2 size={10} className="shrink-0 text-purple-700" />
-                          <span className="truncate">{stay.groupName || 'Group'}</span>
-                        </div>
-                      )}
-                      <p className="font-black text-gray-900 text-sm truncate">{stay.guest?.fullName}</p>
-                      <p className="text-[10px] font-bold text-gray-500">{stay.occupants} guest{stay.occupants > 1 ? 's' : ''}</p>
-                      <div className={`flex items-center gap-1 text-[10px] font-bold ${isOverdue ? 'text-red-600' : 'text-gray-400'}`}>
-                        <Clock size={10} />
-                        Out: {format(new Date(stay.expectedCheckOutDate), 'dd MMM, hh:mm a')}
-                      </div>
-                      {balance > 0 && (
-                        <div className="bg-red-50 border border-red-100 text-red-700 text-[10px] font-black px-2 py-1 rounded-lg">₹{balance} due</div>
-                      )}
-                      {isOverdue && <div className="bg-red-500 text-white text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-widest">⚠ Overdue</div>}
-                      <Link to={`/checkouts?stay=${stay._id}`} className="block mt-1 text-center text-[10px] font-black uppercase tracking-widest py-2 bg-black text-white rounded-xl hover:bg-gray-800 transition-all active:scale-95">
-                        Manage →
-                      </Link>
-                    </>
-                  ) : label === 'Available' ? (
-                    <>
-                      {/* Housekeeping Status Toggle */}
-                      {(() => {
-                        const hk = getHKStatus(room._id);
-                        return (
+                      <div className="space-y-2">
+                        {/* Housekeeping Toggle Pill */}
+                        <div className="flex items-center justify-between gap-1 text-[10.5px]">
+                          <span className="text-slate-400 font-bold">{isHindi ? 'सफाई स्थिति:' : 'Housekeeping:'}</span>
                           <button
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); setRoomHKStatus(room._id, hk === 'clean' ? 'dirty' : 'clean'); }}
-                            className={`w-full flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border cursor-pointer ${
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setRoomHKStatus(room._id, hk === 'clean' ? 'dirty' : 'clean');
+                            }}
+                            className={`px-2 py-0.5 rounded-lg font-black text-[9.5px] uppercase transition-all cursor-pointer border ${
                               hk === 'clean'
-                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
                                 : 'bg-orange-50 text-orange-800 border-orange-200 hover:bg-orange-100'
                             }`}
-                            title={hk === 'clean' ? 'Room is cleaned & inspected. Click to mark dirty.' : 'Needs cleaning. Click to mark clean.'}
+                            title="Click to toggle room clean/dirty status"
                           >
-                            <span>{hk === 'clean' ? '✓ Clean & Ready' : '🧹 Needs Cleaning'}</span>
+                            {hk === 'clean' ? (isHindi ? '✓ साफ व तैयार' : '✓ Clean & Ready') : (isHindi ? '🧹 सफाई जरूरी' : '🧹 Needs Cleaning')}
                           </button>
-                        );
-                      })()}
-                      <div className="space-y-1.5 text-[10px] text-gray-500 pt-1">
-                        <div className="flex justify-between"><span>12h Rate</span><span className="font-black text-gray-800">₹{room.price12h || '—'}</span></div>
-                        <div className="flex justify-between"><span>24h Rate</span><span className="font-black text-gray-800">₹{room.price24h || '—'}</span></div>
+                        </div>
+
+                        {/* Room Price Strip */}
+                        <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-2 space-y-1 text-xs">
+                          <div className="flex justify-between items-center text-slate-500 font-bold">
+                            <span>12 Hours Rate</span>
+                            <span className="font-black text-slate-900">₹{room.price12h || '—'}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-slate-500 font-bold">
+                            <span>24 Hours Rate</span>
+                            <span className="font-black text-slate-900">₹{room.price24h || '—'}</span>
+                          </div>
+                        </div>
                       </div>
-                      <Link to="/checkin" className="block mt-1 text-center text-[10px] font-black uppercase tracking-widest py-2 bg-green-500 text-white rounded-xl hover:bg-green-600 transition-all active:scale-95">
-                        + Check In
-                      </Link>
-                      <button onClick={() => openMaintenance(room, 'start')} className="w-full flex items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-widest py-1.5 text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-xl hover:bg-yellow-100 transition-all">
-                        <Wrench size={11} /> Maintenance
-                      </button>
+
+                      {/* Available Room Primary Action: Instant Check-In */}
+                      <div className="space-y-1.5 pt-1">
+                        <Link
+                          to={`/checkin?roomId=${room._id}&roomNumber=${room.roomNumber}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer text-center"
+                        >
+                          <Zap size={13} className="text-amber-300" />
+                          <span>{isHindi ? 'चेक-इन करें →' : 'Check In Now →'}</span>
+                        </Link>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openMaintenance(room, 'start');
+                          }}
+                          className="w-full py-1 text-[10px] font-bold text-slate-400 hover:text-amber-700 flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                        >
+                          <Wrench size={10} />
+                          <span>{isHindi ? 'मेंटेनेंस में डालें' : 'Block for Maintenance'}</span>
+                        </button>
+                      </div>
                     </>
-                  ) : (
+                  )}
+
+                  {/* CASE 2: OCCUPIED ROOM */}
+                  {isOccupied && stay && (
                     <>
-                      <p className="text-xs font-black text-yellow-700 text-center">Under Maintenance</p>
-                      {room.maintenanceReason && (
-                        <p className="text-[11px] font-bold text-gray-700 bg-yellow-50 border border-yellow-100 rounded-lg px-2 py-1.5 leading-snug">{room.maintenanceReason}</p>
-                      )}
-                      {room.maintenanceSince && (
-                        <p className="text-[10px] font-bold text-gray-400 text-center">Since {format(new Date(room.maintenanceSince), 'dd MMM, hh:mm a')}</p>
-                      )}
-                      <button onClick={() => openMaintenance(room, 'end')} className="w-full text-[10px] font-black uppercase tracking-widest py-2 bg-yellow-500 text-white rounded-xl hover:bg-yellow-600 transition-all active:scale-95">
-                        ✓ Mark Repaired
+                      <div className="space-y-2">
+                        {/* Group Booking Badge if present */}
+                        {stay.groupId && (
+                          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9.5px] font-black uppercase tracking-wider bg-purple-100 text-purple-900 border border-purple-200 truncate max-w-full">
+                            <Building2 size={10} className="shrink-0 text-purple-700" />
+                            <span className="truncate">{stay.groupName || 'Group'}</span>
+                          </div>
+                        )}
+
+                        {/* Guest Primary Details */}
+                        <div>
+                          <p className="font-black text-slate-900 text-sm truncate uppercase tracking-tight flex items-center justify-between">
+                            <span>{stay.guest?.fullName || 'Guest'}</span>
+                            <span className="text-[10px] text-slate-400 font-bold lowercase">
+                              {stay.occupants}p
+                            </span>
+                          </p>
+                          {stay.guest?.mobileNumber && (
+                            <p className="text-[10.5px] font-bold text-slate-500 mt-0.5">
+                              📞 +91 {stay.guest.mobileNumber}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Expected Check-Out Time & Overdue Alert */}
+                        <div className={`p-2 rounded-xl border text-[11px] font-bold ${
+                          isOverdue
+                            ? 'bg-rose-50 border-rose-200 text-rose-700'
+                            : 'bg-slate-50 border-slate-200 text-slate-600'
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <span className="flex items-center gap-1 text-[10px] text-slate-400 font-bold uppercase">
+                              <Clock size={11} />
+                              <span>{isHindi ? 'चेक-आउट:' : 'Out:'}</span>
+                            </span>
+                            <span className="font-black">
+                              {format(new Date(stay.expectedCheckOutDate), 'dd MMM, hh:mm a')}
+                            </span>
+                          </div>
+                          {isOverdue && (
+                            <div className="mt-1 flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-rose-700">
+                              <AlertTriangle size={11} />
+                              <span>{isHindi ? 'चेक-आउट समय समाप्त!' : 'Check-Out Overdue!'}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Financial Balance Tag */}
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-400 font-bold text-[10.5px]">{isHindi ? 'पेमेंट स्थिति:' : 'Payment:'}</span>
+                          {balance > 0 ? (
+                            <span className="bg-rose-50 border border-rose-200 text-rose-700 text-[10px] font-black px-2 py-0.5 rounded-lg">
+                              ₹{balance} {isHindi ? 'बाकी' : 'Due'}
+                            </span>
+                          ) : (
+                            <span className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-black px-2 py-0.5 rounded-lg">
+                              ✓ {isHindi ? 'पूर्ण भुगतान' : 'Fully Paid'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Occupied Actions: Manage Stay Modal + WhatsApp */}
+                      <div className="flex items-center gap-1.5 pt-1">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedStayForManage(stay);
+                          }}
+                          className="flex-1 py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer text-center"
+                        >
+                          <UserCheck size={13} className="text-emerald-400" />
+                          <span>{isHindi ? 'स्टे मैनेज करें →' : 'Manage Stay →'}</span>
+                        </button>
+
+                        {stay.guest?.mobileNumber && (
+                          <a
+                            href={getStayWhatsAppUrl(stay, 'bill') || `https://wa.me/${stay.guest.mobileNumber.replace(/\D/g, '')}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-all cursor-pointer shrink-0"
+                            title="Send WhatsApp message / Bill"
+                          >
+                            <MessageSquare size={14} />
+                          </a>
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {/* CASE 3: MAINTENANCE ROOM */}
+                  {isMaint && (
+                    <>
+                      <div className="space-y-2 text-center py-2">
+                        <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
+                          <Wrench size={18} />
+                        </div>
+                        <p className="text-xs font-black text-amber-800 uppercase tracking-wider">
+                          {isHindi ? 'कमरा मेंटेनेंस में है' : 'Under Maintenance'}
+                        </p>
+                        {room.maintenanceReason && (
+                          <p className="text-xs font-bold text-slate-700 bg-amber-50 border border-amber-200 rounded-xl px-2.5 py-1.5 text-left">
+                            {room.maintenanceReason}
+                          </p>
+                        )}
+                        {room.maintenanceSince && (
+                          <p className="text-[10px] font-bold text-slate-400">
+                            Since {format(new Date(room.maintenanceSince), 'dd MMM, hh:mm a')}
+                          </p>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openMaintenance(room, 'end');
+                        }}
+                        className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-xs cursor-pointer"
+                      >
+                        {isHindi ? '✓ रिपेयर पूर्ण मार्क करें' : '✓ Mark Repaired & Ready'}
                       </button>
                     </>
                   )}
@@ -398,12 +759,32 @@ const RoomsView = () => {
         </div>
       )}
 
-      {/* Maintenance dialog */}
+      {/* ====================================================================
+          SEAMLESS STAY MANAGE MODAL (OPENS DIRECTLY INSIDE ROOMS MATRIX)
+      ==================================================================== */}
+      {selectedStayForManage && (
+        <StayManageModal
+          stay={selectedStayForManage}
+          onClose={() => setSelectedStayForManage(null)}
+          onChanged={() => {
+            fetchData(true);
+          }}
+          onCheckout={() => {
+            setSelectedStayForManage(null);
+            fetchData(true);
+          }}
+        />
+      )}
+
+      {/* ====================================================================
+          MAINTENANCE REASON & REPAIR MODAL
+      ==================================================================== */}
       {mDialog && createPortal(
         <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 overflow-y-auto" onClick={() => setMDialog(null)}>
           <form onSubmit={submitMaintenance} onClick={e => e.stopPropagation()} className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-sm my-0 sm:my-auto p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:p-6 space-y-4 max-h-[92dvh] sm:max-h-[88vh] flex flex-col overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
             <div>
-              <h2 className="text-lg font-black text-gray-900 flex items-center gap-2"><Wrench size={18} className="text-yellow-600" />
+              <h2 className="text-lg font-black text-gray-900 flex items-center gap-2">
+                <Wrench size={18} className="text-amber-600" />
                 {mDialog.mode === 'start' ? `Room ${mDialog.room.roomNumber} → Maintenance` : `Room ${mDialog.room.roomNumber} repaired?`}
               </h2>
               <p className="text-xs text-gray-500 mt-1">

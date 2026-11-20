@@ -316,7 +316,25 @@ const CheckIn = () => {
     if (params.get('mode') === 'group') {
       setIsGroupMode(true);
     }
-  }, [location.search]);
+    const preselectedRoomId = params.get('roomId') || params.get('room');
+    const preselectedRoomNo = params.get('roomNumber');
+    if ((preselectedRoomId || preselectedRoomNo) && rooms.length > 0) {
+      const matched = rooms.find(r => 
+        (preselectedRoomId && (r._id === preselectedRoomId || r.roomNumber === preselectedRoomId)) ||
+        (preselectedRoomNo && r.roomNumber === preselectedRoomNo)
+      );
+      if (matched && (!stayInfo.room || stayInfo.room !== matched._id)) {
+        const days = Math.max(1, Number(stayInfo.durationDays) || 1);
+        const autoPrice = (Number(matched.price24h) || 0) * days;
+        setStayInfo(prev => ({
+          ...prev,
+          room: matched._id,
+          totalAmount: autoPrice > 0 ? String(autoPrice) : prev.totalAmount
+        }));
+        toast({ message: `Room ${matched.roomNumber} selected for check-in`, type: 'success' });
+      }
+    }
+  }, [location.search, rooms]);
 
   const toggleGroupRoom = (room) => {
     if (!room || !room._id || room.isOccupied) return;
