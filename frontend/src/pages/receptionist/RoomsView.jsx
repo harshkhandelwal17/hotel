@@ -583,18 +583,6 @@ const RoomsView = () => {
                             {hk === 'clean' ? (isHindi ? '✓ साफ व तैयार' : '✓ Clean & Ready') : (isHindi ? '🧹 सफाई जरूरी' : '🧹 Needs Cleaning')}
                           </button>
                         </div>
-
-                        {/* Room Price Strip */}
-                        <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-2 space-y-1 text-xs">
-                          <div className="flex justify-between items-center text-slate-500 font-bold">
-                            <span>12 Hours Rate</span>
-                            <span className="font-black text-slate-900">₹{room.price12h || '—'}</span>
-                          </div>
-                          <div className="flex justify-between items-center text-slate-500 font-bold">
-                            <span>24 Hours Rate</span>
-                            <span className="font-black text-slate-900">₹{room.price24h || '—'}</span>
-                          </div>
-                        </div>
                       </div>
 
                       {/* Available Room Primary Action: Instant Check-In */}
