@@ -42,7 +42,8 @@ import {
   RefreshCw,
   Hexagon,
   Download,
-  BookOpen
+  BookOpen,
+  UtensilsCrossed
 } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -437,6 +438,16 @@ const SuperAdminDashboard = () => {
       setHostels(hostels.map(h => h._id === hostelId ? { ...h, dailyRegisterEnabled: res.data.data.dailyRegisterEnabled } : h));
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to toggle Daily Register status');
+    }
+  };
+
+  const handleToggleRestaurantPos = async (hostelId) => {
+    try {
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      const res = await axios.put(`${API}/api/superadmin/hostels/${hostelId}/toggle-restaurant-pos`);
+      setHostels(hostels.map(h => h._id === hostelId ? { ...h, restaurantPosEnabled: res.data.data.restaurantPosEnabled } : h));
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to toggle Restaurant & POS module');
     }
   };
 
@@ -858,6 +869,7 @@ const SuperAdminDashboard = () => {
           onToggleWhatsAppSync={handleToggleWhatsAppSync}
           onToggleLaundry={handleToggleLaundry}
           onToggleDailyRegister={handleToggleDailyRegister}
+          onToggleRestaurantPos={handleToggleRestaurantPos}
           onToggleDigitalAadhaar={handleToggleDigitalAadhaar}
           onOpenCreateStaffForHotel={openCreateStaffForHotel}
           onOpenCreateOwner={() => {
@@ -1395,6 +1407,18 @@ const SuperAdminDashboard = () => {
                           >
                             <BookOpen size={11} className={h.dailyRegisterEnabled ? 'text-amber-600' : 'text-gray-400'} />
                             {h.dailyRegisterEnabled ? 'Register On' : 'Register Off'}
+                          </button>
+                          <button
+                            onClick={() => handleToggleRestaurantPos(h._id)}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase transition-all shadow-sm active:scale-95 ${
+                              h.restaurantPosEnabled
+                                ? 'bg-orange-50 text-orange-800 border border-orange-300'
+                                : 'bg-gray-100 text-gray-400 border border-gray-200'
+                            }`}
+                            title="Toggle Restaurant & Food POS module"
+                          >
+                            <UtensilsCrossed size={11} className={h.restaurantPosEnabled ? 'text-orange-600' : 'text-gray-400'} />
+                            {h.restaurantPosEnabled ? 'Restaurant On' : 'Restaurant Off'}
                           </button>
                           <button
                             onClick={() => handleToggleDigitalAadhaar(h._id)}

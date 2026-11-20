@@ -13,6 +13,7 @@ const {
   toggleHostelWhatsAppSync, 
   toggleHostelLaundry,
   toggleHostelDailyRegister,
+  toggleHostelRestaurantPos,
   toggleHostelDigitalAadhaar,
   toggleHostelStatus, 
   updateHostelPlan,
@@ -43,6 +44,7 @@ router.put('/hostels/:id/toggle-ai-ocr', toggleHostelAiOcr);
 router.put('/hostels/:id/toggle-whatsapp-sync', toggleHostelWhatsAppSync);
 router.put('/hostels/:id/toggle-laundry', toggleHostelLaundry);
 router.put('/hostels/:id/toggle-daily-register', toggleHostelDailyRegister);
+router.put('/hostels/:id/toggle-restaurant-pos', toggleHostelRestaurantPos);
 router.put('/hostels/:id/toggle-digital-aadhaar', toggleHostelDigitalAadhaar);
 router.put('/hostels/:id/plan', updateHostelPlan);
 router.delete('/hostels/:id/subscription-history/:historyId', deleteHostelSubscriptionHistory);

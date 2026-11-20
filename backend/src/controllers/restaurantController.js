@@ -53,6 +53,13 @@ async function resolveHostelId(inputHostel, reqUser) {
   return anyH ? anyH._id.toString() : null;
 }
 
+// Helper to verify if Super Admin has enabled Restaurant & Food POS for this hostel
+async function checkHostelRestaurantPermission(targetHostelId, reqUser) {
+  if (reqUser?.role === 'superadmin') return true;
+  const h = await Hostel.findById(targetHostelId).select('restaurantPosEnabled');
+  return !!(h && h.restaurantPosEnabled);
+}
+
 // @desc    Get all menu items (auto-seeds defaults if empty)
 // @route   GET /api/restaurant/menu
 // @access  Private
@@ -61,6 +68,14 @@ exports.getMenuItems = async (req, res, next) => {
     const hostelId = await resolveHostelId(req.query.hostel, req.user);
     if (!hostelId) {
       return res.status(400).json({ success: false, message: 'Property ID is required' });
+    }
+
+    const isAllowed = await checkHostelRestaurantPermission(hostelId, req.user);
+    if (!isAllowed) {
+      return res.status(403).json({
+        success: false,
+        message: 'Restaurant & POS module is disabled for this property. Only Super Admin can activate it.'
+      });
     }
 
     let items = await MenuItem.find({ hostel: hostelId }).sort({ category: 1, sortOrder: 1, name: 1 });
@@ -95,6 +110,14 @@ exports.createMenuItem = async (req, res, next) => {
     const hostelId = await resolveHostelId(hostel, req.user);
     if (!hostelId) {
       return res.status(400).json({ success: false, message: 'Property ID is required' });
+    }
+
+    const isAllowed = await checkHostelRestaurantPermission(hostelId, req.user);
+    if (!isAllowed) {
+      return res.status(403).json({
+        success: false,
+        message: 'Restaurant & POS module is disabled for this property. Only Super Admin can activate it.'
+      });
     }
 
     await assertHostelAccess(req.user, hostelId, true);
@@ -190,6 +213,14 @@ exports.getOrders = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Property ID is required' });
     }
 
+    const isAllowed = await checkHostelRestaurantPermission(hostelId, req.user);
+    if (!isAllowed) {
+      return res.status(403).json({
+        success: false,
+        message: 'Restaurant & POS module is disabled for this property. Only Super Admin can activate it.'
+      });
+    }
+
     const filter = { hostel: hostelId };
 
     if (req.query.date) {
@@ -244,6 +275,14 @@ exports.createOrder = async (req, res, next) => {
     const hostelId = await resolveHostelId(hostel, req.user);
     if (!hostelId) {
       return res.status(400).json({ success: false, message: 'Property ID is required' });
+    }
+
+    const isAllowed = await checkHostelRestaurantPermission(hostelId, req.user);
+    if (!isAllowed) {
+      return res.status(403).json({
+        success: false,
+        message: 'Restaurant & POS module is disabled for this property. Only Super Admin can activate it.'
+      });
     }
 
     await assertHostelAccess(req.user, hostelId, true);

@@ -104,6 +104,10 @@ export default function RestaurantPos() {
     return hostels.find(h => (h._id || h) === activeHostelId) || null;
   }, [hostels, activeHostelId]);
 
+  const isFeatureDisabled = useMemo(() => {
+    return user?.role !== 'superadmin' && currentHostelDoc && !currentHostelDoc.restaurantPosEnabled;
+  }, [user, currentHostelDoc]);
+
   // Load Hostels
   useEffect(() => {
     axios.get(`${API}/api/hostels`)
@@ -558,7 +562,31 @@ export default function RestaurantPos() {
         </div>
       </div>
 
-      {/* 📊 Today's POS Financial Summary Strip */}
+      {isFeatureDisabled ? (
+        <div className="bg-white rounded-3xl p-8 sm:p-12 border border-slate-200 shadow-sm text-center max-w-lg mx-auto space-y-4 my-8 animate-in fade-in">
+          <div className="w-16 h-16 rounded-3xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto shadow-xs border border-amber-200">
+            <UtensilsCrossed size={32} />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-black text-slate-900">
+              {isHindi ? 'रेस्टोरेंट व पीओएस फ़ीचर बंद है' : 'Restaurant & POS Module Disabled'}
+            </h2>
+            <p className="text-xs text-slate-500 leading-relaxed font-semibold">
+              {isHindi 
+                ? `यह सुविधा वर्तमान में "${currentHostelDoc?.name || 'इस प्रॉपर्टी'}" के लिए सक्रिय नहीं है। यह अधिकार केवल सुपर एडमिन (Super Admin) के पास है। चालू करवाने के लिए सुपर एडमिन से संपर्क करें।`
+                : `Restaurant & Food POS is currently disabled for "${currentHostelDoc?.name || 'this property'}". Only Super Admin can activate this feature.`}
+            </p>
+          </div>
+          <div className="pt-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">
+              <ShieldCheck size={14} className="text-amber-600" />
+              <span>{isHindi ? 'सुपर एडमिन अनुमतित फ़ीचर' : 'Super Admin Controlled Module'}</span>
+            </span>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* 📊 Today's POS Financial Summary Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center shrink-0">
@@ -1414,6 +1442,8 @@ export default function RestaurantPos() {
             </table>
           </div>
         </div>
+      )}
+      </>
       )}
 
       {/* 🎉 ON-SCREEN BILL SUCCESS & PRINT OPTIONS MODAL */}

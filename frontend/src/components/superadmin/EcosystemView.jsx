@@ -3,7 +3,7 @@ import {
   Crown, Building, Users, Mail, Phone, LogIn, KeyRound, 
   Pencil, Plus, Lock, Unlock, Sparkles, MessageSquare, 
   Shirt, ShieldCheck, ArrowRight, ExternalLink, Calendar, CheckCircle2, AlertTriangle, Clock,
-  Network, Briefcase, BookOpen
+  Network, Briefcase, BookOpen, UtensilsCrossed
 } from 'lucide-react';
 
 const EcosystemView = ({ 
@@ -23,6 +23,7 @@ const EcosystemView = ({
   onToggleWhatsAppSync, 
   onToggleLaundry,
   onToggleDailyRegister,
+  onToggleRestaurantPos,
   onToggleDigitalAadhaar,
   onOpenCreateStaffForHotel,
   onOpenCreateOwner,
@@ -467,6 +468,19 @@ const EcosystemView = ({
                                 >
                                   <BookOpen size={11} />
                                   <span>Register: {h.dailyRegisterEnabled ? 'ON' : 'OFF'}</span>
+                                </button>
+                              )}
+
+                              {onToggleRestaurantPos && (
+                                <button
+                                  onClick={() => onToggleRestaurantPos(h._id)}
+                                  className={`px-2 py-1 rounded-lg font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                                    h.restaurantPosEnabled ? 'bg-orange-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                  }`}
+                                  title="Toggle Restaurant & Food POS"
+                                >
+                                  <UtensilsCrossed size={11} />
+                                  <span>POS: {h.restaurantPosEnabled ? 'ON' : 'OFF'}</span>
                                 </button>
                               )}
 

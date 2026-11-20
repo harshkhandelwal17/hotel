@@ -491,12 +491,18 @@ const AppLayout = ({ children }) => {
       navItems.push({ id: 'laundry', name: t('nav.laundry', 'Laundry'), path: '/laundry', icon: Shirt });
     }
 
-    navItems.push({
-      id: 'restaurant',
-      name: isHindi ? 'रेस्टोरेंट व पीओएस' : 'Restaurant & POS',
-      path: '/pos',
-      icon: UtensilsCrossed
-    });
+    const isRestaurantPosEnabledForUser = user?.role === 'superadmin' ||
+      (user?.role === 'receptionist' ? Boolean(activeHostel?.restaurantPosEnabled) :
+        (globalProperty !== 'all' ? Boolean(activeHostel?.restaurantPosEnabled) : hostels.some(h => h.restaurantPosEnabled)));
+
+    if (isRestaurantPosEnabledForUser) {
+      navItems.push({
+        id: 'restaurant',
+        name: isHindi ? 'रेस्टोरेंट व पीओएस' : 'Restaurant & POS',
+        path: '/pos',
+        icon: UtensilsCrossed
+      });
+    }
     
     if (user?.role === 'admin') {
       navItems.push({ id: 'reports', name: t('nav.financialReports', 'Financials'), path: '/admin/reports', icon: BarChart3 });

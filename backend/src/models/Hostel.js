@@ -75,7 +75,7 @@ const hostelSchema = new mongoose.Schema({
   },
   restaurantPosEnabled: {
     type: Boolean,
-    default: true
+    default: false
   },
   laundrySettings: {
     defaultVendorName: { type: String, default: '' },
