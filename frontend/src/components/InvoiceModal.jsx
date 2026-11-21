@@ -4,7 +4,7 @@ import axios from 'axios';
 import { format } from 'date-fns';
 import { 
   X, Printer, Share2, FileText, CheckCircle2, 
-  Building2, Percent, AlertCircle, RefreshCw, Eye
+  Building2, Percent, AlertCircle, RefreshCw, Eye, Calendar
 } from 'lucide-react';
 import { calculateInvoiceData, printInvoice, numberToWordsINR, GST_STATE_CODES } from '../utils/invoice';
 import { getStayWhatsAppUrl } from '../utils/whatsapp';
@@ -24,11 +24,23 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
   const [billingAddress, setBillingAddress] = useState(stay.billingAddress || guest.address || '');
   const [discountAmount, setDiscountAmount] = useState(stay.discountAmount || 0);
 
-  // Default invoice date to the guest's checkout date (or expected checkout date)
-  const defaultInvoiceDateObj = stay.actualCheckOutDate 
+  // ─── Smart Invoice Date Controls ───
+  // Prioritizes actual checkout date if guest checked out early/late; falls back to expected checkout
+  const isActualCheckout = Boolean(stay.actualCheckOutDate);
+  const checkoutDateObj = stay.actualCheckOutDate 
     ? new Date(stay.actualCheckOutDate) 
     : (stay.expectedCheckOutDate ? new Date(stay.expectedCheckOutDate) : new Date());
-  const [invoiceDate, setInvoiceDate] = useState(() => format(defaultInvoiceDateObj, 'yyyy-MM-dd'));
+  const todayDateObj = new Date();
+
+  // Mode: 'checkout' (default) | 'current' (today) | 'custom' (user picked)
+  const [dateMode, setDateMode] = useState('checkout');
+  const [customDate, setCustomDate] = useState(() => format(checkoutDateObj, 'yyyy-MM-dd'));
+
+  const effectiveInvoiceDate = dateMode === 'current'
+    ? todayDateObj
+    : (dateMode === 'custom' && customDate
+        ? new Date(`${customDate}T12:00:00`)
+        : checkoutDateObj);
 
   const [showTaxOptions, setShowTaxOptions] = useState(false);
   const [showPaymentHistory, setShowPaymentHistory] = useState(false);
@@ -103,16 +115,11 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
     billingAddress: billingAddress.trim(),
     discountAmount: Number(discountAmount) || 0,
     showPaymentHistory,
-    invoiceDate
+    invoiceDate: effectiveInvoiceDate
   };
 
   const inv = calculateInvoiceData(stay, payments, invOptions);
   const outDate = stay.actualCheckOutDate || stay.expectedCheckOutDate || new Date();
-  const effectiveInvoiceDate = invoiceDate
-    ? (typeof invoiceDate === 'string' && invoiceDate.length === 10
-        ? new Date(`${invoiceDate}T12:00:00`)
-        : new Date(invoiceDate))
-    : defaultInvoiceDateObj;
   const checkInFormatted = format(new Date(stay.checkInDate), 'dd MMM yyyy, hh:mm a');
   const checkOutFormatted = format(new Date(outDate), 'dd MMM yyyy, hh:mm a');
   const waUrl = getStayWhatsAppUrl(stay, 'bill', invOptions);
@@ -201,6 +208,76 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
               inv.balance <= 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
             }`}>
               {inv.balance <= 0 ? 'Fully Paid' : `Due: ₹${inv.balance.toLocaleString('en-IN')}`}
+            </span>
+          </div>
+        </div>
+
+        {/* BILL DATE QUICK SELECTOR STRIP */}
+        <div className="px-5 sm:px-8 py-2 bg-white border-b border-gray-100 flex flex-wrap items-center justify-between gap-2.5 text-xs shrink-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-bold text-gray-700 flex items-center gap-1.5">
+              <Calendar size={13} className="text-indigo-600" />
+              <span>Bill Date:</span>
+            </span>
+
+            <div className="inline-flex items-center bg-gray-100 p-0.5 rounded-lg border border-gray-200 text-xs">
+              <button
+                type="button"
+                onClick={() => setDateMode('checkout')}
+                className={`px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer ${
+                  dateMode === 'checkout'
+                    ? 'bg-white text-gray-950 shadow-2xs font-black'
+                    : 'text-gray-600 hover:text-black'
+                }`}
+                title={isActualCheckout ? 'Actual time guest checked out' : 'Scheduled checkout time'}
+              >
+                ✓ Checkout Date ({format(checkoutDateObj, 'dd MMM')})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDateMode('current')}
+                className={`px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer ${
+                  dateMode === 'current'
+                    ? 'bg-white text-gray-950 shadow-2xs font-black'
+                    : 'text-gray-600 hover:text-black'
+                }`}
+                title="Uses today's current date"
+              >
+                Today ({format(todayDateObj, 'dd MMM')})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDateMode('custom')}
+                className={`px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer ${
+                  dateMode === 'custom'
+                    ? 'bg-white text-gray-950 shadow-2xs font-black'
+                    : 'text-gray-600 hover:text-black'
+                }`}
+                title="Choose custom date"
+              >
+                Custom Date
+              </button>
+            </div>
+
+            {dateMode === 'custom' && (
+              <input
+                type="date"
+                value={customDate}
+                onChange={e => setCustomDate(e.target.value)}
+                className="px-2 py-1 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-900 outline-none focus:ring-1 focus:ring-black"
+              />
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
+            <span>Bill Showing:</span>
+            <span className="font-mono font-bold text-gray-900 bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
+              {format(effectiveInvoiceDate, 'dd MMM yyyy')}
+            </span>
+            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded uppercase">
+              {dateMode === 'checkout' ? (isActualCheckout ? 'Actual Checkout' : 'Expected Checkout') : (dateMode === 'current' ? 'Current Date' : 'Custom Date')}
             </span>
           </div>
         </div>
@@ -300,15 +377,18 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
               </div>
               <div>
                 <label className="block font-bold text-gray-700 mb-1 flex items-center justify-between">
-                  <span>Bill / Invoice Date</span>
+                  <span>Custom Bill Date</span>
                   <span className="text-[9px] font-black uppercase text-emerald-700 bg-emerald-100/80 px-1 py-0.2 rounded">
-                    {stay.actualCheckOutDate ? 'Checkout' : 'Checkout'}
+                    {dateMode}
                   </span>
                 </label>
                 <input 
                   type="date" 
-                  value={invoiceDate}
-                  onChange={e => setInvoiceDate(e.target.value)}
+                  value={customDate}
+                  onChange={e => {
+                    setCustomDate(e.target.value);
+                    setDateMode('custom');
+                  }}
                   className="w-full px-3 py-1.5 bg-white border border-gray-300 rounded-lg font-bold text-gray-900 outline-none focus:ring-2 focus:ring-black text-xs"
                 />
               </div>
@@ -358,8 +438,8 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
                 <p className="text-xs font-mono font-bold text-gray-700 mt-0.5">#{inv.invoiceNumber}</p>
                 <p className="text-xs text-gray-500 font-medium mt-0.5">
                   Date: <span className="font-bold text-gray-900">{format(effectiveInvoiceDate, 'dd MMM yyyy')}</span>
-                  <span className="ml-1 text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded uppercase">
-                    {stay.actualCheckOutDate ? 'Checkout' : 'Checkout'}
+                  <span className="ml-1.5 text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded uppercase">
+                    {dateMode === 'checkout' ? (isActualCheckout ? 'Actual Checkout' : 'Expected Checkout') : (dateMode === 'current' ? 'Current Date' : 'Custom Date')}
                   </span>
                 </p>
                 <div className="mt-2">

@@ -229,9 +229,11 @@ export const getInvoiceWhatsAppUrl = (stay, payments = [], options = {}) => {
     ? new Date(stay.actualCheckOutDate) 
     : (stay.expectedCheckOutDate ? new Date(stay.expectedCheckOutDate) : new Date());
   const effectiveInvoiceDate = options.invoiceDate
-    ? (typeof options.invoiceDate === 'string' && options.invoiceDate.length === 10
-        ? new Date(`${options.invoiceDate}T12:00:00`)
-        : new Date(options.invoiceDate))
+    ? (options.invoiceDate instanceof Date
+        ? options.invoiceDate
+        : (typeof options.invoiceDate === 'string' && options.invoiceDate.length === 10
+            ? new Date(`${options.invoiceDate}T12:00:00`)
+            : new Date(options.invoiceDate)))
     : defaultInvoiceDate;
 
   const msg = [
@@ -276,9 +278,11 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
     ? new Date(stay.actualCheckOutDate) 
     : (stay.expectedCheckOutDate ? new Date(stay.expectedCheckOutDate) : new Date());
   const effectiveInvoiceDate = options.invoiceDate
-    ? (typeof options.invoiceDate === 'string' && options.invoiceDate.length === 10
-        ? new Date(`${options.invoiceDate}T12:00:00`)
-        : new Date(options.invoiceDate))
+    ? (options.invoiceDate instanceof Date
+        ? options.invoiceDate
+        : (typeof options.invoiceDate === 'string' && options.invoiceDate.length === 10
+            ? new Date(`${options.invoiceDate}T12:00:00`)
+            : new Date(options.invoiceDate)))
     : defaultInvoiceDate;
   const invoiceDateFormatted = format(effectiveInvoiceDate, 'dd MMM yyyy, hh:mm a');
 
@@ -1283,9 +1287,11 @@ export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {
     return d > latest ? d : latest;
   }, new Date(0));
   const effectiveInvoiceDate = options.invoiceDate
-    ? (typeof options.invoiceDate === 'string' && options.invoiceDate.length === 10
-        ? new Date(`${options.invoiceDate}T12:00:00`)
-        : new Date(options.invoiceDate))
+    ? (options.invoiceDate instanceof Date
+        ? options.invoiceDate
+        : (typeof options.invoiceDate === 'string' && options.invoiceDate.length === 10
+            ? new Date(`${options.invoiceDate}T12:00:00`)
+            : new Date(options.invoiceDate)))
     : (latestCheckout.getTime() > 0 ? latestCheckout : new Date());
   const invoiceDateFormatted = format(effectiveInvoiceDate, 'dd MMM yyyy, hh:mm a');
   const isPackageMode = inv.rateDisplayMode === 'package';

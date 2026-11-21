@@ -110,11 +110,22 @@ export default function MergedCorporateInvoiceModal({
     return latest.getTime() > 0 ? format(latest, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
   }, [selectedStays]);
 
+  const [dateMode, setDateMode] = useState('checkout');
   const [invoiceDate, setInvoiceDate] = useState(defaultMergedInvoiceDate);
 
   useEffect(() => {
     setInvoiceDate(defaultMergedInvoiceDate);
   }, [defaultMergedInvoiceDate]);
+
+  const effectiveMergedDate = useMemo(() => {
+    if (dateMode === 'current') return new Date();
+    if (dateMode === 'custom' && invoiceDate) return new Date(`${invoiceDate}T12:00:00`);
+    const latest = selectedStays.reduce((latestD, s) => {
+      const d = new Date(s.actualCheckOutDate || s.expectedCheckOutDate || s.checkInDate || Date.now());
+      return d > latestD ? d : latestD;
+    }, new Date(0));
+    return latest.getTime() > 0 ? latest : new Date();
+  }, [dateMode, invoiceDate, selectedStays]);
 
   // Tax Configurations
   const [gstEnabled, setGstEnabled] = useState(() => {
@@ -206,8 +217,8 @@ export default function MergedCorporateInvoiceModal({
     showPaymentHistory,
     markAllPaid: markBalancePaid,
     balancePaymentMethod,
-    invoiceDate
-  }), [hostel, guestCompany, guestGstin, billingAddress, bookerName, bookerPhone, poNumber, gstEnabled, gstRate, taxInclusive, rateDisplayMode, showPaymentHistory, markBalancePaid, balancePaymentMethod, invoiceDate]);
+    invoiceDate: effectiveMergedDate
+  }), [hostel, guestCompany, guestGstin, billingAddress, bookerName, bookerPhone, poNumber, gstEnabled, gstRate, taxInclusive, rateDisplayMode, showPaymentHistory, markBalancePaid, balancePaymentMethod, effectiveMergedDate]);
 
   const inv = useMemo(() => {
     if (selectedStays.length === 0) return null;
@@ -521,19 +532,58 @@ export default function MergedCorporateInvoiceModal({
                     />
                   </div>
 
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1 text-[11px] flex items-center justify-between">
-                      <span>Invoice Date</span>
-                      <span className="text-[9px] font-black uppercase text-emerald-700 bg-emerald-100/80 px-1 py-0.2 rounded">
-                        Checkout
+                  <div className="md:col-span-2">
+                    <div className="flex items-center justify-between mb-1 text-[11px]">
+                      <span className="font-bold text-slate-700">Invoice Bill Date:</span>
+                      <span className="font-mono font-bold text-slate-900 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200">
+                        {format(effectiveMergedDate, 'dd MMM yyyy')}
                       </span>
-                    </label>
-                    <input 
-                      type="date" 
-                      value={invoiceDate}
-                      onChange={e => setInvoiceDate(e.target.value)}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs text-xs"
-                    />
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <div className="inline-flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setDateMode('checkout')}
+                          className={`px-2 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                            dateMode === 'checkout'
+                              ? 'bg-white text-slate-900 shadow-2xs font-black'
+                              : 'text-slate-600 hover:text-black'
+                          }`}
+                        >
+                          Checkout Date
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDateMode('current')}
+                          className={`px-2 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                            dateMode === 'current'
+                              ? 'bg-white text-slate-900 shadow-2xs font-black'
+                              : 'text-slate-600 hover:text-black'
+                          }`}
+                        >
+                          Today
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDateMode('custom')}
+                          className={`px-2 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                            dateMode === 'custom'
+                              ? 'bg-white text-slate-900 shadow-2xs font-black'
+                              : 'text-slate-600 hover:text-black'
+                          }`}
+                        >
+                          Custom
+                        </button>
+                      </div>
+                      {dateMode === 'custom' && (
+                        <input 
+                          type="date" 
+                          value={invoiceDate}
+                          onChange={e => setInvoiceDate(e.target.value)}
+                          className="px-2 py-1 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 outline-none focus:ring-1 focus:ring-slate-900 text-xs"
+                        />
+                      )}
+                    </div>
                   </div>
                 </div>
 
