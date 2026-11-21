@@ -23,6 +23,13 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
   const [guestGstin, setGuestGstin] = useState((stay.gstin || guest.gstin || '').toUpperCase());
   const [billingAddress, setBillingAddress] = useState(stay.billingAddress || guest.address || '');
   const [discountAmount, setDiscountAmount] = useState(stay.discountAmount || 0);
+
+  // Default invoice date to the guest's checkout date (or expected checkout date)
+  const defaultInvoiceDateObj = stay.actualCheckOutDate 
+    ? new Date(stay.actualCheckOutDate) 
+    : (stay.expectedCheckOutDate ? new Date(stay.expectedCheckOutDate) : new Date());
+  const [invoiceDate, setInvoiceDate] = useState(() => format(defaultInvoiceDateObj, 'yyyy-MM-dd'));
+
   const [showTaxOptions, setShowTaxOptions] = useState(false);
   const [showPaymentHistory, setShowPaymentHistory] = useState(false);
   const [showMergedModal, setShowMergedModal] = useState(false);
@@ -95,11 +102,17 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
     guestGstin: guestGstin.trim().toUpperCase(),
     billingAddress: billingAddress.trim(),
     discountAmount: Number(discountAmount) || 0,
-    showPaymentHistory
+    showPaymentHistory,
+    invoiceDate
   };
 
   const inv = calculateInvoiceData(stay, payments, invOptions);
   const outDate = stay.actualCheckOutDate || stay.expectedCheckOutDate || new Date();
+  const effectiveInvoiceDate = invoiceDate
+    ? (typeof invoiceDate === 'string' && invoiceDate.length === 10
+        ? new Date(`${invoiceDate}T12:00:00`)
+        : new Date(invoiceDate))
+    : defaultInvoiceDateObj;
   const checkInFormatted = format(new Date(stay.checkInDate), 'dd MMM yyyy, hh:mm a');
   const checkOutFormatted = format(new Date(outDate), 'dd MMM yyyy, hh:mm a');
   const waUrl = getStayWhatsAppUrl(stay, 'bill', invOptions);
@@ -263,7 +276,7 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-amber-200/60">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2 border-t border-amber-200/60">
               <div className="sm:col-span-2">
                 <label className="block font-bold text-gray-700 mb-1">Corporate Billing Address</label>
                 <input 
@@ -285,11 +298,25 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
                   className="w-full px-3 py-1.5 bg-white border border-gray-300 rounded-lg font-bold text-emerald-800 outline-none focus:ring-2 focus:ring-black text-xs"
                 />
               </div>
+              <div>
+                <label className="block font-bold text-gray-700 mb-1 flex items-center justify-between">
+                  <span>Bill / Invoice Date</span>
+                  <span className="text-[9px] font-black uppercase text-emerald-700 bg-emerald-100/80 px-1 py-0.2 rounded">
+                    {stay.actualCheckOutDate ? 'Checkout' : 'Checkout'}
+                  </span>
+                </label>
+                <input 
+                  type="date" 
+                  value={invoiceDate}
+                  onChange={e => setInvoiceDate(e.target.value)}
+                  className="w-full px-3 py-1.5 bg-white border border-gray-300 rounded-lg font-bold text-gray-900 outline-none focus:ring-2 focus:ring-black text-xs"
+                />
+              </div>
             </div>
 
             <div className="flex justify-between items-center pt-2.5 border-t border-amber-200/60">
               <span className="text-[11px] text-gray-500 font-medium">
-                Changes made here (GST Rate, Pricing Style, Company GSTIN) will be permanently saved to this folio and will appear in the GST Tax Ledger.
+                Changes made here (GST Rate, Pricing Style, Company GSTIN, Bill Date) will be permanently saved to this folio and will appear in the GST Tax Ledger.
               </span>
               <button
                 type="button"
@@ -329,7 +356,12 @@ const InvoiceModal = ({ stay, payments = [], onClose }) => {
               <div className="text-left sm:text-right">
                 <p className="text-xl font-black uppercase text-gray-900">{gstEnabled ? 'TAX INVOICE' : 'HOTEL RECEIPT'}</p>
                 <p className="text-xs font-mono font-bold text-gray-700 mt-0.5">#{inv.invoiceNumber}</p>
-                <p className="text-xs text-gray-400 mt-0.5">Date: {format(new Date(), 'dd MMM yyyy')}</p>
+                <p className="text-xs text-gray-500 font-medium mt-0.5">
+                  Date: <span className="font-bold text-gray-900">{format(effectiveInvoiceDate, 'dd MMM yyyy')}</span>
+                  <span className="ml-1 text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded uppercase">
+                    {stay.actualCheckOutDate ? 'Checkout' : 'Checkout'}
+                  </span>
+                </p>
                 <div className="mt-2">
                   <span className={`inline-block px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${
                     inv.balance <= 0 ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-red-100 text-red-800 border border-red-300'

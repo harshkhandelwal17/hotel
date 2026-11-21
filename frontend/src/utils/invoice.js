@@ -224,6 +224,16 @@ export const getInvoiceWhatsAppUrl = (stay, payments = [], options = {}) => {
   if (!rawPhone) return null;
   const cleanPhone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
 
+  // Invoice Date defaults to the guest's checkout date (or options.invoiceDate)
+  const defaultInvoiceDate = stay.actualCheckOutDate 
+    ? new Date(stay.actualCheckOutDate) 
+    : (stay.expectedCheckOutDate ? new Date(stay.expectedCheckOutDate) : new Date());
+  const effectiveInvoiceDate = options.invoiceDate
+    ? (typeof options.invoiceDate === 'string' && options.invoiceDate.length === 10
+        ? new Date(`${options.invoiceDate}T12:00:00`)
+        : new Date(options.invoiceDate))
+    : defaultInvoiceDate;
+
   const msg = [
     `🏨 *${inv.hostel.name || 'Hotel'}* - Invoice & Receipt`,
     `──────────────────────`,
@@ -232,6 +242,7 @@ export const getInvoiceWhatsAppUrl = (stay, payments = [], options = {}) => {
     inv.guestGstin ? `🏛️ *Company GSTIN:* ${inv.guestGstin}` : '',
     `🚪 *Room Number:* ${inv.room.roomNumber || 'N/A'}`,
     `🧾 *Invoice No:* ${inv.invoiceNumber}`,
+    `📅 *Invoice Date:* ${format(effectiveInvoiceDate, 'dd MMM yyyy')}`,
     `📅 *Check-In:* ${format(new Date(stay.checkInDate), 'dd MMM yyyy, hh:mm a')}`,
     `📅 *Check-Out:* ${format(new Date(stay.actualCheckOutDate || stay.expectedCheckOutDate), 'dd MMM yyyy, hh:mm a')}`,
     `⏳ *Stay Duration:* ${inv.nights} Night${inv.nights > 1 ? 's' : ''}`,
@@ -259,7 +270,17 @@ export const generateInvoiceHtml = (stay, payments = [], options = {}) => {
   const outDate = stay.actualCheckOutDate || stay.expectedCheckOutDate || new Date();
   const checkInFormatted = format(new Date(stay.checkInDate), 'dd MMM yyyy, hh:mm a');
   const checkOutFormatted = format(new Date(outDate), 'dd MMM yyyy, hh:mm a');
-  const invoiceDateFormatted = format(new Date(), 'dd MMM yyyy, hh:mm a');
+
+  // Invoice Date defaults to the guest's checkout date (or options.invoiceDate)
+  const defaultInvoiceDate = stay.actualCheckOutDate 
+    ? new Date(stay.actualCheckOutDate) 
+    : (stay.expectedCheckOutDate ? new Date(stay.expectedCheckOutDate) : new Date());
+  const effectiveInvoiceDate = options.invoiceDate
+    ? (typeof options.invoiceDate === 'string' && options.invoiceDate.length === 10
+        ? new Date(`${options.invoiceDate}T12:00:00`)
+        : new Date(options.invoiceDate))
+    : defaultInvoiceDate;
+  const invoiceDateFormatted = format(effectiveInvoiceDate, 'dd MMM yyyy, hh:mm a');
 
   // SAC Codes
   const roomSac = inv.hsnSacCode || '996311';
@@ -1255,7 +1276,18 @@ export const calculateMergedInvoiceData = (stays = [], payments = [], options = 
  */
 export const generateMergedInvoiceHtml = (stays = [], payments = [], options = {}) => {
   const inv = calculateMergedInvoiceData(stays, payments, options);
-  const invoiceDateFormatted = format(new Date(), 'dd MMM yyyy, hh:mm a');
+
+  // Invoice Date defaults to latest checkout date among merged rooms (or options.invoiceDate)
+  const latestCheckout = stays.reduce((latest, s) => {
+    const d = new Date(s.actualCheckOutDate || s.expectedCheckOutDate || s.checkInDate || Date.now());
+    return d > latest ? d : latest;
+  }, new Date(0));
+  const effectiveInvoiceDate = options.invoiceDate
+    ? (typeof options.invoiceDate === 'string' && options.invoiceDate.length === 10
+        ? new Date(`${options.invoiceDate}T12:00:00`)
+        : new Date(options.invoiceDate))
+    : (latestCheckout.getTime() > 0 ? latestCheckout : new Date());
+  const invoiceDateFormatted = format(effectiveInvoiceDate, 'dd MMM yyyy, hh:mm a');
   const isPackageMode = inv.rateDisplayMode === 'package';
 
   // Room Accommodation Table Rows

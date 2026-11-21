@@ -101,6 +101,21 @@ export default function MergedCorporateInvoiceModal({
   });
   const [poNumber, setPoNumber] = useState('');
 
+  // Default invoice date to the latest checkout date among merged rooms
+  const defaultMergedInvoiceDate = useMemo(() => {
+    const latest = selectedStays.reduce((latestD, s) => {
+      const d = new Date(s.actualCheckOutDate || s.expectedCheckOutDate || s.checkInDate || Date.now());
+      return d > latestD ? d : latestD;
+    }, new Date(0));
+    return latest.getTime() > 0 ? format(latest, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
+  }, [selectedStays]);
+
+  const [invoiceDate, setInvoiceDate] = useState(defaultMergedInvoiceDate);
+
+  useEffect(() => {
+    setInvoiceDate(defaultMergedInvoiceDate);
+  }, [defaultMergedInvoiceDate]);
+
   // Tax Configurations
   const [gstEnabled, setGstEnabled] = useState(() => {
     return selectedStays.some(s => s.gstApplied) || Boolean(hostel.gstEnabled);
@@ -190,8 +205,9 @@ export default function MergedCorporateInvoiceModal({
     rateDisplayMode,
     showPaymentHistory,
     markAllPaid: markBalancePaid,
-    balancePaymentMethod
-  }), [hostel, guestCompany, guestGstin, billingAddress, bookerName, bookerPhone, poNumber, gstEnabled, gstRate, taxInclusive, rateDisplayMode, showPaymentHistory, markBalancePaid, balancePaymentMethod]);
+    balancePaymentMethod,
+    invoiceDate
+  }), [hostel, guestCompany, guestGstin, billingAddress, bookerName, bookerPhone, poNumber, gstEnabled, gstRate, taxInclusive, rateDisplayMode, showPaymentHistory, markBalancePaid, balancePaymentMethod, invoiceDate]);
 
   const inv = useMemo(() => {
     if (selectedStays.length === 0) return null;
@@ -502,6 +518,21 @@ export default function MergedCorporateInvoiceModal({
                       value={bookerPhone}
                       onChange={e => setBookerPhone(e.target.value)}
                       className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-medium text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1 text-[11px] flex items-center justify-between">
+                      <span>Invoice Date</span>
+                      <span className="text-[9px] font-black uppercase text-emerald-700 bg-emerald-100/80 px-1 py-0.2 rounded">
+                        Checkout
+                      </span>
+                    </label>
+                    <input 
+                      type="date" 
+                      value={invoiceDate}
+                      onChange={e => setInvoiceDate(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs text-xs"
                     />
                   </div>
                 </div>

@@ -288,7 +288,7 @@ exports.getGstReport = async (req, res, next) => {
       records.push({
         _id: stay._id,
         invoiceNumber,
-        invoiceDate: stay.checkInDate || stay.createdAt,
+        invoiceDate: stay.actualCheckOutDate || stay.expectedCheckOutDate || stay.checkInDate || stay.createdAt,
         clientName: companyName || guest.fullName || 'Guest',
         companyName,
         guestName: guest.fullName || 'Guest',
