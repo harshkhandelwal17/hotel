@@ -14,7 +14,7 @@
  *   node backend/scripts/restore-db.js --target-db=hotel_recovery  # Restores into a side DB
  */
 
-const { exec } = require('child_process');
+const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const dotenv = require('dotenv');
@@ -187,18 +187,37 @@ async function runRestore() {
     archivePath = await downloadFromR2(selectedBackup);
   }
 
-  let restoreCmd = `mongorestore --uri="${MONGO_URI}" --archive="${archivePath}" --gzip --drop`;
+  const restoreArgs = [
+    `--uri=${MONGO_URI}`,
+    `--archive=${archivePath}`,
+    '--gzip',
+    '--drop'
+  ];
+
   if (targetDb) {
-    restoreCmd += ` --nsInclude="*.*" --nsFrom="*.*" --nsTo="${targetDb}.*"`;
+    restoreArgs.push(
+      '--nsInclude=*.*',
+      '--nsFrom=*.*',
+      `--nsTo=${targetDb}.*`
+    );
   }
 
   console.log(`\n⏳ Restoring database now...`);
   return new Promise((resolve, reject) => {
-    exec(restoreCmd, (error, stdout, stderr) => {
-      if (error) {
-        console.error('❌ mongorestore failed:', error.message);
-        if (stderr) console.error(stderr);
-        return reject(error);
+    const child = spawn('mongorestore', restoreArgs, { stdio: ['ignore', 'inherit', 'pipe'] });
+
+    let stderr = '';
+    child.stderr.on('data', chunk => { stderr += chunk.toString(); });
+
+    child.on('error', (err) => {
+      console.error('❌ Failed to start mongorestore binary:', err.message);
+      reject(err);
+    });
+
+    child.on('close', (code) => {
+      if (code !== 0) {
+        console.error(`❌ mongorestore failed with exit code ${code}:`, stderr);
+        return reject(new Error(`mongorestore failed with exit code ${code}`));
       }
 
       console.log('\n========================================================');

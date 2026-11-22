@@ -54,7 +54,9 @@ exports.saveMediaBuffer = async (buffer, mimeType = 'image/jpeg') => {
       }));
 
       if (process.env.R2_PUBLIC_DOMAIN) {
-        return `${process.env.R2_PUBLIC_DOMAIN}/${uniqueKey}`;
+        const domain = process.env.R2_PUBLIC_DOMAIN.trim().replace(/\/+$/, '');
+        const base = domain.startsWith('http') ? domain : `https://${domain}`;
+        return `${base}/${uniqueKey}`;
       }
       return `https://${process.env.R2_BUCKET_NAME}.r2.cloudflarestorage.com/${uniqueKey}`;
     } catch (r2Err) {

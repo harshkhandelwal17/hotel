@@ -4,6 +4,14 @@ const app = require('./src/app');
 const connectDB = require('./src/config/db');
 const env = require('./src/config/env');
 
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Process] ⚠️ Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[Process] 🚨 Uncaught Exception:', err);
+});
+
 const PORT = env.port || 5000;
 
 // Connect to Database first, then start server

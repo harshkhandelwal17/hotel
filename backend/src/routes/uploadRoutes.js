@@ -54,7 +54,9 @@ router.post('/', upload.single('image'), (req, res) => {
     fileUrl = req.file.location;
     // If public domain is configured, use it instead of the ugly s3 url
     if (process.env.R2_PUBLIC_DOMAIN) {
-      fileUrl = `${process.env.R2_PUBLIC_DOMAIN}/${req.file.key}`;
+      const domain = process.env.R2_PUBLIC_DOMAIN.trim().replace(/\/+$/, '');
+      const base = domain.startsWith('http') ? domain : `https://${domain}`;
+      fileUrl = `${base}/${req.file.key}`;
     }
   } else {
     // Local Upload

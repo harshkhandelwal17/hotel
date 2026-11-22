@@ -47,5 +47,7 @@ const notificationSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 notificationSchema.index({ recipient: 1, isRead: 1, createdAt: -1 });
+// Auto-expire notifications older than 60 days to keep Atlas 512MB free tier clean and lightweight
+notificationSchema.index({ createdAt: 1 }, { expireAfterSeconds: 60 * 24 * 60 * 60 });
 
 module.exports = mongoose.model('Notification', notificationSchema);

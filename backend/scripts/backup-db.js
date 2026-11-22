@@ -10,7 +10,7 @@
  *    - Guarantees offsite, disaster-proof copy with 99.999999999% durability.
  */
 
-const { exec } = require('child_process');
+const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const dotenv = require('dotenv');
@@ -114,14 +114,25 @@ async function runBackup() {
   console.log(`[Database] Connecting to: ${maskedUri}`);
   console.log(`[Target] ${targetPath}`);
 
-  const dumpCmd = `mongodump --uri="${MONGO_URI}" --archive="${targetPath}" --gzip`;
-
   return new Promise((resolve, reject) => {
-    exec(dumpCmd, async (error, stdout, stderr) => {
-      if (error) {
-        console.error('❌ mongodump failed:', error.message);
-        if (stderr) console.error(stderr);
-        return reject(error);
+    const child = spawn('mongodump', [
+      `--uri=${MONGO_URI}`,
+      `--archive=${targetPath}`,
+      '--gzip'
+    ], { stdio: ['ignore', 'pipe', 'pipe'] });
+
+    let stderr = '';
+    child.stderr.on('data', chunk => { stderr += chunk.toString(); });
+
+    child.on('error', (err) => {
+      console.error('❌ Failed to start mongodump binary:', err.message);
+      reject(err);
+    });
+
+    child.on('close', async (code) => {
+      if (code !== 0) {
+        console.error(`❌ mongodump failed with exit code ${code}:`, stderr);
+        return reject(new Error(`mongodump failed with exit code ${code}`));
       }
 
       const stats = fs.statSync(targetPath);
