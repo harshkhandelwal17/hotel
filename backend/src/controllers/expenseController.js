@@ -170,6 +170,19 @@ exports.deleteExpense = async (req, res, next) => {
       }
     }
 
+    // Safety Net: Archive deleted expense record before wiping
+    try {
+      const { archiveDeletedRecord } = require('../utils/archiveHelper');
+      await archiveDeletedRecord({
+        modelName: 'Expense',
+        originalDoc: expense,
+        user: req.user,
+        reason: 'Expense delete API'
+      });
+    } catch (archiveErr) {
+      console.warn('[deleteExpense] Archive safety net warning:', archiveErr.message);
+    }
+
     await expense.deleteOne();
 
     res.status(200).json({

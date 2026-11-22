@@ -225,6 +225,19 @@ exports.deletePayment = async (req, res, next) => {
       }
     }
 
+    // Safety Net: Archive deleted payment record before wiping
+    try {
+      const { archiveDeletedRecord } = require('../utils/archiveHelper');
+      await archiveDeletedRecord({
+        modelName: 'Payment',
+        originalDoc: payment,
+        user: req.user,
+        reason: 'Payment delete API'
+      });
+    } catch (archiveErr) {
+      console.warn('[deletePayment] Archive safety net warning:', archiveErr.message);
+    }
+
     await Payment.findByIdAndDelete(id);
 
     // Sync stay.paidAmount

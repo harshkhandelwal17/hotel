@@ -1281,6 +1281,31 @@ exports.deleteStay = async (req, res, next) => {
     }
 
     // MODE 2: Complete Wipeout (Delete stay + all payments + revert ledger + cleanup)
+    // 0. Safety Net: Archive entire stay and related records in DeletedArchive before wiping
+    try {
+      const { archiveDeletedRecord } = require('../utils/archiveHelper');
+      const GuestLedger = require('../models/GuestLedger');
+      const LaundryOrder = require('../models/LaundryOrder');
+      const [allPayments, allLedgers, allLaundry] = await Promise.all([
+        Payment.find({ stay: stay._id }).lean().catch(() => []),
+        GuestLedger.find({ stay: stay._id }).lean().catch(() => []),
+        LaundryOrder.find({ stay: stay._id }).lean().catch(() => [])
+      ]);
+      await archiveDeletedRecord({
+        modelName: 'Stay',
+        originalDoc: stay,
+        relatedData: {
+          payments: allPayments,
+          ledgerEntries: allLedgers,
+          laundryOrders: allLaundry
+        },
+        user: req.user,
+        reason: req.body?.reason || req.query?.reason || 'deleteStay API'
+      });
+    } catch (archiveErr) {
+      console.warn('[deleteStay] Archive safety net warning:', archiveErr.message);
+    }
+
     // 1. Revert any Ledger entries (Wallet / Khata) created for this stay
     try {
       const GuestLedger = require('../models/GuestLedger');
