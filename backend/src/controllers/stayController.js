@@ -842,6 +842,11 @@ exports.checkout = async (req, res, next) => {
       console.error('Failed to create check-out notification:', notifErr.message);
     }
 
+    // Automatically mark room as dirty for housekeeping after guest checkout
+    if (stay.room) {
+      await Room.findByIdAndUpdate(stay.room, { $set: { housekeepingStatus: 'dirty' } }).catch(() => {});
+    }
+
     res.status(200).json({ success: true, data: populated || flipped, payments });
   } catch (error) {
     sendError(res, next, error);

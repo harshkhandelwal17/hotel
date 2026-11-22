@@ -21,7 +21,14 @@ exports.login = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Please provide an email and password' });
     }
 
-    const user = await User.findOne({ email }).select('+password').populate('assignedHostel');
+    const cleanEmail = email.trim().toLowerCase();
+    // Case-insensitive lookup ensures legacy mixed-case emails also match reliably
+    const user = await User.findOne({
+      $or: [
+        { email: cleanEmail },
+        { email: { $regex: new RegExp(`^${cleanEmail.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')}$`, 'i') } }
+      ]
+    }).select('+password').populate('assignedHostel');
 
     if (!user) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
