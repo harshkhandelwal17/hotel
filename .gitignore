@@ -12,3 +12,5 @@ desktop/dist-electron/
 *.log
 backend/uploads/
 uploads/
+backend/backups/
+backups/
