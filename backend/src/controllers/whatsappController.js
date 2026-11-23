@@ -133,30 +133,27 @@ exports.getRecentMedia = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Hostel context required' });
     }
 
-    // If WhatsApp is disconnected for this property and not explicitly requested to show archives,
-    // return an empty list so logged-out WhatsApp never leaks old media into active intake
-    const hostel = await Hostel.findById(hostelId).select('whatsappStatus whatsappSyncEnabled');
-    if (!hostel || hostel.whatsappStatus !== 'connected' || !hostel.whatsappSyncEnabled) {
-      if (req.query.includeDisconnected !== 'true') {
-        return res.status(200).json({ success: true, count: 0, data: [] });
-      }
-    }
-
-    // Proactively maintain rolling FIFO buffer (keeps top 50 newest, auto-purges oldest bottom unused)
+    // Proactively maintain rolling FIFO buffer (keeps top 50 newest, auto-purges oldest bottom excess)
     maintainHostelMediaBuffer(hostelId, 50).catch(() => {});
 
-    // Return the newest media up to requested limit (default 60, allows full buffer visibility)
-    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 60, 10), 100);
+    // Return the 50 newest media items
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 10), 100);
     const media = await WhatsAppMedia.find({
       hostel: hostelId
     })
       .sort({ createdAt: -1 })
       .limit(limit);
 
+    // Provide real-time live WhatsApp connection health alongside media list
+    const statusInfo = await getHostelWhatsAppStatus(hostelId).catch(() => ({ status: 'disconnected', phone: '' }));
+
     res.status(200).json({ 
       success: true, 
       count: media.length, 
       maxBuffer: 50,
+      whatsappStatus: statusInfo.status || 'disconnected',
+      isLiveConnected: statusInfo.status === 'connected',
+      phone: statusInfo.phone || '',
       data: media 
     });
   } catch (err) {

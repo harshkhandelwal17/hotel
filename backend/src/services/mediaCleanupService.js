@@ -169,34 +169,34 @@ const cleanupUnusedMedia = async ({ olderThanHours = 24, forceAllUnused = false,
 
 /**
  * Rolling FIFO Buffer:
- * Automatically ensures that the number of unused WhatsApp images for a hotel
+ * Automatically ensures that the number of WhatsApp inbox images for a hotel
  * never exceeds maxBuffer (default 50).
- * When new images arrive, the oldest unused images from the bottom are automatically
- * purged from MongoDB and physical storage (R2 / local uploads).
- * Used / checked-in guest photos are 100% protected.
+ * When new images arrive, the oldest bottom images beyond 50 are automatically
+ * removed from the queue so new photos can always arrive at the top.
+ * Any photos linked to checked-in guests remain 100% permanently protected in Cloudflare R2!
  */
 const maintainHostelMediaBuffer = async (hostelId, maxBuffer = 50) => {
   if (!hostelId) return { purgedCount: 0 };
 
   try {
-    // 1. Fetch all unused media for this hostel, sorted newest first (descending)
-    const unusedMedia = await WhatsAppMedia.find({
-      hostel: hostelId,
-      status: 'new'
+    // 1. Fetch all WhatsApp media for this hostel, sorted newest first (descending)
+    const allMedia = await WhatsAppMedia.find({
+      hostel: hostelId
     })
       .sort({ createdAt: -1 })
-      .select('_id imageUrl');
+      .select('_id imageUrl status');
 
-    // If unused count is within limit, nothing to purge
-    if (unusedMedia.length <= maxBuffer) {
+    // If count is within limit, nothing to purge
+    if (allMedia.length <= maxBuffer) {
       return { purgedCount: 0 };
     }
 
     // 2. Identify the overflow items at the bottom (oldest ones beyond maxBuffer)
-    const excessItems = unusedMedia.slice(maxBuffer);
+    const excessItems = allMedia.slice(maxBuffer);
 
     // 3. Collect all protected image URLs from checked-in guests
     const guests = await Guest.find({
+      hostel: hostelId,
       $or: [
         { idProofImage: { $exists: true, $ne: '' } },
         { idProofImageBack: { $exists: true, $ne: '' } }
@@ -221,20 +221,23 @@ const maintainHostelMediaBuffer = async (hostelId, maxBuffer = 50) => {
     let purgedCount = 0;
     for (const item of excessItems) {
       const key = extractStorageKey(item.imageUrl);
-      if (protectedUrls.has(item.imageUrl) || (key && protectedKeys.has(key))) {
-        // Protect it by marking status used
-        await WhatsAppMedia.updateOne({ _id: item._id }, { status: 'used' }).catch(() => {});
+      const isLinkedToGuest = protectedUrls.has(item.imageUrl) || (key && protectedKeys.has(key));
+
+      if (isLinkedToGuest) {
+        // Physical file in Cloudflare R2 / disk is 100% PRESERVED for the guest!
+        // We only remove the intake queue record from WhatsAppMedia so the inbox stays within 50 items.
+        await WhatsAppMedia.deleteOne({ _id: item._id }).catch(() => {});
+        purgedCount++;
       } else {
-        // Delete physical file (Cloudflare R2 and/or local uploads)
+        // Not used by any guest (unrelated/spam/abandoned): Safe to remove from storage and DB
         await deleteMediaFile(item.imageUrl).catch(() => {});
-        // Remove from database
         await WhatsAppMedia.deleteOne({ _id: item._id }).catch(() => {});
         purgedCount++;
       }
     }
 
     if (purgedCount > 0) {
-      console.log(`[WhatsApp Rolling Buffer] 🔄 Auto-purged ${purgedCount} oldest unused photos for Hostel ${hostelId}. (Maintained top ${maxBuffer} newest photos).`);
+      console.log(`[WhatsApp Rolling Buffer] 🔄 Auto-purged ${purgedCount} excess bottom photos for Hostel ${hostelId}. (Maintained top ${maxBuffer} newest photos).`);
     }
 
     return { purgedCount };

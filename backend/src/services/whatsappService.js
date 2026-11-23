@@ -32,6 +32,21 @@ if (!fs.existsSync(SESSIONS_DIR)) {
 }
 
 /**
+ * Checks whether a Baileys socket is genuinely connected and open
+ */
+const isSocketAlive = (sock) => {
+  if (!sock || !sock.user) return false;
+  try {
+    const ws = sock.ws;
+    if (!ws) return false;
+    // WebSocket readyState: 0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED
+    return ws.isOpen === true || ws.readyState === 1;
+  } catch (_) {
+    return false;
+  }
+};
+
+/**
  * Recursively unwrap nested WhatsApp message structures to find image or ID document
  */
 const extractTargetMedia = (message) => {
@@ -447,7 +462,7 @@ const startHostelWhatsApp = async (hostelId) => {
             });
           }, 400);
         } else if (isLoggedOut || isForbidden) {
-          console.log(`[WhatsApp] Hostel ${hostelId} was logged out from device.`);
+          console.log(`[WhatsApp] 🚨 Hostel ${hostelId} was logged out from companion device.`);
           qrCodes.delete(hostelId);
           pairingStates.delete(hostelId);
           try {
@@ -457,22 +472,21 @@ const startHostelWhatsApp = async (hostelId) => {
           await Hostel.findByIdAndUpdate(hostelId, {
             whatsappStatus: 'disconnected',
             whatsappPhone: ''
-          });
+          }).catch(() => {});
         } else if (isReplaced) {
           console.log(`[WhatsApp] Hostel ${hostelId} connection replaced by another instance.`);
           qrCodes.delete(hostelId);
           pairingStates.delete(hostelId);
         } else {
-          // Transient network drop or handshake retry
-          console.log(`[WhatsApp] Hostel ${hostelId} socket closed (code: ${statusCode}). Reconnecting in 2s...`);
+          // Transient network drop or handshake retry: ALWAYS attempt auto-reconnect
+          console.log(`[WhatsApp] Hostel ${hostelId} socket closed (code: ${statusCode}). Auto-reconnecting in 2s...`);
           setTimeout(async () => {
             if (explicitlyDisconnected.has(hostelId)) return;
-            const hCheck = await Hostel.findById(hostelId).select('whatsappStatus whatsappSyncEnabled');
-            if (!hCheck || hCheck.whatsappStatus === 'disconnected' || !hCheck.whatsappSyncEnabled) return;
-
             const hasCreds = fs.existsSync(path.join(authPath, 'creds.json'));
             if (hasCreds && !sessions.has(hostelId)) {
-              startHostelWhatsApp(hostelId).catch(console.error);
+              startHostelWhatsApp(hostelId).catch((err) => {
+                console.warn(`[WhatsApp] Reconnection retry warning:`, err.message);
+              });
             }
           }, 2000);
         }
@@ -575,7 +589,7 @@ const getHostelWhatsAppStatus = async (hostelId) => {
   const isPairing = !!pairingStates.get(hostelId);
 
   // Auto-resume socket if saved credentials exist and in-memory socket is not currently active
-  if (!activeSock && hasCreds && hostel.whatsappSyncEnabled && (hostel.whatsappStatus === 'connected' || isPairing)) {
+  if (!activeSock && hasCreds && hostel.whatsappSyncEnabled && !explicitlyDisconnected.has(hostelId)) {
     console.log(`[WhatsApp] Auto-resuming saved WhatsApp session for Hostel ${hostelId}...`);
     try {
       startHostelWhatsApp(hostelId).catch((err) => {
@@ -587,14 +601,23 @@ const getHostelWhatsAppStatus = async (hostelId) => {
     }
   }
 
-  // A socket is ONLY genuinely connected if the authenticated user session (sock.user) exists!
-  // activeSock.ws.isOpen is merely the transport WebSocket used to transmit QR codes and handshake.
-  const isConnected = !!(activeSock && activeSock.user);
+  // ACCURATE LIVE CHECK: Socket must exist, user identity must exist, and WebSocket must be OPEN
+  const isConnected = isSocketAlive(activeSock);
+
+  // If socket is in sessions map but is DEAD/ZOMBIE (websocket closed):
+  if (activeSock && !isConnected && activeSock.user) {
+    console.warn(`[WhatsApp] Dead/Zombie socket detected for Hostel ${hostelId}. Cycling connection...`);
+    try { activeSock.end(); } catch (_) {}
+    sessions.delete(hostelId);
+    if (hasCreds && !explicitlyDisconnected.has(hostelId)) {
+      startHostelWhatsApp(hostelId).catch(() => {});
+    }
+  }
 
   let status = 'disconnected';
   if (isConnected) {
     status = 'connected';
-  } else if (isPairing || qrCodes.has(hostelId) || connectingPromises.has(hostelId) || (activeSock && !activeSock.ws?.isClosed)) {
+  } else if (isPairing || qrCodes.has(hostelId) || connectingPromises.has(hostelId)) {
     status = 'connecting';
   }
 
@@ -752,6 +775,84 @@ const requestHostelPairingCode = async (hostelId, phoneNumber) => {
 };
 
 /**
+ * Active Background Health Watchdog:
+ * Runs periodically to verify Baileys WebSocket sockets are genuinely alive.
+ * Reconnects dropped sockets and detects device logouts.
+ */
+let watchdogHandle = null;
+
+const checkSocketHealthAndHeartbeat = async (hostelId) => {
+  if (explicitlyDisconnected.has(hostelId)) return;
+
+  const authPath = path.join(SESSIONS_DIR, `hostel_${hostelId}`);
+  const credsPath = path.join(authPath, 'creds.json');
+  let hasCreds = false;
+  try {
+    hasCreds = fs.existsSync(credsPath) && fs.statSync(credsPath).size > 50;
+  } catch (_) {}
+
+  const sock = sessions.get(hostelId);
+
+  // If credentials exist but no active socket in memory: auto-resume
+  if (!sock) {
+    if (hasCreds) {
+      console.log(`[WhatsApp Watchdog] 🔄 Auto-reconnecting saved session for Hostel ${hostelId}...`);
+      startHostelWhatsApp(hostelId).catch((err) => {
+        console.warn(`[WhatsApp Watchdog] Auto-resume warning for Hostel ${hostelId}:`, err.message);
+      });
+    }
+    return;
+  }
+
+  // If socket is in memory, check if genuinely alive
+  const alive = isSocketAlive(sock);
+  if (!alive) {
+    console.warn(`[WhatsApp Watchdog] ⚠️ Dead/stale socket found for Hostel ${hostelId}. Cycling connection...`);
+    try { sock.end(); } catch (_) {}
+    sessions.delete(hostelId);
+    if (hasCreds) {
+      startHostelWhatsApp(hostelId).catch((err) => {
+        console.warn(`[WhatsApp Watchdog] Reconnection warning for Hostel ${hostelId}:`, err.message);
+      });
+    }
+    return;
+  }
+
+  // Active presence ping to verify connection isn't in a zombie state
+  try {
+    if (sock.sendPresenceUpdate) {
+      await sock.sendPresenceUpdate('available');
+    }
+  } catch (pingErr) {
+    const msg = (pingErr.message || '').toLowerCase();
+    if (msg.includes('logged out') || msg.includes('401') || msg.includes('forbidden') || msg.includes('403')) {
+      console.log(`[WhatsApp Watchdog] 🚨 Session revoked on companion phone for Hostel ${hostelId}. Purging credentials.`);
+      sessions.delete(hostelId);
+      qrCodes.delete(hostelId);
+      pairingStates.delete(hostelId);
+      try { fs.rmSync(authPath, { recursive: true, force: true }); } catch (_) {}
+      await Hostel.findByIdAndUpdate(hostelId, {
+        whatsappStatus: 'disconnected',
+        whatsappPhone: ''
+      }).catch(() => {});
+    }
+  }
+};
+
+const startWhatsAppWatchdog = () => {
+  if (watchdogHandle) return;
+  // Repeat every 25 seconds
+  watchdogHandle = setInterval(async () => {
+    try {
+      const activeHostels = await Hostel.find({ whatsappSyncEnabled: true }).select('_id');
+      for (const h of activeHostels) {
+        await checkSocketHealthAndHeartbeat(h._id.toString()).catch(() => {});
+      }
+    } catch (_) {}
+  }, 25000);
+};
+
+/**
  * Auto-resume all active WhatsApp sessions on server startup
  */
 const initAllSavedWhatsAppSessions = async () => {
@@ -775,6 +876,9 @@ const initAllSavedWhatsAppSessions = async () => {
         } catch (_) {}
       }
     }
+
+    // Launch active health watchdog
+    startWhatsAppWatchdog();
   } catch (err) {
     console.error('[WhatsApp] Error in initAllSavedWhatsAppSessions:', err);
   }
@@ -785,6 +889,7 @@ module.exports = {
   getHostelWhatsAppStatus,
   disconnectHostelWhatsApp,
   requestHostelPairingCode,
-  initAllSavedWhatsAppSessions
+  initAllSavedWhatsAppSessions,
+  isSocketAlive
 };
 

@@ -575,7 +575,10 @@ const CheckIn = () => {
     checkWaStatus();
     let pollTimer;
     if (waModalOpen || waStatus === 'connecting' || waPairing) {
-      pollTimer = setInterval(checkWaStatus, 1200);
+      pollTimer = setInterval(checkWaStatus, 1500);
+    } else {
+      // Steady background health check keeps connection state accurate even after phone disconnects
+      pollTimer = setInterval(checkWaStatus, 4000);
     }
     return () => {
       isMounted = false;
@@ -640,12 +643,9 @@ const CheckIn = () => {
     }
   }, [activeHostel]);
 
-  // Poll incoming WhatsApp photos when on Step 2 and WhatsApp is actively connected
+  // Poll incoming WhatsApp photos when on Step 2
   useEffect(() => {
-    if (!hostelId || !waSyncEnabled || step !== 2 || waStatus !== 'connected') {
-      if (waStatus !== 'connected') {
-        setWaRecentMedia([]);
-      }
+    if (!hostelId || !waSyncEnabled || step !== 2) {
       return;
     }
 
@@ -655,6 +655,12 @@ const CheckIn = () => {
         const res = await axios.get(`${API}/api/whatsapp/recent-media?hostelId=${encodeURIComponent(hostelId)}&_t=${Date.now()}`);
         if (isMounted && res.data?.success) {
           setWaRecentMedia(res.data.data || []);
+          if (res.data.whatsappStatus) {
+            setWaStatus(res.data.whatsappStatus);
+          }
+          if (res.data.phone) {
+            setWaPhone(res.data.phone);
+          }
         }
       } catch (_) {}
     };
@@ -665,7 +671,7 @@ const CheckIn = () => {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [hostelId, waSyncEnabled, step, waStatus]);
+  }, [hostelId, waSyncEnabled, step]);
 
   // =========================================================
   // DYNAMIC OCCUPANTS
@@ -3656,22 +3662,28 @@ const CheckIn = () => {
                 type="button"
                 onClick={() => setWaModalOpen(true)}
                 className={`self-start sm:self-auto px-3.5 py-2 rounded-xl font-bold text-xs flex items-center gap-2 transition-all shrink-0 shadow-xs active:scale-95 border ${
-                  waStatus === 'connected' || waPhone
+                  waStatus === 'connected'
                     ? 'bg-white border-emerald-300 text-emerald-900 hover:bg-emerald-50'
                     : waStatus === 'connecting'
                     ? 'bg-amber-50 border-amber-300 text-amber-900 animate-pulse'
-                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                    : 'bg-rose-50 border-rose-300 text-rose-900 hover:bg-rose-100'
                 }`}
               >
-                <span className={`w-2 h-2 rounded-full ${waStatus === 'connected' || waPhone ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></span>
-                <MessageSquare size={13} className="text-emerald-700" />
+                <span className={`w-2 h-2 rounded-full ${
+                  waStatus === 'connected'
+                    ? 'bg-emerald-500 animate-pulse'
+                    : waStatus === 'connecting'
+                    ? 'bg-amber-500 animate-pulse'
+                    : 'bg-rose-500'
+                }`}></span>
+                <MessageSquare size={13} className={waStatus === 'connected' ? 'text-emerald-700' : waStatus === 'connecting' ? 'text-amber-700' : 'text-rose-700'} />
                 <span>
                   {waStatus === 'connected'
                     ? `WhatsApp Active (${waPhone ? `+${waPhone}` : 'Linked'})`
-                    : waPhone
-                    ? `WhatsApp Active (+${waPhone})`
                     : waStatus === 'connecting'
                     ? 'Connecting WhatsApp...'
+                    : waPhone
+                    ? `WhatsApp Disconnected (+${waPhone})`
                     : 'Connect WhatsApp'}
                 </span>
               </button>
@@ -3692,8 +3704,12 @@ const CheckIn = () => {
                         <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200/80 flex items-center justify-center shadow-xs shrink-0">
                           <MessageSquare size={18} />
                         </div>
-                        {(waStatus === 'connected' || waPhone) && (
+                        {waStatus === 'connected' ? (
                           <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full"></span>
+                        ) : waStatus === 'connecting' ? (
+                          <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-500 border-2 border-white rounded-full animate-pulse"></span>
+                        ) : (
+                          <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 border-2 border-white rounded-full"></span>
                         )}
                       </div>
                       <div className="min-w-0">
@@ -3709,8 +3725,8 @@ const CheckIn = () => {
                           </span>
                         </div>
                         <p className="text-[10px] font-bold text-gray-500 truncate flex items-center gap-1 mt-0.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                          <span>FIFO (Newest on top)</span>
+                          <span className={`w-1.5 h-1.5 rounded-full ${waStatus === 'connected' ? 'bg-emerald-500 animate-pulse' : waStatus === 'connecting' ? 'bg-amber-500' : 'bg-rose-500'}`}></span>
+                          <span>{waStatus === 'connected' ? 'Live (Newest on top)' : waStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}</span>
                           {waPhone && <span className="text-gray-400">• +{waPhone}</span>}
                         </p>
                       </div>
@@ -3739,14 +3755,19 @@ const CheckIn = () => {
                         <span className="hidden sm:inline">Clean</span>
                       </button>
 
-                      {waStatus === 'disconnected' && !waPhone && (
+                      {waStatus !== 'connected' && (
                         <button
                           type="button"
                           onClick={() => setWaModalOpen(true)}
-                          className="px-2.5 py-1.5 bg-black hover:bg-gray-800 text-white font-black text-[10px] uppercase tracking-wider rounded-xl shadow-xs transition-all active:scale-95"
-                          title="Scan QR to connect WhatsApp"
+                          className={`px-2.5 py-1.5 font-black text-[10px] uppercase tracking-wider rounded-xl shadow-xs transition-all active:scale-95 flex items-center gap-1 ${
+                            waStatus === 'connecting'
+                              ? 'bg-amber-500 hover:bg-amber-600 text-white animate-pulse'
+                              : 'bg-rose-600 hover:bg-rose-700 text-white'
+                          }`}
+                          title="Click to scan QR / reconnect WhatsApp"
                         >
-                          QR
+                          <QrCode size={11} />
+                          <span>{waStatus === 'connecting' ? 'Connecting...' : 'QR'}</span>
                         </button>
                       )}
                     </div>
