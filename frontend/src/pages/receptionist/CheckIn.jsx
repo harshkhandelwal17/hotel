@@ -1592,6 +1592,12 @@ const CheckIn = () => {
       const res = await axios.get(`${API}/api/whatsapp/recent-media?hostelId=${encodeURIComponent(hostelId)}&_t=${Date.now()}`);
       if (res.data?.success) {
         setWaRecentMedia(res.data.data || []);
+        if (res.data.whatsappStatus) {
+          setWaStatus(res.data.whatsappStatus);
+        }
+        if (res.data.phone) {
+          setWaPhone(res.data.phone);
+        }
         toast({ message: `Synced! Found ${res.data.data?.length || 0} incoming WhatsApp photo(s).`, type: 'success' });
       }
     } catch (_) {

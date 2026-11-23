@@ -18,34 +18,56 @@
  */
 
 /**
- * Loads an image safely from File, Blob, DataURL, or Remote URL
+ * Loads an image safely from File, Blob, DataURL, or Remote URL (with backend CORS proxy fallback)
  */
 export function loadImage(source) {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     if (!source) return reject(new Error('No image source provided'));
 
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-
-    let objectUrl = null;
     if (source instanceof Blob || source instanceof File) {
-      objectUrl = URL.createObjectURL(source);
+      const objectUrl = URL.createObjectURL(source);
+      const img = new Image();
+      img.onload = () => { URL.revokeObjectURL(objectUrl); resolve(img); };
+      img.onerror = (err) => { URL.revokeObjectURL(objectUrl); reject(err); };
       img.src = objectUrl;
-    } else if (typeof source === 'string') {
-      img.src = source;
-    } else {
-      return reject(new Error('Unsupported image source type'));
+      return;
     }
 
-    img.onload = () => {
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-      resolve(img);
-    };
+    if (typeof source === 'string') {
+      if (source.startsWith('data:') || source.startsWith('blob:')) {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = (err) => reject(err);
+        img.src = source;
+        return;
+      }
 
-    img.onerror = (err) => {
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-      reject(new Error('Failed to load image: ' + (err?.message || 'CORS or Network error')));
-    };
+      const tryLoad = (url) => new Promise((res, rej) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => res(img);
+        img.onerror = rej;
+        img.src = url;
+      });
+
+      // 1. Try direct CORS load first
+      try {
+        const img = await tryLoad(source);
+        return resolve(img);
+      } catch (_) {
+        // 2. Fallback to backend image proxy (/api/upload/proxy) for Cloudflare R2 URLs
+        try {
+          const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+          const proxyUrl = `${apiBase}/api/upload/proxy?url=${encodeURIComponent(source)}`;
+          const img = await tryLoad(proxyUrl);
+          return resolve(img);
+        } catch (err2) {
+          return reject(new Error('Failed to load image: ' + err2.message));
+        }
+      }
+    }
+
+    return reject(new Error('Unsupported image source type'));
   });
 }
 
