@@ -46,8 +46,19 @@ exports.scanIdCard = async (req, res, next) => {
 
     // 2. Resolve Hostel + ownership check
     const { assertHostelAccess, userId } = require('../utils/hostelAccess');
-    const cleanHostelId = (hostelId && hostelId !== 'all' && hostelId !== '[object Object]') ? hostelId : null;
-    let targetHostelId = cleanHostelId || req.user.assignedHostel;
+    let cleanHostelId = null;
+    if (hostelId) {
+      if (typeof hostelId === 'object' && hostelId._id) {
+        cleanHostelId = String(hostelId._id);
+      } else if (typeof hostelId === 'string' && hostelId !== 'all' && hostelId !== '[object Object]' && hostelId.trim() !== '') {
+        cleanHostelId = hostelId.trim();
+      }
+    }
+    let userAssigned = req.user?.assignedHostel;
+    if (userAssigned && typeof userAssigned === 'object' && userAssigned._id) {
+      userAssigned = String(userAssigned._id);
+    }
+    let targetHostelId = cleanHostelId || userAssigned;
     if (!targetHostelId && req.user.role === 'admin') {
       const myHostels = await Hostel.find({ owner: userId(req.user) });
       if (myHostels.length > 0) targetHostelId = myHostels[0]._id;
@@ -204,11 +215,11 @@ Return ONLY valid JSON.`;
     // 8. PRIMARY ENGINE: Google Gemini Vision AI
     // Official v1beta production models in priority order
     const candidateModels = [
-      'gemini-2.5-flash',
-      'gemini-2.5-flash-lite',
-      'gemini-2.0-flash',
-      'gemini-2.0-flash-lite',
-      'gemini-flash-latest'
+      'gemini-3.5-flash',
+      'gemini-3.5-flash-lite',
+      'gemini-3.6-flash',
+      'gemini-3.7-flash',
+      'gemini-3.8-flash'
     ];
 
     const geminiPayload = {

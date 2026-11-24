@@ -638,8 +638,16 @@ const CheckIn = () => {
   }, [activeHostel, selectedRoomDetails]);
 
   useEffect(() => {
-    if (activeHostel?.digitalAadhaarEnabled !== undefined) {
-      setDigitalAadhaarEnabled(!!activeHostel.digitalAadhaarEnabled);
+    if (activeHostel) {
+      if (activeHostel.aiOcrEnabled !== undefined) {
+        setAiOcrEnabled(!!activeHostel.aiOcrEnabled);
+      }
+      if (activeHostel.whatsappSyncEnabled !== undefined) {
+        setWaSyncEnabled(!!activeHostel.whatsappSyncEnabled);
+      }
+      if (activeHostel.digitalAadhaarEnabled !== undefined) {
+        setDigitalAadhaarEnabled(!!activeHostel.digitalAadhaarEnabled);
+      }
     }
   }, [activeHostel]);
 
@@ -854,10 +862,84 @@ const CheckIn = () => {
   };
 
   // =========================================================
-  // IMAGE UPLOAD
+  // IMAGE UPLOAD & DOCUMENT SCANNING HELPERS
   // =========================================================
 
   guestsRef.current = guests;
+
+  // Helper: Safely apply extracted Aadhaar QR details into guest profile
+  const applyAadhaarQrData = (guestIdx, qrData) => {
+    if (!qrData) return;
+    setGuests(prev => {
+      const updated = [...prev];
+      const g = { ...updated[guestIdx] };
+      if (qrData.fullName) g.fullName = qrData.fullName;
+      if (qrData.idProofNumber) {
+        const isMasked = String(qrData.idProofNumber).includes('X');
+        const hasFull12 = /^\d{4}\s?\d{4}\s?\d{4}$/.test(String(g.idProofNumber || '').trim());
+        if (!isMasked || !hasFull12) {
+          g.idProofNumber = qrData.idProofNumber;
+        }
+      }
+      if (qrData.gender) g.gender = qrData.gender;
+      if (qrData.dateOfBirth) g.dateOfBirth = qrData.dateOfBirth;
+      if (qrData.address) g.address = qrData.address;
+      g.idProofType = 'Aadhaar';
+      g.isAadhaarVerified = true;
+      g.aadhaarQrType = qrData.qrType || 'UIDAI Secure QR';
+      g.aadhaarData = qrData;
+      if (qrData.photoBase64) {
+        g.photoBase64 = qrData.photoBase64;
+      }
+      updated[guestIdx] = g;
+      return updated;
+    });
+  };
+
+  // Helper: Safely apply AI Vision OCR details into guest profile
+  const applyAiOcrDataToGuest = (guestIdx, side, aiData) => {
+    if (!aiData || typeof aiData !== 'object') return [];
+    const filled = [];
+    setGuests(prev => {
+      const updated = [...prev];
+      const g = { ...updated[guestIdx] };
+      // Do not overwrite official UIDAI QR verified data with OCR text
+      if (!g.isAadhaarVerified) {
+        if (aiData.fullName && (side === 'front' || !g.fullName)) {
+          g.fullName = aiData.fullName;
+          filled.push('Name');
+        }
+        if (aiData.idProofNumber && (side === 'front' || !g.idProofNumber || String(g.idProofNumber).includes('X'))) {
+          g.idProofNumber = aiData.idProofNumber;
+          filled.push('ID Number');
+        }
+        if (aiData.gender && (side === 'front' || !g.gender)) {
+          const genLower = String(aiData.gender).toLowerCase();
+          if (genLower.includes('fe') || genLower.includes('महिला')) g.gender = 'Female';
+          else if (genLower.includes('ma') || genLower.includes('पुरुष')) g.gender = 'Male';
+          else if (genLower.trim()) g.gender = 'Other';
+          filled.push('Gender');
+        }
+        if (aiData.dateOfBirth && (side === 'front' || !g.dateOfBirth)) {
+          g.dateOfBirth = aiData.dateOfBirth;
+          filled.push('DOB');
+        }
+      }
+      if (aiData.address && (side === 'back' || !g.address)) {
+        g.address = aiData.address;
+        filled.push('Address');
+      }
+      if (aiData.pincode && (side === 'back' || !g.pincode)) {
+        g.pincode = aiData.pincode;
+      }
+      if (!g.idProofType) {
+        g.idProofType = 'Aadhaar';
+      }
+      updated[guestIdx] = g;
+      return updated;
+    });
+    return filled;
+  };
 
   const handleImageUpload = async (
     index,
@@ -867,34 +949,6 @@ const CheckIn = () => {
     if (!file) return;
 
     originalIdFilesRef.current[`${index}-${side}`] = file;
-
-    // Helper: Safely apply extracted Aadhaar QR details into guest profile
-    const applyQrData = (qrData) => {
-      setGuests(prev => {
-        const updated = [...prev];
-        const g = { ...updated[index] };
-        if (qrData.fullName) g.fullName = qrData.fullName;
-        if (qrData.idProofNumber) {
-          const isMasked = String(qrData.idProofNumber).includes('X');
-          const hasFull12 = /^\d{4}\s?\d{4}\s?\d{4}$/.test(String(g.idProofNumber || '').trim());
-          if (!isMasked || !hasFull12) {
-            g.idProofNumber = qrData.idProofNumber;
-          }
-        }
-        if (qrData.gender) g.gender = qrData.gender;
-        if (qrData.dateOfBirth) g.dateOfBirth = qrData.dateOfBirth;
-        if (qrData.address) g.address = qrData.address;
-        g.idProofType = 'Aadhaar';
-        g.isAadhaarVerified = true;
-        g.aadhaarQrType = qrData.qrType || 'UIDAI Secure QR';
-        g.aadhaarData = qrData;
-        if (qrData.photoBase64) {
-          g.photoBase64 = qrData.photoBase64;
-        }
-        updated[index] = g;
-        return updated;
-      });
-    };
 
     // =========================================================
     // STEP 1: PARALLEL INSTANT QR SCAN ON UNCOMPRESSED FILE
@@ -912,7 +966,7 @@ const CheckIn = () => {
 
       qrScanPromise.then((qrRes) => {
         if (qrRes && qrRes.success && qrRes.data) {
-          applyQrData(qrRes.data);
+          applyAadhaarQrData(index, qrRes.data);
           toast({
             message: `🛡️ Verified Aadhaar QR Detected! Auto-filled details for ${qrRes.data.fullName}.`,
             type: 'success'
@@ -927,7 +981,7 @@ const CheckIn = () => {
       qrScanPromise = scanAadhaarQrFromImage(file, { side: 'front' })
         .then((qrRes) => {
           if (qrRes && qrRes.success && qrRes.data) {
-            applyQrData(qrRes.data);
+            applyAadhaarQrData(index, qrRes.data);
             toast({
               message: `🛡️ Verified Aadhaar QR Detected! Auto-filled details for ${qrRes.data.fullName}.`,
               type: 'success'
@@ -1010,41 +1064,11 @@ const CheckIn = () => {
           });
 
           if (ocrRes.data && ocrRes.data.success && ocrRes.data.data) {
-            const aiData = ocrRes.data.data;
-            const filled = [];
-
-            setGuests(prev => {
-              const updated = [...prev];
-              const g = { ...updated[index] };
-              if (aiData.fullName && (side === 'front' || !g.fullName)) {
-                g.fullName = aiData.fullName;
-                filled.push(aiData.fullName);
-              }
-              if (aiData.idProofNumber && (side === 'front' || !g.idProofNumber || String(g.idProofNumber).includes('X'))) {
-                g.idProofNumber = aiData.idProofNumber;
-                filled.push(aiData.idProofNumber);
-              }
-              if (aiData.gender && (side === 'front' || !g.gender)) {
-                const genLower = aiData.gender.toLowerCase();
-                if (genLower.includes('fe') || genLower.includes('महिला')) g.gender = 'Female';
-                else if (genLower.includes('ma') || genLower.includes('पुरुष')) g.gender = 'Male';
-                else g.gender = 'Other';
-              }
-              if (aiData.dateOfBirth && (side === 'front' || !g.dateOfBirth)) {
-                g.dateOfBirth = aiData.dateOfBirth;
-              }
-              if (aiData.address && (side === 'back' || !g.address)) {
-                g.address = aiData.address;
-                filled.push('Address');
-              }
-              updated[index] = g;
-              return updated;
-            });
-
+            const filled = applyAiOcrDataToGuest(index, side, ocrRes.data.data);
             toast({
               message: filled.length > 0
-                ? `✨ Auto-Filled: ${filled.join(' | ')}`
-                : `✨ ${side === 'front' ? 'Front' : 'Back'} ID scanned successfully!`,
+                ? `✨ AI Auto-Filled: ${filled.join(' | ')}`
+                : `✨ ${side === 'front' ? 'Front' : 'Back'} ID scanned successfully with AI!`,
               type: 'success'
             });
           }
@@ -1105,35 +1129,11 @@ const CheckIn = () => {
       }
 
       if (res && res.success && res.data) {
-        const qrData = res.data;
-        setGuests(prev => {
-          const updated = [...prev];
-          const g = { ...updated[guestIdx] };
-          if (qrData.fullName) g.fullName = qrData.fullName;
-          if (qrData.idProofNumber) {
-            const isMasked = String(qrData.idProofNumber).includes('X');
-            const hasFull12 = /^\d{4}\s?\d{4}\s?\d{4}$/.test(String(g.idProofNumber || '').trim());
-            if (!isMasked || !hasFull12) {
-              g.idProofNumber = qrData.idProofNumber;
-            }
-          }
-          if (qrData.gender) g.gender = qrData.gender;
-          if (qrData.dateOfBirth) g.dateOfBirth = qrData.dateOfBirth;
-          if (qrData.address) g.address = qrData.address;
-          g.idProofType = 'Aadhaar';
-          g.isAadhaarVerified = true;
-          g.aadhaarQrType = qrData.qrType || 'UIDAI Secure QR';
-          g.aadhaarData = qrData;
-          if (qrData.photoBase64) {
-            g.photoBase64 = qrData.photoBase64;
-          }
-          updated[guestIdx] = g;
-          return updated;
-        });
+        applyAadhaarQrData(guestIdx, res.data);
         toast({
           message: foundOnOtherSide
-            ? `🛡️ Aadhaar QR found on ${sideName === 'front' ? 'Back' : 'Front'} ID! Auto-filled details for ${qrData.fullName}.`
-            : `🛡️ Verified Aadhaar QR Detected! Auto-filled details for ${qrData.fullName}.`,
+            ? `🛡️ Aadhaar QR found on ${sideName === 'front' ? 'Back' : 'Front'} ID! Auto-filled details for ${res.data.fullName}.`
+            : `🛡️ Verified Aadhaar QR Detected! Auto-filled details for ${res.data.fullName}.`,
           type: 'success'
         });
       } else {
@@ -1149,31 +1149,11 @@ const CheckIn = () => {
             });
 
             if (ocrRes.data && ocrRes.data.success && ocrRes.data.data) {
-              const aiData = ocrRes.data.data;
-              const filledFields = [];
-              setGuests(prev => {
-                const updated = [...prev];
-                const g = { ...updated[guestIdx] };
-                if (aiData.fullName) { g.fullName = aiData.fullName; filledFields.push('Name'); }
-                if (aiData.idProofNumber) { g.idProofNumber = aiData.idProofNumber; filledFields.push('ID Number'); }
-                if (aiData.gender) {
-                  const genLower = aiData.gender.toLowerCase();
-                  if (genLower.includes('fe') || genLower.includes('महिला')) g.gender = 'Female';
-                  else if (genLower.includes('ma') || genLower.includes('पुरुष')) g.gender = 'Male';
-                  else g.gender = 'Other';
-                  filledFields.push('Gender');
-                }
-                if (aiData.dateOfBirth) { g.dateOfBirth = aiData.dateOfBirth; filledFields.push('DOB'); }
-                if (aiData.address) { g.address = aiData.address; filledFields.push('Address'); }
-                g.idProofType = 'Aadhaar';
-                updated[guestIdx] = g;
-                return updated;
-              });
-
+              const filledFields = applyAiOcrDataToGuest(guestIdx, sideName, ocrRes.data.data);
               toast({
                 message: filledFields.length > 0
-                  ? `✨ Card text scanned! Auto-filled: ${filledFields.join(', ')}`
-                  : '✨ ID photo scanned successfully!',
+                  ? `✨ AI Card text scanned! Auto-filled: ${filledFields.join(', ')}`
+                  : '✨ ID photo scanned successfully with AI!',
                 type: 'success'
               });
               return;
@@ -1186,8 +1166,10 @@ const CheckIn = () => {
         }
 
         toast({
-          message: res?.message || 'No readable Aadhaar QR code found in this photo. Please make sure the side with the QR code is clearly visible.',
-          type: 'error'
+          message: aiOcrEnabled
+            ? (res?.message || 'No readable Aadhaar QR code or clear text found in this photo.')
+            : 'No Aadhaar QR found. (AI Scanner is off in Super Admin - please enter details manually)',
+          type: 'info'
         });
       }
     } catch (err) {
@@ -1288,6 +1270,9 @@ const CheckIn = () => {
       const formData = new FormData();
       formData.append('image', compressedFile);
 
+      // Start QR scan concurrently on the cropped image
+      const qrScanPromise = scanAadhaarQrFromImage(croppedFile, { side }).catch(() => null);
+
       const res = await axios.post(`${API}/api/upload`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
@@ -1303,10 +1288,50 @@ const CheckIn = () => {
         return updated;
       });
 
-      toast({
-        message: `✨ Enhanced & Cleaned ${side === 'front' ? 'Front' : 'Back'} ID Card successfully!`,
-        type: 'success'
-      });
+      setUploadingImage(false);
+
+      // Check if cropped image has readable QR code
+      const qrRes = await qrScanPromise;
+      const qrProcessed = Boolean(qrRes && qrRes.success && qrRes.data);
+
+      if (qrProcessed) {
+        applyAadhaarQrData(index, qrRes.data);
+        toast({
+          message: `🛡️ Verified Aadhaar QR Detected on cropped card! Auto-filled for ${qrRes.data.fullName}.`,
+          type: 'success'
+        });
+      } else if (aiOcrEnabled) {
+        // Fallback to AI OCR scan
+        setScanningOcr({ index, side });
+        try {
+          const currentGuest = guestsRef.current[index] || {};
+          const ocrRes = await axios.post(`${API}/api/ocr/scan-id`, {
+            imageUrl: croppedDataUrl || resolvedUrl,
+            side,
+            hostelId,
+            idProofType: currentGuest.idProofType || 'Aadhaar'
+          });
+
+          if (ocrRes.data?.success && ocrRes.data?.data) {
+            const filled = applyAiOcrDataToGuest(index, side, ocrRes.data.data);
+            toast({
+              message: filled.length > 0
+                ? `✨ Cropped card scanned with AI! Auto-filled: ${filled.join(', ')}`
+                : `✨ Cropped ${side === 'front' ? 'Front' : 'Back'} card enhanced & scanned!`,
+              type: 'success'
+            });
+          }
+        } catch (ocrErr) {
+          console.warn('[CheckIn] Crop AI OCR notice:', ocrErr?.message);
+        } finally {
+          setScanningOcr({ index: null, side: null });
+        }
+      } else {
+        toast({
+          message: `✨ Enhanced & Cleaned ${side === 'front' ? 'Front' : 'Back'} ID Card successfully!`,
+          type: 'success'
+        });
+      }
     } catch (err) {
       toast({
         message: 'Failed to save cropped image: ' + err.message,
@@ -1314,6 +1339,7 @@ const CheckIn = () => {
       });
     } finally {
       setUploadingImage(false);
+      setScanningOcr({ index: null, side: null });
     }
   };
 
@@ -1334,6 +1360,7 @@ const CheckIn = () => {
       const rotCanvas = rotateCanvas(baseCanvas, deg);
 
       const res = await canvasToFile(rotCanvas, 'rotated_id.jpg', 0.92);
+      const rotDataUrl = rotCanvas.toDataURL('image/jpeg', 0.92);
       const formData = new FormData();
       formData.append('image', res.file);
       const uploadRes = await axios.post(`${API}/api/upload`, formData, {
@@ -1344,18 +1371,57 @@ const CheckIn = () => {
       setGuests(prev => {
         const updated = [...prev];
         if (side === 'back') {
-          updated[guestIdx] = { ...updated[guestIdx], idProofImageBack: newUrl };
+          updated[guestIdx] = { ...updated[guestIdx], idProofImageBack: newUrl, localBackDataUrl: rotDataUrl };
         } else {
-          updated[guestIdx] = { ...updated[guestIdx], idProofImage: newUrl };
+          updated[guestIdx] = { ...updated[guestIdx], idProofImage: newUrl, localFrontDataUrl: rotDataUrl };
         }
         return updated;
       });
+
+      setUploadingImage(false);
+
+      // If ID details are not yet verified, attempt scanning rotated image!
+      if (!curGuest.isAadhaarVerified) {
+        const qrRes = await scanAadhaarQrFromImage(res.file, { side }).catch(() => null);
+        if (qrRes && qrRes.success && qrRes.data) {
+          applyAadhaarQrData(guestIdx, qrRes.data);
+          toast({
+            message: `🛡️ Verified Aadhaar QR Detected on rotated image! Auto-filled for ${qrRes.data.fullName}.`,
+            type: 'success'
+          });
+          return;
+        } else if (aiOcrEnabled) {
+          setScanningOcr({ index: guestIdx, side });
+          try {
+            const ocrRes = await axios.post(`${API}/api/ocr/scan-id`, {
+              imageUrl: rotDataUrl || newUrl,
+              side,
+              hostelId,
+              idProofType: curGuest.idProofType || 'Aadhaar'
+            });
+            if (ocrRes.data?.success && ocrRes.data?.data) {
+              const filled = applyAiOcrDataToGuest(guestIdx, side, ocrRes.data.data);
+              toast({
+                message: filled.length > 0
+                  ? `✨ Rotated 90° & AI Auto-Filled: ${filled.join(', ')}`
+                  : `Rotated ${side.toUpperCase()} ID 90°!`,
+                type: 'success'
+              });
+              return;
+            }
+          } catch (_) {
+          } finally {
+            setScanningOcr({ index: null, side: null });
+          }
+        }
+      }
 
       toast({ message: `Rotated ${side.toUpperCase()} ID 90°!`, type: 'success' });
     } catch (err) {
       toast({ message: 'Failed to rotate: ' + err.message, type: 'error' });
     } finally {
       setUploadingImage(false);
+      setScanningOcr({ index: null, side: null });
     }
   };
 
@@ -1412,29 +1478,10 @@ const CheckIn = () => {
       try {
         const qrRes = await scanAadhaarQrFromImage(resolvedUrl, { side });
         if (qrRes && qrRes.success && qrRes.data) {
-          const qrData = qrRes.data;
-          setGuests(prev => {
-            const updated = [...prev];
-            const g = { ...updated[index] };
-            if (qrData.fullName) g.fullName = qrData.fullName;
-            if (qrData.idProofNumber) g.idProofNumber = qrData.idProofNumber;
-            if (qrData.gender) g.gender = qrData.gender;
-            if (qrData.dateOfBirth) g.dateOfBirth = qrData.dateOfBirth;
-            if (qrData.address) g.address = qrData.address;
-            g.idProofType = 'Aadhaar';
-            g.isAadhaarVerified = true;
-            g.aadhaarQrType = qrData.qrType || 'UIDAI Secure QR';
-            g.aadhaarData = qrData;
-            if (qrData.photoBase64) {
-              g.photoBase64 = qrData.photoBase64;
-            }
-            updated[index] = g;
-            return updated;
-          });
-
+          applyAadhaarQrData(index, qrRes.data);
           qrProcessed = true;
           toast({
-            message: `🛡️ Verified Aadhaar QR from WhatsApp! Auto-filled details for ${qrData.fullName}.`,
+            message: `🛡️ Verified Aadhaar QR from WhatsApp! Auto-filled details for ${qrRes.data.fullName}.`,
             type: 'success'
           });
         }
@@ -1450,41 +1497,20 @@ const CheckIn = () => {
         try {
           const currentGuest = guestsRef.current[index] || {};
           const ocrRes = await axios.post(`${API}/api/ocr/scan-id`, {
-            imageUrl,
+            imageUrl: resolvedUrl || imageUrl,
             side,
             hostelId,
             idProofType: currentGuest.idProofType || 'Aadhaar'
           });
 
           if (ocrRes.data && ocrRes.data.success && ocrRes.data.data) {
-            const aiData = ocrRes.data.data;
-            if (side === 'front') {
-              setGuests(prev => {
-                const updated = [...prev];
-                const g = { ...updated[index] };
-                if (aiData.fullName) g.fullName = aiData.fullName;
-                if (aiData.idProofNumber) g.idProofNumber = aiData.idProofNumber;
-                if (aiData.gender) {
-                  const genLower = aiData.gender.toLowerCase();
-                  if (genLower.includes('fe') || genLower.includes('महिला')) g.gender = 'Female';
-                  else if (genLower.includes('ma') || genLower.includes('पुरुष')) g.gender = 'Male';
-                  else g.gender = 'Other';
-                }
-                if (aiData.dateOfBirth) g.dateOfBirth = aiData.dateOfBirth;
-                updated[index] = g;
-                return updated;
-              });
-              toast({ message: '✨ AI Auto-Filled Details from WhatsApp Image!', type: 'success' });
-            } else if (side === 'back') {
-              if (aiData.address) {
-                setGuests(prev => {
-                  const updated = [...prev];
-                  updated[index] = { ...updated[index], address: aiData.address };
-                  return updated;
-                });
-                toast({ message: '✨ AI Auto-Filled Address from WhatsApp Image!', type: 'success' });
-              }
-            }
+            const filled = applyAiOcrDataToGuest(index, side, ocrRes.data.data);
+            toast({
+              message: filled.length > 0
+                ? `✨ AI Auto-Filled from WhatsApp: ${filled.join(', ')}`
+                : '✨ AI Auto-Filled Details from WhatsApp Image!',
+              type: 'success'
+            });
           }
         } catch (ocrErr) {
           console.warn('WhatsApp AI OCR fallback notice:', ocrErr?.message);
