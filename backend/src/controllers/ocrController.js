@@ -213,12 +213,13 @@ Return ONLY valid JSON.`;
     let lastErrorText = '';
 
     // 8. PRIMARY ENGINE: Google Gemini Vision AI
-    // Official v1beta production models in priority order
+    // High-availability Vision candidate models in priority order.
+    // 'lite' and 'preview' models have dedicated high-throughput capacity and recover fastest from spikes.
     const candidateModels = [
-      'gemini-3.5-flash',
       'gemini-3.5-flash-lite',
-      'gemini-3.6-flash',
-      'gemini-3.7-flash',
+      'gemini-3-flash-preview',
+      'gemini-flash-lite-latest',
+      'gemini-3.5-flash',
       'gemini-3.8-flash'
     ];
 
@@ -247,21 +248,35 @@ Return ONLY valid JSON.`;
       for (const modelName of candidateModels) {
         try {
           const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-          const response = await fetch(geminiUrl, {
+          let response = await fetch(geminiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(geminiPayload),
-            signal: AbortSignal.timeout(8000)
+            signal: AbortSignal.timeout(5500)
           });
 
-          if (response.ok) {
+          // Transient 503 high demand handler: Google's load balancer quickly shifts on brief delay
+          if (response.status === 503) {
+            console.warn(`[OCR] Gemini ${modelName} 503 high demand spike, retrying in 350ms...`);
+            await new Promise(r => setTimeout(r, 350));
+            try {
+              response = await fetch(geminiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(geminiPayload),
+                signal: AbortSignal.timeout(5000)
+              });
+            } catch (_) {}
+          }
+
+          if (response && response.ok) {
             const result = await response.json();
             const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
             extractedData = cleanOcrOutput(parseJsonText(text));
             successfulModel = modelName;
             usedProvider = 'gemini';
             break;
-          } else {
+          } else if (response) {
             lastErrorText = await response.text();
             console.warn(`[OCR] Gemini ${modelName} (${response.status}):`, lastErrorText.slice(0, 120));
           }
