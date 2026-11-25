@@ -44,9 +44,11 @@ const paymentSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 paymentSchema.index({ stay: 1 });
+paymentSchema.index({ stay: 1, paymentDate: 1 });
 paymentSchema.index({ guest: 1 });
 paymentSchema.index({ hostel: 1 });
 paymentSchema.index({ paymentDate: 1 });
 paymentSchema.index({ hostel: 1, paymentDate: -1 });
+paymentSchema.index({ hostel: 1, paymentDate: 1, paymentMethod: 1, amount: 1 });
 
 module.exports = mongoose.model('Payment', paymentSchema);

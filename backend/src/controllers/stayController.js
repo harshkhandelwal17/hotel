@@ -780,43 +780,45 @@ exports.checkout = async (req, res, next) => {
       }
     }
 
-    const payments = await Payment.find({ stay: stay._id }).sort('paymentDate');
+    const [payments, populated] = await Promise.all([
+      Payment.find({ stay: stay._id }).sort('paymentDate').lean(),
+      Stay.findById(flipped._id)
+        .populate('guest', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth companyName gstin')
+        .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth companyName gstin')
+        .populate('room', 'roomNumber price24h extraPerPerson24h')
+        .populate('hostel', 'name address contactNumber email upiId upiPayeeName gstEnabled gstin taxInclusive gstRate hsnSacCode state stateCode invoicePrefix billTerms autoApplyGstOnCheckin')
+        .lean()
+    ]);
 
-    const populated = await Stay.findById(flipped._id)
-      .populate('guest', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth companyName gstin')
-      .populate('coGuests', 'fullName mobileNumber idProofType idProofNumber idProofImage idProofImageBack address gender dateOfBirth companyName gstin')
-      .populate('room', 'roomNumber price24h extraPerPerson24h')
-      .populate('hostel', 'name address contactNumber email upiId upiPayeeName gstEnabled gstin taxInclusive gstRate hsnSacCode state stateCode invoicePrefix billTerms autoApplyGstOnCheckin');
+    // 🚪 Trigger Check-Out Notification strictly for THIS Property's Owner & Staff (Non-blocking background dispatch)
+    setImmediate(async () => {
+      try {
+        const { recipientIds, hostelDoc } = await getHotelPropertyNotificationRecipients(stay.hostel, req.user);
 
-    // 🚪 Trigger Check-Out Notification strictly for THIS Property's Owner & Staff
-    try {
-      const { recipientIds, hostelDoc } = await getHotelPropertyNotificationRecipients(stay.hostel, req.user);
+        const rNum = populated?.room?.roomNumber || 'Room';
+        const gName = (populated?.guest?.fullName || 'Guest').trim();
+        const hName = hostelDoc?.name || 'Hotel';
+        const settledAmount = Number(checkoutPayment) || 0;
+        const settText = settledAmount > 0 ? ` • Settled ₹${settledAmount.toLocaleString('en-IN')}` : ' • Settled';
 
-      const rNum = populated?.room?.roomNumber || 'Room';
-      const gName = (populated?.guest?.fullName || 'Guest').trim();
-      const hName = hostelDoc?.name || 'Hotel';
-      const settledAmount = Number(checkoutPayment) || 0;
-      const settText = settledAmount > 0 ? ` • Settled ₹${settledAmount.toLocaleString('en-IN')}` : ' • Settled';
+        // 📲 1. Dispatch Background Web Push IMMEDIATELY (Wakes up mobile even when closed!)
+        sendWebPushToUsers(Array.from(recipientIds), {
+          title: `🚪 Check-Out: Room ${rNum}`,
+          body: `${hName} • Room ${rNum} checked out by ${gName}${settText}`,
+          icon: '/logo-192.png',
+          badge: '/logo-192.png',
+          tag: `checkout-${stay._id}`,
+          vibrate: [250, 100, 250, 100, 250],
+          data: {
+            url: '/checkouts',
+            stayId: stay._id.toString(),
+            hotelName: hName
+          }
+        }).catch(err => console.error('[WebPush] Checkout push error:', err));
 
-      // 📲 1. Dispatch Background Web Push IMMEDIATELY (Wakes up mobile even when closed!)
-      sendWebPushToUsers(Array.from(recipientIds), {
-        title: `🚪 Check-Out: Room ${rNum}`,
-        body: `${hName} • Room ${rNum} checked out by ${gName}${settText}`,
-        icon: '/logo-192.png',
-        badge: '/logo-192.png',
-        tag: `checkout-${stay._id}`,
-        vibrate: [250, 100, 250, 100, 250],
-        data: {
-          url: '/checkouts',
-          stayId: stay._id.toString(),
-          hotelName: hName
-        }
-      }).catch(err => console.error('[WebPush] Checkout push error:', err));
-
-      // 📥 2. Save in-app notification record for unread bell counts
-      for (const recId of recipientIds) {
-        try {
-          await Notification.create({
+        // 📥 2. Save in-app notification records in batch (instant single DB operation)
+        if (recipientIds && recipientIds.length > 0) {
+          const chkNotifs = recipientIds.map(recId => ({
             recipient: recId,
             hostel: hostelDoc ? hostelDoc._id : stay.hostel,
             stay: stay._id,
@@ -832,14 +834,13 @@ exports.checkout = async (req, res, next) => {
               paidAmount: settledAmount,
               stayId: stay._id.toString()
             }
-          });
-        } catch (singleErr) {
-          // Ignore individual duplicate / error
+          }));
+          await Notification.insertMany(chkNotifs, { ordered: false }).catch(() => {});
         }
+      } catch (notifErr) {
+        console.error('Failed to create check-out notification:', notifErr.message);
       }
-    } catch (notifErr) {
-      console.error('Failed to create check-out notification:', notifErr.message);
-    }
+    });
 
     res.status(200).json({ success: true, data: populated || flipped, payments });
   } catch (error) {
@@ -2183,27 +2184,27 @@ exports.groupCheckout = async (req, res, next) => {
       }
     }
 
-    // 3. Dispatch Web Push for Group Checkout strictly to THIS Property's Staff & Owner
-    try {
-      const { recipientIds, hostelDoc } = await getHotelPropertyNotificationRecipients(hostelId, req.user);
+    // 3. Dispatch Web Push & In-app Notifications (Non-blocking background dispatch)
+    setImmediate(async () => {
+      try {
+        const { recipientIds, hostelDoc } = await getHotelPropertyNotificationRecipients(hostelId, req.user);
 
-      const hName = hostelDoc?.name || 'Hotel';
-      const gName = leaderStay.groupName || 'Group';
+        const hName = hostelDoc?.name || 'Hotel';
+        const gName = leaderStay.groupName || 'Group';
 
-      sendWebPushToUsers(Array.from(recipientIds), {
-        title: `🚪 Group Check-Out: ${gName} (${activeStays.length} Rooms)`,
-        body: `${hName} • Checked out ${activeStays.length} rooms • Payment received: ₹${Number(payAmt).toLocaleString('en-IN')}`,
-        icon: '/logo-192.png',
-        badge: '/logo-192.png',
-        tag: `grp-checkout-${groupId}`,
-        vibrate: [250, 100, 250, 100, 250],
-        data: { url: '/receptionist/rooms' }
-      }).catch(err => console.warn('Group Checkout Push failed:', err.message));
+        sendWebPushToUsers(Array.from(recipientIds), {
+          title: `🚪 Group Check-Out: ${gName} (${activeStays.length} Rooms)`,
+          body: `${hName} • Checked out ${activeStays.length} rooms • Payment received: ₹${Number(payAmt).toLocaleString('en-IN')}`,
+          icon: '/logo-192.png',
+          badge: '/logo-192.png',
+          tag: `grp-checkout-${groupId}`,
+          vibrate: [250, 100, 250, 100, 250],
+          data: { url: '/receptionist/rooms' }
+        }).catch(err => console.warn('Group Checkout Push failed:', err.message));
 
-      // Save in-app notification record for bell counts
-      for (const recId of recipientIds) {
-        try {
-          await Notification.create({
+        // Save in-app notification records in batch (instant single DB operation)
+        if (recipientIds && recipientIds.length > 0) {
+          const grpChkNotifs = recipientIds.map(recId => ({
             recipient: recId,
             hostel: hostelId,
             stay: leaderStay._id,
@@ -2217,12 +2218,13 @@ exports.groupCheckout = async (req, res, next) => {
               settledAmount: Number(payAmt) || 0,
               stayId: leaderStay._id.toString()
             }
-          });
-        } catch (singleErr) {}
+          }));
+          await Notification.insertMany(grpChkNotifs, { ordered: false }).catch(() => {});
+        }
+      } catch (notifErr) {
+        console.warn('Group checkout notification warning:', notifErr.message);
       }
-    } catch (notifErr) {
-      console.warn('Group checkout notification warning:', notifErr.message);
-    }
+    });
 
     res.status(200).json({
       success: true,

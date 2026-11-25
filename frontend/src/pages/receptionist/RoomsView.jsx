@@ -158,21 +158,6 @@ const RoomsView = () => {
       setRooms(newRooms);
       setActiveStays(newStays);
 
-      // Auto-mark rooms as dirty when they become vacant after checkout
-      setHousekeepingStatus(prev => {
-        const updated = { ...prev };
-        newRooms.forEach(room => {
-          const hasActiveStay = newStays.some(s => s.room?._id === room._id);
-          if (!hasActiveStay && room.status !== 'Maintenance') {
-            const wasOccupied = activeStaysRef.current.some(s => s.room?._id === room._id);
-            if (wasOccupied && !updated[room._id]) {
-              updated[room._id] = 'dirty';
-            }
-          }
-        });
-        localStorage.setItem('hk_status', JSON.stringify(updated));
-        return updated;
-      });
     } catch (error) { console.error(error); }
     finally { setLoading(false); }
   };
