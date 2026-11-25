@@ -5,6 +5,7 @@ import axios from 'axios';
 import { AuthContext } from '../../context/AuthContext';
 import {
   CheckCircle2,
+  Loader2,
   Search,
   UserPlus,
   CreditCard,
@@ -1676,7 +1677,7 @@ const CheckIn = () => {
       );
 
       // =====================================================
-      // 2. PRIMARY GUEST
+      // 2. GUEST UPSERT (PRIMARY & CO-GUESTS IN PARALLEL)
       // =====================================================
 
       const sanitizeGuestPayload = (rawGuest) => {
@@ -1689,66 +1690,29 @@ const CheckIn = () => {
         return clean;
       };
 
-      const pGuest = sanitizeGuestPayload({ ...guests[0], hostel: hostelId });
-
-      let pGuestId = pGuest._id || null;
-
-      if (!pGuestId) {
-        // Search by mobile first — if already exists, update instead of create
-        try {
-          const searchRes = await axios.get(`${API}/api/guests?mobile=${pGuest.mobileNumber}`);
-          if (searchRes.data.data && searchRes.data.data.length > 0) {
-            pGuestId = searchRes.data.data[0]._id;
+      const saveOrUpdateGuest = async (rawGuest) => {
+        const clean = sanitizeGuestPayload({ ...rawGuest, hostel: hostelId });
+        if (clean._id) {
+          try {
+            const updateRes = await axios.put(`${API}/api/guests/${clean._id}`, clean);
+            return updateRes.data?.data?._id || clean._id;
+          } catch (_) {
+            return clean._id;
           }
-        } catch (_) {}
-      }
-
-      if (!pGuestId) {
-        // CREATE PRIMARY GUEST (truly new)
-        const pRes = await axios.post(`${API}/api/guests`, pGuest);
-        pGuestId = pRes.data.data._id;
-      } else {
-        // UPDATE PRIMARY GUEST
-        await axios.put(`${API}/api/guests/${pGuestId}`, pGuest);
-      }
-
-      // =====================================================
-      // 3. CO-GUESTS
-      // =====================================================
-
-      const coGuestIds = [];
-
-      for (let i = 1; i < guests.length; i++) {
-        const cg = guests[i];
-
-        // Only process co-guest that has a name
-        if (cg.fullName && cg.fullName.trim() !== '') {
-          const coGuest = sanitizeGuestPayload({ ...cg, hostel: hostelId });
-
-          let cgId = coGuest._id || null;
-
-          // If no _id but has mobile — search DB first to avoid duplicate error
-          if (!cgId && coGuest.mobileNumber && coGuest.mobileNumber.trim() !== '') {
-            try {
-              const cgSearch = await axios.get(`${API}/api/guests?mobile=${coGuest.mobileNumber}`);
-              if (cgSearch.data.data && cgSearch.data.data.length > 0) {
-                cgId = cgSearch.data.data[0]._id;
-              }
-            } catch (_) {}
-          }
-
-          if (!cgId) {
-            // CREATE CO-GUEST (brand new, no mobile or not found)
-            const cgRes = await axios.post(`${API}/api/guests`, coGuest);
-            cgId = cgRes.data.data._id;
-          } else {
-            // UPDATE CO-GUEST
-            await axios.put(`${API}/api/guests/${cgId}`, coGuest);
-          }
-
-          coGuestIds.push(cgId);
+        } else {
+          // Backend POST /api/guests automatically performs an atomic search by mobile/idProofNumber
+          // and updates existing record or creates a new one, returning the resolved guest _id!
+          const createRes = await axios.post(`${API}/api/guests`, clean);
+          return createRes.data?.data?._id;
         }
-      }
+      };
+
+      const validCoGuests = guests.slice(1).filter(cg => cg && cg.fullName && cg.fullName.trim() !== '');
+
+      const [pGuestId, ...coGuestIds] = await Promise.all([
+        saveOrUpdateGuest(guests[0]),
+        ...validCoGuests.map(cg => saveOrUpdateGuest(cg))
+      ]);
 
       // =====================================================
       // 4. CHECK-IN / CHECK-OUT DATE
@@ -5012,18 +4976,20 @@ const CheckIn = () => {
                 loading ||
                 uploadingImage
               }
-              className="flex-1 py-3.5 sm:py-4 px-3 bg-black text-white rounded-2xl font-black uppercase tracking-wider text-xs sm:text-sm flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-800 transition-all shadow-xl active:scale-[0.98] min-w-0"
+              className="flex-1 py-3.5 sm:py-4 px-3 bg-black text-white rounded-2xl font-black uppercase tracking-wider text-xs sm:text-sm flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-800 transition-all shadow-xl active:scale-[0.98] min-w-0"
               title={isCurrentPropertyExpired ? 'Subscription plan has expired for this property' : ''}
             >
+              {loading && <Loader2 size={16} className="shrink-0 animate-spin text-emerald-400" />}
+
               <span className="truncate">
                 {isCurrentPropertyExpired
                   ? '🔒 Plan Expired'
                   : loading
-                  ? 'Finalizing...'
+                  ? 'Finalizing Check-In...'
                   : 'Complete Check-In'}
               </span>
 
-              <CheckCircle2 size={16} className="shrink-0" />
+              {!loading && <CheckCircle2 size={16} className="shrink-0" />}
             </button>
 
           </div>

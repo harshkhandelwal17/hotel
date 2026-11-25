@@ -198,6 +198,7 @@ const staySchema = new mongoose.Schema({
 staySchema.index({ guest: 1 });
 staySchema.index({ hostel: 1 });
 staySchema.index({ room: 1 });
+staySchema.index({ room: 1, status: 1, checkInDate: 1, expectedCheckOutDate: 1 });
 staySchema.index({ status: 1 });
 staySchema.index({ checkInDate: 1 });
 staySchema.index({ expectedCheckOutDate: 1 });

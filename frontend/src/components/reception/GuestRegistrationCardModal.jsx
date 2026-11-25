@@ -153,7 +153,7 @@ export default function GuestRegistrationCardModal({
       title: `${roleLabel}: ${gName} — Front ID`,
       docType: g.idProofType || 'Aadhaar',
       side: 'Front',
-      url: g.idProofImage ? getFullImageUrl(g.idProofImage) : null
+      url: g.localFrontDataUrl || (g.idProofImage ? getFullImageUrl(g.idProofImage) : null)
     });
     
     // Back ID
@@ -161,7 +161,7 @@ export default function GuestRegistrationCardModal({
       title: `${roleLabel}: ${gName} — Back ID`,
       docType: g.idProofType || 'Aadhaar',
       side: 'Back',
-      url: g.idProofImageBack ? getFullImageUrl(g.idProofImageBack) : null
+      url: g.localBackDataUrl || (g.idProofImageBack ? getFullImageUrl(g.idProofImageBack) : null)
     });
   });
 
@@ -1556,8 +1556,8 @@ export default function GuestRegistrationCardModal({
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-around', gap: guestCount === 1 ? '16px' : (guestCount === 2 ? '12px' : '8px') }}>
               {displayGuests.map((guest, gIdx) => {
                 const isLead = gIdx === 0;
-                const frontUrl = guest.idProofImage ? getFullImageUrl(guest.idProofImage) : null;
-                const backUrl = guest.idProofImageBack ? getFullImageUrl(guest.idProofImageBack) : null;
+                const frontUrl = guest.localFrontDataUrl || (guest.idProofImage ? getFullImageUrl(guest.idProofImage) : null);
+                const backUrl = guest.localBackDataUrl || (guest.idProofImageBack ? getFullImageUrl(guest.idProofImageBack) : null);
 
                 return (
                   <div 

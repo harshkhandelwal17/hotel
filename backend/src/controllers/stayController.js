@@ -240,34 +240,34 @@ exports.createStay = async (req, res, next) => {
       }
     }
 
-    // 🛎️ Trigger New Check-In Notification strictly for THIS Property's Owner & Staff
-    try {
-      const { recipientIds, hostelDoc } = await getHotelPropertyNotificationRecipients(hostel, req.user);
+    // 🛎️ Trigger New Check-In Notification strictly for THIS Property's Owner & Staff (Non-blocking background dispatch)
+    setImmediate(async () => {
+      try {
+        const { recipientIds, hostelDoc } = await getHotelPropertyNotificationRecipients(hostel, req.user);
 
-      const rNum = roomDoc?.roomNumber || 'Room';
-      const gName = (guestDoc?.fullName || 'Guest').trim();
-      const hName = hostelDoc?.name || 'Hotel';
-      const advText = advance > 0 ? ` (Advance: ₹${Number(advance).toLocaleString('en-IN')})` : '';
+        const rNum = roomDoc?.roomNumber || 'Room';
+        const gName = (guestDoc?.fullName || 'Guest').trim();
+        const hName = hostelDoc?.name || 'Hotel';
+        const advText = advance > 0 ? ` (Advance: ₹${Number(advance).toLocaleString('en-IN')})` : '';
 
-      // 📲 1. Dispatch Background Web Push IMMEDIATELY (Wakes up mobile even when closed!)
-      sendWebPushToUsers(Array.from(recipientIds), {
-        title: `🛎️ New Check-In: Room ${rNum}`,
-        body: `${hName} • ${gName} checked in (Tariff: ₹${Number(totalAmount).toLocaleString('en-IN')}${advText})`,
-        icon: '/logo-192.png',
-        badge: '/logo-192.png',
-        tag: `checkin-${stay._id}`,
-        vibrate: [250, 100, 250, 100, 250],
-        data: {
-          url: '/checkouts',
-          stayId: stay._id.toString(),
-          hotelName: hName
-        }
-      }).catch(err => console.error('[WebPush] Check-in push error:', err));
+        // 📲 1. Dispatch Background Web Push IMMEDIATELY (Wakes up mobile even when closed!)
+        sendWebPushToUsers(Array.from(recipientIds), {
+          title: `🛎️ New Check-In: Room ${rNum}`,
+          body: `${hName} • ${gName} checked in (Tariff: ₹${Number(totalAmount).toLocaleString('en-IN')}${advText})`,
+          icon: '/logo-192.png',
+          badge: '/logo-192.png',
+          tag: `checkin-${stay._id}`,
+          vibrate: [250, 100, 250, 100, 250],
+          data: {
+            url: '/checkouts',
+            stayId: stay._id.toString(),
+            hotelName: hName
+          }
+        }).catch(err => console.error('[WebPush] Check-in push error:', err));
 
-      // 📥 2. Save in-app notification record for unread bell counts
-      for (const recId of recipientIds) {
-        try {
-          await Notification.create({
+        // 📥 2. Save in-app notification records in batch (instant single DB operation)
+        if (recipientIds && recipientIds.length > 0) {
+          const notifs = recipientIds.map(recId => ({
             recipient: recId,
             hostel: hostelDoc ? hostelDoc._id : hostel,
             stay: stay._id,
@@ -283,14 +283,13 @@ exports.createStay = async (req, res, next) => {
               paidAmount: Number(advance) || 0,
               stayId: stay._id.toString()
             }
-          });
-        } catch (singleErr) {
-          // Ignore individual duplicate / error
+          }));
+          await Notification.insertMany(notifs, { ordered: false }).catch(() => {});
         }
+      } catch (notifErr) {
+        console.error('Failed to create check-in notification:', notifErr.message);
       }
-    } catch (notifErr) {
-      console.error('Failed to create check-in notification:', notifErr.message);
-    }
+    });
 
     res.status(201).json({ success: true, data: stay });
   } catch (error) {
@@ -1927,28 +1926,28 @@ exports.createGroupStay = async (req, res, next) => {
       }
     }
 
-    // 6. Dispatch Web Push Notifications strictly to THIS Property's Staff & Owner
-    try {
-      const { recipientIds, hostelDoc } = await getHotelPropertyNotificationRecipients(hostel, req.user);
+    // 6. Dispatch Web Push & In-app Notifications (Non-blocking background dispatch)
+    setImmediate(async () => {
+      try {
+        const { recipientIds, hostelDoc } = await getHotelPropertyNotificationRecipients(hostel, req.user);
 
-      const roomNumbersList = roomDocs.map(r => r.roomNumber).join(', ');
-      const hName = hostelDoc?.name || 'Hotel';
-      const advText = advance > 0 ? ` • Advance: ₹${Number(advance).toLocaleString('en-IN')}` : '';
+        const roomNumbersList = roomDocs.map(r => r.roomNumber).join(', ');
+        const hName = hostelDoc?.name || 'Hotel';
+        const advText = advance > 0 ? ` • Advance: ₹${Number(advance).toLocaleString('en-IN')}` : '';
 
-      sendWebPushToUsers(Array.from(recipientIds), {
-        title: `🏢 Group Check-In: ${resolvedGroupName} (${rooms.length} Rooms)`,
-        body: `${hName} • Rooms: ${roomNumbersList} • Total: ₹${Number(groupGrandTotal).toLocaleString('en-IN')}${advText}`,
-        icon: '/logo-192.png',
-        badge: '/logo-192.png',
-        tag: `grp-checkin-${groupId}`,
-        vibrate: [250, 100, 250, 100, 250],
-        data: { url: '/receptionist/rooms' }
-      }).catch(err => console.warn('Group WebPush failed:', err.message));
+        sendWebPushToUsers(Array.from(recipientIds), {
+          title: `🏢 Group Check-In: ${resolvedGroupName} (${rooms.length} Rooms)`,
+          body: `${hName} • Rooms: ${roomNumbersList} • Total: ₹${Number(groupGrandTotal).toLocaleString('en-IN')}${advText}`,
+          icon: '/logo-192.png',
+          badge: '/logo-192.png',
+          tag: `grp-checkin-${groupId}`,
+          vibrate: [250, 100, 250, 100, 250],
+          data: { url: '/receptionist/rooms' }
+        }).catch(err => console.warn('Group WebPush failed:', err.message));
 
-      // Save in-app notification record for bell counts
-      for (const recId of recipientIds) {
-        try {
-          await Notification.create({
+        // Save in-app notification record for bell counts (batch insertMany)
+        if (recipientIds && recipientIds.length > 0) {
+          const grpNotifs = recipientIds.map(recId => ({
             recipient: recId,
             hostel,
             stay: leaderStay._id,
@@ -1963,12 +1962,13 @@ exports.createGroupStay = async (req, res, next) => {
               roomCount: rooms.length,
               stayId: leaderStay._id.toString()
             }
-          });
-        } catch (singleErr) {}
+          }));
+          await Notification.insertMany(grpNotifs, { ordered: false }).catch(() => {});
+        }
+      } catch (notifErr) {
+        console.warn('Group notification dispatch warning:', notifErr.message);
       }
-    } catch (notifErr) {
-      console.warn('Group notification dispatch warning:', notifErr.message);
-    }
+    });
 
     // Return populated response
     const populatedStays = await Stay.find({ groupId })
