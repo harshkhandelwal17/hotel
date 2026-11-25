@@ -133,16 +133,14 @@ exports.getRecentMedia = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Hostel context required' });
     }
 
-    // Proactively maintain rolling FIFO buffer (keeps top 50 newest, auto-purges oldest bottom excess)
-    maintainHostelMediaBuffer(hostelId, 50).catch(() => {});
-
-    // Return the 50 newest media items
+    // Return the 50 newest media items (lean query with compound index for lightning performance)
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 10), 100);
     const media = await WhatsAppMedia.find({
       hostel: hostelId
     })
       .sort({ createdAt: -1 })
-      .limit(limit);
+      .limit(limit)
+      .lean();
 
     // Provide real-time live WhatsApp connection health alongside media list
     const statusInfo = await getHostelWhatsAppStatus(hostelId).catch(() => ({ status: 'disconnected', phone: '' }));

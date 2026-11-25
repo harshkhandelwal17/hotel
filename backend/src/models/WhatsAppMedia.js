@@ -37,5 +37,9 @@ const whatsAppMediaSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+// High-performance compound indexes for instant sorting & polling
+whatsAppMediaSchema.index({ hostel: 1, createdAt: -1 });
+whatsAppMediaSchema.index({ hostel: 1, status: 1 });
+
 module.exports = mongoose.model('WhatsAppMedia', whatsAppMediaSchema);
 

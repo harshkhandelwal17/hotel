@@ -496,11 +496,22 @@ export async function autoEnhanceIdDocument(source, options = {}) {
   try {
     const img = await loadImage(source);
 
+    let srcW = img.naturalWidth || img.width;
+    let srcH = img.naturalHeight || img.height;
+    const MAX_DIM = 1600;
+    if (srcW > srcH && srcW > MAX_DIM) {
+      srcH = Math.round(srcH * (MAX_DIM / srcW));
+      srcW = MAX_DIM;
+    } else if (srcH > MAX_DIM) {
+      srcW = Math.round(srcW * (MAX_DIM / srcH));
+      srcH = MAX_DIM;
+    }
+
     let currentCanvas = document.createElement('canvas');
-    currentCanvas.width = img.naturalWidth || img.width;
-    currentCanvas.height = img.naturalHeight || img.height;
+    currentCanvas.width = srcW;
+    currentCanvas.height = srcH;
     const ctx = currentCanvas.getContext('2d');
-    ctx.drawImage(img, 0, 0);
+    ctx.drawImage(img, 0, 0, srcW, srcH);
 
     // 1. Explicit auto-rotate only if user requested it
     if (autoRotate && currentCanvas.height > currentCanvas.width * 1.35) {

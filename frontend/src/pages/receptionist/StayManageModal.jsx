@@ -377,13 +377,7 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
       if (side === 'front') setUploadingFront(true);
       else setUploadingBack(true);
 
-      let fileToUpload = file;
-      try {
-        const enh = await autoEnhanceIdDocument(file, { filterMode: 'magic', autoCrop: true, autoRotate: false });
-        if (enh?.success && enh?.file) fileToUpload = enh.file;
-      } catch (_) {}
-
-      const compressed = await compressImage(fileToUpload);
+      const compressed = await compressImage(file);
       const fd = new FormData();
       fd.append('image', compressed);
       const res = await axios.post(`${API}/api/upload`, fd, {
