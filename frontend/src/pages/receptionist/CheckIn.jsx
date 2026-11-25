@@ -761,49 +761,21 @@ const CheckIn = () => {
       ) {
         const baseGuest = res.data.data[0];
         
-        let guestData = res.data.data[0];
-        
-        // Fetch full profile to get past stays & co-guests (and ensure full ID images & details are present)
-        try {
-          const detailRes = await axios.get(`${API}/api/guests/${baseGuest._id}`);
-          if (detailRes.data && detailRes.data.data) {
-            const { stays, ...fullGuestInfo } = detailRes.data.data;
-            guestData = { ...guestData, ...fullGuestInfo };
-            
-            if (index === 0) {
-              const pastStays = stays || [];
-              const coGuestsMap = new Map();
-              pastStays.forEach(stay => {
-                if (stay.guest && stay.guest._id !== baseGuest._id) coGuestsMap.set(stay.guest._id, stay.guest);
-                if (stay.coGuests) {
-                  stay.coGuests.forEach(cg => {
-                    if (cg && cg._id !== baseGuest._id) coGuestsMap.set(cg._id, cg);
-                  });
-                }
-              });
-              setFrequentCoGuests(Array.from(coGuestsMap.values()));
-            }
-          }
-        } catch (err) {
-          console.error('Failed to fetch full guest details', err);
-        }
-        
+        // 1. Immediately populate guest card on screen with zero lag (instant response)
         setGuests((prev) => {
           const updated = [...prev];
-
           updated[index] = {
             ...updated[index],
-            ...guestData,
+            ...baseGuest,
             isSearching: false
           };
-
           return updated;
         });
 
-        if (index === 0 && guestData.gstin && guestData.gstin.length >= 15) {
+        if (index === 0 && baseGuest.gstin && baseGuest.gstin.length >= 15) {
           handleSelectGstRate(12);
           toast({
-            message: `🏢 Corporate guest (${guestData.companyName || 'B2B'})! Auto-filled details & enabled GST bill.`,
+            message: `🏢 Corporate guest (${baseGuest.companyName || 'B2B'})! Auto-filled details & enabled GST bill.`,
             type: 'success'
           });
         } else {
@@ -811,6 +783,27 @@ const CheckIn = () => {
             message: 'Returning guest details auto-filled!',
             type: 'success'
           });
+        }
+
+        // 2. Silently fetch past stays in background to populate frequent co-guests dropdown (non-blocking)
+        if (index === 0) {
+          axios.get(`${API}/api/guests/${baseGuest._id}`)
+            .then(detailRes => {
+              if (detailRes.data?.data?.stays) {
+                const pastStays = detailRes.data.data.stays || [];
+                const coGuestsMap = new Map();
+                pastStays.forEach(stay => {
+                  if (stay.guest && stay.guest._id !== baseGuest._id) coGuestsMap.set(stay.guest._id, stay.guest);
+                  if (stay.coGuests) {
+                    stay.coGuests.forEach(cg => {
+                      if (cg && cg._id !== baseGuest._id) coGuestsMap.set(cg._id, cg);
+                    });
+                  }
+                });
+                setFrequentCoGuests(Array.from(coGuestsMap.values()));
+              }
+            })
+            .catch(() => {});
         }
       } else {
         setGuests((prev) => {
