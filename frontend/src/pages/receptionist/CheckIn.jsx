@@ -1048,7 +1048,7 @@ const CheckIn = () => {
         try {
           const currentGuest = guestsRef.current[index] || {};
           const ocrRes = await axios.post(`${API}/api/ocr/scan-id`, {
-            imageUrl: uploadedUrl || optimisticPreview,
+            imageUrl: resolvedUrl || uploadedUrl,
             side,
             hostelId,
             idProofType: currentGuest.idProofType || 'Aadhaar'
@@ -1074,14 +1074,19 @@ const CheckIn = () => {
       }
 
     } catch (err) {
-      console.error(
-        'Image upload failed:',
-        err
-      );
-
+      console.error('Image upload failed:', err);
+      // Clean up optimistic preview if network upload failed
+      setGuests(prev => {
+        const updated = [...prev];
+        if (side === 'back') {
+          updated[index] = { ...updated[index], idProofImageBack: '', localBackDataUrl: '' };
+        } else {
+          updated[index] = { ...updated[index], idProofImage: '', localFrontDataUrl: '' };
+        }
+        return updated;
+      });
       toast({
-        message:
-          'Failed to upload image. Network or memory issue.',
+        message: 'Failed to upload image. Please check network and retry.',
         type: 'error'
       });
     } finally {
@@ -1132,8 +1137,11 @@ const CheckIn = () => {
         if (aiOcrEnabled) {
           setScanningOcr({ index: guestIdx, side: sideName });
           try {
+            const cloudImageSrc = (!preferredLocalSrc || preferredLocalSrc.startsWith('blob:'))
+              ? getFullImageUrl(imageSrc || (sideName === 'front' ? curGuest.idProofImage : curGuest.idProofImageBack))
+              : preferredLocalSrc;
             const ocrRes = await axios.post(`${API}/api/ocr/scan-id`, {
-              imageUrl: preferredLocalSrc,
+              imageUrl: cloudImageSrc,
               side: sideName,
               hostelId,
               idProofType: curGuest.idProofType || 'Aadhaar'
