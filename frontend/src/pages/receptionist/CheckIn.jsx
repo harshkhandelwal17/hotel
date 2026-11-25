@@ -993,8 +993,21 @@ const CheckIn = () => {
     }
 
     // =========================================================
-    // STEP 2: CLOUD UPLOAD & BACKEND STORAGE (WITH AUTO-ENHANCE)
+    // STEP 2: CLOUD UPLOAD & BACKEND STORAGE
     // =========================================================
+    // ⚡ Instant Optimistic UI Preview (0ms):
+    // Image appears on screen immediately without waiting for network!
+    const optimisticPreview = URL.createObjectURL(file);
+    setGuests(prev => {
+      const updated = [...prev];
+      if (side === 'back') {
+        updated[index] = { ...updated[index], idProofImageBack: optimisticPreview, localBackDataUrl: optimisticPreview };
+      } else {
+        updated[index] = { ...updated[index], idProofImage: optimisticPreview, localFrontDataUrl: optimisticPreview };
+      }
+      return updated;
+    });
+
     setUploadingImage(true);
 
     try {
@@ -1012,20 +1025,12 @@ const CheckIn = () => {
       const uploadedUrl = res.data.url;
       const resolvedUrl = getFullImageUrl(uploadedUrl);
 
-      // Local Data URL for fast instant re-scans without re-downloading
-      const localDataUrl = await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result || '');
-        reader.onerror = () => resolve('');
-        reader.readAsDataURL(compressedFile);
-      });
-
       setGuests(prev => {
         const updated = [...prev];
         if (side === 'back') {
-          updated[index] = { ...updated[index], idProofImageBack: resolvedUrl, localBackDataUrl: localDataUrl };
+          updated[index] = { ...updated[index], idProofImageBack: resolvedUrl, localBackDataUrl: optimisticPreview };
         } else {
-          updated[index] = { ...updated[index], idProofImage: resolvedUrl, localFrontDataUrl: localDataUrl };
+          updated[index] = { ...updated[index], idProofImage: resolvedUrl, localFrontDataUrl: optimisticPreview };
         }
         return updated;
       });
@@ -1043,7 +1048,7 @@ const CheckIn = () => {
         try {
           const currentGuest = guestsRef.current[index] || {};
           const ocrRes = await axios.post(`${API}/api/ocr/scan-id`, {
-            imageUrl: localDataUrl || uploadedUrl,
+            imageUrl: uploadedUrl || optimisticPreview,
             side,
             hostelId,
             idProofType: currentGuest.idProofType || 'Aadhaar'

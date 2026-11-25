@@ -14,7 +14,12 @@ mongoose.connection.on('error', (err) => {
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(env.mongoUri);
+    const conn = await mongoose.connect(env.mongoUri, {
+      maxPoolSize: 25, // Prevents Atlas M0 connection/RAM exhaustion
+      minPoolSize: 3,  // Keeps 3 warm connections ready (zero cold-start lag)
+      socketTimeoutMS: 30000,
+      serverSelectionTimeoutMS: 5000,
+    });
     console.log(`MongoDB Connected: ${conn.connection.host}`);
     
     // Automatically drop the old non-sparse index if it exists on the live DB
