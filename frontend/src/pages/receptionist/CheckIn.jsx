@@ -652,9 +652,9 @@ const CheckIn = () => {
     }
   }, [activeHostel]);
 
-  // Poll incoming WhatsApp photos when on Step 2
+  // Poll incoming WhatsApp photos when on Step 2 or when WhatsApp Modal is open
   useEffect(() => {
-    if (!hostelId || !waSyncEnabled || step !== 2) {
+    if (!hostelId || !waSyncEnabled || (step !== 2 && !waModalOpen)) {
       return;
     }
 
@@ -663,7 +663,9 @@ const CheckIn = () => {
       try {
         const res = await axios.get(`${API}/api/whatsapp/recent-media?hostelId=${encodeURIComponent(hostelId)}&_t=${Date.now()}`);
         if (isMounted && res.data?.success) {
-          setWaRecentMedia(res.data.data || []);
+          const rawMedia = res.data.data || [];
+          const sorted = [...rawMedia].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+          setWaRecentMedia(sorted);
           if (res.data.whatsappStatus) {
             setWaStatus(res.data.whatsappStatus);
           }
@@ -675,12 +677,13 @@ const CheckIn = () => {
     };
 
     fetchWaMedia();
-    const interval = setInterval(fetchWaMedia, 5000);
+    const pollInterval = (waModalOpen || waStatus === 'connecting') ? 2500 : 5000;
+    const interval = setInterval(fetchWaMedia, pollInterval);
     return () => {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [hostelId, waSyncEnabled, step]);
+  }, [hostelId, waSyncEnabled, step, waModalOpen, waStatus]);
 
   // =========================================================
   // DYNAMIC OCCUPANTS
@@ -3661,9 +3664,9 @@ const CheckIn = () => {
                           </h4>
                           <span 
                             className="bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded-full text-[10px] font-black shrink-0"
-                            title="Rolling FIFO Buffer: Max 50 newest photos kept active. Oldest bottom unused photos are auto-purged so new photos always arrive."
+                            title="Recent incoming WhatsApp ID photos"
                           >
-                            {waRecentMedia.length} / 50
+                            {waRecentMedia.length}
                           </span>
                         </div>
                         <p className="text-[10px] font-bold text-gray-500 truncate flex items-center gap-1 mt-0.5">
@@ -5220,14 +5223,14 @@ const CheckIn = () => {
               </button>
             </div>
 
-            {/* FIFO Buffer Information Bar */}
+            {/* Live Information Bar */}
             <div className="px-6 py-2 bg-emerald-50/70 border-b border-emerald-100 text-[11px] text-emerald-900 font-bold flex items-center justify-between gap-2 flex-wrap">
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>⚡ <strong>Auto-Rolling Buffer (Max 50):</strong> New photos always arrive on top. Oldest unused photos auto-clear from bottom.</span>
+                <span>⚡ <strong>Live Photo Inbox:</strong> New photos arrive at the top in real time.</span>
               </span>
-              <span className="text-[10px] text-emerald-700 bg-emerald-100/90 px-2 py-0.5 rounded-full font-mono font-black">
-                {waRecentMedia.length} / 50 Active
+              <span className="text-[10px] text-emerald-700 bg-emerald-100/90 px-2.5 py-0.5 rounded-full font-mono font-black">
+                {waRecentMedia.length} Photos
               </span>
             </div>
 

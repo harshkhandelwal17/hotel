@@ -46,12 +46,18 @@ exports.saveMediaBuffer = async (buffer, mimeType = 'image/jpeg') => {
   // 2. Cloudflare R2 upload for cloud CDN & multi-device sync
   if (s3Client && process.env.R2_BUCKET_NAME) {
     try {
-      await s3Client.send(new PutObjectCommand({
+      const uploadPromise = s3Client.send(new PutObjectCommand({
         Bucket: process.env.R2_BUCKET_NAME,
         Key: uniqueKey,
         Body: buffer,
         ContentType: mimeType
       }));
+
+      // Race with 3.5s timeout: if R2 takes longer, background it and return local path instantly
+      await Promise.race([
+        uploadPromise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('R2 timeout')), 3500))
+      ]);
 
       if (process.env.R2_PUBLIC_DOMAIN) {
         const domain = process.env.R2_PUBLIC_DOMAIN.trim().replace(/\/+$/, '');
@@ -60,7 +66,7 @@ exports.saveMediaBuffer = async (buffer, mimeType = 'image/jpeg') => {
       }
       return `https://${process.env.R2_BUCKET_NAME}.r2.cloudflarestorage.com/${uniqueKey}`;
     } catch (r2Err) {
-      console.warn('[Storage] R2 upload error, using local fallback:', r2Err.message);
+      console.warn('[Storage] R2 upload error or timeout, using local fallback:', r2Err.message);
       return `/uploads/${filename}`;
     }
   }

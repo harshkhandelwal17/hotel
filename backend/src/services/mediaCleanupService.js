@@ -175,7 +175,7 @@ const cleanupUnusedMedia = async ({ olderThanHours = 24, forceAllUnused = false,
  * removed from the queue so new photos can always arrive at the top.
  * Any photos linked to checked-in guests remain 100% permanently protected in Cloudflare R2!
  */
-const maintainHostelMediaBuffer = async (hostelId, maxBuffer = 50) => {
+const maintainHostelMediaBuffer = async (hostelId, maxBuffer = 250) => {
   if (!hostelId) return { purgedCount: 0 };
 
   try {

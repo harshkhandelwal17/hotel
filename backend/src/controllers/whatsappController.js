@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
 const Hostel = require('../models/Hostel');
 const WhatsAppMedia = require('../models/WhatsAppMedia');
-const { maintainHostelMediaBuffer } = require('../services/mediaCleanupService');
 const {
   startHostelWhatsApp,
   getHostelWhatsAppStatus,
@@ -133,8 +132,8 @@ exports.getRecentMedia = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Hostel context required' });
     }
 
-    // Return the 50 newest media items (lean query with compound index for lightning performance)
-    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 10), 100);
+    // Return recent media items without artificial 50-item ceiling
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 150, 10), 300);
     const media = await WhatsAppMedia.find({
       hostel: hostelId
     })
@@ -148,7 +147,6 @@ exports.getRecentMedia = async (req, res, next) => {
     res.status(200).json({ 
       success: true, 
       count: media.length, 
-      maxBuffer: 50,
       whatsappStatus: statusInfo.status || 'disconnected',
       isLiveConnected: statusInfo.status === 'connected',
       phone: statusInfo.phone || '',

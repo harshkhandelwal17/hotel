@@ -24,6 +24,8 @@ const sessions = new Map();           // hostelId -> socket
 const qrCodes = new Map();            // hostelId -> base64 qr image string
 const connectingPromises = new Map(); // hostelId -> Promise<result>
 const pairingStates = new Map();      // hostelId -> boolean (true when QR scanned and authenticating)
+const connectionLocks = new Map();    // hostelId -> { inFlight: boolean, startedAt: number }
+const connectionStates = new Map();   // hostelId -> 'connecting' | 'connected' | 'restarting_515' | 'disconnected'
 const explicitlyDisconnected = new Set(); // hostelId -> explicitly disconnected flag
 
 const SESSIONS_DIR = path.join(__dirname, '../../sessions');
@@ -32,15 +34,20 @@ if (!fs.existsSync(SESSIONS_DIR)) {
 }
 
 /**
- * Checks whether a Baileys socket is genuinely connected and open
+ * Checks whether a Baileys socket is genuinely connected or in active startup
  */
 const isSocketAlive = (sock) => {
-  if (!sock || !sock.user) return false;
+  if (!sock) return false;
+  // During startup window (45s), socket is in handshake-in-progress, NOT dead
+  if (sock._createdAt && (Date.now() - sock._createdAt < 45000)) {
+    return true;
+  }
+  if (!sock.user) return false;
   try {
     const ws = sock.ws;
     if (!ws) return false;
     // WebSocket readyState: 0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED
-    return ws.isOpen === true || ws.readyState === 1;
+    return ws.isOpen === true || ws.readyState === 1 || ws.readyState === 0;
   } catch (_) {
     return false;
   }
@@ -241,9 +248,6 @@ const processIncomingMessage = async (sock, hostelId, msg, hostel) => {
       });
 
       console.log(`[WhatsApp] ✅ Successfully ingested and saved ID photo: ${uploadedUrl} [ID: ${record._id}]`);
-
-      // ⚡ FIFO Rolling Buffer: Keep max 50 newest photos, auto-delete oldest bottom unused ones
-      maintainHostelMediaBuffer(hostelId, 50).catch(() => {});
     } else {
       console.error(`[WhatsApp] ❌ Failed to extract media buffer for message ${messageId}`);
     }
@@ -255,10 +259,12 @@ const processIncomingMessage = async (sock, hostelId, msg, hostel) => {
 /**
  * Initialize or get WhatsApp session for a specific hostel
  */
-const startHostelWhatsApp = async (hostelId) => {
+const startHostelWhatsApp = async (hostelId, options = {}) => {
   if (!hostelId || !mongoose.Types.ObjectId.isValid(hostelId)) {
     throw new Error('Valid Hostel ID is required');
   }
+
+  const isPairingRequest = Boolean(options.isPairingRequest);
 
   // Deduplicate concurrent connection requests
   if (connectingPromises.has(hostelId)) {
@@ -266,289 +272,339 @@ const startHostelWhatsApp = async (hostelId) => {
     return connectingPromises.get(hostelId);
   }
 
+  // Connection lock: prevent multiple concurrent socket creations for same hotel
+  const existingLock = connectionLocks.get(hostelId);
+  if (existingLock && (Date.now() - existingLock.startedAt < 25000)) {
+    console.log(`[WhatsApp] Socket connection lock active for Hostel ${hostelId}, reusing in-flight handshake...`);
+    const s = sessions.get(hostelId);
+    return {
+      status: s?.user && isSocketAlive(s) ? 'connected' : 'connecting',
+      phone: s?.user ? s.user.id.split(':')[0].split('@')[0] : '',
+      qr: qrCodes.get(hostelId) || null,
+      pairing: !!pairingStates.get(hostelId)
+    };
+  }
+  connectionLocks.set(hostelId, { inFlight: true, startedAt: Date.now() });
+
   explicitlyDisconnected.delete(hostelId);
 
   const connectPromise = (async () => {
-    // Ensure WhatsApp Sync is enabled for this property
-    const hostel = await Hostel.findById(hostelId);
-    if (!hostel) throw new Error('Hostel not found');
-    if (!hostel.whatsappSyncEnabled) {
-      hostel.whatsappSyncEnabled = true;
-      await hostel.save({ validateBeforeSave: false }).catch(() => {});
-      console.log(`[WhatsApp] Auto-enabled whatsappSyncEnabled for Hostel ${hostelId}`);
-    }
-
-    // If already connected, return existing active status
-    if (sessions.has(hostelId)) {
-      const existingSock = sessions.get(hostelId);
-      if (existingSock?.user) {
-        return {
-          status: 'connected',
-          phone: hostel.whatsappPhone || existingSock.user.id.split(':')[0].split('@')[0],
-          qr: null,
-          pairing: false
-        };
+    try {
+      // Ensure WhatsApp Sync is enabled for this property
+      const hostel = await Hostel.findById(hostelId);
+      if (!hostel) throw new Error('Hostel not found');
+      if (!hostel.whatsappSyncEnabled) {
+        hostel.whatsappSyncEnabled = true;
+        await hostel.save({ validateBeforeSave: false }).catch(() => {});
+        console.log(`[WhatsApp] Auto-enabled whatsappSyncEnabled for Hostel ${hostelId}`);
       }
-      // If socket is currently active and waiting for QR or in pairing handshake, DO NOT KILL IT!
-      if (qrCodes.has(hostelId) || pairingStates.get(hostelId)) {
-        return {
-          status: 'connecting',
-          phone: hostel.whatsappPhone || '',
-          qr: qrCodes.get(hostelId) || null,
-          pairing: !!pairingStates.get(hostelId)
-        };
-      }
-      // Clean dead socket only if disconnected
-      try { existingSock.end(); } catch (_) {}
-      sessions.delete(hostelId);
-    }
 
-    const authPath = path.join(SESSIONS_DIR, `hostel_${hostelId}`);
-    
-    // Guard against corrupted or 0-byte creds.json
-    const credsPath = path.join(authPath, 'creds.json');
-    if (fs.existsSync(credsPath)) {
-      try {
-        let stats = fs.statSync(credsPath);
-        if (stats.size === 0) {
-          await new Promise((r) => setTimeout(r, 200));
-          if (fs.existsSync(credsPath)) {
-            stats = fs.statSync(credsPath);
-            if (stats.size === 0) {
-              fs.rmSync(authPath, { recursive: true, force: true });
+      // If already connected, return existing active status
+      if (sessions.has(hostelId)) {
+        const existingSock = sessions.get(hostelId);
+        if (existingSock?.user && isSocketAlive(existingSock)) {
+          return {
+            status: 'connected',
+            phone: hostel.whatsappPhone || existingSock.user.id.split(':')[0].split('@')[0],
+            qr: null,
+            pairing: false
+          };
+        }
+        // If socket was created within last 45s, it is actively handshaking - return connecting
+        if (existingSock?._createdAt && (Date.now() - existingSock._createdAt < 45000)) {
+          return {
+            status: 'connecting',
+            phone: hostel.whatsappPhone || '',
+            qr: qrCodes.get(hostelId) || null,
+            pairing: !!pairingStates.get(hostelId)
+          };
+        }
+        // If socket is currently active and waiting for QR or in pairing handshake, DO NOT KILL IT!
+        if (qrCodes.has(hostelId) || pairingStates.get(hostelId)) {
+          return {
+            status: 'connecting',
+            phone: hostel.whatsappPhone || '',
+            qr: qrCodes.get(hostelId) || null,
+            pairing: !!pairingStates.get(hostelId)
+          };
+        }
+        // Clean dead socket only if disconnected
+        try { existingSock.end(); } catch (_) {}
+        sessions.delete(hostelId);
+      }
+
+      const authPath = path.join(SESSIONS_DIR, `hostel_${hostelId}`);
+      
+      // Guard against corrupted or 0-byte creds.json
+      const credsPath = path.join(authPath, 'creds.json');
+      if (fs.existsSync(credsPath)) {
+        try {
+          let stats = fs.statSync(credsPath);
+          if (stats.size === 0) {
+            await new Promise((r) => setTimeout(r, 200));
+            if (fs.existsSync(credsPath)) {
+              stats = fs.statSync(credsPath);
+              if (stats.size === 0) {
+                fs.rmSync(authPath, { recursive: true, force: true });
+              }
             }
+          } else {
+            const raw = fs.readFileSync(credsPath, 'utf8');
+            JSON.parse(raw);
           }
-        } else {
-          const raw = fs.readFileSync(credsPath, 'utf8');
-          JSON.parse(raw);
+        } catch (_) {
+          console.warn(`[WhatsApp] Corrupted creds.json found for Hostel ${hostelId}. Purging session directory...`);
+          try { fs.rmSync(authPath, { recursive: true, force: true }); } catch (_) {}
+        }
+      }
+
+      const { state, saveCreds } = await useMultiFileAuthState(authPath);
+      let version = [2, 3000, 1049994111];
+      try {
+        const waVersion = await Promise.race([
+          fetchLatestWaWebVersion(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+        ]);
+        if (waVersion?.version) {
+          version = waVersion.version;
+          console.log(`[WhatsApp] Using latest WhatsApp Web version: ${version.join('.')}`);
         }
       } catch (_) {
-        console.warn(`[WhatsApp] Corrupted creds.json found for Hostel ${hostelId}. Purging session directory...`);
-        try { fs.rmSync(authPath, { recursive: true, force: true }); } catch (_) {}
+        console.log(`[WhatsApp] Using stable WhatsApp Web version: ${version.join('.')}`);
       }
-    }
+      const logger = pino({ level: 'warn' });
 
-    const { state, saveCreds } = await useMultiFileAuthState(authPath);
-    let version = [2, 3000, 1049994111];
-    try {
-      const waVersion = await Promise.race([
-        fetchLatestWaWebVersion(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
-      ]);
-      if (waVersion?.version) {
-        version = waVersion.version;
-        console.log(`[WhatsApp] Using latest WhatsApp Web version: ${version.join('.')}`);
-      }
-    } catch (_) {
-      console.log(`[WhatsApp] Using stable WhatsApp Web version: ${version.join('.')}`);
-    }
-    const logger = pino({ level: 'warn' });
+      console.log(`[WhatsApp] Initializing Baileys socket for Hostel ${hostelId} (v${version.join('.')})...`);
 
-    console.log(`[WhatsApp] Initializing Baileys socket for Hostel ${hostelId} (v${version.join('.')})...`);
+      const sock = makeWASocket({
+        version,
+        logger,
+        auth: {
+          creds: state.creds,
+          keys: makeCacheableSignalKeyStore(state.keys, logger)
+        },
+        printQRInTerminal: false,
+        browser: Browsers.macOS('Chrome'), // Standard WhatsApp Web companion fingerprint
+        syncFullHistory: false,
+        markOnlineOnConnect: true,
+        generateHighQualityLinkPreview: false,
+        connectTimeoutMs: 60000,
+        defaultQueryTimeoutMs: 60000,
+        keepAliveIntervalMs: 25000,
+        emitOwnEvents: true,
+        fireInitQueries: true,
+        retryRequestDelayMs: 500,
+        maxMsgRetryCount: 5,
+        getMessage: async () => ({ conversation: '' })
+      });
 
-    const sock = makeWASocket({
-      version,
-      logger,
-      auth: {
-        creds: state.creds,
-        keys: makeCacheableSignalKeyStore(state.keys, logger)
-      },
-      printQRInTerminal: false,
-      browser: Browsers.macOS('Chrome'), // Standard WhatsApp Web companion fingerprint
-      syncFullHistory: false,
-      markOnlineOnConnect: true,
-      generateHighQualityLinkPreview: false,
-      connectTimeoutMs: 60000,
-      defaultQueryTimeoutMs: 60000,
-      keepAliveIntervalMs: 25000,
-      emitOwnEvents: true,
-      fireInitQueries: true,
-      retryRequestDelayMs: 500,
-      maxMsgRetryCount: 5,
-      getMessage: async () => ({ conversation: '' })
-    });
+      sock._createdAt = Date.now();
+      sessions.set(hostelId, sock);
 
-    sessions.set(hostelId, sock);
-
-    sock.ev.on('creds.update', async (update) => {
-      await saveCreds();
-      // Only mark pairing progress when user identity (update.me) is actually received from phone
-      if (update?.me) {
-        const phone = update.me.id?.split(':')[0]?.split('@')[0] || '';
-        const isAlreadyConnected = !!(sock.user || sessions.get(hostelId)?.user);
-        if (!isAlreadyConnected) {
-          console.log(`[WhatsApp] 📲 Handshake credentials received for Hostel ${hostelId} (+${phone}), pairing in progress...`);
-          pairingStates.set(hostelId, true);
-          qrCodes.delete(hostelId);
-          await Hostel.findByIdAndUpdate(hostelId, {
-            whatsappStatus: 'connecting',
-            whatsappPhone: phone
-          }).catch(() => {});
-        } else {
-          await Hostel.findByIdAndUpdate(hostelId, {
-            whatsappPhone: phone,
-            whatsappStatus: 'connected'
-          }).catch(() => {});
+      sock.ev.on('creds.update', async (update) => {
+        await saveCreds();
+        // Only mark pairing progress when user identity (update.me) is actually received from phone
+        if (update?.me) {
+          const phone = update.me.id?.split(':')[0]?.split('@')[0] || '';
+          const isAlreadyConnected = !!(sock.user || sessions.get(hostelId)?.user);
+          if (!isAlreadyConnected) {
+            console.log(`[WhatsApp] 📲 Handshake credentials received for Hostel ${hostelId} (+${phone}), pairing in progress...`);
+            pairingStates.set(hostelId, true);
+            qrCodes.delete(hostelId);
+            await Hostel.findByIdAndUpdate(hostelId, {
+              whatsappStatus: 'connecting',
+              whatsappPhone: phone
+            }).catch(() => {});
+          } else {
+            await Hostel.findByIdAndUpdate(hostelId, {
+              whatsappPhone: phone,
+              whatsappStatus: 'connected'
+            }).catch(() => {});
+          }
         }
-      }
-    });
+      });
 
-    sock.ev.on('connection.update', async (update) => {
-      const { connection, lastDisconnect, qr, isNewLogin } = update;
+      sock.ev.on('connection.update', async (update) => {
+        const { connection, lastDisconnect, qr, isNewLogin } = update;
 
-      if (isNewLogin) {
-        console.log(`[WhatsApp] 📲 QR Scanned / New Login detected for Hostel ${hostelId}`);
-        qrCodes.delete(hostelId);
-        pairingStates.set(hostelId, true);
-        await Hostel.findByIdAndUpdate(hostelId, { whatsappStatus: 'connecting' }).catch(() => {});
-      }
-
-      if (qr) {
-        try {
-          const qrDataUrl = await QRCode.toDataURL(qr, { margin: 2, scale: 7 });
-          qrCodes.set(hostelId, qrDataUrl);
-          pairingStates.delete(hostelId);
+        if (isNewLogin) {
+          console.log(`[WhatsApp] 📲 QR Scanned / New Login detected for Hostel ${hostelId}`);
+          qrCodes.delete(hostelId);
+          pairingStates.set(hostelId, true);
           await Hostel.findByIdAndUpdate(hostelId, { whatsappStatus: 'connecting' }).catch(() => {});
-          console.log(`[WhatsApp] New QR generated for Hostel ${hostelId}`);
-        } catch (qrErr) {
-          console.error('Failed to generate QR data URL:', qrErr);
-        }
-      }
-
-      if (connection === 'open') {
-        const rawUser = sock.user?.id || '';
-        const phone = rawUser.split(':')[0].split('@')[0];
-        qrCodes.delete(hostelId);
-        pairingStates.delete(hostelId);
-
-        await Hostel.findByIdAndUpdate(hostelId, {
-          whatsappStatus: 'connected',
-          whatsappPhone: phone,
-          whatsappLastActive: new Date()
-        });
-
-        console.log(`[WhatsApp] ✅ Hostel ${hostelId} successfully connected as +${phone}`);
-      }
-
-      if (connection === 'close') {
-        const statusCode = lastDisconnect?.error?.output?.statusCode;
-        const isLoggedOut = statusCode === DisconnectReason.loggedOut;
-        const isForbidden = statusCode === DisconnectReason.forbidden;
-        const isRestart = statusCode === DisconnectReason.restartRequired; // 515
-        const isReplaced = statusCode === DisconnectReason.connectionReplaced; // 440
-
-        console.log(`[WhatsApp] Hostel ${hostelId} connection closed. Code: ${statusCode}, Restart: ${isRestart}, LoggedOut: ${isLoggedOut}`);
-
-        sessions.delete(hostelId);
-
-        // If explicitly disconnected by user, do not attempt to reconnect or restart!
-        if (explicitlyDisconnected.has(hostelId)) {
-          console.log(`[WhatsApp] Hostel ${hostelId} was explicitly disconnected. Skipping reconnect.`);
-          qrCodes.delete(hostelId);
-          pairingStates.delete(hostelId);
-          return;
         }
 
-        if (isRestart) {
-          // Normal WhatsApp protocol pairing restart right after phone scans QR or pair-success
-          console.log(`[WhatsApp] 🔄 Post-pairing restart (515) for Hostel ${hostelId}. Reconnecting in 400ms...`);
-          qrCodes.delete(hostelId);
-          pairingStates.set(hostelId, true);
-
-          setTimeout(() => {
-            if (explicitlyDisconnected.has(hostelId)) return;
-            startHostelWhatsApp(hostelId).catch((err) => {
-              console.error(`[WhatsApp] Reconnection after 515 failed:`, err);
-            });
-          }, 400);
-        } else if (isLoggedOut || isForbidden) {
-          console.log(`[WhatsApp] 🚨 Hostel ${hostelId} was logged out from companion device.`);
-          qrCodes.delete(hostelId);
-          pairingStates.delete(hostelId);
+        if (qr && !isPairingRequest) {
           try {
-            fs.rmSync(authPath, { recursive: true, force: true });
-          } catch (_) {}
-
-          await Hostel.findByIdAndUpdate(hostelId, {
-            whatsappStatus: 'disconnected',
-            whatsappPhone: ''
-          }).catch(() => {});
-        } else if (isReplaced) {
-          console.log(`[WhatsApp] Hostel ${hostelId} connection replaced by another instance.`);
-          qrCodes.delete(hostelId);
-          pairingStates.delete(hostelId);
-        } else {
-          // Transient network drop or handshake retry: ALWAYS attempt auto-reconnect
-          console.log(`[WhatsApp] Hostel ${hostelId} socket closed (code: ${statusCode}). Auto-reconnecting in 2s...`);
-          setTimeout(async () => {
-            if (explicitlyDisconnected.has(hostelId)) return;
-            const hasCreds = fs.existsSync(path.join(authPath, 'creds.json'));
-            if (hasCreds && !sessions.has(hostelId)) {
-              startHostelWhatsApp(hostelId).catch((err) => {
-                console.warn(`[WhatsApp] Reconnection retry warning:`, err.message);
-              });
-            }
-          }, 2000);
-        }
-      }
-    });
-
-  // Listen for incoming messages and capture guest photos
-  sock.ev.on('messages.upsert', async ({ messages, type }) => {
-    console.log(`[WhatsApp] 📥 messages.upsert received ${messages ? messages.length : 0} message(s), type: ${type}`);
-    for (const msg of (messages || [])) {
-      await processIncomingMessage(sock, hostelId, msg, hostel);
-    }
-  });
-
-  // Also listen for recent message history sync on socket reconnection
-  sock.ev.on('messaging-history.set', async ({ messages }) => {
-    if (messages && messages.length > 0) {
-      console.log(`[WhatsApp] 📜 messaging-history.set received ${messages.length} message(s)`);
-      const dayAgo = Math.floor(Date.now() / 1000) - (24 * 60 * 60);
-      for (const msg of messages) {
-        if (msg.messageTimestamp && msg.messageTimestamp >= dayAgo) {
-          await processIncomingMessage(sock, hostelId, msg, hostel);
-        }
-      }
-    }
-  });
-
-  // If QR code is not cached yet, wait up to 8 seconds for the first QR code or open connection
-    if (!qrCodes.has(hostelId) && !sock.user) {
-      await new Promise((resolve) => {
-        const timer = setTimeout(() => {
-          sock.ev.off('connection.update', checkUpdate);
-          resolve();
-        }, 8000);
-
-        function checkUpdate(up) {
-          if (up.qr || up.connection === 'open') {
-            clearTimeout(timer);
-            sock.ev.off('connection.update', checkUpdate);
-            resolve();
+            const qrDataUrl = await QRCode.toDataURL(qr, { margin: 2, scale: 7 });
+            qrCodes.set(hostelId, qrDataUrl);
+            pairingStates.delete(hostelId);
+            await Hostel.findByIdAndUpdate(hostelId, { whatsappStatus: 'connecting' }).catch(() => {});
+            console.log(`[WhatsApp] New QR generated for Hostel ${hostelId}`);
+          } catch (qrErr) {
+            console.error('Failed to generate QR data URL:', qrErr);
           }
         }
 
-        sock.ev.on('connection.update', checkUpdate);
-      });
-    }
+        if (connection === 'open') {
+          const rawUser = sock.user?.id || '';
+          const phone = rawUser.split(':')[0].split('@')[0];
+          qrCodes.delete(hostelId);
+          pairingStates.delete(hostelId);
+          connectionStates.set(hostelId, 'connected');
+          connectionLocks.delete(hostelId);
 
-    return {
-      status: sock.user ? 'connected' : (qrCodes.has(hostelId) || pairingStates.get(hostelId) ? 'connecting' : 'disconnected'),
-      qr: qrCodes.get(hostelId) || null,
-      pairing: !!pairingStates.get(hostelId),
-      phone: hostel.whatsappPhone || ''
-    };
+          await Hostel.findByIdAndUpdate(hostelId, {
+            whatsappStatus: 'connected',
+            whatsappPhone: phone,
+            whatsappLastActive: new Date()
+          });
+
+          console.log(`[WhatsApp] ✅ Hostel ${hostelId} successfully connected as +${phone}`);
+        }
+
+        if (connection === 'close') {
+          const statusCode = lastDisconnect?.error?.output?.statusCode;
+          const isLoggedOut = statusCode === DisconnectReason.loggedOut;
+          const isForbidden = statusCode === DisconnectReason.forbidden;
+          const isRestart = statusCode === DisconnectReason.restartRequired; // 515
+          const isReplaced = statusCode === DisconnectReason.connectionReplaced; // 440
+
+          console.log(`[WhatsApp] Hostel ${hostelId} connection closed. Code: ${statusCode}, Restart: ${isRestart}, LoggedOut: ${isLoggedOut}`);
+
+          // If explicitly disconnected by user, do not attempt to reconnect or restart!
+          if (explicitlyDisconnected.has(hostelId)) {
+            console.log(`[WhatsApp] Hostel ${hostelId} was explicitly disconnected. Skipping reconnect.`);
+            sessions.delete(hostelId);
+            qrCodes.delete(hostelId);
+            pairingStates.delete(hostelId);
+            connectionLocks.delete(hostelId);
+            connectionStates.set(hostelId, 'disconnected');
+            return;
+          }
+
+          if (isRestart) {
+            // Normal WhatsApp protocol pairing restart right after phone scans QR or pair-success
+            console.log(`[WhatsApp] 🔄 Post-pairing restart (515) for Hostel ${hostelId}. Reconnecting safely in 1.2s...`);
+            qrCodes.delete(hostelId);
+            pairingStates.set(hostelId, true);
+            connectionStates.set(hostelId, 'restarting_515');
+
+            // Strip old socket listeners to prevent duplicate event handling
+            try {
+              sock.ev.removeAllListeners('connection.update');
+              sock.ev.removeAllListeners('creds.update');
+              sock.ev.removeAllListeners('messages.upsert');
+              sock.end();
+            } catch (_) {}
+            sessions.delete(hostelId);
+
+            setTimeout(async () => {
+              if (explicitlyDisconnected.has(hostelId)) return;
+              try {
+                connectionLocks.delete(hostelId);
+                await startHostelWhatsApp(hostelId);
+              } catch (err) {
+                console.error(`[WhatsApp] Reconnection after 515 failed:`, err.message);
+              } finally {
+                connectionStates.delete(hostelId);
+              }
+            }, 1200);
+            return;
+          }
+
+          sessions.delete(hostelId);
+          connectionLocks.delete(hostelId);
+
+          if (isLoggedOut || isForbidden) {
+            console.log(`[WhatsApp] 🚨 Hostel ${hostelId} was logged out from companion device.`);
+            qrCodes.delete(hostelId);
+            pairingStates.delete(hostelId);
+            connectionStates.set(hostelId, 'disconnected');
+            try {
+              fs.rmSync(authPath, { recursive: true, force: true });
+            } catch (_) {}
+
+            await Hostel.findByIdAndUpdate(hostelId, {
+              whatsappStatus: 'disconnected',
+              whatsappPhone: ''
+            }).catch(() => {});
+          } else if (isReplaced) {
+            console.log(`[WhatsApp] Hostel ${hostelId} connection replaced by another instance.`);
+            qrCodes.delete(hostelId);
+            pairingStates.delete(hostelId);
+          } else {
+            // Transient network drop or handshake retry: ALWAYS attempt auto-reconnect
+            console.log(`[WhatsApp] Hostel ${hostelId} socket closed (code: ${statusCode}). Auto-reconnecting in 2.5s...`);
+            setTimeout(async () => {
+              if (explicitlyDisconnected.has(hostelId)) return;
+              const hasCreds = fs.existsSync(path.join(authPath, 'creds.json'));
+              if (hasCreds && !sessions.has(hostelId)) {
+                startHostelWhatsApp(hostelId).catch((err) => {
+                  console.warn(`[WhatsApp] Reconnection retry warning:`, err.message);
+                });
+              }
+            }, 2500);
+          }
+        }
+      });
+
+      // Listen for incoming messages and capture guest photos
+      sock.ev.on('messages.upsert', async ({ messages, type }) => {
+        console.log(`[WhatsApp] 📥 messages.upsert received ${messages ? messages.length : 0} message(s), type: ${type}`);
+        for (const msg of (messages || [])) {
+          await processIncomingMessage(sock, hostelId, msg, hostel).catch(() => {});
+        }
+      });
+
+      // Listen for recent message history sync on socket reconnection (only recent 2 hours, max 15 items)
+      sock.ev.on('messaging-history.set', async ({ messages }) => {
+        if (messages && messages.length > 0) {
+          console.log(`[WhatsApp] 📜 messaging-history.set received ${messages.length} message(s)`);
+          const twoHoursAgo = Math.floor(Date.now() / 1000) - (2 * 60 * 60);
+          const recentMediaMsgs = (messages || [])
+            .filter(m => m.messageTimestamp && m.messageTimestamp >= twoHoursAgo)
+            .slice(-15);
+          for (const msg of recentMediaMsgs) {
+            await processIncomingMessage(sock, hostelId, msg, hostel).catch(() => {});
+          }
+        }
+      });
+
+      // If QR code is not cached yet, wait up to 8 seconds ONLY IF NOT pairing-code request
+      if (!isPairingRequest && !qrCodes.has(hostelId) && !sock.user) {
+        await new Promise((resolve) => {
+          const timer = setTimeout(() => {
+            sock.ev.off('connection.update', checkUpdate);
+            resolve();
+          }, 8000);
+
+          function checkUpdate(up) {
+            if (up.qr || up.connection === 'open') {
+              clearTimeout(timer);
+              sock.ev.off('connection.update', checkUpdate);
+              resolve();
+            }
+          }
+
+          sock.ev.on('connection.update', checkUpdate);
+        });
+      }
+
+      return {
+        status: sock.user ? 'connected' : (qrCodes.has(hostelId) || pairingStates.get(hostelId) ? 'connecting' : 'disconnected'),
+        qr: qrCodes.get(hostelId) || null,
+        pairing: !!pairingStates.get(hostelId),
+        phone: hostel.whatsappPhone || ''
+      };
+    } finally {
+      connectingPromises.delete(hostelId);
+      connectionLocks.delete(hostelId);
+    }
   })();
 
   connectingPromises.set(hostelId, connectPromise);
-  try {
-    const res = await connectPromise;
-    return res;
-  } finally {
-    connectingPromises.delete(hostelId);
-  }
+  return connectPromise;
 };
 
 /**
@@ -579,6 +635,23 @@ const getHostelWhatsAppStatus = async (hostelId) => {
     };
   }
 
+  // If currently in post-515 restart or active pairing handshake, return connecting safely
+  if (connectionStates.get(hostelId) === 'restarting_515' || pairingStates.get(hostelId)) {
+    return {
+      whatsappSyncEnabled: !!hostel.whatsappSyncEnabled,
+      aiOcrEnabled: !!hostel.aiOcrEnabled,
+      digitalAadhaarEnabled: !!hostel.digitalAadhaarEnabled,
+      hostelName: hostel.name,
+      hostelAddress: hostel.address,
+      hostelContact: hostel.contactNumber,
+      hostelEmail: hostel.email,
+      status: 'connecting',
+      pairing: true,
+      phone: hostel.whatsappPhone || '',
+      qr: null
+    };
+  }
+
   let activeSock = sessions.get(hostelId);
   const authPath = path.join(SESSIONS_DIR, `hostel_${hostelId}`);
   const credsPath = path.join(authPath, 'creds.json');
@@ -588,8 +661,8 @@ const getHostelWhatsAppStatus = async (hostelId) => {
   } catch (_) {}
   const isPairing = !!pairingStates.get(hostelId);
 
-  // Auto-resume socket if saved credentials exist and in-memory socket is not currently active
-  if (!activeSock && hasCreds && hostel.whatsappSyncEnabled && !explicitlyDisconnected.has(hostelId)) {
+  // Auto-resume socket if saved credentials exist, in-memory socket is not active, and no lock
+  if (!activeSock && hasCreds && hostel.whatsappSyncEnabled && !explicitlyDisconnected.has(hostelId) && !connectionLocks.has(hostelId)) {
     console.log(`[WhatsApp] Auto-resuming saved WhatsApp session for Hostel ${hostelId}...`);
     try {
       startHostelWhatsApp(hostelId).catch((err) => {
@@ -604,8 +677,8 @@ const getHostelWhatsAppStatus = async (hostelId) => {
   // ACCURATE LIVE CHECK: Socket must exist, user identity must exist, and WebSocket must be OPEN
   const isConnected = isSocketAlive(activeSock);
 
-  // If socket is in sessions map but is DEAD/ZOMBIE (websocket closed):
-  if (activeSock && !isConnected && activeSock.user) {
+  // If socket is in sessions map but is DEAD/ZOMBIE (websocket closed and NOT newly created within 45s):
+  if (activeSock && !isConnected && activeSock.user && (!activeSock._createdAt || Date.now() - activeSock._createdAt > 45000)) {
     console.warn(`[WhatsApp] Dead/Zombie socket detected for Hostel ${hostelId}. Cycling connection...`);
     try { activeSock.end(); } catch (_) {}
     sessions.delete(hostelId);
@@ -647,6 +720,8 @@ const disconnectHostelWhatsApp = async (hostelId) => {
   // 1. Mark explicitly disconnected so no background reconnection occurs
   explicitlyDisconnected.add(hostelId);
   connectingPromises.delete(hostelId);
+  connectionLocks.delete(hostelId);
+  connectionStates.set(hostelId, 'disconnected');
   pairingStates.delete(hostelId);
   qrCodes.delete(hostelId);
 
@@ -717,11 +792,16 @@ const requestHostelPairingCode = async (hostelId, phoneNumber) => {
     await hCheck.save({ validateBeforeSave: false }).catch(() => {});
   }
   let cleanPhone = phoneNumber.replace(/\D/g, '');
-  if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
+  if (cleanPhone.startsWith('0') && cleanPhone.length === 11) {
+    cleanPhone = cleanPhone.slice(1);
+  }
+  if (cleanPhone.length === 10) {
+    cleanPhone = '91' + cleanPhone;
+  }
 
   // If already connected, return immediately
   let existingSock = sessions.get(hostelId);
-  if (existingSock?.user) {
+  if (existingSock?.user && isSocketAlive(existingSock)) {
     const phone = existingSock.user.id.split(':')[0].split('@')[0];
     return { alreadyConnected: true, phone };
   }
@@ -740,8 +820,8 @@ const requestHostelPairingCode = async (hostelId, phoneNumber) => {
     sessions.delete(hostelId);
   }
 
-  // Start or resume socket
-  await startHostelWhatsApp(hostelId);
+  // Start or resume socket in pairing mode (skips waiting for QR)
+  await startHostelWhatsApp(hostelId, { isPairingRequest: true });
   const sock = sessions.get(hostelId);
   if (!sock) throw new Error('WhatsApp service could not be initialized');
 
@@ -750,17 +830,10 @@ const requestHostelPairingCode = async (hostelId, phoneNumber) => {
     return { alreadyConnected: true, phone };
   }
 
-  // If socket is still establishing WS connection, wait up to 4s
-  if (!sock.ws?.isOpen) {
-    await new Promise((resolve) => {
-      const timer = setTimeout(resolve, 4000);
-      sock.ev.once('connection.update', (up) => {
-        if (up.qr || sock.ws?.isOpen) {
-          clearTimeout(timer);
-          resolve();
-        }
-      });
-    });
+  // Wait briefly for WebSocket connection to open or start handshake (max 4s)
+  for (let i = 0; i < 20; i++) {
+    if (sock.ws?.isOpen || sock.ws?.readyState === 1 || sock.ws?.readyState === 0) break;
+    await new Promise((r) => setTimeout(r, 200));
   }
 
   try {
@@ -770,7 +843,7 @@ const requestHostelPairingCode = async (hostelId, phoneNumber) => {
     return { success: true, pairingCode: formattedCode, rawCode, phone: cleanPhone };
   } catch (err) {
     console.error(`[WhatsApp] Failed to request pairing code for ${cleanPhone}:`, err);
-    throw new Error('Could not generate pairing code. Please verify phone number with country code (e.g. 91...)');
+    throw new Error('Could not generate pairing code. Please verify phone number (e.g. 9876543210).');
   }
 };
 
