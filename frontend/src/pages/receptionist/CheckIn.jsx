@@ -36,7 +36,8 @@ import {
   Car,
   Building2,
   Crop,
-  RotateCw
+  RotateCw,
+  ExternalLink
 } from 'lucide-react';
 
 import { format, isPast } from 'date-fns';
@@ -1174,6 +1175,46 @@ const CheckIn = () => {
     } finally {
       setScanningQr({ index: null, side: null });
     }
+  };
+
+  // =========================================================
+  // MANUAL UIDAI GOVERNMENT PORTAL VERIFICATION (FREE, NO OTP)
+  // =========================================================
+
+  const handleOpenUidaiPortal = (guestIdx) => {
+    const curGuest = guests[guestIdx];
+    const rawNum = curGuest?.idProofNumber ? String(curGuest.idProofNumber).replace(/\D/g, '') : '';
+    if (rawNum && rawNum.length === 12) {
+      try {
+        navigator.clipboard.writeText(rawNum);
+        const phoneLast3 = curGuest.mobileNumber ? String(curGuest.mobileNumber).replace(/\D/g, '').slice(-3) : '';
+        toast({
+          message: phoneLast3 
+            ? `📋 Aadhaar ${rawNum} copied! Compare UIDAI mobile with guest phone (*...${phoneLast3}).` 
+            : `📋 Aadhaar ${rawNum} copied to clipboard! Paste on UIDAI portal.`,
+          type: 'info'
+        });
+      } catch (_) {}
+    } else {
+      toast({ message: 'Opening UIDAI portal... Enter the 12-digit Aadhaar number.', type: 'info' });
+    }
+    window.open('https://myaadhaar.uidai.gov.in/verify-aadhaar', '_blank', 'noopener,noreferrer');
+  };
+
+  const handleToggleAadhaarVerified = (guestIdx, isVerified) => {
+    setGuests(prev => {
+      const updated = [...prev];
+      const g = { ...updated[guestIdx] };
+      g.isAadhaarVerified = Boolean(isVerified);
+      if (isVerified) {
+        g.aadhaarQrType = g.aadhaarQrType || 'Manual UIDAI Portal';
+        toast({ message: `Guest ${guestIdx + 1} marked as Government UIDAI Verified!`, type: 'success' });
+      } else {
+        toast({ message: `Verification status cleared for Guest ${guestIdx + 1}`, type: 'info' });
+      }
+      updated[guestIdx] = g;
+      return updated;
+    });
   };
 
   // =========================================================
@@ -4051,7 +4092,7 @@ const CheckIn = () => {
                   {guest.isAadhaarVerified && (
                     <span className="text-[10px] font-black text-emerald-800 bg-emerald-100 border border-emerald-300 px-3 py-1.5 rounded-full uppercase tracking-wider flex items-center gap-1 shadow-2xs">
                       <ShieldCheck size={13} className="text-emerald-700" />
-                      UIDAI Verified
+                      {guest.aadhaarQrType === 'Manual UIDAI Portal' ? 'Govt UIDAI Verified' : 'UIDAI QR Verified'}
                     </span>
                   )}
 
@@ -4167,9 +4208,13 @@ const CheckIn = () => {
                           const validRes = validateAadhaarNumber(guest.idProofNumber);
                           return !validRes.valid ? (
                             <span className="text-red-500 text-[9px] flex items-center gap-0.5 font-bold bg-red-50 px-1.5 py-0.5 rounded border border-red-200" title={validRes.error}>
-                              <AlertTriangle size={10} /> Invalid
+                              <AlertTriangle size={10} /> Invalid Checksum
                             </span>
-                          ) : null;
+                          ) : (
+                            <span className="text-emerald-700 text-[9px] flex items-center gap-0.5 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                              <Check size={10} /> Valid Format
+                            </span>
+                          );
                         })()}
                       </label>
                       <input
@@ -4185,6 +4230,57 @@ const CheckIn = () => {
                         }
                         className="w-full px-4 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-black focus:ring-0 outline-none font-bold text-sm text-gray-900 uppercase transition-colors"
                       />
+
+                      {/* Manual Govt Aadhaar Verification Toolbar (Free, Zero OTP) */}
+                      {guest.idProofType === 'Aadhaar' && (
+                        <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 bg-slate-50 border border-slate-200/90 rounded-2xl p-2.5 shadow-2xs">
+                          <div className="flex items-center gap-1.5 text-[11px] font-bold">
+                            <ShieldCheck size={15} className={guest.isAadhaarVerified ? "text-emerald-600" : "text-gray-400"} />
+                            <span>
+                              {guest.isAadhaarVerified ? (
+                                <span className="text-emerald-800 font-black">
+                                  {guest.aadhaarQrType === 'Manual UIDAI Portal' ? '✓ Govt UIDAI Verified' : '✓ UIDAI QR Verified'}
+                                </span>
+                              ) : (
+                                <span className="text-gray-600">Manual Govt Authenticity:</span>
+                              )}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenUidaiPortal(index)}
+                              className="px-2.5 py-1.5 bg-white hover:bg-emerald-50 text-emerald-800 hover:text-emerald-900 border border-emerald-300 font-black text-[10px] rounded-xl shadow-2xs transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                              title="Copies Aadhaar number to clipboard and opens official UIDAI verification portal (Free, No OTP)"
+                            >
+                              <ExternalLink size={11} className="text-emerald-700" />
+                              <span>Verify on UIDAI (Govt)</span>
+                            </button>
+
+                            {guest.isAadhaarVerified ? (
+                              <button
+                                type="button"
+                                onClick={() => handleToggleAadhaarVerified(index, false)}
+                                className="px-2 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-[10px] font-bold rounded-xl transition-all cursor-pointer"
+                                title="Reset verification status"
+                              >
+                                Undo
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleToggleAadhaarVerified(index, true)}
+                                className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] rounded-xl shadow-2xs transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
+                                title="Click after confirming active status on UIDAI portal"
+                              >
+                                <Check size={11} strokeWidth={3} />
+                                <span>Mark Verified</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
