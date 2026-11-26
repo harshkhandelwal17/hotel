@@ -46,8 +46,8 @@ const isSocketAlive = (sock) => {
   try {
     const ws = sock.ws;
     if (!ws) return false;
-    // WebSocket readyState: 0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED
-    return ws.isOpen === true || ws.readyState === 1 || ws.readyState === 0;
+    // For established socket, WebSocket must be OPEN
+    return ws.isOpen === true || ws.readyState === 1;
   } catch (_) {
     return false;
   }
@@ -115,26 +115,66 @@ const extractTargetMedia = (message) => {
     return extractTargetMedia(message.protocolMessage.editedMessage);
   }
 
+  // 8. Quoted message wrapper (replies to photos)
+  if (message.extendedTextMessage?.contextInfo?.quotedMessage) {
+    return extractTargetMedia(message.extendedTextMessage.contextInfo.quotedMessage);
+  }
+
   return null;
 };
 
 /**
- * Download media buffer with resilient fallback strategies
+ * Safely collect chunks from an async stream with strict timeout and cleanup
+ */
+const readStreamWithTimeout = async (stream, timeoutMs = 12000) => {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let finished = false;
+
+    const timer = setTimeout(() => {
+      if (!finished) {
+        finished = true;
+        try { stream.destroy?.(); } catch (_) {}
+        reject(new Error(`Stream read timed out after ${timeoutMs}ms`));
+      }
+    }, timeoutMs);
+
+    stream.on('data', (chunk) => {
+      chunks.push(chunk);
+    });
+
+    stream.on('end', () => {
+      if (!finished) {
+        finished = true;
+        clearTimeout(timer);
+        resolve(Buffer.concat(chunks));
+      }
+    });
+
+    stream.on('error', (err) => {
+      if (!finished) {
+        finished = true;
+        clearTimeout(timer);
+        reject(err);
+      }
+    });
+  });
+};
+
+/**
+ * Download media buffer with resilient fallback strategies and non-blocking timeouts
  */
 const downloadMediaBuffer = async (sock, msg, target) => {
   let buffer = null;
 
-  // Attempt 1: Direct stream with matching media type
+  // Attempt 1: Direct stream with matching media type and strict timeout
   try {
-    const stream = await downloadContentFromMessage(
-      target.media,
-      target.type === 'document' ? 'document' : 'image'
-    );
-    const chunks = [];
-    for await (const chunk of stream) {
-      chunks.push(chunk);
-    }
-    buffer = Buffer.concat(chunks);
+    const mediaType = target.type === 'document' ? 'document' : 'image';
+    const stream = await Promise.race([
+      downloadContentFromMessage(target.media, mediaType),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Stream init timeout')), 8000))
+    ]);
+    buffer = await readStreamWithTimeout(stream, 12000);
   } catch (err1) {
     console.warn(`[WhatsApp] Direct stream (${target.type}) error:`, err1.message);
   }
@@ -143,33 +183,35 @@ const downloadMediaBuffer = async (sock, msg, target) => {
   if (!buffer || buffer.length === 0) {
     try {
       const altType = target.type === 'document' ? 'image' : 'document';
-      const stream = await downloadContentFromMessage(target.media, altType);
-      const chunks = [];
-      for await (const chunk of stream) {
-        chunks.push(chunk);
-      }
-      buffer = Buffer.concat(chunks);
+      const stream = await Promise.race([
+        downloadContentFromMessage(target.media, altType),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Stream init timeout')), 8000))
+      ]);
+      buffer = await readStreamWithTimeout(stream, 12000);
     } catch (_) {}
   }
 
-  // Attempt 3: downloadMediaMessage with original msg
+  // Attempt 3: downloadMediaMessage with original msg (with 12s timeout)
   if (!buffer || buffer.length === 0) {
     try {
-      buffer = await downloadMediaMessage(
-        msg,
-        'buffer',
-        {},
-        {
-          logger: pino({ level: 'silent' }),
-          reuploadRequest: sock.updateMediaMessage
-        }
-      );
+      buffer = await Promise.race([
+        downloadMediaMessage(
+          msg,
+          'buffer',
+          {},
+          {
+            logger: pino({ level: 'silent' }),
+            reuploadRequest: sock.updateMediaMessage
+          }
+        ),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('downloadMediaMessage timeout')), 12000))
+      ]);
     } catch (err3) {
       console.warn('[WhatsApp] downloadMediaMessage original msg failed:', err3.message);
     }
   }
 
-  // Attempt 4: downloadMediaMessage with unwrapped synthetic message
+  // Attempt 4: downloadMediaMessage with unwrapped synthetic message (with 12s timeout)
   if (!buffer || buffer.length === 0) {
     try {
       const syntheticMsg = {
@@ -178,15 +220,18 @@ const downloadMediaBuffer = async (sock, msg, target) => {
           [target.type === 'image' ? 'imageMessage' : 'documentMessage']: target.media
         }
       };
-      buffer = await downloadMediaMessage(
-        syntheticMsg,
-        'buffer',
-        {},
-        {
-          logger: pino({ level: 'silent' }),
-          reuploadRequest: sock.updateMediaMessage
-        }
-      );
+      buffer = await Promise.race([
+        downloadMediaMessage(
+          syntheticMsg,
+          'buffer',
+          {},
+          {
+            logger: pino({ level: 'silent' }),
+            reuploadRequest: sock.updateMediaMessage
+          }
+        ),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('downloadMediaMessage synthetic timeout')), 12000))
+      ]);
     } catch (err4) {
       console.warn('[WhatsApp] downloadMediaMessage synthetic msg failed:', err4.message);
     }
@@ -222,7 +267,7 @@ const processIncomingMessage = async (sock, hostelId, msg, hostel) => {
   const messageId = msg.key?.id;
 
   // Deduplicate against existing MongoDB entries
-  if (messageId) {
+  if (messageId && typeof messageId === 'string') {
     const existing = await WhatsAppMedia.findOne({ messageId, hostel: hostelId });
     if (existing) {
       return;
@@ -265,6 +310,20 @@ const startHostelWhatsApp = async (hostelId, options = {}) => {
   }
 
   const isPairingRequest = Boolean(options.isPairingRequest);
+  const forceReset = Boolean(options.forceReset);
+
+  if (forceReset) {
+    console.log(`[WhatsApp] Force reset requested for Hostel ${hostelId}. Clearing previous locks and sockets...`);
+    connectingPromises.delete(hostelId);
+    connectionLocks.delete(hostelId);
+    qrCodes.delete(hostelId);
+    pairingStates.delete(hostelId);
+    const oldSock = sessions.get(hostelId);
+    if (oldSock && !oldSock.user) {
+      try { oldSock.end(); } catch (_) {}
+      sessions.delete(hostelId);
+    }
+  }
 
   // Deduplicate concurrent connection requests
   if (connectingPromises.has(hostelId)) {
@@ -274,7 +333,7 @@ const startHostelWhatsApp = async (hostelId, options = {}) => {
 
   // Connection lock: prevent multiple concurrent socket creations for same hotel
   const existingLock = connectionLocks.get(hostelId);
-  if (existingLock && (Date.now() - existingLock.startedAt < 25000)) {
+  if (!forceReset && existingLock && (Date.now() - existingLock.startedAt < 25000)) {
     console.log(`[WhatsApp] Socket connection lock active for Hostel ${hostelId}, reusing in-flight handshake...`);
     const s = sessions.get(hostelId);
     return {
@@ -335,25 +394,25 @@ const startHostelWhatsApp = async (hostelId, options = {}) => {
 
       const authPath = path.join(SESSIONS_DIR, `hostel_${hostelId}`);
       
-      // Guard against corrupted or 0-byte creds.json
+      // Guard against corrupted or 0-byte creds.json with multi-attempt verification
       const credsPath = path.join(authPath, 'creds.json');
       if (fs.existsSync(credsPath)) {
-        try {
-          let stats = fs.statSync(credsPath);
-          if (stats.size === 0) {
-            await new Promise((r) => setTimeout(r, 200));
-            if (fs.existsSync(credsPath)) {
-              stats = fs.statSync(credsPath);
-              if (stats.size === 0) {
-                fs.rmSync(authPath, { recursive: true, force: true });
-              }
+        let validCreds = false;
+        for (let readAttempt = 0; readAttempt < 3; readAttempt++) {
+          try {
+            const stats = fs.statSync(credsPath);
+            if (stats.size > 20) {
+              const raw = fs.readFileSync(credsPath, 'utf8');
+              JSON.parse(raw);
+              validCreds = true;
+              break;
             }
-          } else {
-            const raw = fs.readFileSync(credsPath, 'utf8');
-            JSON.parse(raw);
+          } catch (_) {
+            await new Promise((r) => setTimeout(r, 250));
           }
-        } catch (_) {
-          console.warn(`[WhatsApp] Corrupted creds.json found for Hostel ${hostelId}. Purging session directory...`);
+        }
+        if (!validCreds) {
+          console.warn(`[WhatsApp] Corrupted creds.json verified for Hostel ${hostelId}. Purging session directory...`);
           try { fs.rmSync(authPath, { recursive: true, force: true }); } catch (_) {}
         }
       }
@@ -549,12 +608,18 @@ const startHostelWhatsApp = async (hostelId, options = {}) => {
         }
       });
 
-      // Listen for incoming messages and capture guest photos
+      // Listen for incoming messages and capture guest photos concurrently
       sock.ev.on('messages.upsert', async ({ messages, type }) => {
-        console.log(`[WhatsApp] 📥 messages.upsert received ${messages ? messages.length : 0} message(s), type: ${type}`);
-        for (const msg of (messages || [])) {
-          await processIncomingMessage(sock, hostelId, msg, hostel).catch(() => {});
-        }
+        if (!messages || messages.length === 0) return;
+        console.log(`[WhatsApp] 📥 messages.upsert received ${messages.length} message(s), type: ${type}`);
+        // Concurrently process album / batch photos so none are delayed by slow downloads
+        await Promise.allSettled(
+          messages.map(msg =>
+            processIncomingMessage(sock, hostelId, msg, hostel).catch(err => {
+              console.warn(`[WhatsApp] Error in message ingestion:`, err.message);
+            })
+          )
+        );
       });
 
       // Listen for recent message history sync on socket reconnection (only recent 2 hours, max 15 items)
@@ -678,7 +743,7 @@ const getHostelWhatsAppStatus = async (hostelId) => {
   const isConnected = isSocketAlive(activeSock);
 
   // If socket is in sessions map but is DEAD/ZOMBIE (websocket closed and NOT newly created within 45s):
-  if (activeSock && !isConnected && activeSock.user && (!activeSock._createdAt || Date.now() - activeSock._createdAt > 45000)) {
+  if (activeSock && !isConnected && (!activeSock._createdAt || Date.now() - activeSock._createdAt > 45000)) {
     console.warn(`[WhatsApp] Dead/Zombie socket detected for Hostel ${hostelId}. Cycling connection...`);
     try { activeSock.end(); } catch (_) {}
     sessions.delete(hostelId);
@@ -830,21 +895,33 @@ const requestHostelPairingCode = async (hostelId, phoneNumber) => {
     return { alreadyConnected: true, phone };
   }
 
-  // Wait briefly for WebSocket connection to open or start handshake (max 4s)
-  for (let i = 0; i < 20; i++) {
-    if (sock.ws?.isOpen || sock.ws?.readyState === 1 || sock.ws?.readyState === 0) break;
+  // Wait for WebSocket connection to open (readyState 1, max 6s)
+  for (let i = 0; i < 30; i++) {
+    if (sock.ws?.isOpen || sock.ws?.readyState === 1) break;
     await new Promise((r) => setTimeout(r, 200));
   }
 
-  try {
-    const rawCode = await sock.requestPairingCode(cleanPhone);
-    const formattedCode = rawCode ? (rawCode.slice(0, 4) + '-' + rawCode.slice(4)) : rawCode;
-    console.log(`[WhatsApp] 🔑 Pairing code generated for Hostel ${hostelId} (${cleanPhone}): ${formattedCode}`);
-    return { success: true, pairingCode: formattedCode, rawCode, phone: cleanPhone };
-  } catch (err) {
-    console.error(`[WhatsApp] Failed to request pairing code for ${cleanPhone}:`, err);
-    throw new Error('Could not generate pairing code. Please verify phone number (e.g. 9876543210).');
+  let rawCode = null;
+  let lastErr = null;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      rawCode = await sock.requestPairingCode(cleanPhone);
+      if (rawCode) break;
+    } catch (err) {
+      lastErr = err;
+      console.warn(`[WhatsApp] Pairing code attempt ${attempt} warning for ${cleanPhone}:`, err.message);
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 500));
+    }
   }
+
+  if (!rawCode) {
+    console.error(`[WhatsApp] Failed to request pairing code for ${cleanPhone}:`, lastErr);
+    throw new Error('Could not generate pairing code. Please verify phone number (e.g. 9876543210) and try again.');
+  }
+
+  const formattedCode = rawCode ? (rawCode.slice(0, 4) + '-' + rawCode.slice(4)) : rawCode;
+  console.log(`[WhatsApp] 🔑 Pairing code generated for Hostel ${hostelId} (${cleanPhone}): ${formattedCode}`);
+  return { success: true, pairingCode: formattedCode, rawCode, phone: cleanPhone };
 };
 
 /**

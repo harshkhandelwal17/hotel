@@ -1497,11 +1497,11 @@ const CheckIn = () => {
     }
   };
 
-  const handleStartWhatsApp = async () => {
+  const handleStartWhatsApp = async (forceReset = false) => {
     if (loadingWa || !hostelId) return;
     setLoadingWa(true);
     try {
-      const res = await axios.post(`${API}/api/whatsapp/connect`, { hostelId });
+      const res = await axios.post(`${API}/api/whatsapp/connect`, { hostelId, forceReset: Boolean(forceReset) });
       if (res.data?.success) {
         setWaStatus(res.data.data.status);
         if (res.data.data.qr) setWaQr(res.data.data.qr);
@@ -1591,14 +1591,16 @@ const CheckIn = () => {
     try {
       const res = await axios.get(`${API}/api/whatsapp/recent-media?hostelId=${encodeURIComponent(hostelId)}&_t=${Date.now()}`);
       if (res.data?.success) {
-        setWaRecentMedia(res.data.data || []);
+        const rawMedia = res.data.data || [];
+        const sorted = [...rawMedia].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        setWaRecentMedia(sorted);
         if (res.data.whatsappStatus) {
           setWaStatus(res.data.whatsappStatus);
         }
         if (res.data.phone) {
           setWaPhone(res.data.phone);
         }
-        toast({ message: `Synced! Found ${res.data.data?.length || 0} incoming WhatsApp photo(s).`, type: 'success' });
+        toast({ message: `Synced! ${sorted.length} WhatsApp photo(s) available.`, type: 'success' });
       }
     } catch (_) {
       toast({ message: 'Failed to refresh WhatsApp photos', type: 'error' });
@@ -3712,7 +3714,7 @@ const CheckIn = () => {
                           title="Click to scan QR / reconnect WhatsApp"
                         >
                           <QrCode size={11} />
-                          <span>{waStatus === 'connecting' ? 'Connecting...' : 'QR'}</span>
+                          <span>{waStatus === 'connecting' ? 'Connecting...' : 'Connect'}</span>
                         </button>
                       )}
                     </div>
@@ -5115,7 +5117,7 @@ const CheckIn = () => {
                             Waiting for phone scan... Auto-connects instantly!
                           </p>
                           <button
-                            onClick={handleStartWhatsApp}
+                            onClick={() => handleStartWhatsApp(true)}
                             disabled={loadingWa}
                             className="text-xs font-black text-emerald-700 hover:text-emerald-900 underline flex items-center justify-center gap-1 mx-auto"
                           >

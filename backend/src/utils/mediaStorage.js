@@ -31,7 +31,11 @@ const extractStorageKey = (imageUrl) => {
 exports.extractStorageKey = extractStorageKey;
 
 exports.saveMediaBuffer = async (buffer, mimeType = 'image/jpeg') => {
-  const ext = mimeType.includes('png') ? '.png' : '.jpg';
+  let ext = '.jpg';
+  if (mimeType.includes('png')) ext = '.png';
+  else if (mimeType.includes('pdf')) ext = '.pdf';
+  else if (mimeType.includes('webp')) ext = '.webp';
+
   const filename = `wa-${Date.now()}-${Math.round(Math.random() * 1E6)}${ext}`;
   const uniqueKey = `hotel_pms_uploads/${filename}`;
 

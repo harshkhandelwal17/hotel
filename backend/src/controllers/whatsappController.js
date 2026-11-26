@@ -76,7 +76,8 @@ exports.connect = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Hostel context required' });
     }
 
-    const result = await startHostelWhatsApp(hostelId);
+    const forceReset = Boolean(req.body?.forceReset);
+    const result = await startHostelWhatsApp(hostelId, { forceReset });
     res.status(200).json({ success: true, data: result });
   } catch (err) {
     if (err.statusCode) {
