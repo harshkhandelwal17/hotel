@@ -135,7 +135,6 @@ const ManageStaff = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Staff & Receptionist Accounts</h1>
-          <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">Manage front desk logins, operational roles, and assigned hotel properties</p>
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}

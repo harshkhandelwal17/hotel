@@ -188,11 +188,6 @@ const PaymentsList = () => {
               </span>
             )}
           </div>
-          <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
-            {activeTab === 'pending' 
-              ? 'Collect balance dues, record split settlements, and generate digital UPI QR' 
-              : 'Complete transaction history, day book collections, and cashier receipts'}
-          </p>
         </div>
 
         {/* Tab Switcher */}

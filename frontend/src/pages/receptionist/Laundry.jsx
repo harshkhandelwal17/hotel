@@ -913,7 +913,6 @@ Hotel me *${item.itemName}* ka stock critically low hai:
             </div>
             <div>
               <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Laundry & Linen Management</h1>
-              <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">Track hotel bedsheets, towels, dhobi batches & monthly expenses</p>
             </div>
           </div>
         </div>

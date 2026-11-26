@@ -314,7 +314,6 @@ const CheckoutList = () => {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-1">
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">{t('checkout.title', 'In-House Guests')}</h1>
-            <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">{t('checkout.subtitle', 'Tap a guest to add charges, take payment, change room, extend stay or check out.')}</p>
           </div>
           <div className="flex flex-wrap sm:flex-nowrap gap-2 w-full sm:w-auto">
             <button

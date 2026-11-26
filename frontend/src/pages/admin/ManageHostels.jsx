@@ -112,9 +112,6 @@ const ManageProperties = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
         <div>
           <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Property Profiles & Business Licensing</h1>
-          <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
-            {isSuperAdmin ? 'Configure registered hotel properties, licenses and GST' : 'Registered hotel details, UPI payee configuration, and active subscription status'}
-          </p>
         </div>
         {isSuperAdmin ? (
           <button onClick={() => { setFormError(''); setIsModalOpen(true); }}

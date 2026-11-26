@@ -930,7 +930,6 @@ const Reports = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200/80 pb-5">
         <div>
           <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Financial & Operating Reports</h1>
-          <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">Reconciled drawer cash, digital collections, headcount, and daily expenses</p>
         </div>
         <div className="flex flex-wrap sm:flex-nowrap gap-2 w-full sm:w-auto">
           <button 

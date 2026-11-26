@@ -48,7 +48,6 @@ const GuestDirectory = () => {
             <Users size={20} className="text-slate-800" />
             <span>Guest Directory & Profiles</span>
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">Directory and complete reservation history of all registered guests</p>
         </div>
         
         <div className="w-full sm:w-72">

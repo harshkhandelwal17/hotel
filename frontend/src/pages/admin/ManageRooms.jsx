@@ -131,7 +131,6 @@ const ManageRooms = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
         <div>
           <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Room Inventory & Configuration</h1>
-          <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">{rooms.length} rooms configured with 12h / 24h tariffs and guest capacities</p>
         </div>
         <button onClick={openModal}
           className="w-full sm:w-auto justify-center bg-slate-900 text-white px-4 py-2 rounded-xl flex items-center gap-1.5 hover:bg-slate-800 transition-all shadow-xs font-bold text-xs uppercase tracking-wider active:scale-95 cursor-pointer">

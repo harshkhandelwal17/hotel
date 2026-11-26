@@ -2252,11 +2252,8 @@ const CheckIn = () => {
         <div className="flex justify-between items-center pb-1">
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-              {isHindi ? 'एक्सप्रेस चेक-इन' : 'Express Guest Check-In'}
+              {isHindi ? 'अतिथि चेक-इन' : 'Guest Check-In'}
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
-              {isHindi ? 'आधार/पासपोर्ट एआई स्कैन और डिजिटल रूम असाइनमेंट' : 'Instant AI OCR scanning, room assignment & WhatsApp onboarding'}
-            </p>
           </div>
           <button 
             onClick={resetForm}
@@ -2267,7 +2264,7 @@ const CheckIn = () => {
           </button>
         </div>
 
-        <div className="flex items-center gap-3 mt-4">
+        <div className="flex items-center gap-3 mt-3">
 
           <div className="flex-1 flex flex-col gap-1.5">
             <div
@@ -2285,7 +2282,7 @@ const CheckIn = () => {
                   : 'text-slate-400'
               }`}
             >
-              {isHindi ? '1. कमरा व स्टे चयन' : '1. Stay & Room Details'}
+              {isHindi ? '1. कमरा व स्टे' : '1. Room & Stay'}
             </span>
           </div>
 
@@ -2305,7 +2302,7 @@ const CheckIn = () => {
                   : 'text-slate-400'
               }`}
             >
-              {isHindi ? '2. अतिथि विवरण व पहचान पत्र' : '2. Guest Identity & Verification'}
+              {isHindi ? '2. अतिथि पहचान' : '2. Guest Details & ID'}
             </span>
           </div>
 
@@ -2332,7 +2329,7 @@ const CheckIn = () => {
                     </div>
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-black uppercase tracking-wider">Fast Booking: {prefilledProfile.fullName}</span>
+                        <span className="text-xs font-black uppercase tracking-wider">{prefilledProfile.fullName}</span>
                         {prefilledProfile.mobileNumber && (
                           <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded text-gray-200 font-mono">{prefilledProfile.mobileNumber}</span>
                         )}
@@ -2340,17 +2337,14 @@ const CheckIn = () => {
                           Profile Linked
                         </span>
                       </div>
-                      <p className="text-[11px] text-gray-400 mt-0.5 font-medium">
-                        Select room & dates below. Guest 1 details and past co-guests will be auto-filled in Step 2!
-                      </p>
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={handleClearPrefill}
-                    className="text-[11px] font-bold text-gray-400 hover:text-white px-3 py-1.5 rounded-xl border border-white/10 hover:bg-white/10 transition-colors self-start sm:self-auto cursor-pointer"
+                    className="text-[11px] font-bold text-gray-400 hover:text-white px-3 py-1 rounded-xl border border-white/10 hover:bg-white/10 transition-colors self-start sm:self-auto cursor-pointer"
                   >
-                    Clear Prefill
+                    Clear
                   </button>
                 </div>
               )}
@@ -2568,7 +2562,7 @@ const CheckIn = () => {
                       <div className="flex items-center gap-2">
                         <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
                         <span className="text-xs font-black text-emerald-950">
-                          Check-In: <span className="font-bold text-emerald-800">Right Now ({format(new Date(), 'hh:mm a')})</span>
+                          Check-In: <span className="font-bold text-emerald-800">{format(new Date(), 'hh:mm a')}</span>
                         </span>
                       </div>
                       <button
@@ -2584,7 +2578,7 @@ const CheckIn = () => {
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-emerald-100/80 border border-emerald-300 text-emerald-900 rounded-lg text-xs font-black transition-all shadow-xs active:scale-95"
                       >
                         <CalendarClock size={13} className="text-emerald-700" />
-                        <span>Change Date & Time / Backdated?</span>
+                        <span>Backdated Entry</span>
                       </button>
                     </div>
                   ) : (
@@ -2593,7 +2587,7 @@ const CheckIn = () => {
                         <div className="flex items-center gap-2">
                           <CalendarClock size={16} className="text-amber-700" />
                           <h4 className="text-xs sm:text-sm font-black text-amber-950 uppercase tracking-tight">
-                            Custom / Backdated Check-In (Pichli Entry)
+                            Backdated Check-In
                           </h4>
                         </div>
                         <button
@@ -3166,50 +3160,39 @@ const CheckIn = () => {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
                           <span className={`w-2 h-2 rounded-full ${stayInfo.gstType !== 'none' && Number(stayInfo.gstRate) > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`}></span>
-                          <span className="text-xs font-bold text-gray-300">GST Tax Slab (Runtime Selection):</span>
+                          <span className="text-xs font-bold text-gray-300">GST Slab:</span>
                         </div>
                         {stayInfo.gstType !== 'none' && Number(stayInfo.gstRate) > 0 && (
                           <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800/60">
-                            Active: {stayInfo.gstRate}% {stayInfo.gstType === 'inclusive' ? 'Inclusive' : '+ Extra'}
+                            {stayInfo.gstRate}% {stayInfo.gstType === 'inclusive' ? 'Included' : '+ Extra'}
                           </span>
                         )}
                       </div>
 
                       {/* Quick Rate Slabs: 0%, 5%, 12%, 18% */}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                      <div className="grid grid-cols-4 gap-1.5">
                         {[
-                          { rate: 0, label: '0% Non-GST', desc: 'Flat Tariff / Exempt' },
-                          { rate: 5, label: '5% GST', desc: 'Budget / Services' },
-                          { rate: 12, label: '12% GST', desc: 'Standard < ₹7.5k' },
-                          { rate: 18, label: '18% GST', desc: 'Luxury ≥ ₹7.5k' },
+                          { rate: 0, label: '0%' },
+                          { rate: 5, label: '5%' },
+                          { rate: 12, label: '12%' },
+                          { rate: 18, label: '18%' },
                         ].map((slab) => {
                           const isSelected = slab.rate === 0 
                             ? (stayInfo.gstType === 'none' || Number(stayInfo.gstRate) === 0)
                             : (stayInfo.gstType !== 'none' && Number(stayInfo.gstRate) === slab.rate);
-                          
-                          const isRoomDefault = selectedRoomDetails?.gstRate !== undefined && selectedRoomDetails?.gstRate !== null && Number(selectedRoomDetails.gstRate) === slab.rate;
-                          const isPriceSuggested = slab.rate === 18 && Number(stayInfo.totalAmount) >= 7500;
 
                           return (
                             <button
                               key={slab.rate}
                               type="button"
                               onClick={() => handleSelectGstRate(slab.rate)}
-                              className={`py-2 px-1.5 rounded-xl border text-center transition-all cursor-pointer relative ${
+                              className={`py-2 px-1 rounded-xl border text-center transition-all cursor-pointer text-xs font-black ${
                                 isSelected
-                                  ? 'bg-emerald-600 text-white border-emerald-400 shadow-md scale-[1.01]'
-                                  : 'bg-gray-900/90 hover:bg-gray-800 text-gray-300 border-gray-800'
+                                  ? 'bg-emerald-600 text-white border-emerald-400 shadow-sm'
+                                  : 'bg-gray-900 hover:bg-gray-800 text-gray-300 border-gray-800'
                               }`}
                             >
-                              {(isRoomDefault || isPriceSuggested) && (
-                                <span className="absolute -top-1.5 right-1 px-1 rounded text-[8px] font-black uppercase tracking-tighter bg-amber-400 text-black">
-                                  {isRoomDefault ? 'Room' : 'Luxury'}
-                                </span>
-                              )}
-                              <div className="text-xs font-black">{slab.label}</div>
-                              <div className={`text-[9px] truncate ${isSelected ? 'text-emerald-100 font-semibold' : 'text-gray-500'}`}>
-                                {slab.desc}
-                              </div>
+                              {slab.label}
                             </button>
                           );
                         })}
@@ -3218,7 +3201,7 @@ const CheckIn = () => {
                       {/* Pricing Style Toggle: Inclusive vs Exclusive */}
                       {stayInfo.gstType !== 'none' && Number(stayInfo.gstRate) > 0 && (
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 p-2 bg-gray-900/80 rounded-xl border border-gray-800 text-xs">
-                          <span className="text-[11px] font-bold text-gray-400">Pricing Mode:</span>
+                          <span className="text-[11px] font-bold text-gray-400">Mode:</span>
                           <div className="flex gap-1 bg-black p-0.5 rounded-lg border border-gray-800">
                             <button
                               type="button"
@@ -3229,7 +3212,7 @@ const CheckIn = () => {
                                   : 'text-gray-400 hover:text-white'
                               }`}
                             >
-                              Tariff includes GST (MRP)
+                              GST Included
                             </button>
                             <button
                               type="button"
@@ -3240,7 +3223,7 @@ const CheckIn = () => {
                                   : 'text-gray-400 hover:text-white'
                               }`}
                             >
-                              + Add GST on Top
+                              + GST Extra
                             </button>
                           </div>
                         </div>
@@ -3611,23 +3594,18 @@ const CheckIn = () => {
       {step === 2 && (
         <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
 
-          {/* INFO & WHATSAPP SYNC BAR */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-blue-50/70 text-blue-900 p-4 rounded-2xl border border-blue-100 mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0">
-                <ShieldCheck size={18} />
-              </div>
-              <p className="text-xs sm:text-sm font-bold leading-tight text-blue-950">
-                Identity details required for{' '}
-                <span className="underline decoration-blue-400 font-black">{stayInfo.occupants} occupant(s)</span>. Verify original ID physically before check-in.
-              </p>
-            </div>
+          {/* TOP BAR */}
+          <div className="flex items-center justify-between pb-1 mb-1">
+            <h2 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
+              <Users className="text-gray-400" size={18} />
+              <span>{stayInfo.occupants} Guest{Number(stayInfo.occupants) > 1 ? 's' : ''}</span>
+            </h2>
 
             {waSyncEnabled && (
               <button
                 type="button"
                 onClick={() => setWaModalOpen(true)}
-                className={`self-start sm:self-auto px-3.5 py-2 rounded-xl font-bold text-xs flex items-center gap-2 transition-all shrink-0 shadow-xs active:scale-95 border ${
+                className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all shrink-0 border cursor-pointer active:scale-95 ${
                   waStatus === 'connected'
                     ? 'bg-white border-emerald-300 text-emerald-900 hover:bg-emerald-50'
                     : waStatus === 'connecting'
@@ -3645,11 +3623,9 @@ const CheckIn = () => {
                 <MessageSquare size={13} className={waStatus === 'connected' ? 'text-emerald-700' : waStatus === 'connecting' ? 'text-amber-700' : 'text-rose-700'} />
                 <span>
                   {waStatus === 'connected'
-                    ? `WhatsApp Active (${waPhone ? `+${waPhone}` : 'Linked'})`
+                    ? `WhatsApp (${waPhone ? `+${waPhone}` : 'Linked'})`
                     : waStatus === 'connecting'
-                    ? 'Connecting WhatsApp...'
-                    : waPhone
-                    ? `WhatsApp Disconnected (+${waPhone})`
+                    ? 'Connecting...'
                     : 'Connect WhatsApp'}
                 </span>
               </button>
@@ -3959,15 +3935,12 @@ const CheckIn = () => {
               <div className="flex items-center justify-between mb-2">
                 <h4 className="text-xs font-black text-gray-900 uppercase tracking-wider flex items-center gap-2">
                   <Users size={14} className="text-gray-500" />
-                  <span>Past Companions / Co-Guests</span>
+                  <span>Past Companions</span>
                 </h4>
                 <span className="text-[10px] font-bold text-gray-600 bg-white px-2 py-0.5 rounded-md border border-gray-200">
-                  {frequentCoGuests.length} Found
+                  {frequentCoGuests.length}
                 </span>
               </div>
-              <p className="text-xs text-gray-500 mb-3 font-medium">
-                Previously accompanied this guest. Click any companion below to auto-fill Guest 2 (or next slot) instantly:
-              </p>
               <div className="flex gap-2.5 overflow-x-auto pb-1.5 custom-scrollbar">
                 {frequentCoGuests.filter(Boolean).map((cg, cgIdx) => (
                   <button
@@ -4087,44 +4060,18 @@ const CheckIn = () => {
 
                 <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 relative">
 
-                  {guest.isAadhaarVerified && (
-                    <div className="col-span-1 md:col-span-2 p-3.5 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border-2 border-emerald-400 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs animate-in fade-in">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
-                          <ShieldCheck size={20} />
-                        </div>
-                        <div>
-                          <p className="text-xs font-black text-emerald-950 uppercase tracking-wide flex items-center gap-1.5">
-                            UIDAI Digitally Verified & Genuine
-                          </p>
-                          <p className="text-[10px] text-emerald-700 font-bold mt-0.5">
-                            Authentic tamper-proof QR validated • {guest.aadhaarQrType || 'UIDAI Secure QR'}
-                          </p>
-                        </div>
-                      </div>
-                      <span className="text-[10px] font-black uppercase tracking-widest bg-emerald-600 text-white px-3 py-1.5 rounded-xl shadow-2xs shrink-0">
-                        100% Genuine ID
-                      </span>
-                    </div>
-                  )}
-
                   {guest.isSearching && (
                     <div className="absolute top-6 right-6 text-xs font-bold text-blue-500 flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-full">
-
                       <Search
                         size={14}
                         className="animate-spin"
                       />
-
                       Searching history...
-
                     </div>
                   )}
 
                   {/* MOBILE */}
-
                   <div>
-
                     <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">
                       Mobile Number{' '}
                       {index === 0 && (
@@ -4153,23 +4100,13 @@ const CheckIn = () => {
                           : 'border-gray-100 focus:border-black text-gray-900'
                       }`}
                     />
-
                   </div>
 
                   {/* NAME */}
-
                   <div>
-
-                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 flex items-center justify-between">
-                      <span>
-                        Full Name{' '}
-                        <span className="text-red-500">*</span>
-                      </span>
-                      {guest.fullName && guest.idProofImage && (
-                        <span className="text-purple-600 text-[9px] flex items-center gap-0.5 font-bold">
-                          <Sparkles size={10} /> AI Auto
-                        </span>
-                      )}
+                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">
+                      Full Name{' '}
+                      <span className="text-red-500">*</span>
                     </label>
 
                     <input
@@ -4188,10 +4125,7 @@ const CheckIn = () => {
                       }
                       className="w-full px-5 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-black focus:ring-0 outline-none font-black text-lg text-gray-900 transition-colors"
                     />
-
                   </div>
-
-                  {/* ID */}
 
                   {/* ID & DEMOGRAPHICS: ID TYPE, ID NUMBER (WITH VERHOEFF CHECK), GENDER & DOB */}
                   <div className="grid grid-cols-2 gap-4">
@@ -4221,28 +4155,14 @@ const CheckIn = () => {
                     <div>
                       <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 flex items-center justify-between">
                         <span>ID Number</span>
-                        {guest.isAadhaarVerified ? (
-                          <span className="text-emerald-700 text-[9px] flex items-center gap-0.5 font-black bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                            <ShieldCheck size={10} /> QR Verified
-                          </span>
-                        ) : guest.idProofType === 'Aadhaar' && guest.idProofNumber && (guest.idProofNumber.replace(/\s+/g, '').length === 12) ? (
-                          (() => {
-                            const validRes = validateAadhaarNumber(guest.idProofNumber);
-                            return validRes.valid ? (
-                              <span className="text-emerald-700 text-[9px] flex items-center gap-0.5 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                                <ShieldCheck size={10} /> Valid Checksum
-                              </span>
-                            ) : (
-                              <span className="text-red-500 text-[9px] flex items-center gap-0.5 font-bold bg-red-50 px-1.5 py-0.5 rounded border border-red-200" title={validRes.error}>
-                                <AlertTriangle size={10} /> Fake/Invalid
-                              </span>
-                            );
-                          })()
-                        ) : guest.idProofNumber && guest.idProofImage ? (
-                          <span className="text-purple-600 text-[9px] flex items-center gap-0.5 font-bold">
-                            <Sparkles size={10} /> Auto
-                          </span>
-                        ) : null}
+                        {guest.idProofType === 'Aadhaar' && guest.idProofNumber && (guest.idProofNumber.replace(/\s+/g, '').length === 12) && (() => {
+                          const validRes = validateAadhaarNumber(guest.idProofNumber);
+                          return !validRes.valid ? (
+                            <span className="text-red-500 text-[9px] flex items-center gap-0.5 font-bold bg-red-50 px-1.5 py-0.5 rounded border border-red-200" title={validRes.error}>
+                              <AlertTriangle size={10} /> Invalid
+                            </span>
+                          ) : null;
+                        })()}
                       </label>
                       <input
                         type="text"
@@ -4263,17 +4183,8 @@ const CheckIn = () => {
                   {/* GENDER & DOB */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 flex items-center justify-between">
-                        <span>Gender</span>
-                        {guest.isAadhaarVerified ? (
-                          <span className="text-emerald-700 text-[9px] flex items-center gap-0.5 font-black bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                            <ShieldCheck size={10} /> QR Auto
-                          </span>
-                        ) : guest.gender && (
-                          <span className="text-purple-600 text-[9px] flex items-center gap-0.5 font-bold">
-                            <Sparkles size={10} /> Auto
-                          </span>
-                        )}
+                      <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">
+                        Gender
                       </label>
                       <select
                         value={guest.gender || ''}
@@ -4294,17 +4205,8 @@ const CheckIn = () => {
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 flex items-center justify-between">
-                        <span>DOB / Year</span>
-                        {guest.isAadhaarVerified ? (
-                          <span className="text-emerald-700 text-[9px] flex items-center gap-0.5 font-black bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                            <ShieldCheck size={10} /> QR Auto
-                          </span>
-                        ) : guest.dateOfBirth && (
-                          <span className="text-purple-600 text-[9px] flex items-center gap-0.5 font-bold">
-                            <Sparkles size={10} /> Auto
-                          </span>
-                        )}
+                      <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">
+                        DOB / Year
                       </label>
                       <input
                         type="text"
@@ -4469,31 +4371,23 @@ const CheckIn = () => {
                               <X size={14} />
                             </button>
                           </div>
-                          {/* ⚡ Quick Action Bar under Front ID */}
+                          {/* Quick Actions under Front ID */}
                           <div className="flex items-center gap-1 mt-1.5">
                             <button
                               type="button"
-                              onClick={() => handleQuickRotate(index, 'front', 270)}
-                              className="py-1 px-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[11px] font-bold rounded-lg flex items-center justify-center gap-0.5 transition-colors border border-gray-200 cursor-pointer active:scale-95"
-                              title="Rotate 90° Left (Counter-Clockwise)"
-                            >
-                              <RotateCcw size={11} className="text-gray-500" /> ⟲ -90°
-                            </button>
-                            <button
-                              type="button"
                               onClick={() => handleQuickRotate(index, 'front', 90)}
-                              className="py-1 px-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[11px] font-bold rounded-lg flex items-center justify-center gap-0.5 transition-colors border border-gray-200 cursor-pointer active:scale-95"
-                              title="Rotate 90° Right (Clockwise)"
+                              className="py-1 px-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[11px] font-bold rounded-lg flex items-center justify-center gap-1 transition-colors border border-gray-200 cursor-pointer active:scale-95"
+                              title="Rotate 90°"
                             >
-                              <RotateCw size={11} className="text-gray-500" /> ⟳ +90°
+                              <RotateCw size={11} className="text-gray-500" /> Rotate
                             </button>
                             <button
                               type="button"
                               onClick={() => handleOpenCropModal(index, 'front', guest.idProofImage)}
-                              className="flex-1 py-1 px-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[11px] font-bold rounded-lg flex items-center justify-center gap-1 transition-colors border border-emerald-200 cursor-pointer active:scale-95"
-                              title="Visual Drag Crop & CamScanner Clean"
+                              className="flex-1 py-1 px-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[11px] font-bold rounded-lg flex items-center justify-center gap-1 transition-colors border border-gray-200 cursor-pointer active:scale-95"
+                              title="Crop"
                             >
-                              <Crop size={11} className="text-emerald-600" /> Crop / Clean
+                              <Crop size={11} className="text-gray-500" /> Crop
                             </button>
                           </div>
                           {scanningQr.index === index && scanningQr.side === 'front' && (
@@ -4655,31 +4549,23 @@ const CheckIn = () => {
                               <X size={14} />
                             </button>
                           </div>
-                          {/* ⚡ Quick Action Bar under Back ID */}
+                          {/* Quick Actions under Back ID */}
                           <div className="flex items-center gap-1 mt-1.5">
                             <button
                               type="button"
-                              onClick={() => handleQuickRotate(index, 'back', 270)}
-                              className="py-1 px-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[11px] font-bold rounded-lg flex items-center justify-center gap-0.5 transition-colors border border-gray-200 cursor-pointer active:scale-95"
-                              title="Rotate 90° Left (Counter-Clockwise)"
-                            >
-                              <RotateCcw size={11} className="text-gray-500" /> ⟲ -90°
-                            </button>
-                            <button
-                              type="button"
                               onClick={() => handleQuickRotate(index, 'back', 90)}
-                              className="py-1 px-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[11px] font-bold rounded-lg flex items-center justify-center gap-0.5 transition-colors border border-gray-200 cursor-pointer active:scale-95"
-                              title="Rotate 90° Right (Clockwise)"
+                              className="py-1 px-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[11px] font-bold rounded-lg flex items-center justify-center gap-1 transition-colors border border-gray-200 cursor-pointer active:scale-95"
+                              title="Rotate 90°"
                             >
-                              <RotateCw size={11} className="text-gray-500" /> ⟳ +90°
+                              <RotateCw size={11} className="text-gray-500" /> Rotate
                             </button>
                             <button
                               type="button"
                               onClick={() => handleOpenCropModal(index, 'back', guest.idProofImageBack)}
-                              className="flex-1 py-1 px-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[11px] font-bold rounded-lg flex items-center justify-center gap-1 transition-colors border border-emerald-200 cursor-pointer active:scale-95"
-                              title="Visual Drag Crop & CamScanner Clean"
+                              className="flex-1 py-1 px-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[11px] font-bold rounded-lg flex items-center justify-center gap-1 transition-colors border border-gray-200 cursor-pointer active:scale-95"
+                              title="Crop"
                             >
-                              <Crop size={11} className="text-emerald-600" /> Crop / Clean
+                              <Crop size={11} className="text-gray-500" /> Crop
                             </button>
                           </div>
                           {scanningQr.index === index && scanningQr.side === 'back' && (
@@ -4701,22 +4587,11 @@ const CheckIn = () => {
 
                   {/* ADDRESS */}
                   <div className="col-span-1 md:col-span-2 pt-2 border-t border-gray-100">
-                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        Address <span className="text-gray-400 font-normal">(Optional)</span>
-                      </span>
-                      {guest.isAadhaarVerified ? (
-                        <span className="text-emerald-700 text-[10px] flex items-center gap-1 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                          <ShieldCheck size={11} /> UIDAI QR Auto-Filled
-                        </span>
-                      ) : guest.address && (
-                        <span className="text-purple-600 text-[10px] flex items-center gap-1 font-bold bg-purple-50 px-2 py-0.5 rounded-md border border-purple-100">
-                          <Sparkles size={11} /> AI Auto-Filled
-                        </span>
-                      )}
+                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">
+                      Address <span className="text-gray-400 font-normal normal-case">(Optional)</span>
                     </label>
                     <textarea
-                      placeholder="Permanent address (Street / Flat, Area, City, State, PIN)"
+                      placeholder="Permanent address (Street, City, State, PIN)"
                       value={guest.address || ''}
                       onChange={(e) =>
                         handleGuestChange(index, 'address', e.target.value)
@@ -4724,20 +4599,6 @@ const CheckIn = () => {
                       rows="2"
                       className="w-full px-4 py-3 bg-gray-50/70 border border-gray-200 rounded-2xl focus:border-black focus:bg-white focus:ring-0 outline-none font-medium text-xs text-gray-900 transition-colors resize-none placeholder:text-gray-400"
                     ></textarea>
-
-                    {guest.isAadhaarVerified && (
-                      <div className="mt-2.5 p-2 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
-                          <p className="text-[11px] font-bold text-emerald-900 leading-tight">
-                            Aadhaar QR Verified
-                          </p>
-                        </div>
-                        <span className="text-[9px] font-mono font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded uppercase shrink-0">
-                          Verified
-                        </span>
-                      </div>
-                    )}
                   </div>
 
                   {/* CORPORATE / BUSINESS BILLING DETAILS (Optional) */}
@@ -4747,7 +4608,7 @@ const CheckIn = () => {
                         <summary className="cursor-pointer text-[11px] font-black uppercase tracking-wider text-slate-700 flex items-center justify-between py-1 select-none hover:text-black">
                           <span className="flex items-center gap-1.5">
                             <Building2 size={13} className="text-slate-600" />
-                            <span>Corporate / Company Details (Optional for GST Billing)</span>
+                            <span>Corporate / GST Details (Optional)</span>
                             {Boolean(guest.companyName || guest.gstin) && (
                               <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 text-[9px] font-bold rounded">Active</span>
                             )}
@@ -4845,11 +4706,11 @@ const CheckIn = () => {
                   </h3>
                 </div>
                 <span className="text-[10px] font-black text-purple-700 bg-white px-2.5 py-1 rounded-full border border-purple-200 self-start sm:self-auto">
-                  Master Coordinator: {guests[0]?.fullName || 'Guest 1'}
+                  Coordinator: {guests[0]?.fullName || 'Guest 1'}
                 </span>
               </div>
               <p className="text-xs text-purple-800 font-medium">
-                Sabhi rooms default me Coordinator ko assign hain. Agar kisi room ke liye alag occupant ka naam likhna hai to checkbox uncheck karein:
+                Uncheck any room to assign to a specific occupant.
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
