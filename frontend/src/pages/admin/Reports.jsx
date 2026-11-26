@@ -184,8 +184,8 @@ const Reports = () => {
     if (dateFilter === 'week') {
       const now = new Date();
       const day = now.getDay();
-      const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-      const start = startOfDay(new Date(now.setDate(diff)));
+      const daysFromMonday = day === 0 ? 6 : day - 1;
+      const start = startOfDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysFromMonday));
       const end = endOfDay(new Date());
       return { start, end, label: 'This Week' };
     }
@@ -350,6 +350,7 @@ const Reports = () => {
     let totalOccupantsHeadcount = 0;
     
     filteredStays.forEach(stay => {
+      if (stay.status === 'Cancelled') return;
       grossBooking += (stay.totalAmount || 0);
       totalCommission += (stay.commissionAmount || 0);
       const sId = String(stay._id || stay.id);
@@ -586,6 +587,7 @@ const Reports = () => {
     };
 
     filteredStays.forEach(stay => {
+      if (stay.status === 'Cancelled') return;
       const hId = stay.hostel?._id || stay.hostel;
       const hostel = (hostels || []).find(h => (h._id === hId || h === hId)) || stay.hostel || {};
 
@@ -599,7 +601,7 @@ const Reports = () => {
       if (gstClientFilter === 'b2b' && !isB2B) return;
       if (gstClientFilter === 'b2c' && isB2B) return;
 
-      const rate = Number(stay.gstRate || (gstApplied ? 12 : 0));
+      const rate = Number(stay.gstRate || (stay.gstApplied ? 12 : 0));
       if (gstRateFilter !== 'all' && Number(gstRateFilter) !== rate) return;
 
       const totalBilled = Number(stay.totalAmount) || 0;

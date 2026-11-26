@@ -167,9 +167,12 @@ const PaymentsList = () => {
 
   // History Totals
   const totalHistoryAmount = filteredHistory.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-  const totalCashAmount = filteredHistory.filter(p => (p.paymentMethod || '').toLowerCase() === 'cash').reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-  const totalUpiAmount = filteredHistory.filter(p => (p.paymentMethod || '').toLowerCase() === 'upi').reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-  const totalCardAmount = filteredHistory.filter(p => ['card', 'bank transfer', 'mixed'].includes((p.paymentMethod || '').toLowerCase())).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  const totalCashAmount = filteredHistory.filter(p => (p.paymentMethod || '').trim().toLowerCase() === 'cash').reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  const totalUpiAmount = filteredHistory.filter(p => (p.paymentMethod || '').trim().toLowerCase() === 'upi').reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  const totalCardAmount = filteredHistory.filter(p => {
+    const pm = (p.paymentMethod || '').trim().toLowerCase();
+    return pm !== 'cash' && pm !== 'upi';
+  }).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -233,7 +236,7 @@ const PaymentsList = () => {
         {/* Payment History Method Pills */}
         {activeTab === 'history' && (
           <div className="flex items-center gap-1.5 flex-wrap">
-            {['All', 'Cash', 'UPI', 'Card', 'Mixed'].map(m => (
+            {['All', 'Cash', 'UPI', 'Card', 'Bank Transfer', 'Mixed'].map(m => (
               <button
                 key={m}
                 type="button"

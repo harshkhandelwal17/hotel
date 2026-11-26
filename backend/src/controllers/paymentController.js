@@ -116,6 +116,32 @@ exports.getPayments = async (req, res, next) => {
     const filter = await getHostelFilter(req.user, req.query.hostel);
 
     if (req.query.stay) filter.stay = req.query.stay;
+    if (req.query.guest) filter.guest = req.query.guest;
+
+    if (req.query.paymentMethod && req.query.paymentMethod !== 'all' && req.query.paymentMethod !== 'All') {
+      filter.paymentMethod = new RegExp(`^${req.query.paymentMethod.trim()}$`, 'i');
+    }
+
+    if (req.query.startDate || req.query.endDate) {
+      filter.paymentDate = {};
+      if (req.query.startDate) {
+        const s = new Date(req.query.startDate);
+        if (!isNaN(s.getTime())) {
+          s.setHours(0, 0, 0, 0);
+          filter.paymentDate.$gte = s;
+        }
+      }
+      if (req.query.endDate) {
+        const e = new Date(req.query.endDate);
+        if (!isNaN(e.getTime())) {
+          e.setHours(23, 59, 59, 999);
+          filter.paymentDate.$lte = e;
+        }
+      }
+      if (Object.keys(filter.paymentDate).length === 0) {
+        delete filter.paymentDate;
+      }
+    }
 
     const payments = await Payment.find(filter)
       .populate('guest', 'fullName mobileNumber')

@@ -60,7 +60,7 @@ exports.getDashboardStats = async (req, res, next) => {
       Stay.countDocuments({ ...filter, expectedCheckOutDate: { $gte: today, $lt: tomorrow }, status: { $ne: 'Checked Out' } }),
       Stay.aggregate([
         { $match: { ...aggFilter, status: { $in: ['Active', 'Checkout Due', 'Overdue'] } } },
-        { $project: { pending: { $subtract: ["$totalAmount", "$paidAmount"] } } },
+        { $project: { pending: { $subtract: [{ $ifNull: ["$totalAmount", 0] }, { $ifNull: ["$paidAmount", 0] }] } } },
         { $match: { pending: { $gt: 0 } } },
         { $group: { _id: null, totalPending: { $sum: "$pending" } } }
       ]),
@@ -88,7 +88,7 @@ exports.getDashboardStats = async (req, res, next) => {
     todayPayments.forEach(p => {
       const amt = Number(p.total) || 0;
       todayTotalCollected += amt;
-      const method = (p._id || '').toLowerCase();
+      const method = (p._id || '').trim().toLowerCase();
       if (method === 'cash') todayCashCollected += amt;
       else if (method === 'upi') todayUpiCollected += amt;
     });
@@ -99,7 +99,7 @@ exports.getDashboardStats = async (req, res, next) => {
     todayExpenses.forEach(e => {
       const amt = Number(e.total) || 0;
       todayTotalExpense += amt;
-      const method = (e._id || '').toLowerCase();
+      const method = (e._id || '').trim().toLowerCase();
       if (method === 'cash') todayCashExpense += amt;
       else if (method === 'upi') todayUpiExpense += amt;
     });
@@ -145,20 +145,27 @@ exports.getGstReport = async (req, res, next) => {
     const filter = await getHostelFilter(req.user, req.query.hostel);
     const { startDate, endDate, clientType, rate } = req.query;
 
-    const query = { ...filter };
+    const query = { ...filter, status: { $ne: 'Cancelled' } };
 
     // Date range filter based on checkInDate or createdAt
     if (startDate || endDate) {
       query.checkInDate = {};
       if (startDate) {
         const s = new Date(startDate);
-        s.setHours(0, 0, 0, 0);
-        query.checkInDate.$gte = s;
+        if (!isNaN(s.getTime())) {
+          s.setHours(0, 0, 0, 0);
+          query.checkInDate.$gte = s;
+        }
       }
       if (endDate) {
         const e = new Date(endDate);
-        e.setHours(23, 59, 59, 999);
-        query.checkInDate.$lte = e;
+        if (!isNaN(e.getTime())) {
+          e.setHours(23, 59, 59, 999);
+          query.checkInDate.$lte = e;
+        }
+      }
+      if (Object.keys(query.checkInDate).length === 0) {
+        delete query.checkInDate;
       }
     }
 
@@ -208,7 +215,7 @@ exports.getGstReport = async (req, res, next) => {
       if (clientType === 'b2b' && !isB2B) continue;
       if (clientType === 'b2c' && isB2B) continue;
 
-      const rateVal = Number(stay.gstRate || (gstApplied ? 12 : 0));
+      const rateVal = Number(stay.gstRate || (stay.gstApplied ? 12 : 0));
       if (rate && Number(rate) !== rateVal) continue;
 
       const totalBilled = Number(stay.totalAmount) || 0;
@@ -336,7 +343,8 @@ exports.getGstReport = async (req, res, next) => {
           slabs: {
             rate5: { ...slabs[5], taxable: Math.round(slabs[5].taxable * 100) / 100, tax: Math.round(slabs[5].tax * 100) / 100 },
             rate12: { ...slabs[12], taxable: Math.round(slabs[12].taxable * 100) / 100, tax: Math.round(slabs[12].tax * 100) / 100 },
-            rate18: { ...slabs[18], taxable: Math.round(slabs[18].taxable * 100) / 100, tax: Math.round(slabs[18].tax * 100) / 100 }
+            rate18: { ...slabs[18], taxable: Math.round(slabs[18].taxable * 100) / 100, tax: Math.round(slabs[18].tax * 100) / 100 },
+            other: { ...slabs.other, taxable: Math.round(slabs.other.taxable * 100) / 100, tax: Math.round(slabs.other.tax * 100) / 100 }
           }
         },
         records
