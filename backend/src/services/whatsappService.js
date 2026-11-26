@@ -34,23 +34,37 @@ if (!fs.existsSync(SESSIONS_DIR)) {
 }
 
 /**
- * Checks whether a Baileys socket is genuinely connected or in active startup
+ * Checks whether a Baileys socket is genuinely authenticated and active.
+ * CRITICAL RULE: A session can ONLY be connected if sock.user exists and WebSocket is OPEN!
+ * An unauthenticated socket is NEVER connected!
  */
 const isSocketAlive = (sock) => {
-  if (!sock) return false;
-  // During startup window (45s), socket is in handshake-in-progress, NOT dead
-  if (sock._createdAt && (Date.now() - sock._createdAt < 45000)) {
-    return true;
-  }
-  if (!sock.user) return false;
+  if (!sock || !sock.user) return false;
   try {
     const ws = sock.ws;
     if (!ws) return false;
-    // For established socket, WebSocket must be OPEN
     return ws.isOpen === true || ws.readyState === 1;
   } catch (_) {
     return false;
   }
+};
+
+/**
+ * Checks whether an unauthenticated socket is currently starting up (created within 45s).
+ * Used ONLY to prevent killing sockets while QR or pairing is being prepared.
+ */
+const isSocketHandshaking = (sock) => {
+  if (!sock) return false;
+  if (!sock.user && sock._createdAt && (Date.now() - sock._createdAt < 45000)) {
+    try {
+      const ws = sock.ws;
+      if (!ws) return false;
+      return ws.readyState === 0 || ws.readyState === 1 || ws.isOpen === true;
+    } catch (_) {
+      return false;
+    }
+  }
+  return false;
 };
 
 /**
@@ -370,10 +384,10 @@ const startHostelWhatsApp = async (hostelId, options = {}) => {
           };
         }
         // If socket was created within last 45s, it is actively handshaking - return connecting
-        if (existingSock?._createdAt && (Date.now() - existingSock._createdAt < 45000)) {
+        if (isSocketHandshaking(existingSock)) {
           return {
             status: 'connecting',
-            phone: hostel.whatsappPhone || '',
+            phone: '',
             qr: qrCodes.get(hostelId) || null,
             pairing: !!pairingStates.get(hostelId)
           };
@@ -656,11 +670,12 @@ const startHostelWhatsApp = async (hostelId, options = {}) => {
         });
       }
 
+      const isAuth = !!(sock.user && isSocketAlive(sock));
       return {
-        status: sock.user ? 'connected' : (qrCodes.has(hostelId) || pairingStates.get(hostelId) ? 'connecting' : 'disconnected'),
-        qr: qrCodes.get(hostelId) || null,
+        status: isAuth ? 'connected' : (qrCodes.has(hostelId) || pairingStates.get(hostelId) || isSocketHandshaking(sock) ? 'connecting' : 'disconnected'),
+        qr: isAuth ? null : (qrCodes.get(hostelId) || null),
         pairing: !!pairingStates.get(hostelId),
-        phone: hostel.whatsappPhone || ''
+        phone: isAuth ? (sock.user.id.split(':')[0].split('@')[0] || hostel.whatsappPhone || '') : ''
       };
     } finally {
       connectingPromises.delete(hostelId);
@@ -743,7 +758,7 @@ const getHostelWhatsAppStatus = async (hostelId) => {
   const isConnected = isSocketAlive(activeSock);
 
   // If socket is in sessions map but is DEAD/ZOMBIE (websocket closed and NOT newly created within 45s):
-  if (activeSock && !isConnected && (!activeSock._createdAt || Date.now() - activeSock._createdAt > 45000)) {
+  if (activeSock && !isConnected && !isSocketHandshaking(activeSock)) {
     console.warn(`[WhatsApp] Dead/Zombie socket detected for Hostel ${hostelId}. Cycling connection...`);
     try { activeSock.end(); } catch (_) {}
     sessions.delete(hostelId);
@@ -755,8 +770,15 @@ const getHostelWhatsAppStatus = async (hostelId) => {
   let status = 'disconnected';
   if (isConnected) {
     status = 'connected';
-  } else if (isPairing || qrCodes.has(hostelId) || connectingPromises.has(hostelId)) {
+  } else if (isPairing || isSocketHandshaking(activeSock) || qrCodes.has(hostelId) || connectingPromises.has(hostelId)) {
     status = 'connecting';
+  }
+
+  // If in database it was marked connected, but live socket is NOT connected, sync DB:
+  if (!isConnected && hostel.whatsappStatus === 'connected') {
+    await Hostel.findByIdAndUpdate(hostelId, {
+      whatsappStatus: status
+    }).catch(() => {});
   }
 
   return {
@@ -769,8 +791,8 @@ const getHostelWhatsAppStatus = async (hostelId) => {
     hostelEmail: hostel.email,
     status,
     pairing: isPairing,
-    phone: (status === 'connected') ? (hostel.whatsappPhone || (activeSock?.user?.id ? activeSock.user.id.split(':')[0].split('@')[0] : '')) : '',
-    qr: (status === 'connected' || isPairing) ? null : (qrCodes.get(hostelId) || null)
+    phone: isConnected ? (activeSock?.user?.id ? activeSock.user.id.split(':')[0].split('@')[0] : (hostel.whatsappPhone || '')) : '',
+    qr: isConnected ? null : (qrCodes.get(hostelId) || null)
   };
 };
 

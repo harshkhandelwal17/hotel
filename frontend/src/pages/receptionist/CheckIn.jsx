@@ -3705,13 +3705,16 @@ const CheckIn = () => {
                       {waStatus !== 'connected' && (
                         <button
                           type="button"
-                          onClick={() => setWaModalOpen(true)}
+                          onClick={() => {
+                            setWaModalOpen(true);
+                            if (waConnectTab === 'qr' && !waQr) handleStartWhatsApp();
+                          }}
                           className={`px-2.5 py-1.5 font-black text-[10px] uppercase tracking-wider rounded-xl shadow-xs transition-all active:scale-95 flex items-center gap-1 ${
                             waStatus === 'connecting'
                               ? 'bg-amber-500 hover:bg-amber-600 text-white animate-pulse'
                               : 'bg-rose-600 hover:bg-rose-700 text-white'
                           }`}
-                          title="Click to scan QR / reconnect WhatsApp"
+                          title="Click to scan QR / link WhatsApp"
                         >
                           <QrCode size={11} />
                           <span>{waStatus === 'connecting' ? 'Connecting...' : 'Connect'}</span>
