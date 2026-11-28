@@ -713,6 +713,30 @@ const StayManageModal = ({ stay: initialStay, onClose, onChanged, onCheckout }) 
           {error && <div className="p-3 bg-red-50 border border-red-100 text-red-600 rounded-xl text-sm font-medium flex items-center gap-2"><AlertCircle size={16} /> {error}</div>}
           {success && <div className="p-3 bg-green-50 border border-green-100 text-green-700 rounded-xl text-sm font-bold flex items-center gap-2"><CheckCircle2 size={16} /> {success}</div>}
 
+          {/* OTA BOOKING SOURCE BANNER */}
+          {stay.bookingSource && stay.bookingSource !== 'Direct' && stay.bookingSource !== 'Walk-in' && (
+            <div className="bg-gradient-to-r from-orange-50 via-amber-50 to-slate-50 border border-orange-200 rounded-2xl p-3 flex items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse"></span>
+                <div>
+                  <span className="font-black text-slate-900 uppercase tracking-wide">
+                    {stay.bookingSource} Reservation
+                  </span>
+                  {stay.bookingNumber && (
+                    <span className="ml-2 font-mono font-bold text-slate-600 bg-white px-2 py-0.5 rounded border border-orange-200">
+                      ID: #{stay.bookingNumber}
+                    </span>
+                  )}
+                </div>
+              </div>
+              {stay.otaMetadata?.paymentStatus && (
+                <span className="text-[10px] font-black uppercase px-2.5 py-1 bg-white text-emerald-800 rounded-md border border-emerald-200 shadow-2xs">
+                  {stay.otaMetadata.paymentStatus}
+                </span>
+              )}
+            </div>
+          )}
+
           {/* GROUP BOOKING MASTER FOLIO BANNER */}
           {stay.groupId && (
             <div className="bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-blue-500/10 border border-purple-200 rounded-2xl p-3.5 space-y-2.5">

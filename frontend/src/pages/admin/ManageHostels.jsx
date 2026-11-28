@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
-import { Building, Plus, X, MapPin, Phone, Mail, CheckCircle, ShieldCheck, Sparkles, Calendar, HelpCircle, QrCode, Receipt, FileText } from 'lucide-react';
+import { Building, Plus, X, MapPin, Phone, Mail, CheckCircle, ShieldCheck, Sparkles, Calendar, HelpCircle, QrCode, Receipt, FileText, Globe } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 import { COMPANY_SUPPORT } from '../../config/support';
+import OtaSyncModal from '../../components/OtaSyncModal';
 
 const ManageProperties = () => {
   const { user } = useContext(AuthContext);
@@ -11,6 +12,7 @@ const ManageProperties = () => {
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedOtaHostel, setSelectedOtaHostel] = useState(null);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formError, setFormError] = useState('');
@@ -179,11 +181,19 @@ const ManageProperties = () => {
                 {/* ACTION BUTTONS */}
                 <div className="flex bg-gray-50 border-b border-gray-100">
                   <button onClick={() => handleEdit(property)} className="flex-1 py-2 text-xs font-bold text-gray-700 hover:text-black hover:bg-gray-100 transition-colors">
-                    Edit Contact Info
+                    Edit Info
+                  </button>
+                  <button 
+                    onClick={() => setSelectedOtaHostel(property)} 
+                    className="flex-1 py-2 text-xs font-bold text-indigo-700 hover:text-indigo-900 hover:bg-indigo-50 transition-colors border-l border-gray-100 flex items-center justify-center gap-1.5 cursor-pointer"
+                    title="Configure MakeMyTrip, Booking.com, Airbnb & iCal Sync"
+                  >
+                    <Globe size={13} className="text-indigo-600" />
+                    OTA Sync
                   </button>
                   {isSuperAdmin && (
                     <button onClick={() => handleDelete(property._id)} className="flex-1 py-2 text-xs font-bold text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors border-l border-gray-100">
-                      Delete Property
+                      Delete
                     </button>
                   )}
                 </div>
@@ -500,6 +510,17 @@ const ManageProperties = () => {
           </div>
         </div>,
         document.body
+      )}
+
+      {selectedOtaHostel && (
+        <OtaSyncModal
+          hostel={selectedOtaHostel}
+          isOpen={Boolean(selectedOtaHostel)}
+          onClose={() => {
+            setSelectedOtaHostel(null);
+            fetchProperties();
+          }}
+        />
       )}
     </div>
   );

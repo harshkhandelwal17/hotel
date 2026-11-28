@@ -43,11 +43,13 @@ import {
   Hexagon,
   Download,
   BookOpen,
-  UtensilsCrossed
+  UtensilsCrossed,
+  Globe
 } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import SuperAdminStats from '../../components/superadmin/SuperAdminStats';
+import OtaSyncModal from '../../components/OtaSyncModal';
 import EcosystemView from '../../components/superadmin/EcosystemView';
 import SubscriptionsView from '../../components/superadmin/SubscriptionsView';
 import SalesTeamView from '../../components/superadmin/SalesTeamView';
@@ -73,6 +75,7 @@ const SuperAdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('ecosystem');
   const [searchQuery, setSearchQuery] = useState('');
   const [quickFilter, setQuickFilter] = useState('all');
+  const [selectedOtaHostel, setSelectedOtaHostel] = useState(null);
 
   // 🚀 Fast Client Onboarding Modal State
   const [isOnboardingWizardOpen, setIsOnboardingWizardOpen] = useState(false);
@@ -458,6 +461,16 @@ const SuperAdminDashboard = () => {
       setHostels(hostels.map(h => h._id === hostelId ? { ...h, digitalAadhaarEnabled: res.data.data.digitalAadhaarEnabled } : h));
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to toggle Digital Aadhaar status');
+    }
+  };
+
+  const handleToggleOtaSync = async (hostelId) => {
+    try {
+      const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+      const res = await axios.put(`${API}/api/superadmin/hostels/${hostelId}/toggle-ota-sync`);
+      setHostels(hostels.map(h => h._id === hostelId ? { ...h, otaSyncEnabled: res.data.data.otaSyncEnabled } : h));
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to toggle OTA Sync status');
     }
   };
 
@@ -1432,12 +1445,32 @@ const SuperAdminDashboard = () => {
                             <ShieldCheck size={11} className={h.digitalAadhaarEnabled ? 'text-emerald-600 fill-emerald-500' : 'text-gray-400'} />
                             {h.digitalAadhaarEnabled ? 'UIDAI QR On' : 'UIDAI QR Off'}
                           </button>
+                          <button
+                            onClick={() => handleToggleOtaSync(h._id)}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase transition-all shadow-sm active:scale-95 ${
+                              h.otaSyncEnabled
+                                ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                                : 'bg-gray-100 text-gray-400 border border-gray-200'
+                            }`}
+                            title="Toggle MakeMyTrip & OTA Channel Sync module"
+                          >
+                            <Globe size={11} className={h.otaSyncEnabled ? 'text-indigo-600' : 'text-gray-400'} />
+                            {h.otaSyncEnabled ? 'OTA On' : 'OTA Off'}
+                          </button>
                         </div>
                       </td>
 
                       {/* Actions */}
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => setSelectedOtaHostel(h)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all shadow-sm active:scale-95 border border-indigo-200 cursor-pointer"
+                            title="Configure OTA iCal & Channel Sync"
+                          >
+                            <Globe size={11} />
+                            <span>OTA Setup</span>
+                          </button>
                           <button
                             onClick={() => openEditPropertyModal(h)}
                             className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all shadow-sm active:scale-95"
@@ -2483,6 +2516,16 @@ const SuperAdminDashboard = () => {
         </div>
       </nav>
 
+      {selectedOtaHostel && (
+        <OtaSyncModal
+          hostel={selectedOtaHostel}
+          isOpen={Boolean(selectedOtaHostel)}
+          onClose={() => {
+            setSelectedOtaHostel(null);
+            fetchHostels();
+          }}
+        />
+      )}
     </div>
   );
 };

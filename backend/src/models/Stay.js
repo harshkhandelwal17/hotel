@@ -46,6 +46,19 @@ const staySchema = new mongoose.Schema({
     type: String,
     default: '24h'
   },
+  bookingSource: {
+    type: String,
+    default: 'Direct'
+  },
+  bookingNumber: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  otaMetadata: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
+  },
   basePrice: { // Deprecated but kept for backward compatibility
     type: Number,
     default: 0
@@ -209,6 +222,9 @@ staySchema.index({ hostel: 1, createdAt: -1 });
 staySchema.index({ hostel: 1, checkInDate: 1 });
 staySchema.index({ hostel: 1, expectedCheckOutDate: 1, status: 1 });
 staySchema.index({ hostel: 1, groupId: 1 });
+staySchema.index({ hostel: 1, bookingNumber: 1 });
+staySchema.index({ bookingNumber: 1 });
+staySchema.index({ bookingSource: 1 });
 
 module.exports = mongoose.model('Stay', staySchema);
 

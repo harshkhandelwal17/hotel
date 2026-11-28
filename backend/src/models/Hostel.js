@@ -77,6 +77,10 @@ const hostelSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  otaSyncEnabled: {
+    type: Boolean,
+    default: false
+  },
   laundrySettings: {
     defaultVendorName: { type: String, default: '' },
     defaultVendorPhone: { type: String, default: '' },

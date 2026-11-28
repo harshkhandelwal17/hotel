@@ -15,6 +15,7 @@ const {
   toggleHostelDailyRegister,
   toggleHostelRestaurantPos,
   toggleHostelDigitalAadhaar,
+  toggleHostelOtaSync,
   toggleHostelStatus, 
   updateHostelPlan,
   deleteHostelSubscriptionHistory,
@@ -46,6 +47,7 @@ router.put('/hostels/:id/toggle-laundry', toggleHostelLaundry);
 router.put('/hostels/:id/toggle-daily-register', toggleHostelDailyRegister);
 router.put('/hostels/:id/toggle-restaurant-pos', toggleHostelRestaurantPos);
 router.put('/hostels/:id/toggle-digital-aadhaar', toggleHostelDigitalAadhaar);
+router.put('/hostels/:id/toggle-ota-sync', toggleHostelOtaSync);
 router.put('/hostels/:id/plan', updateHostelPlan);
 router.delete('/hostels/:id/subscription-history/:historyId', deleteHostelSubscriptionHistory);
 router.get('/subscription-transactions', getSubscriptionTransactions);

@@ -47,6 +47,7 @@ const expenseRoutes = require('./routes/expenseRoutes');
 const salesRoutes = require('./routes/salesRoutes');
 const dailyRegisterRoutes = require('./routes/dailyRegisterRoutes');
 const restaurantRoutes = require('./routes/restaurantRoutes');
+const otaRoutes = require('./routes/otaRoutes');
 const path = require('path');
 
 app.use('/api/auth', authRoutes);
@@ -58,6 +59,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/daily-register', dailyRegisterRoutes);
 app.use('/api/restaurant', restaurantRoutes);
+app.use('/api/ota', otaRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/upload', uploadRoutes);

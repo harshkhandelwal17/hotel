@@ -475,6 +475,32 @@ exports.toggleHostelDigitalAadhaar = async (req, res, next) => {
   }
 };
 
+exports.toggleHostelOtaSync = async (req, res, next) => {
+  try {
+    const hostel = await Hostel.findById(req.params.id);
+    if (!hostel) return res.status(404).json({ success: false, message: 'Property not found' });
+
+    hostel.otaSyncEnabled = !hostel.otaSyncEnabled;
+    await hostel.save();
+
+    // Also sync to OtaConfig
+    const OtaConfig = require('../models/OtaConfig');
+    await OtaConfig.findOneAndUpdate(
+      { hostel: hostel._id },
+      { enabled: hostel.otaSyncEnabled },
+      { upsert: true }
+    );
+
+    res.status(200).json({ 
+      success: true, 
+      message: `OTA Channel & iCal Sync ${hostel.otaSyncEnabled ? 'enabled' : 'disabled'} for ${hostel.name}`,
+      data: hostel 
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.toggleHostelStatus = async (req, res, next) => {
   try {
     const hostel = await Hostel.findById(req.params.id);
